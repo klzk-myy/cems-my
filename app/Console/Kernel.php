@@ -12,7 +12,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Run revaluation at 23:59 on the last day of each month
+        $schedule->command('revaluation:run')
+            ->lastDayOfMonth()
+            ->at('23:59')
+            ->emailOutputTo('accounting@cems.my');
     }
 
     /**
