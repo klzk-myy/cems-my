@@ -16,7 +16,8 @@ class User extends Authenticatable
         'role',
         'mfa_enabled',
         'mfa_secret',
-        'is_active'
+        'is_active',
+        'last_login_at',
     ];
 
     protected $hidden = [

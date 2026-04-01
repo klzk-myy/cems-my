@@ -3,16 +3,85 @@
 namespace App\Http\Controllers;
 
 use App\Services\ReportingService;
+use App\Services\ExportService;
+use App\Models\ReportGenerated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ReportController extends Controller
 {
     protected ReportingService $reportingService;
+    protected ExportService $exportService;
 
-    public function __construct(ReportingService $reportingService)
-    {
+    public function __construct(
+        ReportingService $reportingService,
+        ExportService $exportService
+    ) {
         $this->reportingService = $reportingService;
+        $this->exportService = $exportService;
+    }
+
+    protected function requireManagerOrAdmin()
+    {
+        if (!auth()->user()->isManager()) {
+            abort(403, 'Unauthorized. Manager or Admin access required.');
+        }
+    }
+
+    public function lctr(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+        
+        $month = $request->input('month', now()->format('Y-m'));
+        
+        return view('reports.lctr', compact('month'));
+    }
+
+    public function lctrGenerate(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $month = $request->input('month', now()->format('Y-m'));
+        $report = $this->reportingService->generateLCTRData($month);
+
+        ReportGenerated::create([
+            'report_type' => 'LCTR',
+            'period_start' => now()->parse($month)->startOfMonth(),
+            'period_end' => now()->parse($month)->endOfMonth(),
+            'generated_by' => auth()->id(),
+            'generated_at' => now(),
+            'file_format' => 'CSV',
+        ]);
+
+        return response()->json($report);
+    }
+
+    public function msb2(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+        
+        $date = $request->input('date', now()->subDay()->toDateString());
+        
+        return view('reports.msb2', compact('date'));
+    }
+
+    public function msb2Generate(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $date = $request->input('date', now()->subDay()->toDateString());
+        $report = $this->reportingService->generateMSB2Data($date);
+
+        ReportGenerated::create([
+            'report_type' => 'MSB2',
+            'period_start' => $date,
+            'period_end' => $date,
+            'generated_by' => auth()->id(),
+            'generated_at' => now(),
+            'file_format' => 'CSV',
+        ]);
+
+        return response()->json($report);
     }
 
     public function generateLCTR(Request $request)
@@ -54,5 +123,38 @@ class ReportController extends Controller
         }
 
         return Storage::download($filepath);
+    }
+
+    public function export(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'report_type' => 'required|in:lctr,msb2,trial_balance,pl,balance_sheet',
+            'period' => 'required|string',
+            'format' => 'required|in:CSV,PDF,XLSX',
+        ]);
+
+        $data = match($validated['report_type']) {
+            'lctr' => $this->reportingService->generateLCTRData($validated['period']),
+            'msb2' => $this->reportingService->generateMSB2Data($validated['period']),
+            default => ['data' => []],
+        };
+
+        $filename = "{$validated['report_type']}_{$validated['period']}." . strtolower($validated['format']);
+        
+        switch($validated['format']) {
+            case 'CSV':
+                $path = $this->exportService->toCSV($data['data'], $filename);
+                return response()->download($path);
+            
+            case 'PDF':
+                $path = $this->exportService->toPDF($data, 'reports.pdf', $filename);
+                return response()->download($path);
+            
+            case 'XLSX':
+                $path = $this->exportService->toExcel($data['data'], $filename);
+                return response()->download($path);
+        }
     }
 }

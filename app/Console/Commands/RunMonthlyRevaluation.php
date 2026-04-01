@@ -3,30 +3,43 @@
 namespace App\Console\Commands;
 
 use App\Services\RevaluationService;
+use App\Services\ExportService;
 use Illuminate\Console\Command;
 
 class RunMonthlyRevaluation extends Command
 {
-    protected $signature = 'revaluation:run {--till=MAIN : Till ID to revalue}';
+    protected $signature = 'revaluation:run {--force : Force run even if not month-end} {--till=MAIN : Till ID to revalue}';
 
     protected $description = 'Run monthly currency revaluation';
 
-    public function handle(RevaluationService $service)
+    public function handle(RevaluationService $service, ExportService $exportService): int
     {
-        $tillId = $this->option('till');
-        $this->info("Starting revaluation for till: {$tillId}");
-
-        $results = $service->runRevaluation(1, $tillId); // TODO: Get actual user ID
-
-        $this->info("Revaluation completed!");
-        $this->info("Positions revalued: {$results['positions_revalued']}");
-        $this->info("Date: {$results['date']}");
-
-        foreach ($results['entries'] as $entry) {
-            $sign = $entry['gain_loss'] >= 0 ? '+' : '';
-            $this->line("  {$entry['currency']}: {$sign}{$entry['gain_loss']}");
+        $isMonthEnd = now()->isLastOfMonth();
+        
+        if (!$isMonthEnd && !$this->option('force')) {
+            $this->info('Not month-end. Use --force to run manually.');
+            return 0;
         }
 
-        return 0;
+        $this->info('Running month-end revaluation...');
+
+        try {
+            $results = $service->runRevaluationWithJournal();
+
+            $filename = 'Revaluation_' . now()->format('Y-m') . '.csv';
+            $path = $exportService->toCSV($results['results'], $filename);
+            $results['report_path'] = $path;
+
+            $service->sendRevaluationNotification($results);
+
+            $this->info("Revaluation complete. {$results['positions_updated']} positions updated.");
+            $this->info("Net P&L: {$results['net_pnl']}");
+            
+            return 0;
+
+        } catch (\Exception $e) {
+            $this->error('Revaluation failed: ' . $e->getMessage());
+            return 1;
+        }
     }
 }

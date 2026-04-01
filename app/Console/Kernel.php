@@ -17,6 +17,22 @@ class Kernel extends ConsoleKernel
             ->lastDayOfMonth()
             ->at('23:59')
             ->emailOutputTo('accounting@cems.my');
+
+        // Daily MSB(2) report at 00:05 for previous day
+        $schedule->command('report:msb2')
+            ->dailyAt('00:05');
+
+        // Weekly trial balance backup
+        $schedule->command('report:trial-balance')
+            ->weekly()
+            ->sundays()
+            ->at('01:00');
+
+        // Monthly cleanup
+        $schedule->command('reports:cleanup --days=90')
+            ->monthly()
+            ->onFirstOfMonth()
+            ->at('02:00');
     }
 
     /**

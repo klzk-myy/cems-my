@@ -1,0 +1,8 @@
+# Start the system
+docker-compose up -d
+# Run migrations
+docker-compose exec app php artisan migrate
+# Seed initial data
+docker-compose exec app php artisan db:seed
+# Access the application
+http://localhost

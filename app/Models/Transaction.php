@@ -9,6 +9,7 @@ class Transaction extends Model
     protected $fillable = [
         'customer_id',
         'user_id',
+        'till_id',
         'type',
         'currency_code',
         'amount_local',
@@ -20,7 +21,7 @@ class Transaction extends Model
         'hold_reason',
         'approved_by',
         'approved_at',
-        'cdd_level'
+        'cdd_level',
     ];
 
     protected $casts = [

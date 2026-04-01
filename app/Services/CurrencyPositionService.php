@@ -47,11 +47,22 @@ class CurrencyPositionService
                 } else {
                     $newAvgCost = $rate;
                 }
-            } else {
-                // Selling foreign currency - decrease position
-                $newBalance = $this->mathService->subtract($oldBalance, $amount);
-                $newAvgCost = $oldAvgCost; // Cost basis doesn't change on sale
+        } else {
+            // Selling foreign currency - decrease position
+            // Check for sufficient balance - prevent negative positions
+            if ($this->mathService->compare($oldBalance, $amount) < 0) {
+                throw new \InvalidArgumentException(
+                    "Insufficient balance. Available: {$oldBalance}, Requested: {$amount}"
+                );
             }
+            if ($this->mathService->compare($oldBalance, '0') <= 0) {
+                throw new \InvalidArgumentException(
+                    "Cannot sell: Position is empty or negative. Balance: {$oldBalance}"
+                );
+            }
+            $newBalance = $this->mathService->subtract($oldBalance, $amount);
+            $newAvgCost = $oldAvgCost; // Cost basis doesn't change on sale
+        }
 
             $position->update([
                 'balance' => $newBalance,
@@ -69,29 +80,22 @@ class CurrencyPositionService
             ->first();
     }
 
-    public function getAllPositions(string $tillId = 'MAIN'): array
+    public function getAllPositions(string $tillId = 'MAIN'): \Illuminate\Database\Eloquent\Collection
     {
         return CurrencyPosition::where('till_id', $tillId)
             ->with('currency')
-            ->get()
-            ->toArray();
+            ->get();
     }
 
-    public function getTotalPnl(string $tillId = 'MAIN'): array
+    public function getTotalPnl(string $tillId = 'MAIN'): float
     {
         $positions = $this->getAllPositions($tillId);
-        $totalUnrealized = '0';
+        $totalUnrealized = 0.0;
 
         foreach ($positions as $position) {
-            $totalUnrealized = $this->mathService->add(
-                $totalUnrealized,
-                $position['unrealized_pnl']
-            );
+            $totalUnrealized += (float) $position['unrealized_pnl'];
         }
 
-        return [
-            'unrealized_pnl' => $totalUnrealized,
-            'position_count' => count($positions),
-        ];
+        return $totalUnrealized;
     }
 }
