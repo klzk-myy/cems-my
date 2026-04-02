@@ -92,12 +92,13 @@ Route::middleware('auth')->group(function () {
         ->name('reports')
         ->middleware('role:manager');
 
-    Route::middleware('role:manager')->group(function () {
-        Route::get('/reports/lctr', [ReportController::class, 'lctr'])->name('reports.lctr');
-        Route::get('/reports/lctr/generate', [ReportController::class, 'lctrGenerate'])->name('reports.lctr.generate');
-        Route::get('/reports/msb2', [ReportController::class, 'msb2'])->name('reports.msb2');
-        Route::get('/reports/msb2/generate', [ReportController::class, 'msb2Generate'])->name('reports.msb2.generate');
-    });
+Route::middleware('role:manager')->group(function () {
+    Route::get('/reports/lctr', [ReportController::class, 'lctr'])->name('reports.lctr');
+    Route::get('/reports/lctr/generate', [ReportController::class, 'lctrGenerate'])->name('reports.lctr.generate');
+    Route::get('/reports/msb2', [ReportController::class, 'msb2'])->name('reports.msb2');
+    Route::get('/reports/msb2/generate', [ReportController::class, 'msb2Generate'])->name('reports.msb2.generate');
+    Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
+});
 
 // User Management - Admin only
 Route::middleware('role:admin')->group(function () {

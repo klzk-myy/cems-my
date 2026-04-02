@@ -23,8 +23,10 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sanctions/search', [SanctionController::class, 'search']);
     Route::post('/sanctions/upload', [SanctionController::class, 'upload']);
-    
-    Route::post('/reports/lctr', [ReportController::class, 'generateLCTR']);
-    Route::post('/reports/msb2', [ReportController::class, 'generateMSB2']);
+
+    Route::post('/reports/lctr', [ReportController::class, 'generateLCTR'])
+        ->name('api.reports.lctr');
+    Route::post('/reports/msb2', [ReportController::class, 'generateMSB2'])
+        ->name('api.reports.msb2');
     Route::get('/reports/download/{filename}', [ReportController::class, 'download']);
 });

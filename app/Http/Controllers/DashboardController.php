@@ -111,6 +111,16 @@ class DashboardController extends Controller
 
     public function reports()
     {
-        return view('reports');
+        // Only Managers, Compliance Officers and Admins can access
+        if (!auth()->user()->isManager()) {
+            abort(403, 'Unauthorized. Manager access required.');
+        }
+
+        $recentReports = \App\Models\ReportGenerated::with('generatedBy')
+            ->orderBy('generated_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        return view('reports', compact('recentReports'));
     }
 }
