@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
-use App\Models\TillBalance;
 use App\Models\SystemLog;
+use App\Models\TillBalance;
 use App\Services\CurrencyPositionService;
 use App\Services\MathService;
 use Illuminate\Http\Request;
@@ -17,7 +17,7 @@ class StockCashController extends Controller
      */
     protected function requireManagerOrAdmin()
     {
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
         }
     }
@@ -28,7 +28,7 @@ class StockCashController extends Controller
     public function index()
     {
         $this->requireManagerOrAdmin();
-        $service = new CurrencyPositionService(new MathService());
+        $service = new CurrencyPositionService(new MathService);
 
         // Get current positions
         $positions = CurrencyPosition::with('currency')->get();
@@ -144,7 +144,7 @@ class StockCashController extends Controller
             ->whereDate('date', today())
             ->first();
 
-        if (!$tillBalance) {
+        if (! $tillBalance) {
             return back()->with('error', 'Till not found for today.');
         }
 
@@ -178,7 +178,7 @@ class StockCashController extends Controller
             'ip_address' => $request->ip(),
         ]);
 
-        return back()->with('success', 'Till closed successfully. Variance: ' . number_format($variance, 2));
+        return back()->with('success', 'Till closed successfully. Variance: '.number_format($variance, 2));
     }
 
     /**
@@ -215,5 +215,89 @@ class StockCashController extends Controller
         }
 
         return view('stock-cash.till-report', compact('balances', 'date'));
+    }
+
+    /**
+     * Generate till reconciliation report
+     */
+    public function reconciliationReport(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'date' => 'nullable|date',
+            'till_id' => 'required|string',
+        ]);
+
+        $date = $validated['date'] ?? today()->toDateString();
+        $tillId = $validated['till_id'];
+
+        // Get till balance for this date and till
+        $tillBalance = TillBalance::with(['currency', 'opener', 'closer'])
+            ->where('till_id', $tillId)
+            ->whereDate('date', $date)
+            ->first();
+
+        if (! $tillBalance) {
+            return back()->with('error', 'No till data found for the specified date and till.');
+        }
+
+        // Get all transactions for this till on this date
+        $transactions = \App\Models\Transaction::with(['customer', 'currency'])
+            ->where('till_id', $tillId)
+            ->whereDate('created_at', $date)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        // Calculate summary statistics
+        $summary = [
+            'opening_balance' => (float) $tillBalance->opening_balance,
+            'total_buy_count' => $transactions->where('type', 'Buy')->count(),
+            'total_buy_amount' => $transactions->where('type', 'Buy')->sum('amount_local'),
+            'total_sell_count' => $transactions->where('type', 'Sell')->count(),
+            'total_sell_amount' => $transactions->where('type', 'Sell')->sum('amount_local'),
+            'total_transactions' => $transactions->count(),
+            'net_flow' => $transactions->where('type', 'Buy')->sum('amount_local') - $transactions->where('type', 'Sell')->sum('amount_local'),
+        ];
+
+        // Calculate expected closing balance
+        // For buy: + foreign currency (stock in), - MYR (cash out)
+        // For sell: - foreign currency (stock out), + MYR (cash in)
+        $expectedClosing = (float) $tillBalance->opening_balance + $summary['net_flow'];
+
+        // Get actual closing balance (if till is closed)
+        $actualClosing = $tillBalance->closing_balance
+            ? (float) $tillBalance->closing_balance
+            : null;
+
+        // Calculate variance
+        $variance = $actualClosing !== null
+            ? $actualClosing - $expectedClosing
+            : null;
+
+        $reconciliation = [
+            'opening_balance' => $summary['opening_balance'],
+            'purchases' => [
+                'count' => $summary['total_buy_count'],
+                'total' => $summary['total_buy_amount'],
+            ],
+            'sales' => [
+                'count' => $summary['total_sell_count'],
+                'total' => $summary['total_sell_amount'],
+            ],
+            'expected_closing' => $expectedClosing,
+            'actual_closing' => $actualClosing,
+            'variance' => $variance,
+            'is_closed' => $tillBalance->closed_at !== null,
+        ];
+
+        return view('stock-cash.reconciliation', compact(
+            'tillBalance',
+            'date',
+            'tillId',
+            'transactions',
+            'summary',
+            'reconciliation'
+        ));
     }
 }

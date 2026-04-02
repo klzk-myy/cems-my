@@ -468,4 +468,102 @@ class TransactionController extends Controller
         // Return PDF download response
         return $pdf->download($filename);
     }
+
+    /**
+     * Display comprehensive customer transaction history with statistics
+     */
+    public function customerHistory(Customer $customer)
+    {
+        // Get all transactions for statistics
+        $allTransactions = Transaction::where('customer_id', $customer->id)->get();
+
+        // Calculate statistics
+        $stats = [
+            'total_count' => $allTransactions->count(),
+            'buy_volume' => $allTransactions->where('type', 'Buy')->sum('amount_local'),
+            'sell_volume' => $allTransactions->where('type', 'Sell')->sum('amount_local'),
+            'total_volume' => $allTransactions->sum('amount_local'),
+            'avg_transaction' => $allTransactions->count() > 0
+                ? $allTransactions->sum('amount_local') / $allTransactions->count()
+                : 0,
+            'first_transaction' => $allTransactions->min('created_at'),
+            'last_transaction' => $allTransactions->max('created_at'),
+        ];
+
+        // Get paginated transactions
+        $transactions = Transaction::where('customer_id', $customer->id)
+            ->with(['user', 'currency'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        // Monthly volume data for chart
+        $monthlyData = Transaction::where('customer_id', $customer->id)
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, type, SUM(amount_local) as total")
+            ->groupBy('month', 'type')
+            ->orderBy('month')
+            ->get()
+            ->groupBy('month');
+
+        $chartLabels = [];
+        $chartBuyData = [];
+        $chartSellData = [];
+
+        // Prepare chart data for last 12 months
+        for ($i = 11; $i >= 0; $i--) {
+            $monthKey = now()->subMonths($i)->format('Y-m');
+            $monthLabel = now()->subMonths($i)->format('M Y');
+            $chartLabels[] = $monthLabel;
+
+            $monthData = $monthlyData->get($monthKey, collect());
+            $chartBuyData[] = (float) ($monthData->where('type', 'Buy')->first()?->total ?? 0);
+            $chartSellData[] = (float) ($monthData->where('type', 'Sell')->first()?->total ?? 0);
+        }
+
+        return view('customers.history', compact(
+            'customer',
+            'transactions',
+            'stats',
+            'chartLabels',
+            'chartBuyData',
+            'chartSellData'
+        ));
+    }
+
+    /**
+     * Export customer transaction history to CSV
+     */
+    public function exportCustomerHistory(Customer $customer)
+    {
+        $transactions = Transaction::where('customer_id', $customer->id)
+            ->with(['user', 'currency'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="customer_'.$customer->id.'_history.csv"',
+        ];
+
+        $callback = function () use ($transactions) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ['Date', 'Type', 'Currency', 'Amount Foreign', 'Amount Local', 'Rate', 'User', 'Status']);
+
+            foreach ($transactions as $transaction) {
+                fputcsv($file, [
+                    $transaction->created_at->format('Y-m-d H:i:s'),
+                    $transaction->type,
+                    $transaction->currency_code,
+                    $transaction->amount_foreign,
+                    $transaction->amount_local,
+                    $transaction->rate,
+                    $transaction->user->username ?? 'N/A',
+                    $transaction->status,
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }

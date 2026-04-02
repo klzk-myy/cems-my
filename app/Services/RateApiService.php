@@ -2,13 +2,16 @@
 
 namespace App\Services;
 
+use App\Models\ExchangeRateHistory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class RateApiService
 {
     protected string $apiKey;
+
     protected string $baseUrl;
+
     protected int $cacheDuration = 60; // seconds
 
     public function __construct()
@@ -22,17 +25,22 @@ class RateApiService
         return Cache::remember('exchange_rates', $this->cacheDuration, function () {
             $response = Http::get("{$this->baseUrl}/latest/MYR");
 
-            if (!$response->successful()) {
-                throw new \RuntimeException('Failed to fetch exchange rates: ' . $response->body());
+            if (! $response->successful()) {
+                throw new \RuntimeException('Failed to fetch exchange rates: '.$response->body());
             }
 
             $data = $response->json();
 
-            if (!isset($data['rates'])) {
+            if (! isset($data['rates'])) {
                 throw new \RuntimeException('Invalid API response format');
             }
 
-            return $this->processRates($data['rates'], $data['time_last_updated'] ?? time());
+            $processed = $this->processRates($data['rates'], $data['time_last_updated'] ?? time());
+
+            // Log rates to history table
+            $this->logRatesToHistory($processed);
+
+            return $processed;
         });
     }
 
@@ -65,14 +73,90 @@ class RateApiService
         return round($rate, 6);
     }
 
+    /**
+     * Log rates to history table
+     */
+    protected function logRatesToHistory(array $rates): void
+    {
+        $today = now()->toDateString();
+        $userId = auth()->id();
+
+        foreach ($rates as $currencyCode => $rateData) {
+            // Check if we already have an entry for today
+            $exists = ExchangeRateHistory::forCurrency($currencyCode)
+                ->whereDate('effective_date', $today)
+                ->exists();
+
+            if (! $exists) {
+                ExchangeRateHistory::create([
+                    'currency_code' => $currencyCode,
+                    'rate' => $rateData['mid'],
+                    'effective_date' => $today,
+                    'created_by' => $userId,
+                    'notes' => "API fetch - Buy: {$rateData['buy']}, Sell: {$rateData['sell']}",
+                ]);
+            }
+        }
+    }
+
     public function getRateForCurrency(string $currency): ?array
     {
         $rates = $this->fetchLatestRates();
+
         return $rates[$currency] ?? null;
     }
 
     public function clearCache(): void
     {
         Cache::forget('exchange_rates');
+    }
+
+    /**
+     * Get rate trend for a currency over specified days
+     */
+    public function getRateTrend(string $currencyCode, int $days = 30): array
+    {
+        $endDate = now()->toDateString();
+        $startDate = now()->subDays($days)->toDateString();
+
+        $histories = ExchangeRateHistory::forCurrency($currencyCode)
+            ->forDateRange($startDate, $endDate)
+            ->orderBy('effective_date', 'asc')
+            ->get();
+
+        if ($histories->isEmpty()) {
+            return [
+                'currency' => $currencyCode,
+                'days' => $days,
+                'data' => [],
+                'trend' => null,
+            ];
+        }
+
+        $data = $histories->map(function ($history) {
+            return [
+                'date' => $history->effective_date->format('Y-m-d'),
+                'rate' => (float) $history->rate,
+            ];
+        })->toArray();
+
+        // Calculate trend
+        $firstRate = (float) $histories->first()->rate;
+        $lastRate = (float) $histories->last()->rate;
+        $change = $lastRate - $firstRate;
+        $percentChange = $firstRate > 0 ? ($change / $firstRate) * 100 : 0;
+
+        return [
+            'currency' => $currencyCode,
+            'days' => $days,
+            'data' => $data,
+            'trend' => [
+                'start_rate' => $firstRate,
+                'end_rate' => $lastRate,
+                'change' => round($change, 6),
+                'percent_change' => round($percentChange, 2),
+                'direction' => $change >= 0 ? 'up' : 'down',
+            ],
+        ];
     }
 }

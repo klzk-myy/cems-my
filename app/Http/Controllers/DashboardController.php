@@ -31,7 +31,7 @@ class DashboardController extends Controller
     public function compliance(Request $request)
     {
         // Only Compliance Officers and Admins can access
-        if (!auth()->user()->isComplianceOfficer()) {
+        if (! auth()->user()->isComplianceOfficer()) {
             abort(403, 'Unauthorized. Compliance Officer access required.');
         }
 
@@ -68,7 +68,7 @@ class DashboardController extends Controller
 
     public function assignFlag(Request $request, FlaggedTransaction $flaggedTransaction)
     {
-        if (!auth()->user()->isComplianceOfficer()) {
+        if (! auth()->user()->isComplianceOfficer()) {
             abort(403);
         }
 
@@ -82,7 +82,7 @@ class DashboardController extends Controller
 
     public function resolveFlag(Request $request, FlaggedTransaction $flaggedTransaction)
     {
-        if (!auth()->user()->isComplianceOfficer()) {
+        if (! auth()->user()->isComplianceOfficer()) {
             abort(403);
         }
 
@@ -98,11 +98,11 @@ class DashboardController extends Controller
     public function accounting()
     {
         // Only Managers and Admins can access
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager access required.');
         }
 
-        $service = new CurrencyPositionService(new \App\Services\MathService());
+        $service = new CurrencyPositionService(new \App\Services\MathService);
         $positions = $service->getAllPositions();
         $totalPnl = $service->getTotalPnl();
 
@@ -112,7 +112,7 @@ class DashboardController extends Controller
     public function reports()
     {
         // Only Managers, Compliance Officers and Admins can access
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager access required.');
         }
 
@@ -122,5 +122,21 @@ class DashboardController extends Controller
             ->get();
 
         return view('reports', compact('recentReports'));
+    }
+
+    /**
+     * Get exchange rate history for Chart.js
+     */
+    public function rateHistory(string $currencyCode)
+    {
+        $service = new RateApiService;
+        $trend = $service->getRateTrend($currencyCode, 30);
+
+        return response()->json([
+            'currency' => $trend['currency'],
+            'labels' => array_column($trend['data'], 'date'),
+            'rates' => array_column($trend['data'], 'rate'),
+            'trend' => $trend['trend'],
+        ]);
     }
 }

@@ -115,6 +115,30 @@ Route::middleware('auth')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::post('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
     });
+
+    // Exchange Rate History API
+    Route::get('/api/rates/history/{currency}', [DashboardController::class, 'rateHistory'])
+        ->name('api.rates.history');
+
+    // Customer Transaction History
+    Route::get('/customers/{customer}/history', [TransactionController::class, 'customerHistory'])
+        ->name('customers.history');
+    Route::get('/customers/{customer}/history/export', [TransactionController::class, 'exportCustomerHistory'])
+        ->name('customers.export');
+
+    // Till Reconciliation Report
+    Route::get('/stock-cash/reconciliation', [StockCashController::class, 'reconciliationReport'])
+        ->name('stock-cash.reconciliation');
+
+    // Audit Log
+    Route::middleware('role:manager')->group(function () {
+        Route::get('/audit', [\App\Http\Controllers\AuditController::class, 'index'])
+            ->name('audit.index');
+        Route::get('/audit/{log}', [\App\Http\Controllers\AuditController::class, 'show'])
+            ->name('audit.show');
+        Route::post('/audit/export', [\App\Http\Controllers\AuditController::class, 'export'])
+            ->name('audit.export');
+    });
 });
 
 require __DIR__.'/auth.php';
