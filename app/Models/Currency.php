@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Currency extends Model
 {
+    use HasFactory;
+
     protected $primaryKey = 'code';
+
     protected $keyType = 'string';
+
     public $incrementing = false;
 
     protected $fillable = [
@@ -15,7 +20,7 @@ class Currency extends Model
         'name',
         'symbol',
         'decimal_places',
-        'is_active'
+        'is_active',
     ];
 
     protected $casts = [

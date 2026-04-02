@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Customer extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'full_name',
         'id_type',
@@ -19,7 +22,7 @@ class Customer extends Model
         'risk_score',
         'risk_rating',
         'risk_assessed_at',
-        'last_transaction_at'
+        'last_transaction_at',
     ];
 
     protected $casts = [

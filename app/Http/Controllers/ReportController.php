@@ -2,17 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\ReportingService;
-use App\Services\ExportService;
 use App\Models\ReportGenerated;
 use App\Models\Transaction;
+use App\Services\ExportService;
+use App\Services\ReportingService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ReportController extends Controller
 {
     protected ReportingService $reportingService;
+
     protected ExportService $exportService;
 
     public function __construct(
@@ -25,7 +26,7 @@ class ReportController extends Controller
 
     protected function requireManagerOrAdmin()
     {
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
         }
     }
@@ -34,7 +35,12 @@ class ReportController extends Controller
     {
         $this->requireManagerOrAdmin();
 
-        $month = $request->input('month', now()->format('Y-m'));
+        // Validate month parameter
+        $validated = $request->validate([
+            'month' => 'nullable|date_format:Y-m',
+        ]);
+
+        $month = $validated['month'] ?? now()->format('Y-m');
 
         // Check if report already generated
         $reportGenerated = ReportGenerated::where('report_type', 'LCTR')
@@ -90,7 +96,12 @@ class ReportController extends Controller
     {
         $this->requireManagerOrAdmin();
 
-        $date = $request->input('date', now()->subDay()->toDateString());
+        // Validate date parameter
+        $validated = $request->validate([
+            'date' => 'nullable|date_format:Y-m-d',
+        ]);
+
+        $date = $validated['date'] ?? now()->subDay()->toDateString();
 
         // Check existing report
         $reportGenerated = ReportGenerated::where('report_type', 'MSB2')
@@ -159,7 +170,7 @@ class ReportController extends Controller
         return response()->json([
             'message' => 'LCTR report generated',
             'filename' => basename($filepath),
-            'download_url' => url('/reports/download/' . basename($filepath)),
+            'download_url' => url('/reports/download/'.basename($filepath)),
         ]);
     }
 
@@ -174,7 +185,7 @@ class ReportController extends Controller
         return response()->json([
             'message' => 'MSB(2) report generated',
             'filename' => basename($filepath),
-            'download_url' => url('/reports/download/' . basename($filepath)),
+            'download_url' => url('/reports/download/'.basename($filepath)),
         ]);
     }
 
@@ -182,7 +193,7 @@ class ReportController extends Controller
     {
         $filepath = "reports/{$filename}";
 
-        if (!Storage::exists($filepath)) {
+        if (! Storage::exists($filepath)) {
             abort(404, 'Report not found');
         }
 
@@ -199,25 +210,28 @@ class ReportController extends Controller
             'format' => 'required|in:CSV,PDF,XLSX',
         ]);
 
-        $data = match($validated['report_type']) {
+        $data = match ($validated['report_type']) {
             'lctr' => $this->reportingService->generateLCTRData($validated['period']),
             'msb2' => $this->reportingService->generateMSB2Data($validated['period']),
             default => ['data' => []],
         };
 
-        $filename = "{$validated['report_type']}_{$validated['period']}." . strtolower($validated['format']);
-        
-        switch($validated['format']) {
+        $filename = "{$validated['report_type']}_{$validated['period']}.".strtolower($validated['format']);
+
+        switch ($validated['format']) {
             case 'CSV':
                 $path = $this->exportService->toCSV($data['data'], $filename);
+
                 return response()->download($path);
-            
+
             case 'PDF':
                 $path = $this->exportService->toPDF($data, 'reports.pdf', $filename);
+
                 return response()->download($path);
-            
+
             case 'XLSX':
                 $path = $this->exportService->toExcel($data['data'], $filename);
+
                 return response()->download($path);
         }
     }

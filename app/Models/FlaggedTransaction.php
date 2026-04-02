@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class FlaggedTransaction extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'transaction_id',
         'flag_type',

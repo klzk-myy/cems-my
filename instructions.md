@@ -921,6 +921,43 @@ CEMS-MY includes comprehensive test suites covering:
 - Integration tests for workflows
 - Database tests for data integrity
 
+### Comprehensive Views Test Suite (Added 2026-04-02)
+
+**File:** `tests/Feature/ComprehensiveViewsTest.php`
+
+A complete test suite covering all newly implemented views with **18 test cases**:
+
+#### Test Coverage
+
+**Authorization Tests:**
+- ✅ Compliance portal requires proper authorization (RBAC for AML data)
+- ✅ Reports dashboard requires manager or admin (Financial report access control)
+- ✅ Flag assign requires compliance officer (Action permissions)
+- ✅ Flag resolve updates correctly (Status transitions)
+
+**Calculation & Logic Tests:**
+- ✅ Compliance stats calculate correctly (Stats aggregation)
+- ✅ Compliance filters work correctly (Filtering logic)
+- ✅ LCTR only includes qualifying transactions (Transaction qualification)
+- ✅ LCTR stats calculate correctly (Summation & counting)
+- ✅ MSB2 aggregates currency data correctly (Currency grouping)
+- ✅ MSB2 stats calculate correctly (Net position calculation)
+- ✅ Recent reports shows correct data (Data ordering & relations)
+
+**Data Security:**
+- ✅ LCTR masks customer names (PII protection - prevents data leakage)
+
+**Edge Cases:**
+- ✅ Views handle empty data gracefully (Null errors, crashes)
+- ✅ Views handle invalid parameters (500 errors prevention)
+- ✅ Pagination preserves filters (Lost filter state prevention)
+
+**Run Command:**
+```bash
+cd /www/wwwroot/local.host
+vendor/bin/phpunit tests/Feature/ComprehensiveViewsTest.php --testdox
+```
+
 ### Test Organization
 
 ```
