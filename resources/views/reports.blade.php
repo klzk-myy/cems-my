@@ -319,16 +319,56 @@
         <div class="report-card-meta">Weekly</div>
     </a>
 
-    <!-- Audit Trail Card -->
-    <a href="/admin/audit-logs" class="report-card operational">
-        <div class="report-card-header">
-            <span class="report-icon">🔍</span>
-            <h3 class="report-card-title">Audit Trail</h3>
-        </div>
-        <p class="report-card-description">Complete system activity log</p>
-        <div class="report-card-meta">On-demand</div>
-    </a>
-</div>
+<!-- Audit Trail Card -->
+ <a href="/admin/audit-logs" class="report-card operational">
+ <div class="report-card-header">
+ <span class="report-icon">🔍</span>
+ <h3 class="report-card-title">Audit Trail</h3>
+ </div>
+ <p class="report-card-description">Complete system activity log</p>
+ <div class="report-card-meta">On-demand</div>
+ </a>
+
+ <!-- Monthly Trends Card -->
+ <a href="{{ route('reports.monthly-trends') }}" class="report-card financial">
+ <div class="report-card-header">
+ <span class="report-icon">📈</span>
+ <h3 class="report-card-title">Monthly Trends</h3>
+ </div>
+ <p class="report-card-description">Transaction volume trends and month-over-month analysis with Chart.js visualization.</p>
+ <div class="report-card-meta">Monthly/Annual</div>
+ </a>
+
+ <!-- Profitability Analysis Card -->
+ <a href="{{ route('reports.profitability') }}" class="report-card financial">
+ <div class="report-card-header">
+ <span class="report-icon">💰</span>
+ <h3 class="report-card-title">Profitability</h3>
+ </div>
+ <p class="report-card-description">Realized and unrealized P&L by currency with position tracking.</p>
+ <div class="report-card-meta">On-demand</div>
+ </a>
+
+ <!-- Customer Analysis Card -->
+ <a href="{{ route('reports.customer-analysis') }}" class="report-card operational">
+ <div class="report-card-header">
+ <span class="report-icon">👥</span>
+ <h3 class="report-card-title">Customer Analysis</h3>
+ </div>
+ <p class="report-card-description">Top customers by volume, activity trends, and risk distribution.</p>
+ <div class="report-card-meta">On-demand</div>
+ </a>
+
+ <!-- Compliance Summary Card -->
+ <a href="{{ route('reports.compliance-summary') }}" class="report-card risk">
+ <div class="report-card-header">
+ <span class="report-icon">⚠️</span>
+ <h3 class="report-card-title">Compliance Summary</h3>
+ </div>
+ <p class="report-card-description">AML/CFT monitoring, flagged transactions, and BNM reporting checklist.</p>
+ <div class="report-card-meta">Daily/Weekly</div>
+ </a>
+ </div>
 
 <!-- Recent Reports Section -->
 <div class="recent-reports-section">

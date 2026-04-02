@@ -118,6 +118,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports/msb2', [ReportController::class, 'msb2'])->name('reports.msb2');
         Route::get('/reports/msb2/generate', [ReportController::class, 'msb2Generate'])->name('reports.msb2.generate');
         Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
+
+        // Advanced Reports (Phase 3)
+        Route::get('/reports/monthly-trends', [ReportController::class, 'monthlyTrends'])->name('reports.monthly-trends');
+        Route::get('/reports/profitability', [ReportController::class, 'profitability'])->name('reports.profitability');
+        Route::get('/reports/customer-analysis', [ReportController::class, 'customerAnalysis'])->name('reports.customer-analysis');
+        Route::get('/reports/compliance-summary', [ReportController::class, 'complianceSummary'])->name('reports.compliance-summary');
     });
 
     // User Management - Admin only
