@@ -33,6 +33,18 @@ Route::middleware('auth')->group(function () {
         ->name('transactions.create');
     Route::post('/transactions', [TransactionController::class, 'store'])
         ->name('transactions.store');
+
+    // Batch Transaction Upload - Manager only (must be before /transactions/{transaction})
+    Route::middleware('role:manager')->group(function () {
+        Route::get('/transactions/batch-upload', [TransactionController::class, 'showBatchUpload'])
+            ->name('transactions.batch-upload');
+        Route::post('/transactions/batch-upload', [TransactionController::class, 'processBatchUpload']);
+        Route::get('/transactions/import/{import}', [TransactionController::class, 'showImportResults'])
+            ->name('transactions.batch-upload.show');
+        Route::get('/transactions/template', [TransactionController::class, 'downloadTemplate'])
+            ->name('transactions.template');
+    });
+
     Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
         ->name('transactions.show');
     Route::get('/transactions/{transaction}/receipt', [TransactionController::class, 'receipt'])
@@ -41,6 +53,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/transactions/{transaction}/approve', [TransactionController::class, 'approve'])
         ->name('transactions.approve')
         ->middleware('role:manager');
+    Route::get('/transactions/{transaction}/cancel', [TransactionController::class, 'showCancel'])
+        ->name('transactions.cancel.show');
+    Route::post('/transactions/{transaction}/cancel', [TransactionController::class, 'cancel'])
+        ->name('transactions.cancel');
     Route::get('/customers/create', [DashboardController::class, 'index'])
         ->name('customers.create');
 

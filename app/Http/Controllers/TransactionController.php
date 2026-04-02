@@ -7,13 +7,16 @@ use App\Models\Customer;
 use App\Models\SystemLog;
 use App\Models\TillBalance;
 use App\Models\Transaction;
+use App\Models\TransactionImport;
 use App\Services\AccountingService;
 use App\Services\ComplianceService;
 use App\Services\CurrencyPositionService;
 use App\Services\MathService;
+use App\Services\TransactionImportService;
 use App\Services\TransactionMonitoringService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class TransactionController extends Controller
 {
@@ -80,7 +83,6 @@ class TransactionController extends Controller
             'till_id' => 'required|string',
         ]);
 
-        // Check if till is open
         $tillBalance = TillBalance::where('till_id', $validated['till_id'])
             ->where('currency_code', $validated['currency_code'])
             ->whereDate('date', today())
@@ -93,32 +95,19 @@ class TransactionController extends Controller
         }
 
         $customer = Customer::find($validated['customer_id']);
-
-        // Calculate local amount
         $amountForeign = (string) $validated['amount_foreign'];
         $rate = (string) $validated['rate'];
         $amountLocal = $this->mathService->multiply($amountForeign, $rate);
 
-        // Compliance checks
-        $cddLevel = $this->complianceService->determineCDDLevel(
-            (float) $amountLocal,
-            $customer
-        );
+        $cddLevel = $this->complianceService->determineCDDLevel((float) $amountLocal, $customer);
+        $holdCheck = $this->complianceService->requiresHold((float) $amountLocal, $customer);
 
-        // Check if requires hold/approval
-        $holdCheck = $this->complianceService->requiresHold(
-            (float) $amountLocal,
-            $customer
-        );
-
-        // Determine initial status
         $status = 'Completed';
         $holdReason = null;
         $approvedBy = null;
 
         if ($holdCheck['requires_hold']) {
             if ((float) $amountLocal >= 50000) {
-                // Large transaction needs manager approval
                 $status = 'Pending';
                 $holdReason = 'EDD_Required: '.implode(', ', $holdCheck['reasons']);
             } else {
@@ -127,34 +116,22 @@ class TransactionController extends Controller
             }
         }
 
-        // For sell transactions, check stock availability
         if ($validated['type'] === 'Sell') {
-            try {
-                $position = $this->positionService->getPosition(
-                    $validated['currency_code'],
-                    $validated['till_id']
-                );
+            $position = $this->positionService->getPosition($validated['currency_code'], $validated['till_id']);
+            if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
+                $availableBalance = $position ? $position->balance : '0';
 
-                if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
-                    $availableBalance = $position ? $position->balance : '0';
-
-                    return back()->with('error', "Insufficient stock. Available: {$availableBalance} {$validated['currency_code']}")
-                        ->withInput();
-                }
-            } catch (\Exception $e) {
-                return back()->with('error', 'Stock validation error: '.$e->getMessage())
+                return back()->with('error', "Insufficient stock. Available: {$availableBalance} {$validated['currency_code']}")
                     ->withInput();
             }
         }
 
-        // Create transaction within database transaction
         DB::beginTransaction();
-
         try {
-            // Create transaction record
             $transaction = Transaction::create([
                 'customer_id' => $validated['customer_id'],
                 'user_id' => auth()->id(),
+                'till_id' => $validated['till_id'],
                 'type' => $validated['type'],
                 'currency_code' => $validated['currency_code'],
                 'amount_foreign' => $amountForeign,
@@ -168,7 +145,6 @@ class TransactionController extends Controller
                 'cdd_level' => $cddLevel,
             ]);
 
-            // Update currency position (if not pending approval)
             if ($status === 'Completed') {
                 $this->positionService->updatePosition(
                     $validated['currency_code'],
@@ -177,15 +153,10 @@ class TransactionController extends Controller
                     $validated['type'],
                     $validated['till_id']
                 );
-
-                // Update till balance (cash)
                 $this->updateTillBalance($tillBalance, $validated['type'], $amountLocal, $amountForeign);
-
-                // Create accounting entries
                 $this->createAccountingEntries($transaction);
             }
 
-            // Log transaction creation
             SystemLog::create([
                 'user_id' => auth()->id(),
                 'action' => 'transaction_created',
@@ -202,7 +173,6 @@ class TransactionController extends Controller
                 'ip_address' => $request->ip(),
             ]);
 
-            // Run compliance monitoring
             if ($status === 'Completed') {
                 $this->monitoringService->monitorTransaction($transaction);
             }
@@ -222,8 +192,6 @@ class TransactionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-
-            // Log error
             SystemLog::create([
                 'user_id' => auth()->id(),
                 'action' => 'transaction_failed',
@@ -231,8 +199,7 @@ class TransactionController extends Controller
                 'ip_address' => $request->ip(),
             ]);
 
-            return back()->with('error', 'Transaction failed: '.$e->getMessage())
-                ->withInput();
+            return back()->with('error', 'Transaction failed: '.$e->getMessage())->withInput();
         }
     }
 
@@ -247,11 +214,10 @@ class TransactionController extends Controller
     }
 
     /**
-     * Approve pending transaction (Manager/Admin only)
+     * Approve pending transaction
      */
     public function approve(Request $request, Transaction $transaction)
     {
-        // Check if user can approve
         if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager approval required.');
         }
@@ -261,7 +227,6 @@ class TransactionController extends Controller
         }
 
         DB::beginTransaction();
-
         try {
             $transaction->update([
                 'status' => 'Completed',
@@ -269,7 +234,6 @@ class TransactionController extends Controller
                 'approved_at' => now(),
             ]);
 
-            // Get till balance
             $tillBalance = TillBalance::where('till_id', $transaction->till_id ?? 'MAIN')
                 ->where('currency_code', $transaction->currency_code)
                 ->whereDate('date', today())
@@ -277,7 +241,6 @@ class TransactionController extends Controller
                 ->first();
 
             if ($tillBalance) {
-                // Update currency position
                 $this->positionService->updatePosition(
                     $transaction->currency_code,
                     (string) $transaction->amount_foreign,
@@ -285,20 +248,14 @@ class TransactionController extends Controller
                     $transaction->type,
                     $transaction->till_id ?? 'MAIN'
                 );
-
-                // Update till balance
-                $this->updateTillBalance(
-                    $tillBalance,
-                    $transaction->type,
+                $this->updateTillBalance($tillBalance, $transaction->type,
                     (string) $transaction->amount_local,
                     (string) $transaction->amount_foreign
                 );
             }
 
-            // Create accounting entries
             $this->createAccountingEntries($transaction);
 
-            // Log approval
             SystemLog::create([
                 'user_id' => auth()->id(),
                 'action' => 'transaction_approved',
@@ -308,9 +265,7 @@ class TransactionController extends Controller
                 'ip_address' => $request->ip(),
             ]);
 
-            // Run compliance monitoring
             $this->monitoringService->monitorTransaction($transaction);
-
             DB::commit();
 
             return redirect()->route('transactions.show', $transaction)
@@ -324,25 +279,19 @@ class TransactionController extends Controller
     }
 
     /**
-     * Update till balance for transaction
+     * Update till balance
      */
     protected function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
     {
-        // Note: Till balance tracks foreign currency stock, not cash
-        // The actual cash (MYR) is tracked separately
-        // For now, we update a running total of transactions
-
         $currentTotal = $tillBalance->transaction_total ?? '0';
         $foreignTotal = $tillBalance->foreign_total ?? '0';
 
         if ($type === 'Buy') {
-            // Buying foreign: stock increases
             $tillBalance->update([
                 'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
                 'foreign_total' => $this->mathService->add($foreignTotal, $amountForeign),
             ]);
         } else {
-            // Selling foreign: stock decreases
             $tillBalance->update([
                 'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
                 'foreign_total' => $this->mathService->subtract($foreignTotal, $amountForeign),
@@ -358,45 +307,36 @@ class TransactionController extends Controller
         $entries = [];
 
         if ($transaction->type === 'Buy') {
-            // Buy: Dr Foreign Currency Inventory, Cr Cash - MYR
             $entries = [
                 [
-                    'account_code' => '2000', // Foreign Currency Inventory
+                    'account_code' => '2000',
                     'debit' => $transaction->amount_local,
                     'credit' => '0',
                     'description' => "Buy {$transaction->amount_foreign} {$transaction->currency_code} @ {$transaction->rate}",
                 ],
                 [
-                    'account_code' => '1000', // Cash - MYR
+                    'account_code' => '1000',
                     'debit' => '0',
                     'credit' => $transaction->amount_local,
                     'description' => "Payment for {$transaction->currency_code} purchase",
                 ],
             ];
         } else {
-            // Sell: Calculate gain/loss
             $position = $this->positionService->getPosition($transaction->currency_code);
             $avgCost = $position ? $position->avg_cost_rate : $transaction->rate;
-            $costBasis = $this->mathService->multiply(
-                (string) $transaction->amount_foreign,
-                $avgCost
-            );
-            $revenue = $this->mathService->subtract(
-                (string) $transaction->amount_local,
-                $costBasis
-            );
-
+            $costBasis = $this->mathService->multiply((string) $transaction->amount_foreign, $avgCost);
+            $revenue = $this->mathService->subtract((string) $transaction->amount_local, $costBasis);
             $isGain = $this->mathService->compare($revenue, '0') >= 0;
 
             $entries = [
                 [
-                    'account_code' => '1000', // Cash - MYR
+                    'account_code' => '1000',
                     'debit' => $transaction->amount_local,
                     'credit' => '0',
                     'description' => "Sale of {$transaction->amount_foreign} {$transaction->currency_code}",
                 ],
                 [
-                    'account_code' => '2000', // Foreign Currency Inventory
+                    'account_code' => '2000',
                     'debit' => '0',
                     'credit' => $costBasis,
                     'description' => "Cost of {$transaction->currency_code} sold",
@@ -405,14 +345,14 @@ class TransactionController extends Controller
 
             if ($isGain) {
                 $entries[] = [
-                    'account_code' => '5000', // Revenue - Forex Trading
+                    'account_code' => '5000',
                     'debit' => '0',
                     'credit' => $revenue,
                     'description' => "Gain on {$transaction->currency_code} sale",
                 ];
             } else {
                 $entries[] = [
-                    'account_code' => '6000', // Expense - Forex Loss
+                    'account_code' => '6000',
                     'debit' => $this->mathService->multiply($revenue, '-1'),
                     'credit' => '0',
                     'description' => "Loss on {$transaction->currency_code} sale",
@@ -443,41 +383,30 @@ class TransactionController extends Controller
     }
 
     /**
-     * Generate PDF receipt for completed transaction
+     * Generate PDF receipt
      */
     public function receipt(Transaction $transaction)
     {
-        // Check if transaction is completed
         if ($transaction->status !== 'Completed') {
-            return back()->with('error', 'Receipts can only be generated for completed transactions. Current status: '.$transaction->status);
+            return back()->with('error', 'Receipts can only be generated for completed transactions.');
         }
 
-        // Load relationships
         $transaction->load(['customer', 'user', 'approver']);
-
-        // Generate PDF
         $pdf = app('dompdf.wrapper');
         $pdf->loadView('transactions.receipt', compact('transaction'));
-
-        // Set paper size for thermal printer (80mm width)
-        $pdf->setPaper([0, 0, 226.77, 841.89], 'portrait'); // 80mm x 297mm
-
-        // Generate filename
+        $pdf->setPaper([0, 0, 226.77, 841.89], 'portrait');
         $filename = 'receipt_'.str_pad($transaction->id, 8, '0', STR_PAD_LEFT).'.pdf';
 
-        // Return PDF download response
         return $pdf->download($filename);
     }
 
     /**
-     * Display comprehensive customer transaction history with statistics
+     * Display comprehensive customer transaction history
      */
     public function customerHistory(Customer $customer)
     {
-        // Get all transactions for statistics
         $allTransactions = Transaction::where('customer_id', $customer->id)->get();
 
-        // Calculate statistics
         $stats = [
             'total_count' => $allTransactions->count(),
             'buy_volume' => $allTransactions->where('type', 'Buy')->sum('amount_local'),
@@ -490,13 +419,11 @@ class TransactionController extends Controller
             'last_transaction' => $allTransactions->max('created_at'),
         ];
 
-        // Get paginated transactions
         $transactions = Transaction::where('customer_id', $customer->id)
             ->with(['user', 'currency'])
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        // Monthly volume data for chart
         $monthlyData = Transaction::where('customer_id', $customer->id)
             ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, type, SUM(amount_local) as total")
             ->groupBy('month', 'type')
@@ -508,7 +435,6 @@ class TransactionController extends Controller
         $chartBuyData = [];
         $chartSellData = [];
 
-        // Prepare chart data for last 12 months
         for ($i = 11; $i >= 0; $i--) {
             $monthKey = now()->subMonths($i)->format('Y-m');
             $monthLabel = now()->subMonths($i)->format('M Y');
@@ -520,12 +446,7 @@ class TransactionController extends Controller
         }
 
         return view('customers.history', compact(
-            'customer',
-            'transactions',
-            'stats',
-            'chartLabels',
-            'chartBuyData',
-            'chartSellData'
+            'customer', 'transactions', 'stats', 'chartLabels', 'chartBuyData', 'chartSellData'
         ));
     }
 
@@ -565,5 +486,283 @@ class TransactionController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Show cancellation confirmation form
+     */
+    public function showCancel(Transaction $transaction)
+    {
+        if (! $this->canCancel(auth()->user(), $transaction)) {
+            abort(403, 'Unauthorized to cancel this transaction.');
+        }
+
+        if (! $transaction->isRefundable()) {
+            return back()->with('error', 'This transaction cannot be cancelled.');
+        }
+
+        return view('transactions.cancel', compact('transaction'));
+    }
+
+    /**
+     * Process transaction cancellation
+     */
+    public function cancel(Request $request, Transaction $transaction)
+    {
+        if (! $this->canCancel(auth()->user(), $transaction)) {
+            abort(403, 'Unauthorized to cancel this transaction.');
+        }
+
+        $validated = $request->validate([
+            'cancellation_reason' => 'required|string|min:10|max:1000',
+            'confirm_understanding' => 'required|accepted',
+        ]);
+
+        if (! $transaction->isRefundable()) {
+            return back()->with('error', 'This transaction cannot be cancelled.');
+        }
+
+        DB::beginTransaction();
+        try {
+            $originalTillId = $transaction->till_id ?? 'MAIN';
+            $refundTransaction = $this->createRefundTransaction($transaction);
+
+            $transaction->update([
+                'status' => 'Cancelled',
+                'cancelled_at' => now(),
+                'cancelled_by' => auth()->id(),
+                'cancellation_reason' => $validated['cancellation_reason'],
+            ]);
+
+            $this->reverseStockPosition($transaction, $originalTillId);
+            $this->createReversingJournalEntries($transaction);
+
+            SystemLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'transaction_cancelled',
+                'entity_type' => 'Transaction',
+                'entity_id' => $transaction->id,
+                'old_values' => ['status' => 'Completed'],
+                'new_values' => [
+                    'status' => 'Cancelled',
+                    'refund_transaction_id' => $refundTransaction->id,
+                    'reason' => $validated['cancellation_reason'],
+                ],
+                'ip_address' => $request->ip(),
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('transactions.show', $transaction)
+                ->with('success', 'Transaction cancelled successfully. Refund transaction created.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()->with('error', 'Cancellation failed: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Show batch upload form
+     */
+    public function showBatchUpload()
+    {
+        $recentImports = TransactionImport::where('user_id', auth()->id())
+            ->orderBy('created_at', 'desc')
+            ->take(10)
+            ->get();
+
+        return view('transactions.batch-upload', compact('recentImports'));
+    }
+
+    /**
+     * Process batch upload
+     */
+    public function processBatchUpload(Request $request)
+    {
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:2048',
+        ]);
+
+        $file = $request->file('csv_file');
+
+        // Store file
+        $path = $file->store('imports');
+
+        // Get the full file path - use actual file path for testing, Storage::path otherwise
+        $fullPath = Storage::exists($path) ? Storage::path($path) : $file->getRealPath();
+
+        // If file still doesn't exist at Storage path, fall back to temp path
+        if (! file_exists($fullPath)) {
+            $fullPath = $file->getRealPath();
+        }
+
+        // Count total rows first
+        $handle = fopen($fullPath, 'r');
+        if (! $handle) {
+            return back()->with('error', 'Could not read uploaded file.')->withInput();
+        }
+
+        $header = fgetcsv($handle);
+        $rowCount = 0;
+        while (fgetcsv($handle) !== false) {
+            $rowCount++;
+        }
+        fclose($handle);
+
+        // Create import record with total_rows
+        $import = TransactionImport::create([
+            'user_id' => auth()->id(),
+            'filename' => $path,
+            'original_filename' => $file->getClientOriginalName(),
+            'total_rows' => $rowCount,
+            'status' => 'pending',
+        ]);
+
+        // Process import
+        $service = new TransactionImportService($import);
+        $service->process($fullPath);
+
+        return redirect()->route('transactions.batch-upload.show', $import)
+            ->with('success', "Import completed. {$import->success_count} transactions imported, {$import->error_count} errors.");
+    }
+
+    /**
+     * Show import results
+     */
+    public function showImportResults(TransactionImport $import)
+    {
+        // Authorization check - only owner or manager can view
+        if ($import->user_id !== auth()->id() && ! auth()->user()->isManager()) {
+            abort(403, 'Unauthorized. You can only view your own import results.');
+        }
+
+        return view('transactions.import-results', compact('import'));
+    }
+
+    /**
+     * Download CSV template
+     */
+    public function downloadTemplate()
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="transaction_template.csv"',
+        ];
+
+        $template = "customer_id,type,currency_code,amount_foreign,rate,purpose,source_of_funds,till_id\n";
+        $template .= "1,Buy,USD,1000,4.72,Business Travel,Salary,MAIN\n";
+        $template .= "1,Sell,USD,500,4.75,Personal Use,Savings,TILL-001\n";
+
+        return response($template, 200, $headers);
+    }
+
+    /**
+     * Check if user can cancel transaction
+     */
+    protected function canCancel($user, Transaction $transaction): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isManager()) {
+            return true;
+        }
+
+        if ($user->id === $transaction->user_id) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Create refund transaction
+     */
+    protected function createRefundTransaction(Transaction $original): Transaction
+    {
+        $refundType = $original->type === 'Buy' ? 'Sell' : 'Buy';
+
+        return Transaction::create([
+            'customer_id' => $original->customer_id,
+            'user_id' => auth()->id(),
+            'till_id' => $original->till_id,
+            'type' => $refundType,
+            'currency_code' => $original->currency_code,
+            'amount_foreign' => $original->amount_foreign,
+            'amount_local' => $original->amount_local,
+            'rate' => $original->rate,
+            'purpose' => 'Refund: '.$original->purpose,
+            'source_of_funds' => 'Refund',
+            'status' => 'Completed',
+            'cdd_level' => $original->cdd_level,
+            'original_transaction_id' => $original->id,
+            'is_refund' => true,
+        ]);
+    }
+
+    /**
+     * Reverse stock position
+     */
+    protected function reverseStockPosition(Transaction $transaction, ?string $tillId = null): void
+    {
+        $reverseType = $transaction->type === 'Buy' ? 'Sell' : 'Buy';
+        $this->positionService->updatePosition(
+            $transaction->currency_code,
+            (string) $transaction->amount_foreign,
+            (string) $transaction->rate,
+            $reverseType,
+            $tillId ?? $transaction->till_id ?? 'MAIN'
+        );
+    }
+
+    /**
+     * Create reversing journal entries
+     */
+    protected function createReversingJournalEntries(Transaction $transaction): void
+    {
+        $accountingService = app(AccountingService::class);
+
+        $entries = [];
+        if ($transaction->type === 'Buy') {
+            $entries = [
+                [
+                    'account_code' => '1000',
+                    'debit' => $transaction->amount_local,
+                    'credit' => '0',
+                    'description' => "Refund for cancelled transaction #{$transaction->id}",
+                ],
+                [
+                    'account_code' => '2000',
+                    'debit' => '0',
+                    'credit' => $transaction->amount_local,
+                    'description' => "Reversal: {$transaction->currency_code} refund",
+                ],
+            ];
+        } else {
+            $entries = [
+                [
+                    'account_code' => '2000',
+                    'debit' => $transaction->amount_local,
+                    'credit' => '0',
+                    'description' => "Refund for cancelled transaction #{$transaction->id}",
+                ],
+                [
+                    'account_code' => '1000',
+                    'debit' => '0',
+                    'credit' => $transaction->amount_local,
+                    'description' => "Reversal: {$transaction->currency_code} refund",
+                ],
+            ];
+        }
+
+        $accountingService->createJournalEntry(
+            $entries,
+            'TransactionCancellation',
+            $transaction->id,
+            "Cancellation of Transaction #{$transaction->id}"
+        );
     }
 }

@@ -37,6 +37,7 @@ class Transaction extends Model
         'amount_foreign' => 'decimal:4',
         'rate' => 'decimal:6',
         'approved_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     public function customer()
@@ -62,5 +63,50 @@ class Transaction extends Model
     public function flags()
     {
         return $this->hasMany(FlaggedTransaction::class);
+    }
+
+    public function isRefundable(): bool
+    {
+        // Must be completed
+        if ($this->status !== 'Completed') {
+            return false;
+        }
+
+        // Cannot be already cancelled
+        if ($this->cancelled_at !== null) {
+            return false;
+        }
+
+        // Must be within 24 hours
+        if ($this->created_at->diffInHours(now()) > 24) {
+            return false;
+        }
+
+        // Cannot be a refund
+        if ($this->is_refund) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->cancelled_at !== null;
+    }
+
+    public function refundTransaction()
+    {
+        return $this->hasOne(Transaction::class, 'original_transaction_id');
+    }
+
+    public function originalTransaction()
+    {
+        return $this->belongsTo(Transaction::class, 'original_transaction_id');
+    }
+
+    public function canceller()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 }

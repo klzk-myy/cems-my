@@ -58,9 +58,11 @@
             border: none;
             font-size: 0.875rem;
         }
-        .btn-primary { background: #3182ce; color: white; }
-        .btn-success { background: #38a169; color: white; }
-        .btn-secondary { background: #e2e8f0; color: #4a5568; }
+.btn-primary { background: #3182ce; color: white; }
+    .btn-success { background: #38a169; color: white; }
+    .btn-secondary { background: #e2e8f0; color: #4a5568; }
+    .btn-danger { background: #e53e3e; color: white; }
+    .btn-warning { background: #dd6b20; color: white; }
         .detail-row {
             display: flex;
             justify-content: space-between;
@@ -431,13 +433,18 @@
                 Print Receipt
             </a>
             @endif
-            @if($transaction->status === 'Pending' && auth()->user()->isManager())
-            <form action="/transactions/{{ $transaction->id }}/approve" method="POST" style="display: inline;">
-                @csrf
-                <button type="submit" class="btn btn-success">Approve</button>
-            </form>
-            @endif
-        </div>
+@if($transaction->status === 'Pending' && auth()->user()->isManager())
+  <form action="/transactions/{{ $transaction->id }}/approve" method="POST" style="display: inline;">
+  @csrf
+  <button type="submit" class="btn btn-success">Approve</button>
+  </form>
+  @endif
+  @if($transaction->isRefundable() && (auth()->user()->isManager() || auth()->user()->isAdmin() || auth()->user()->id === $transaction->user_id))
+  <a href="{{ route('transactions.cancel.show', $transaction) }}" class="btn btn-danger">
+  Cancel Transaction
+  </a>
+  @endif
+ </div>
     </div>
 
     <footer class="footer">
