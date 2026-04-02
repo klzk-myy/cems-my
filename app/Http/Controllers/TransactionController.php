@@ -18,8 +18,11 @@ use Illuminate\Support\Facades\DB;
 class TransactionController extends Controller
 {
     protected CurrencyPositionService $positionService;
+
     protected ComplianceService $complianceService;
+
     protected TransactionMonitoringService $monitoringService;
+
     protected MathService $mathService;
 
     public function __construct(
@@ -84,7 +87,7 @@ class TransactionController extends Controller
             ->whereNull('closed_at')
             ->first();
 
-        if (!$tillBalance) {
+        if (! $tillBalance) {
             return back()->with('error', 'Till is not open for this currency. Please open the till first.')
                 ->withInput();
         }
@@ -117,7 +120,7 @@ class TransactionController extends Controller
             if ((float) $amountLocal >= 50000) {
                 // Large transaction needs manager approval
                 $status = 'Pending';
-                $holdReason = 'EDD_Required: ' . implode(', ', $holdCheck['reasons']);
+                $holdReason = 'EDD_Required: '.implode(', ', $holdCheck['reasons']);
             } else {
                 $status = 'OnHold';
                 $holdReason = implode(', ', $holdCheck['reasons']);
@@ -132,13 +135,14 @@ class TransactionController extends Controller
                     $validated['till_id']
                 );
 
-                if (!$position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
+                if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
                     $availableBalance = $position ? $position->balance : '0';
+
                     return back()->with('error', "Insufficient stock. Available: {$availableBalance} {$validated['currency_code']}")
                         ->withInput();
                 }
             } catch (\Exception $e) {
-                return back()->with('error', 'Stock validation error: ' . $e->getMessage())
+                return back()->with('error', 'Stock validation error: '.$e->getMessage())
                     ->withInput();
             }
         }
@@ -210,11 +214,11 @@ class TransactionController extends Controller
                     ->with('warning', 'Transaction created and pending manager approval (≥ RM 50,000).');
             } elseif ($status === 'OnHold') {
                 return redirect()->route('transactions.show', $transaction)
-                    ->with('warning', 'Transaction on hold: ' . $holdReason);
+                    ->with('warning', 'Transaction on hold: '.$holdReason);
             }
 
             return redirect()->route('transactions.show', $transaction)
-                ->with('success', 'Transaction completed successfully. Receipt #' . $transaction->id);
+                ->with('success', 'Transaction completed successfully. Receipt #'.$transaction->id);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -227,7 +231,7 @@ class TransactionController extends Controller
                 'ip_address' => $request->ip(),
             ]);
 
-            return back()->with('error', 'Transaction failed: ' . $e->getMessage())
+            return back()->with('error', 'Transaction failed: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -248,7 +252,7 @@ class TransactionController extends Controller
     public function approve(Request $request, Transaction $transaction)
     {
         // Check if user can approve
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager approval required.');
         }
 
@@ -314,7 +318,8 @@ class TransactionController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Approval failed: ' . $e->getMessage());
+
+            return back()->with('error', 'Approval failed: '.$e->getMessage());
         }
     }
 
@@ -398,31 +403,31 @@ class TransactionController extends Controller
                 ],
             ];
 
-        if ($isGain) {
-            $entries[] = [
-                'account_code' => '5000', // Revenue - Forex Trading
-                'debit' => '0',
-                'credit' => $revenue,
-                'description' => "Gain on {$transaction->currency_code} sale",
-            ];
-        } else {
-            $entries[] = [
-                'account_code' => '6000', // Expense - Forex Loss
-                'debit' => $this->mathService->multiply($revenue, '-1'),
-                'credit' => '0',
-                'description' => "Loss on {$transaction->currency_code} sale",
-            ];
+            if ($isGain) {
+                $entries[] = [
+                    'account_code' => '5000', // Revenue - Forex Trading
+                    'debit' => '0',
+                    'credit' => $revenue,
+                    'description' => "Gain on {$transaction->currency_code} sale",
+                ];
+            } else {
+                $entries[] = [
+                    'account_code' => '6000', // Expense - Forex Loss
+                    'debit' => $this->mathService->multiply($revenue, '-1'),
+                    'credit' => '0',
+                    'description' => "Loss on {$transaction->currency_code} sale",
+                ];
+            }
         }
-    }
 
-    $accountingService = app(AccountingService::class);
-    $accountingService->createJournalEntry(
-        $entries,
-        'Transaction',
-        $transaction->id,
-        "Transaction #{$transaction->id} - {$transaction->type} {$transaction->currency_code}"
-    );
-}
+        $accountingService = app(AccountingService::class);
+        $accountingService->createJournalEntry(
+            $entries,
+            'Transaction',
+            $transaction->id,
+            "Transaction #{$transaction->id} - {$transaction->type} {$transaction->currency_code}"
+        );
+    }
 
     /**
      * Display customer's transaction history
@@ -435,5 +440,32 @@ class TransactionController extends Controller
             ->paginate(20);
 
         return view('transactions.customer', compact('transactions', 'customer'));
+    }
+
+    /**
+     * Generate PDF receipt for completed transaction
+     */
+    public function receipt(Transaction $transaction)
+    {
+        // Check if transaction is completed
+        if ($transaction->status !== 'Completed') {
+            return back()->with('error', 'Receipts can only be generated for completed transactions. Current status: '.$transaction->status);
+        }
+
+        // Load relationships
+        $transaction->load(['customer', 'user', 'approver']);
+
+        // Generate PDF
+        $pdf = app('dompdf.wrapper');
+        $pdf->loadView('transactions.receipt', compact('transaction'));
+
+        // Set paper size for thermal printer (80mm width)
+        $pdf->setPaper([0, 0, 226.77, 841.89], 'portrait'); // 80mm x 297mm
+
+        // Generate filename
+        $filename = 'receipt_'.str_pad($transaction->id, 8, '0', STR_PAD_LEFT).'.pdf';
+
+        // Return PDF download response
+        return $pdf->download($filename);
     }
 }

@@ -25,6 +25,11 @@ class Transaction extends Model
         'approved_by',
         'approved_at',
         'cdd_level',
+        'cancelled_at',
+        'cancelled_by',
+        'cancellation_reason',
+        'original_transaction_id',
+        'is_refund',
     ];
 
     protected $casts = [

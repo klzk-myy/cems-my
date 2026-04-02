@@ -1,14 +1,14 @@
 <?php
 
+use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FinancialStatementController;
+use App\Http\Controllers\LedgerController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RevaluationController;
 use App\Http\Controllers\StockCashController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\AccountingController;
-use App\Http\Controllers\LedgerController;
-use App\Http\Controllers\FinancialStatementController;
-use App\Http\Controllers\RevaluationController;
-use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 // Root route redirects based on auth status
@@ -16,6 +16,7 @@ Route::get('/', function () {
     if (auth()->check()) {
         return redirect('/dashboard');
     }
+
     return redirect('/login');
 })->name('home');
 
@@ -34,6 +35,9 @@ Route::middleware('auth')->group(function () {
         ->name('transactions.store');
     Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
         ->name('transactions.show');
+    Route::get('/transactions/{transaction}/receipt', [TransactionController::class, 'receipt'])
+        ->name('transactions.receipt')
+        ->middleware('auth');
     Route::post('/transactions/{transaction}/approve', [TransactionController::class, 'approve'])
         ->name('transactions.approve')
         ->middleware('role:manager');
@@ -92,25 +96,25 @@ Route::middleware('auth')->group(function () {
         ->name('reports')
         ->middleware('role:manager');
 
-Route::middleware('role:manager')->group(function () {
-    Route::get('/reports/lctr', [ReportController::class, 'lctr'])->name('reports.lctr');
-    Route::get('/reports/lctr/generate', [ReportController::class, 'lctrGenerate'])->name('reports.lctr.generate');
-    Route::get('/reports/msb2', [ReportController::class, 'msb2'])->name('reports.msb2');
-    Route::get('/reports/msb2/generate', [ReportController::class, 'msb2Generate'])->name('reports.msb2.generate');
-    Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
-});
+    Route::middleware('role:manager')->group(function () {
+        Route::get('/reports/lctr', [ReportController::class, 'lctr'])->name('reports.lctr');
+        Route::get('/reports/lctr/generate', [ReportController::class, 'lctrGenerate'])->name('reports.lctr.generate');
+        Route::get('/reports/msb2', [ReportController::class, 'msb2'])->name('reports.msb2');
+        Route::get('/reports/msb2/generate', [ReportController::class, 'msb2Generate'])->name('reports.msb2.generate');
+        Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
+    });
 
-// User Management - Admin only
-Route::middleware('role:admin')->group(function () {
-    Route::get('/users', [UserController::class, 'index'])->name('users.index');
-    Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
-    Route::post('/users', [UserController::class, 'store'])->name('users.store');
-    Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
-    Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
-    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
-    Route::post('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
-});
+    // User Management - Admin only
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+        Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
+        Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::post('/users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
+    });
 });
 
 require __DIR__.'/auth.php';

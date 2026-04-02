@@ -426,11 +426,16 @@
         <div class="card" style="text-align: center;">
             <a href="/transactions" class="btn btn-secondary">Back to Transactions</a>
             <a href="/transactions/create" class="btn btn-success">New Transaction</a>
+            @if($transaction->status === 'Completed')
+            <a href="/transactions/{{ $transaction->id }}/receipt" class="btn btn-primary" target="_blank">
+                Print Receipt
+            </a>
+            @endif
             @if($transaction->status === 'Pending' && auth()->user()->isManager())
-                <form action="/transactions/{{ $transaction->id }}/approve" method="POST" style="display: inline;">
-                    @csrf
-                    <button type="submit" class="btn btn-success">Approve</button>
-                </form>
+            <form action="/transactions/{{ $transaction->id }}/approve" method="POST" style="display: inline;">
+                @csrf
+                <button type="submit" class="btn btn-success">Approve</button>
+            </form>
             @endif
         </div>
     </div>

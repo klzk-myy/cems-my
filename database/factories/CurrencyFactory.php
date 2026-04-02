@@ -9,9 +9,10 @@ class CurrencyFactory extends Factory
 {
     protected $model = Currency::class;
 
+    protected static $counter = 0;
+
     public function definition(): array
     {
-        // Use sequence to ensure unique codes
         $currencies = [
             ['code' => 'USD', 'name' => 'US Dollar', 'symbol' => '$', 'decimal_places' => 2],
             ['code' => 'EUR', 'name' => 'Euro', 'symbol' => '€', 'decimal_places' => 2],
@@ -30,12 +31,17 @@ class CurrencyFactory extends Factory
             ['code' => 'INR', 'name' => 'Indian Rupee', 'symbol' => '₹', 'decimal_places' => 2],
         ];
 
-        $index = (static::$count ?? 0) % count($currencies);
-        static::$count = (static::$count ?? 0) + 1;
+        $index = static::$counter % count($currencies);
+        static::$counter++;
 
         return array_merge(
             $currencies[$index],
             ['is_active' => true]
         );
+    }
+
+    public static function resetCounter(): void
+    {
+        static::$counter = 0;
     }
 }
