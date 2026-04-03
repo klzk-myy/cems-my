@@ -5,10 +5,45 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * Transaction Model
+ *
+ * Represents foreign currency buy/sell transactions in the CEMS-MY system.
+ * Supports compliance monitoring, approval workflows, and refund operations.
+ *
+ * @property int $id
+ * @property int|null $customer_id
+ * @property int $user_id
+ * @property string $till_id
+ * @property string $type 'Buy' or 'Sell'
+ * @property string $currency_code
+ * @property string $amount_local MYR amount
+ * @property string $amount_foreign Foreign currency amount
+ * @property string $rate Exchange rate applied
+ * @property string|null $purpose Transaction purpose
+ * @property string|null $source_of_funds Source of funds
+ * @property string $status 'Completed', 'Pending', 'OnHold', 'Cancelled'
+ * @property string|null $hold_reason Reason for hold status
+ * @property int|null $approved_by User ID who approved
+ * @property \Illuminate\Support\Carbon|null $approved_at
+ * @property string $cdd_level 'Simplified', 'Standard', 'Enhanced'
+ * @property \Illuminate\Support\Carbon|null $cancelled_at
+ * @property int|null $cancelled_by
+ * @property string|null $cancellation_reason
+ * @property int|null $original_transaction_id For refunds
+ * @property bool $is_refund
+ * @property string|null $idempotency_key Duplicate prevention
+ * @property int $version Optimistic locking
+ */
 class Transaction extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<string>
+     */
     protected $fillable = [
         'customer_id',
         'user_id',
@@ -34,6 +69,11 @@ class Transaction extends Model
         'version',
     ];
 
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
     protected $casts = [
         'amount_local' => 'decimal:4',
         'amount_foreign' => 'decimal:4',
@@ -42,31 +82,65 @@ class Transaction extends Model
         'cancelled_at' => 'datetime',
     ];
 
+    /**
+     * Get the customer associated with this transaction.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function customer()
     {
         return $this->belongsTo(Customer::class);
     }
 
+    /**
+     * Get the user who created this transaction.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * Get the user who approved this transaction.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function approver()
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    /**
+     * Get the currency associated with this transaction.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function currency()
     {
         return $this->belongsTo(Currency::class, 'currency_code');
     }
 
+    /**
+     * Get all flagged transactions related to this transaction.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function flags()
     {
         return $this->hasMany(FlaggedTransaction::class);
     }
 
+    /**
+     * Determine if this transaction can be refunded.
+     *
+     * A transaction is refundable if:
+     * - Status is 'Completed'
+     * - Not already cancelled
+     * - Within 24 hours of creation
+     * - Not a refund transaction itself
+     */
     public function isRefundable(): bool
     {
         // Must be completed
@@ -92,21 +166,39 @@ class Transaction extends Model
         return true;
     }
 
+    /**
+     * Check if the transaction has been cancelled.
+     */
     public function isCancelled(): bool
     {
         return $this->cancelled_at !== null;
     }
 
+    /**
+     * Get the refund transaction if this transaction was refunded.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
     public function refundTransaction()
     {
         return $this->hasOne(Transaction::class, 'original_transaction_id');
     }
 
+    /**
+     * Get the original transaction if this is a refund.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function originalTransaction()
     {
         return $this->belongsTo(Transaction::class, 'original_transaction_id');
     }
 
+    /**
+     * Get the user who cancelled this transaction.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
     public function canceller()
     {
         return $this->belongsTo(User::class, 'cancelled_by');

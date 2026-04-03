@@ -2,36 +2,55 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\SystemLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
+/**
+ * UserController
+ *
+ * Handles user management operations including creation, updates, and deletion.
+ * All methods require admin authentication.
+ */
 class UserController extends Controller
 {
     /**
-     * Check if user is admin
+     * Check if current user has admin privileges.
+     *
+     * Throws 403 if user is not an admin.
+     *
+     * @return void
+     *
+     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
      */
     protected function requireAdmin()
     {
-        if (!auth()->user()->isAdmin()) {
+        if (! auth()->user()->isAdmin()) {
             abort(403, 'Unauthorized. Admin access required.');
         }
     }
 
     /**
-     * Display a listing of users
+     * Display a paginated listing of all users.
+     *
+     * @return \Illuminate\View\View
      */
     public function index()
     {
         $this->requireAdmin();
         $users = User::paginate(20);
+
         return view('users.index', compact('users'));
     }
 
     /**
-     * Show the form for creating a new user
+     * Show the form for creating a new user.
+     *
+     * Displays role options and form for user creation.
+     *
+     * @return \Illuminate\View\View
      */
     public function create()
     {
@@ -47,7 +66,11 @@ class UserController extends Controller
     }
 
     /**
-     * Store a newly created user
+     * Store a newly created user in the database.
+     *
+     * Validates input, creates user with hashed password, and logs the action.
+     *
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
@@ -88,16 +111,21 @@ class UserController extends Controller
     }
 
     /**
-     * Display the specified user
+     * Display the specified user's details.
+     *
+     * @return \Illuminate\View\View
      */
     public function show(User $user)
     {
         $this->requireAdmin();
+
         return view('users.show', compact('user'));
     }
 
     /**
-     * Show the form for editing the user
+     * Show the form for editing a user.
+     *
+     * @return \Illuminate\View\View
      */
     public function edit(User $user)
     {
@@ -113,7 +141,9 @@ class UserController extends Controller
     }
 
     /**
-     * Update the specified user
+     * Update the specified user in the database.
+     *
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, User $user)
     {
@@ -238,7 +268,7 @@ class UserController extends Controller
         }
 
         $oldStatus = $user->is_active;
-        $user->update(['is_active' => !$user->is_active]);
+        $user->update(['is_active' => ! $user->is_active]);
 
         // Log status toggle
         SystemLog::create([
@@ -252,6 +282,7 @@ class UserController extends Controller
         ]);
 
         $status = $user->is_active ? 'activated' : 'deactivated';
+
         return redirect()->route('users.index')
             ->with('success', "User {$user->username} has been {$status}!");
     }
