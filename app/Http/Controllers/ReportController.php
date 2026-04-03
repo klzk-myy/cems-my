@@ -194,6 +194,74 @@ class ReportController extends Controller
         ]);
     }
 
+    /**
+     * Update LCTR report status (mark as submitted)
+     */
+    public function updateLCTRStatus(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'month' => 'required|date_format:Y-m',
+            'status' => 'required|in:Submitted',
+        ]);
+
+        $report = ReportGenerated::where('report_type', 'LCTR')
+            ->where('period_start', now()->parse($validated['month'])->startOfMonth())
+            ->first();
+
+        if (! $report) {
+            return response()->json([
+                'message' => 'Report not found. Generate the report first.',
+            ], 404);
+        }
+
+        $report->update([
+            'status' => $validated['status'],
+            'submitted_at' => now(),
+            'submitted_by' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Report status updated successfully',
+            'status' => $report->status,
+        ]);
+    }
+
+    /**
+     * Update MSB2 report status (mark as submitted)
+     */
+    public function updateMSB2Status(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'date' => 'required|date_format:Y-m-d',
+            'status' => 'required|in:Submitted',
+        ]);
+
+        $report = ReportGenerated::where('report_type', 'MSB2')
+            ->whereDate('period_start', $validated['date'])
+            ->first();
+
+        if (! $report) {
+            return response()->json([
+                'message' => 'Report not found. Generate the report first.',
+            ], 404);
+        }
+
+        $report->update([
+            'status' => $validated['status'],
+            'submitted_at' => now(),
+            'submitted_by' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Report status updated successfully',
+            'status' => $report->status,
+        ]);
+    }
+
     public function download(string $filename)
     {
         $filepath = "reports/{$filename}";

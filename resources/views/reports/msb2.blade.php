@@ -664,37 +664,37 @@ function downloadCSV() {
     window.location.href = routeExport + '?report_type=msb2&period=' + encodeURIComponent(date) + '&format=CSV';
 }
 
-async function markSubmitted() {
+  async function markSubmitted() {
     const date = document.getElementById('date').value;
 
     if (!confirm('Mark this report as submitted to Bank Negara Malaysia? This action cannot be undone.')) {
-        return;
+      return;
     }
 
     try {
-        const response = await fetch(routeAPIMSB2 + '/status', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-                date: date,
-                status: 'Submitted'
-            })
-        });
+      const response = await fetch('{{ route("api.reports.msb2.status") }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          date: date,
+          status: 'Submitted'
+        })
+      });
 
-        if (response.ok) {
-            alert('Report marked as submitted!');
-            window.location.reload();
-        } else {
-            const data = await response.json();
-            alert('Failed to update status: ' + (data.message || 'Unknown error'));
-        }
+      if (response.ok) {
+        alert('Report marked as submitted!');
+        window.location.reload();
+      } else {
+        const data = await response.json();
+        alert('Failed to update status: ' + (data.message || 'Unknown error'));
+      }
     } catch (error) {
-        alert('Failed to update status: ' + error.message);
+      alert('Failed to update status: ' + error.message);
     }
-}
+  }
 </script>
 @endsection

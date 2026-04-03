@@ -20,6 +20,9 @@ class ReportGenerated extends Model
         'generated_at',
         'file_path',
         'file_format',
+        'status',
+        'submitted_at',
+        'submitted_by',
     ];
 
     protected $casts = [

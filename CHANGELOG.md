@@ -2,6 +2,60 @@
 
 All notable changes to the CEMS-MY system will be documented in this file.
 
+## [1.1.0] - 2026-04-04 - Counter Management System
+
+### Features
+
+#### Added
+- **Counter Management System** - Complete counter lifecycle management
+  - `Counter` model with code, name, and status
+  - `CounterSession` model for daily session tracking
+  - `CounterHandover` model for formal handovers
+  - `CounterService` with business logic for open/close/handover
+  - `CounterController` with all CRUD operations
+  - 5 Blade views: index, open, close, history, handover
+  - Variance calculation with Green/Yellow/Red thresholds
+  - Supervisor approval for large variances (> RM 500)
+
+#### Files Added
+- `app/Models/Counter.php`
+- `app/Models/CounterSession.php`
+- `app/Models/CounterHandover.php`
+- `app/Services/CounterService.php`
+- `app/Http/Controllers/CounterController.php`
+- `database/migrations/2026_04_03_000001_create_counters_table.php`
+- `database/migrations/2026_04_03_000002_create_counter_sessions_table.php`
+- `database/migrations/2026_04_03_000003_create_counter_handovers_table.php`
+- `database/seeders/CounterSeeder.php`
+- `database/factories/CounterFactory.php`
+- `database/factories/CounterSessionFactory.php`
+- `resources/views/counters/index.blade.php`
+- `resources/views/counters/open.blade.php`
+- `resources/views/counters/close.blade.php`
+- `resources/views/counters/history.blade.php`
+- `resources/views/counters/handover.blade.php`
+
+#### Tests Added
+- `tests/Unit/CounterServiceTest.php` - 7 unit tests
+- `tests/Feature/CounterControllerTest.php` - 8 feature tests
+
+### Bug Fixes
+
+#### Fixed
+- **Report Status API** - Added missing status update endpoints for LCTR/MSB2
+- **Currency Validation** - Fixed `exists:currencies,id` to `exists:currencies,code`
+- **Till Balance Creation** - Fixed string casting for counter_id
+
+### Database
+
+#### Migrations
+- Added `counters` table
+- Added `counter_sessions` table
+- Added `counter_handovers` table
+- Added `status`, `submitted_at`, `submitted_by` to `reports_generated` table
+
+---
+
 ## [1.0.0] - 2026-04-01 - Production Ready Release
 
 ### Security - Critical Fixes

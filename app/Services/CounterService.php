@@ -47,11 +47,16 @@ class CounterService
         ]);
 
         foreach ($openingFloats as $float) {
-            $currency = \App\Models\Currency::find($float['currency_id']);
-            if ($currency) {
+            // Currency uses 'code' as primary key, so we need to find by code
+            // The float contains currency_id which is actually the code for Currency model
+            $currencyCode = is_numeric($float['currency_id'])
+                ? \App\Models\Currency::find($float['currency_id'])?->code
+                : $float['currency_id'];
+
+            if ($currencyCode) {
                 \App\Models\TillBalance::create([
-                    'till_id' => $counter->id,
-                    'currency_code' => $currency->code,
+                    'till_id' => (string) $counter->id,
+                    'currency_code' => $currencyCode,
                     'opening_balance' => $float['amount'],
                     'date' => now()->toDateString(),
                     'opened_by' => $user->id,
@@ -73,16 +78,20 @@ class CounterService
 
         foreach ($closingFloats as $float) {
             $currency = \App\Models\Currency::find($float['currency_id']);
-            $tillBalance = $currency ? \App\Models\TillBalance::where('till_id', $session->counter_id)
+            $tillBalance = $currency ? \App\Models\TillBalance::where('till_id', (string) $session->counter_id)
                 ->where('currency_code', $currency->code)
                 ->where('date', $session->session_date)
                 ->whereNull('closed_at')
                 ->first() : null;
 
             $openingBalance = $tillBalance ? (float) $tillBalance->opening_balance : 0.00;
-            $foreignTotal = $tillBalance ? (float) ($tillBalance->foreign_total ?? 0.00) : 0.00;
+            // Note: foreign_total represents transactions done during the session
+            // It may be null if no transactions were processed
+            $foreignTotal = $tillBalance && $tillBalance->foreign_total !== null
+                ? (float) $tillBalance->foreign_total
+                : 0.00;
             $expectedBalance = $openingBalance + $foreignTotal;
-            
+
             $closingBalance = $float['amount'];
             $variance = $this->calculateVariance($expectedBalance, $closingBalance);
 
@@ -112,7 +121,7 @@ class CounterService
                     ->where('date', $session->session_date)
                     ->whereNull('closed_at')
                     ->first();
-                
+
                 if ($tillBalance) {
                     $expectedBalance = $tillBalance->opening_balance + ($tillBalance->foreign_total ?? 0.00);
                     $tillBalance->update([
@@ -193,17 +202,17 @@ class CounterService
                 ->where('date', $session->session_date)
                 ->whereNull('closed_at')
                 ->first() : null;
-                
+
             $openingBalance = $tillBalance ? (float) $tillBalance->opening_balance : 0.00;
             $foreignTotal = $tillBalance ? (float) ($tillBalance->foreign_total ?? 0.00) : 0.00;
             $expected = $openingBalance + $foreignTotal;
             $variance = $count['amount'] - $expected;
-            
+
             // Only sum up MYR variance directly
             if ($currency && $currency->code === 'MYR') {
                 $totalVarianceMyr += $variance;
             }
-            
+
             // Close the old till balance
             if ($tillBalance) {
                 $tillBalance->update([
@@ -239,7 +248,7 @@ class CounterService
             'opened_by' => $supervisor->id,
             'status' => 'open',
         ]);
-        
+
         // Open new till balances based on physical counts
         foreach ($physicalCounts as $count) {
             $currency = \App\Models\Currency::find($count['currency_id']);

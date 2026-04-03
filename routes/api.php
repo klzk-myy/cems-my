@@ -26,7 +26,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/reports/lctr', [ReportController::class, 'generateLCTR'])
         ->name('api.reports.lctr');
+    Route::post('/reports/lctr/status', [ReportController::class, 'updateLCTRStatus'])
+        ->name('api.reports.lctr.status');
     Route::post('/reports/msb2', [ReportController::class, 'generateMSB2'])
         ->name('api.reports.msb2');
+    Route::post('/reports/msb2/status', [ReportController::class, 'updateMSB2Status'])
+        ->name('api.reports.msb2.status');
     Route::get('/reports/download/{filename}', [ReportController::class, 'download']);
 });

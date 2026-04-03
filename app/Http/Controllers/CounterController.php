@@ -62,7 +62,7 @@ class CounterController extends Controller
     {
         $request->validate([
             'opening_floats' => 'required|array',
-            'opening_floats.*.currency_id' => 'required|exists:currencies,id',
+            'opening_floats.*.currency_id' => 'required|exists:currencies,code',
             'opening_floats.*.amount' => 'required|numeric|min:0',
         ]);
 
@@ -119,7 +119,7 @@ class CounterController extends Controller
     {
         $request->validate([
             'closing_floats' => 'required|array',
-            'closing_floats.*.currency_id' => 'required|exists:currencies,id',
+            'closing_floats.*.currency_id' => 'required|exists:currencies,code',
             'closing_floats.*.amount' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
@@ -240,7 +240,7 @@ class CounterController extends Controller
             'to_user_id' => 'required|exists:users,id',
             'supervisor_id' => 'required|exists:users,id',
             'physical_counts' => 'required|array',
-            'physical_counts.*.currency_id' => 'required|exists:currencies,id',
+            'physical_counts.*.currency_id' => 'required|exists:currencies,code',
             'physical_counts.*.amount' => 'required|numeric|min:0',
             'variance_notes' => 'nullable|string',
         ]);

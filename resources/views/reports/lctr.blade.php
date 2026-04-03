@@ -583,38 +583,38 @@
         window.location.href = routeExport + '?report_type=lctr&period=' + encodeURIComponent(month) + '&format=CSV';
     }
 
-    async function markSubmitted() {
-        const month = document.getElementById('month').value;
-        
-        if (!confirm('Mark this report as submitted to Bank Negara Malaysia? This action cannot be undone.')) {
-            return;
-        }
+  async function markSubmitted() {
+    const month = document.getElementById('month').value;
 
-        try {
-            // Update the report status via AJAX
-            const response = await fetch(routeAPILCTR + '/status', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    month: month,
-                    status: 'Submitted'
-                })
-            });
-
-            if (response.ok) {
-                alert('Report marked as submitted!');
-                window.location.reload();
-            } else {
-                const data = await response.json();
-                alert('Failed to update status: ' + (data.message || 'Unknown error'));
-            }
-        } catch (error) {
-            alert('Failed to update status: ' + error.message);
-        }
+    if (!confirm('Mark this report as submitted to Bank Negara Malaysia? This action cannot be undone.')) {
+      return;
     }
+
+    try {
+      // Update the report status via AJAX
+      const response = await fetch('{{ route("api.reports.lctr.status") }}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          month: month,
+          status: 'Submitted'
+        })
+      });
+
+      if (response.ok) {
+        alert('Report marked as submitted!');
+        window.location.reload();
+      } else {
+        const data = await response.json();
+        alert('Failed to update status: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Failed to update status: ' + error.message);
+    }
+  }
 </script>
 @endsection
