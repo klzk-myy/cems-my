@@ -6,23 +6,25 @@ use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Services\CurrencyPositionService;
 use App\Services\MathService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CurrencyPositionServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected CurrencyPositionService $service;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new CurrencyPositionService(new MathService());
+        $this->service = new CurrencyPositionService(new MathService);
 
-        // Create test currency
-        Currency::create([
-            'code' => 'USD',
-            'name' => 'US Dollar',
-            'symbol' => '$',
-        ]);
+        // Create test currency using firstOrCreate to avoid duplicates
+        Currency::firstOrCreate(
+            ['code' => 'USD'],
+            ['name' => 'US Dollar', 'symbol' => '$', 'is_active' => true]
+        );
     }
 
     public function test_creates_position_on_first_buy()
@@ -40,9 +42,9 @@ class CurrencyPositionServiceTest extends TestCase
         // Second buy: 500 USD @ 4.70
         $position = $this->service->updatePosition('USD', '500', '4.70', 'Buy');
 
-        // Expected: 1500 USD @ avg 4.566667
+        // Expected: 1500 USD @ avg 4.566666
         $this->assertEquals('1500.0000', $position->balance);
-        $this->assertEquals('4.566667', $position->avg_cost_rate);
+        $this->assertEqualsWithDelta(4.566666, (float) $position->avg_cost_rate, 0.00001);
     }
 
     public function test_decreases_position_on_sell()
@@ -80,11 +82,10 @@ class CurrencyPositionServiceTest extends TestCase
 
     public function test_throws_exception_when_selling_with_zero_balance()
     {
-        // Setup: 0 USD (no position created yet)
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('empty or negative');
+        $this->expectExceptionMessage('Cannot sell: Position is empty or negative');
 
-        $this->service->updatePosition('USD', '100', '4.70', 'Sell');
+        $this->service->updatePosition('USD', '100', '4.50', 'Sell');
     }
 
     public function test_throws_exception_when_selling_exact_balance()

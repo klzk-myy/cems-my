@@ -3,14 +3,15 @@
 namespace App\Http\Middleware;
 
 use App\Models\DataBreachAlert;
+use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class DataBreachDetection
 {
     protected int $threshold = 1000; // records per minute
+
     protected int $timeWindow = 60; // seconds
 
     public function handle(Request $request, Closure $next)
@@ -42,6 +43,7 @@ class DataBreachDetection
         if ($request->has('export') && $request->has('limit')) {
             return $request->input('limit') > 500;
         }
+
         return false;
     }
 
@@ -72,7 +74,51 @@ class DataBreachDetection
             'is_resolved' => false,
         ]);
 
-        // TODO: Send email notification to admin
-        // TODO: Optional: Auto-suspend user account
+        $this->sendAdminNotification($userId, $ipAddress, $recordCount, $type);
+    }
+
+    protected function sendAdminNotification(?int $userId, string $ipAddress, int $recordCount, string $type): void
+    {
+        try {
+            $adminEmails = User::where('role', 'admin')
+                ->where('is_active', true)
+                ->pluck('email')
+                ->toArray();
+
+            if (empty($adminEmails)) {
+                Log::warning('No active admin users found for data breach notification');
+
+                return;
+            }
+
+            foreach ($adminEmails as $email) {
+                Mail::raw(
+                    "Data Breach Alert\n\n".
+                    "Type: {$type}\n".
+                    "User ID: {$userId}\n".
+                    "IP Address: {$ipAddress}\n".
+                    "Record Count: {$recordCount}\n".
+                    'Timestamp: '.now()->toIso8601String()."\n\n".
+                    'Please investigate immediately.',
+                    function ($message) use ($email, $type) {
+                        $message->to($email)
+                            ->subject("CRITICAL: Data Breach Alert - {$type}");
+                    }
+                );
+            }
+
+            Log::info('Data breach notification sent to admins', [
+                'user_id' => $userId,
+                'ip_address' => $ipAddress,
+                'type' => $type,
+                'admin_count' => count($adminEmails),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send data breach notification', [
+                'error' => $e->getMessage(),
+                'user_id' => $userId,
+                'ip_address' => $ipAddress,
+            ]);
+        }
     }
 }

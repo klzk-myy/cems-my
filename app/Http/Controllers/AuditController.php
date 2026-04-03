@@ -4,15 +4,90 @@ namespace App\Http\Controllers;
 
 use App\Models\SystemLog;
 use App\Services\AuditService;
+use App\Services\LogRotationService;
 use Illuminate\Http\Request;
 
 class AuditController extends Controller
 {
     protected AuditService $auditService;
 
-    public function __construct(AuditService $auditService)
+    protected LogRotationService $logRotationService;
+
+    public function __construct(AuditService $auditService, LogRotationService $logRotationService)
     {
         $this->auditService = $auditService;
+        $this->logRotationService = $logRotationService;
+    }
+
+    /**
+     * Display audit dashboard with statistics
+     */
+    public function dashboard()
+    {
+        if (! auth()->user()->isManager()) {
+            abort(403, 'Unauthorized. Manager access required.');
+        }
+
+        // Get statistics
+        $stats = [
+            'total_logs' => SystemLog::count(),
+            'today_logs' => SystemLog::whereDate('created_at', today())->count(),
+            'critical_logs' => SystemLog::where('severity', 'CRITICAL')->count(),
+            'error_logs' => SystemLog::where('severity', 'ERROR')->count(),
+        ];
+
+        // Severity distribution
+        $severityCounts = SystemLog::selectRaw('COALESCE(severity, "INFO") as severity, COUNT(*) as count')
+            ->groupBy('severity')
+            ->pluck('count', 'severity');
+
+        $severityColors = [
+            'INFO' => 'info',
+            'WARNING' => 'warning',
+            'ERROR' => 'danger',
+            'CRITICAL' => 'dark',
+        ];
+
+        // Top actions
+        $topActions = SystemLog::selectRaw('action, COUNT(*) as count')
+            ->groupBy('action')
+            ->orderByDesc('count')
+            ->limit(10)
+            ->pluck('count', 'action');
+
+        // Recent activity
+        $recentLogs = SystemLog::with('user')
+            ->where('created_at', '>=', now()->subDay())
+            ->orderBy('created_at', 'desc')
+            ->limit(20)
+            ->get();
+
+        // Archive statistics
+        $archiveStats = $this->logRotationService->getArchiveStats();
+
+        return view('audit.dashboard', compact(
+            'stats',
+            'severityCounts',
+            'severityColors',
+            'topActions',
+            'recentLogs',
+            'archiveStats'
+        ));
+    }
+
+    /**
+     * Rotate old logs
+     */
+    public function rotate()
+    {
+        if (! auth()->user()->isManager()) {
+            abort(403, 'Unauthorized. Manager access required.');
+        }
+
+        $result = $this->logRotationService->archiveOldLogs();
+
+        return redirect()->route('audit.dashboard')
+            ->with('success', $result['message']);
     }
 
     /**
@@ -60,7 +135,7 @@ class AuditController extends Controller
             ->pluck('action');
 
         // Get users for filter dropdown
-        $users = \App\Models\User::select('id', 'username', 'full_name')
+        $users = \App\Models\User::select('id', 'username')
             ->orderBy('username')
             ->get();
 

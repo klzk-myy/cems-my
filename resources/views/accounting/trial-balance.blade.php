@@ -68,7 +68,7 @@
                 <th colspan="3" class="text-right">Total:</th>
                 <th class="text-right">RM {{ number_format($trialBalance['total_debits'], 2) }}</th>
                 <th class="text-right">RM {{ number_format($trialBalance['total_credits'], 2) }}</th>
-                <th class="text-right">RM {{ number_format($trialBalance['total_balance'], 2) }}</th>
+                <th class="text-right">RM {{ number_format((float) $trialBalance['total_balance'], 2) }}</th>
             </tr>
             <tr>
                 <th colspan="3" class="text-right">Difference:</th>

@@ -320,7 +320,7 @@
     </a>
 
 <!-- Audit Trail Card -->
- <a href="/admin/audit-logs" class="report-card operational">
+                    <a href="{{ route('audit.index') }}" class="report-card operational">
  <div class="report-card-header">
  <span class="report-icon">🔍</span>
  <h3 class="report-card-title">Audit Trail</h3>

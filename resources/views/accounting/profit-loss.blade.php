@@ -26,8 +26,8 @@
     <!-- Revenue Section -->
     <div class="section revenue">
         <h4>REVENUE</h4>
-        @if(count($pl['revenue']) > 0)
-            @foreach($pl['revenue'] as $account)
+        @if(count($pl['revenues']) > 0)
+        @foreach($pl['revenues'] as $account)
             <div class="account-row">
                 <span class="account-name">{{ $account['account_name'] }}</span>
                 <span class="account-amount positive">RM {{ number_format($account['amount'], 2) }}</span>

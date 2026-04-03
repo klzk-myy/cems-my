@@ -17,10 +17,15 @@ class TransactionTest extends TestCase
     use RefreshDatabase;
 
     protected User $adminUser;
+
     protected User $tellerUser;
+
     protected User $managerUser;
+
     protected Customer $customer;
+
     protected Currency $currency;
+
     protected TillBalance $tillBalance;
 
     protected function setUp(): void
@@ -56,14 +61,16 @@ class TransactionTest extends TestCase
         ]);
 
         // Create currency
-        $this->currency = Currency::create([
-            'code' => 'USD',
-            'name' => 'US Dollar',
-            'symbol' => '$',
-            'rate_buy' => 4.7200,
-            'rate_sell' => 4.7500,
-            'is_active' => true,
-        ]);
+        $this->currency = Currency::firstOrCreate(
+            ['code' => 'USD'],
+            [
+                'name' => 'US Dollar',
+                'symbol' => '$',
+                'rate_buy' => 4.7200,
+                'rate_sell' => 4.7500,
+                'is_active' => true,
+            ]
+        );
 
         // Create customer
         $this->customer = Customer::create([
@@ -182,7 +189,7 @@ class TransactionTest extends TestCase
         ]);
 
         $response->assertSessionHas('error');
-        $response->assertSessionHas('error', function($value) {
+        $response->assertSessionHas('error', function ($value) {
             return str_contains($value, 'Insufficient stock');
         });
     }
@@ -392,7 +399,7 @@ class TransactionTest extends TestCase
             ->get("/transactions/{$transaction->id}");
 
         $response->assertStatus(200);
-        $response->assertSee('Transaction #' . $transaction->id);
+        $response->assertSee('Transaction #'.$transaction->id);
         $response->assertSee('Test Customer');
         $response->assertSee('USD');
     }

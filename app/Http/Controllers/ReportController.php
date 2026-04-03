@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Currency;
+use App\Models\CurrencyPosition;
+use App\Models\Customer;
+use App\Models\ExchangeRate;
+use App\Models\FlaggedTransaction;
 use App\Models\ReportGenerated;
 use App\Models\Transaction;
 use App\Services\ExportService;

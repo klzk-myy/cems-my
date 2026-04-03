@@ -2,16 +2,17 @@
 
 namespace App\Services;
 
-use App\Models\Transaction;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
+use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
 
 class ReportingService
 {
     protected EncryptionService $encryptionService;
+
     protected MathService $mathService;
 
     public function __construct(
@@ -36,7 +37,7 @@ class ReportingService
         $filepath = "reports/{$filename}";
 
         // Ensure the reports directory exists
-        if (!Storage::exists('reports')) {
+        if (! Storage::exists('reports')) {
             Storage::makeDirectory('reports');
         }
 
@@ -70,7 +71,7 @@ class ReportingService
                 $txn->amount_foreign,
                 $txn->currency_code,
                 $txn->type,
-                'MAIN', // TODO: Use actual branch
+                $txn->till_id ?? 'MAIN',
                 $txn->user_id,
             ]);
         }
@@ -100,7 +101,7 @@ class ReportingService
         $filepath = "reports/{$filename}";
 
         // Ensure the reports directory exists
-        if (!Storage::exists('reports')) {
+        if (! Storage::exists('reports')) {
             Storage::makeDirectory('reports');
         }
 
@@ -138,7 +139,7 @@ class ReportingService
 
         foreach ($parts as $part) {
             if (strlen($part) > 2) {
-                $masked[] = substr($part, 0, 2) . str_repeat('*', strlen($part) - 2);
+                $masked[] = substr($part, 0, 2).str_repeat('*', strlen($part) - 2);
             } else {
                 $masked[] = $part;
             }
@@ -161,12 +162,12 @@ class ReportingService
 
         $rows = [];
         foreach ($transactions as $txn) {
-            $idNumber = $txn->customer->id_number_encrypted 
+            $idNumber = $txn->customer->id_number_encrypted
                 ? $this->encryptionService->decrypt($txn->customer->id_number_encrypted)
                 : 'N/A';
-            
+
             $rows[] = [
-                'Transaction_ID' => 'TXN-' . str_pad($txn->id, 8, '0', STR_PAD_LEFT),
+                'Transaction_ID' => 'TXN-'.str_pad($txn->id, 8, '0', STR_PAD_LEFT),
                 'Transaction_Date' => $txn->created_at->format('Y-m-d'),
                 'Transaction_Time' => $txn->created_at->format('H:i:s'),
                 'Customer_ID_Type' => $txn->customer->id_type,
@@ -179,7 +180,7 @@ class ReportingService
                 'Amount_Foreign' => $txn->amount_foreign,
                 'Exchange_Rate' => $txn->rate,
                 'Till_ID' => $txn->till_id ?? 'MAIN',
-                'Teller_ID' => 'USR-' . str_pad($txn->user_id, 6, '0', STR_PAD_LEFT),
+                'Teller_ID' => 'USR-'.str_pad($txn->user_id, 6, '0', STR_PAD_LEFT),
                 'Purpose' => $txn->purpose,
                 'Source_of_Funds' => $txn->source_of_funds,
                 'CDD_Level' => $txn->cdd_level,
@@ -234,7 +235,7 @@ class ReportingService
     public function generateCurrencyPositionReport(): array
     {
         $positions = CurrencyPosition::with('currency')->get();
-        
+
         $data = [];
         $totalUnrealizedPnl = '0';
 
@@ -269,7 +270,7 @@ class ReportingService
 
         foreach ($positions as $position) {
             $pnl = $position->unrealized_pnl ?? '0';
-            
+
             if ($this->mathService->compare($pnl, '0') >= 0) {
                 $totalGain = $this->mathService->add($totalGain, $pnl);
             } else {

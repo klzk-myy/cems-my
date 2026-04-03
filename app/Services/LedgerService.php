@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
-use App\Models\CurrencyPosition;
 
 class LedgerService
 {
@@ -19,14 +18,14 @@ class LedgerService
     {
         $asOfDate = $asOfDate ?? now()->toDateString();
         $accounts = ChartOfAccount::where('is_active', true)->orderBy('account_code')->get();
-        
+
         $trialBalance = [];
         $totalDebits = '0';
         $totalCredits = '0';
 
         foreach ($accounts as $account) {
             $balance = app(AccountingService::class)->getAccountBalance($account->account_code, $asOfDate);
-            
+
             $debit = $this->mathService->compare($balance, '0') >= 0 ? $balance : '0';
             $credit = $this->mathService->compare($balance, '0') < 0 ? $this->mathService->multiply($balance, '-1') : '0';
 
@@ -48,10 +47,13 @@ class LedgerService
             $totalCredits = $this->mathService->add($totalCredits, $credit);
         }
 
+        $totalBalance = $this->mathService->subtract($totalDebits, $totalCredits);
+
         return [
             'accounts' => $trialBalance,
             'total_debits' => $totalDebits,
             'total_credits' => $totalCredits,
+            'total_balance' => $totalBalance,
             'is_balanced' => $this->mathService->compare($totalDebits, $totalCredits) === 0,
             'as_of_date' => $asOfDate,
         ];
@@ -60,7 +62,7 @@ class LedgerService
     public function getAccountLedger(string $accountCode, string $fromDate, string $toDate): array
     {
         $account = ChartOfAccount::findOrFail($accountCode);
-        
+
         $entries = AccountLedger::with('journalEntry')
             ->where('account_code', $accountCode)
             ->whereBetween('entry_date', [$fromDate, $toDate])

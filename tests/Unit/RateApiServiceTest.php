@@ -3,18 +3,21 @@
 namespace Tests\Unit;
 
 use App\Services\RateApiService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class RateApiServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected RateApiService $service;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new RateApiService();
+        $this->service = new RateApiService;
         Cache::flush();
     }
 

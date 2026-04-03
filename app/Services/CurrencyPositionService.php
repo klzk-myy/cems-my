@@ -47,22 +47,22 @@ class CurrencyPositionService
                 } else {
                     $newAvgCost = $rate;
                 }
-        } else {
-            // Selling foreign currency - decrease position
-            // Check for sufficient balance - prevent negative positions
-            if ($this->mathService->compare($oldBalance, $amount) < 0) {
-                throw new \InvalidArgumentException(
-                    "Insufficient balance. Available: {$oldBalance}, Requested: {$amount}"
-                );
+            } else {
+                // Selling foreign currency - decrease position
+                // Check for sufficient balance - prevent negative positions
+                if ($this->mathService->compare($oldBalance, '0') <= 0) {
+                    throw new \InvalidArgumentException(
+                        'Cannot sell: Position is empty or negative'
+                    );
+                }
+                if ($this->mathService->compare($oldBalance, $amount) < 0) {
+                    throw new \InvalidArgumentException(
+                        "Insufficient balance. Available: {$oldBalance}, Requested: {$amount}"
+                    );
+                }
+                $newBalance = $this->mathService->subtract($oldBalance, $amount);
+                $newAvgCost = $oldAvgCost; // Cost basis doesn't change on sale
             }
-            if ($this->mathService->compare($oldBalance, '0') <= 0) {
-                throw new \InvalidArgumentException(
-                    "Cannot sell: Position is empty or negative. Balance: {$oldBalance}"
-                );
-            }
-            $newBalance = $this->mathService->subtract($oldBalance, $amount);
-            $newAvgCost = $oldAvgCost; // Cost basis doesn't change on sale
-        }
 
             $position->update([
                 'balance' => $newBalance,

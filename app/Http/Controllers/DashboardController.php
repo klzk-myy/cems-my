@@ -4,11 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
+use App\Services\AuditService;
 use App\Services\CurrencyPositionService;
+use App\Services\RateApiService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
+    protected AuditService $auditService;
+
+    public function __construct(AuditService $auditService)
+    {
+        $this->auditService = $auditService;
+    }
+
     public function index()
     {
         $stats = [
@@ -72,10 +81,33 @@ class DashboardController extends Controller
             abort(403);
         }
 
+        $oldStatus = $flaggedTransaction->status;
+        $oldAssignedTo = $flaggedTransaction->assigned_to;
+
         $flaggedTransaction->update([
             'assigned_to' => auth()->id(),
             'status' => 'Under_Review',
         ]);
+
+        // Audit log
+        $this->auditService->logWithSeverity(
+            'compliance_flag_assigned',
+            [
+                'user_id' => auth()->id(),
+                'entity_type' => 'FlaggedTransaction',
+                'entity_id' => $flaggedTransaction->id,
+                'old_values' => [
+                    'status' => $oldStatus,
+                    'assigned_to' => $oldAssignedTo,
+                ],
+                'new_values' => [
+                    'status' => 'Under_Review',
+                    'assigned_to' => auth()->id(),
+                    'assigned_by' => auth()->user()->username,
+                ],
+            ],
+            'WARNING'
+        );
 
         return back()->with('success', 'Flag assigned to you for review.');
     }
@@ -86,11 +118,33 @@ class DashboardController extends Controller
             abort(403);
         }
 
+        $oldStatus = $flaggedTransaction->status;
+
         $flaggedTransaction->update([
             'status' => 'Resolved',
             'reviewed_by' => auth()->id(),
             'resolved_at' => now(),
         ]);
+
+        // Audit log
+        $this->auditService->logWithSeverity(
+            'compliance_flag_resolved',
+            [
+                'user_id' => auth()->id(),
+                'entity_type' => 'FlaggedTransaction',
+                'entity_id' => $flaggedTransaction->id,
+                'old_values' => [
+                    'status' => $oldStatus,
+                ],
+                'new_values' => [
+                    'status' => 'Resolved',
+                    'reviewed_by' => auth()->id(),
+                    'reviewed_by_username' => auth()->user()->username,
+                    'resolved_at' => now()->toDateTimeString(),
+                ],
+            ],
+            'INFO'
+        );
 
         return back()->with('success', 'Flag marked as resolved.');
     }
