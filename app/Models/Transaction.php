@@ -30,6 +30,8 @@ class Transaction extends Model
         'cancellation_reason',
         'original_transaction_id',
         'is_refund',
+        'idempotency_key',
+        'version',
     ];
 
     protected $casts = [

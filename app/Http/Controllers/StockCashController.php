@@ -152,7 +152,15 @@ class StockCashController extends Controller
             return back()->with('error', 'Till already closed for today.');
         }
 
-        $variance = $validated['closing_balance'] - (float) $tillBalance->opening_balance;
+        // Calculate expected closing balance based on transactions
+        $netFlow = \App\Models\Transaction::where('till_id', $validated['till_id'])
+            ->where('currency_code', $validated['currency_code'])
+            ->whereDate('created_at', today())
+            ->selectRaw("SUM(CASE WHEN type='Buy' THEN amount_local ELSE -amount_local END) as net")
+            ->value('net') ?? 0;
+
+        $expectedClosing = (float) $tillBalance->opening_balance + $netFlow;
+        $variance = $validated['closing_balance'] - $expectedClosing;
 
         $tillBalance->update([
             'closing_balance' => $validated['closing_balance'],

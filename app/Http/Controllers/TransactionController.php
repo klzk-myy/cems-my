@@ -81,7 +81,44 @@ class TransactionController extends Controller
             'purpose' => 'required|string|max:255',
             'source_of_funds' => 'required|string|max:255',
             'till_id' => 'required|string',
+            'idempotency_key' => 'nullable|string|max:100',
         ]);
+
+        // Duplicate transaction prevention: Check for recent similar transaction
+        // This prevents double-submit and network retry issues
+        $recentWindow = now()->subSeconds(30);
+        $duplicateQuery = Transaction::where('user_id', auth()->id())
+            ->where('customer_id', $validated['customer_id'])
+            ->where('type', $validated['type'])
+            ->where('currency_code', $validated['currency_code'])
+            ->where('created_at', '>=', $recentWindow);
+
+        // If idempotency key provided, check that specifically
+        if (! empty($validated['idempotency_key'])) {
+            $existingByKey = Transaction::where('idempotency_key', $validated['idempotency_key'])->first();
+            if ($existingByKey) {
+                return redirect()->route('transactions.show', $existingByKey)
+                    ->with('info', 'Transaction already processed.');
+            }
+        }
+
+        // Check for similar transactions (same amount within recent window)
+        $recentAmount = Transaction::where('user_id', auth()->id())
+            ->where('created_at', '>=', $recentWindow)
+            ->where('amount_foreign', $validated['amount_foreign'])
+            ->where('currency_code', $validated['currency_code'])
+            ->first();
+
+        if ($recentAmount) {
+            // Log potential duplicate for audit
+            SystemLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'potential_duplicate_detected',
+                'entity_type' => 'Transaction',
+                'description' => "Similar transaction {$recentAmount->id} found within 30 seconds",
+                'ip_address' => $request->ip(),
+            ]);
+        }
 
         $tillBalance = TillBalance::where('till_id', $validated['till_id'])
             ->where('currency_code', $validated['currency_code'])
@@ -99,15 +136,17 @@ class TransactionController extends Controller
         $rate = (string) $validated['rate'];
         $amountLocal = $this->mathService->multiply($amountForeign, $rate);
 
-        $cddLevel = $this->complianceService->determineCDDLevel((float) $amountLocal, $customer);
-        $holdCheck = $this->complianceService->requiresHold((float) $amountLocal, $customer);
+        // Use string amounts for precision (BCMath)
+        $cddLevel = $this->complianceService->determineCDDLevel($amountLocal, $customer);
+        $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
 
         $status = 'Completed';
         $holdReason = null;
         $approvedBy = null;
 
         if ($holdCheck['requires_hold']) {
-            if ((float) $amountLocal >= 50000) {
+            // Check if amount >= 50,000 using BCMath for precision
+            if ($this->mathService->compare($amountLocal, '50000') >= 0) {
                 $status = 'Pending';
                 $holdReason = 'EDD_Required: '.implode(', ', $holdCheck['reasons']);
             } else {
@@ -143,6 +182,8 @@ class TransactionController extends Controller
                 'hold_reason' => $holdReason,
                 'approved_by' => $approvedBy,
                 'cdd_level' => $cddLevel,
+                'idempotency_key' => $validated['idempotency_key'] ?? null,
+                'version' => 0,
             ]);
 
             if ($status === 'Completed') {
@@ -173,11 +214,13 @@ class TransactionController extends Controller
                 'ip_address' => $request->ip(),
             ]);
 
-            if ($status === 'Completed') {
-                $this->monitoringService->monitorTransaction($transaction);
-            }
+            // Transaction monitoring is handled via TransactionCreated event
+            // to avoid duplicate processing
 
             DB::commit();
+
+            // Dispatch event for async processing
+            \App\Events\TransactionCreated::dispatch($transaction);
 
             if ($status === 'Pending') {
                 return redirect()->route('transactions.show', $transaction)
@@ -228,11 +271,26 @@ class TransactionController extends Controller
 
         DB::beginTransaction();
         try {
-            $transaction->update([
-                'status' => 'Completed',
-                'approved_by' => auth()->id(),
-                'approved_at' => now(),
-            ]);
+            // Optimistic locking: Use version to prevent race conditions
+            // If another manager approved between the status check and now, this will fail
+            $updated = Transaction::where('id', $transaction->id)
+                ->where('status', 'Pending')
+                ->where('version', $transaction->version)
+                ->update([
+                    'status' => 'Completed',
+                    'approved_by' => auth()->id(),
+                    'approved_at' => now(),
+                    'version' => DB::raw('version + 1'),
+                ]);
+
+            if (! $updated) {
+                DB::rollBack();
+
+                return back()->with('error', 'Transaction was already processed or modified by another user.');
+            }
+
+            // Refresh the model to get the updated version
+            $transaction->refresh();
 
             $tillBalance = TillBalance::where('till_id', $transaction->till_id ?? 'MAIN')
                 ->where('currency_code', $transaction->currency_code)
@@ -265,8 +323,11 @@ class TransactionController extends Controller
                 'ip_address' => $request->ip(),
             ]);
 
-            $this->monitoringService->monitorTransaction($transaction);
+            // Transaction monitoring is handled via TransactionCreated event
             DB::commit();
+
+            // Dispatch event for async processing of monitoring
+            \App\Events\TransactionCreated::dispatch($transaction);
 
             return redirect()->route('transactions.show', $transaction)
                 ->with('success', 'Transaction approved and completed.');

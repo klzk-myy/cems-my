@@ -78,7 +78,7 @@ class TransactionImportService
         fclose($handle);
 
         $this->import->update([
-            'status' => count($this->errors) > 0 ? 'completed' : 'completed',
+            'status' => count($this->errors) > 0 ? 'completed_with_errors' : 'completed',
             'success_count' => $this->successCount,
             'error_count' => count($this->errors),
             'errors' => $this->errors,

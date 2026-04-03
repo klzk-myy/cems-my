@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\JournalEntry;
-use App\Models\JournalLine;
+use App\Models\AccountingPeriod;
 use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
+use App\Models\JournalEntry;
+use App\Models\JournalLine;
 use App\Models\SystemLog;
 use Illuminate\Support\Facades\DB;
 
@@ -30,12 +31,23 @@ class AccountingService
         $entryDate = $entryDate ?? now()->toDateString();
 
         return DB::transaction(function () use ($lines, $referenceType, $referenceId, $description, $entryDate, $postedBy) {
-            if (!$this->validateBalanced($lines)) {
+            if (! $this->validateBalanced($lines)) {
                 throw new \InvalidArgumentException('Journal entry is not balanced: debits do not equal credits');
+            }
+
+            // Find the accounting period for this entry date
+            $period = AccountingPeriod::forDate($entryDate)->first();
+
+            // Validate that the period is open (if period exists)
+            if ($period && ! $period->isOpen()) {
+                throw new \InvalidArgumentException(
+                    "Cannot post to closed period {$period->period_code}. Please use an open period or contact administrator."
+                );
             }
 
             $entry = JournalEntry::create([
                 'entry_date' => $entryDate,
+                'period_id' => $period?->id,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
                 'description' => $description,
@@ -108,7 +120,7 @@ class AccountingService
                     'account_code' => $line->account_code,
                     'debit' => $line->credit,
                     'credit' => $line->debit,
-                    'description' => 'Reversal: ' . $line->description,
+                    'description' => 'Reversal: '.$line->description,
                 ];
             }
 
@@ -129,7 +141,7 @@ class AccountingService
     {
         foreach ($entry->lines as $line) {
             $currentBalance = $this->getAccountBalance($line->account_code);
-            
+
             if ($this->isDebitAccount($line->account_code)) {
                 $newBalance = $this->mathService->add(
                     $this->mathService->add($currentBalance, (string) $line->debit),
@@ -156,7 +168,7 @@ class AccountingService
     protected function isDebitAccount(string $accountCode): bool
     {
         $account = ChartOfAccount::find($accountCode);
-        if (!$account) {
+        if (! $account) {
             throw new \InvalidArgumentException("Account not found: {$accountCode}");
         }
 
@@ -166,7 +178,7 @@ class AccountingService
     public function getAccountBalance(string $accountCode, ?string $asOfDate = null): string
     {
         $query = AccountLedger::where('account_code', $accountCode);
-        
+
         if ($asOfDate) {
             $query->where('entry_date', '<=', $asOfDate);
         }

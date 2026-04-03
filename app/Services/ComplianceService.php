@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 class ComplianceService
 {
     protected EncryptionService $encryptionService;
+
     protected MathService $mathService;
 
     public function __construct(
@@ -19,18 +20,18 @@ class ComplianceService
         $this->mathService = $mathService;
     }
 
-    public function determineCDDLevel(float $amount, Customer $customer): string
+    public function determineCDDLevel(string $amount, Customer $customer): string
     {
         // Enhanced Due Diligence triggers
         if ($customer->pep_status || $this->checkSanctionMatch($customer)) {
             return 'Enhanced';
         }
 
-        if ($amount >= 50000 || $customer->risk_rating === 'High') {
+        if ($this->mathService->compare($amount, '50000') >= 0 || $customer->risk_rating === 'High') {
             return 'Enhanced';
         }
 
-        if ($amount >= 3000) {
+        if ($this->mathService->compare($amount, '3000') >= 0) {
             return 'Standard';
         }
 
@@ -41,26 +42,26 @@ class ComplianceService
     {
         // Query sanction_entries for fuzzy match
         $matches = DB::table('sanction_entries')
-            ->whereRaw('LOWER(entity_name) LIKE ?', ['%' . strtolower($customer->full_name) . '%'])
-            ->orWhereRaw('LOWER(aliases) LIKE ?', ['%' . strtolower($customer->full_name) . '%'])
+            ->whereRaw('LOWER(entity_name) LIKE ?', ['%'.strtolower($customer->full_name).'%'])
+            ->orWhereRaw('LOWER(aliases) LIKE ?', ['%'.strtolower($customer->full_name).'%'])
             ->count();
 
         return $matches > 0;
     }
 
-    public function checkVelocity(int $customerId, float $newAmount): array
+    public function checkVelocity(int $customerId, string $newAmount): array
     {
         $startTime = now()->subHours(24);
         $velocity = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $startTime)
             ->sum('amount_local');
 
-        $total = $velocity + $newAmount;
+        $total = $this->mathService->add((string) $velocity, $newAmount);
 
         return [
             'amount_24h' => (float) $velocity,
-            'with_new_transaction' => $total,
-            'threshold_exceeded' => $total > 50000,
+            'with_new_transaction' => (float) $total,
+            'threshold_exceeded' => $this->mathService->compare($total, '50000') > 0,
             'threshold_amount' => 50000,
         ];
     }
@@ -76,11 +77,11 @@ class ComplianceService
         return $smallTransactions >= 3;
     }
 
-    public function requiresHold(float $amount, Customer $customer): array
+    public function requiresHold(string $amount, Customer $customer): array
     {
         $reasons = [];
 
-        if ($amount >= 50000) {
+        if ($this->mathService->compare($amount, '50000') >= 0) {
             $reasons[] = 'EDD_Required';
         }
 
@@ -97,7 +98,7 @@ class ComplianceService
         }
 
         return [
-            'requires_hold' => !empty($reasons),
+            'requires_hold' => ! empty($reasons),
             'reasons' => $reasons,
         ];
     }

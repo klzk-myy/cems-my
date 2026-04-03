@@ -31,6 +31,7 @@ class MathService
         if (bccomp($b, '0', $this->scale) === 0) {
             throw new \InvalidArgumentException('Division by zero');
         }
+
         return bcdiv($a, $b, $this->scale);
     }
 
@@ -49,6 +50,7 @@ class MathService
         $newValue = $this->multiply($transactionAmount, $transactionRate);
         $totalValue = $this->add($oldValue, $newValue);
         $newBalance = $this->add($oldBalance, $transactionAmount);
+
         return $this->divide($totalValue, $newBalance);
     }
 
@@ -58,18 +60,14 @@ class MathService
         string $newRate
     ): string {
         $rateDiff = $this->subtract($newRate, $oldRate);
+
         return $this->multiply($positionAmount, $rateDiff);
     }
 
     public function calculateTransactionAmount(
         string $foreignAmount,
-        string $rate,
-        string $type = 'Buy'
+        string $rate
     ): string {
-        $amount = $this->multiply($foreignAmount, $rate);
-        if ($type === 'Sell') {
-            return $amount;
-        }
-        return $amount;
+        return $this->multiply($foreignAmount, $rate);
     }
 }

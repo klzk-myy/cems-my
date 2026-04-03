@@ -18,9 +18,8 @@ class CounterService
      */
     public function openSession(Counter $counter, User $user, array $openingFloats): CounterSession
     {
-        // Check if counter is already open today
+        // Check if counter is already open
         $existingSession = CounterSession::where('counter_id', $counter->id)
-            ->where('session_date', now()->toDateString())
             ->where('status', 'open')
             ->first();
 
@@ -30,7 +29,6 @@ class CounterService
 
         // Check if user is already at another counter
         $userSession = CounterSession::where('user_id', $user->id)
-            ->where('session_date', now()->toDateString())
             ->where('status', 'open')
             ->first();
 
@@ -48,7 +46,18 @@ class CounterService
             'status' => 'open',
         ]);
 
-        // TODO: Update till balances with opening floats
+        foreach ($openingFloats as $float) {
+            $currency = \App\Models\Currency::find($float['currency_id']);
+            if ($currency) {
+                \App\Models\TillBalance::create([
+                    'till_id' => $counter->id,
+                    'currency_code' => $currency->code,
+                    'opening_balance' => $float['amount'],
+                    'date' => now()->toDateString(),
+                    'opened_by' => $user->id,
+                ]);
+            }
+        }
 
         return $session;
     }
@@ -56,20 +65,35 @@ class CounterService
     /**
      * Close a counter session
      */
-    public function closeSession(CounterSession $session, User $user, array $closingFloats, ?string $notes = null): CounterSession
+    public function closeSession(CounterSession $session, User $user, array $closingFloats, ?string $notes = null, ?User $supervisor = null): CounterSession
     {
         if (! $session->isOpen()) {
             throw new Exception('Session is not open');
         }
 
-        // Calculate variance
         foreach ($closingFloats as $float) {
-            $openingBalance = 10000.00; // TODO: Get from till balances
+            $currency = \App\Models\Currency::find($float['currency_id']);
+            $tillBalance = $currency ? \App\Models\TillBalance::where('till_id', $session->counter_id)
+                ->where('currency_code', $currency->code)
+                ->where('date', $session->session_date)
+                ->whereNull('closed_at')
+                ->first() : null;
+
+            $openingBalance = $tillBalance ? (float) $tillBalance->opening_balance : 0.00;
+            $foreignTotal = $tillBalance ? (float) ($tillBalance->foreign_total ?? 0.00) : 0.00;
+            $expectedBalance = $openingBalance + $foreignTotal;
+            
             $closingBalance = $float['amount'];
-            $variance = $this->calculateVariance($openingBalance, $closingBalance);
+            $variance = $this->calculateVariance($expectedBalance, $closingBalance);
 
             if (abs($variance) > self::VARIANCE_THRESHOLD_RED) {
-                throw new Exception('Variance exceeds threshold, requires supervisor approval');
+                if (! $supervisor || ! $supervisor->isManager()) {
+                    throw new Exception('Variance exceeds red threshold, requires supervisor approval');
+                }
+            } elseif (abs($variance) > self::VARIANCE_THRESHOLD_YELLOW) {
+                if (empty($notes)) {
+                    throw new Exception('Variance exceeds yellow threshold, requires explanation notes');
+                }
             }
         }
 
@@ -80,17 +104,37 @@ class CounterService
             'notes' => $notes,
         ]);
 
-        // TODO: Update till balances with closing floats
+        foreach ($closingFloats as $float) {
+            $currency = \App\Models\Currency::find($float['currency_id']);
+            if ($currency) {
+                $tillBalance = \App\Models\TillBalance::where('till_id', $session->counter_id)
+                    ->where('currency_code', $currency->code)
+                    ->where('date', $session->session_date)
+                    ->whereNull('closed_at')
+                    ->first();
+                
+                if ($tillBalance) {
+                    $expectedBalance = $tillBalance->opening_balance + ($tillBalance->foreign_total ?? 0.00);
+                    $tillBalance->update([
+                        'closing_balance' => $float['amount'],
+                        'variance' => $float['amount'] - $expectedBalance,
+                        'closed_at' => now(),
+                        'closed_by' => $user->id,
+                        'notes' => $notes,
+                    ]);
+                }
+            }
+        }
 
         return $session;
     }
 
     /**
-     * Calculate variance between opening and closing
+     * Calculate variance between expected and actual
      */
-    public function calculateVariance(float $opening, float $closing): float
+    public function calculateVariance(float $expected, float $actual): float
     {
-        return $closing - $opening;
+        return $actual - $expected;
     }
 
     /**
@@ -99,7 +143,6 @@ class CounterService
     public function getCounterStatus(Counter $counter): array
     {
         $session = CounterSession::where('counter_id', $counter->id)
-            ->where('session_date', now()->toDateString())
             ->where('status', 'open')
             ->first();
 
@@ -117,8 +160,7 @@ class CounterService
     public function getAvailableCounters(): array
     {
         $allCounters = Counter::active()->get();
-        $openCounterIds = CounterSession::where('session_date', now()->toDateString())
-            ->where('status', 'open')
+        $openCounterIds = CounterSession::where('status', 'open')
             ->pluck('counter_id')
             ->toArray();
 
@@ -143,11 +185,35 @@ class CounterService
         }
 
         // Calculate variance
-        $totalVariance = 0;
+        $totalVarianceMyr = 0;
         foreach ($physicalCounts as $count) {
-            $expected = 10000.00; // TODO: Get from till balances
+            $currency = \App\Models\Currency::find($count['currency_id']);
+            $tillBalance = $currency ? \App\Models\TillBalance::where('till_id', $session->counter_id)
+                ->where('currency_code', $currency->code)
+                ->where('date', $session->session_date)
+                ->whereNull('closed_at')
+                ->first() : null;
+                
+            $openingBalance = $tillBalance ? (float) $tillBalance->opening_balance : 0.00;
+            $foreignTotal = $tillBalance ? (float) ($tillBalance->foreign_total ?? 0.00) : 0.00;
+            $expected = $openingBalance + $foreignTotal;
             $variance = $count['amount'] - $expected;
-            $totalVariance += $variance;
+            
+            // Only sum up MYR variance directly
+            if ($currency && $currency->code === 'MYR') {
+                $totalVarianceMyr += $variance;
+            }
+            
+            // Close the old till balance
+            if ($tillBalance) {
+                $tillBalance->update([
+                    'closing_balance' => $count['amount'],
+                    'variance' => $variance,
+                    'closed_at' => now(),
+                    'closed_by' => $fromUser->id,
+                    'notes' => 'Handover',
+                ]);
+            }
         }
 
         // Mark old session as handed over
@@ -160,8 +226,8 @@ class CounterService
             'supervisor_id' => $supervisor->id,
             'handover_time' => now(),
             'physical_count_verified' => true,
-            'variance_myr' => $totalVariance,
-            'variance_notes' => $totalVariance != 0 ? 'Variance noted' : null,
+            'variance_myr' => $totalVarianceMyr,
+            'variance_notes' => $totalVarianceMyr != 0 ? 'Variance noted during handover' : null,
         ]);
 
         // Create new session for new user
@@ -173,6 +239,20 @@ class CounterService
             'opened_by' => $supervisor->id,
             'status' => 'open',
         ]);
+        
+        // Open new till balances based on physical counts
+        foreach ($physicalCounts as $count) {
+            $currency = \App\Models\Currency::find($count['currency_id']);
+            if ($currency) {
+                \App\Models\TillBalance::create([
+                    'till_id' => $newSession->counter_id,
+                    'currency_code' => $currency->code,
+                    'opening_balance' => $count['amount'],
+                    'date' => now()->toDateString(),
+                    'opened_by' => $toUser->id,
+                ]);
+            }
+        }
 
         return ['handover' => $handover, 'new_session' => $newSession];
     }

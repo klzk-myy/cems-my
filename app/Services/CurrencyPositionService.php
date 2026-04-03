@@ -22,14 +22,15 @@ class CurrencyPositionService
         string $tillId = 'MAIN'
     ): CurrencyPosition {
         return DB::transaction(function () use ($currencyCode, $amount, $rate, $type, $tillId) {
-            $position = CurrencyPosition::firstOrCreate(
-                ['currency_code' => $currencyCode, 'till_id' => $tillId],
-                [
-                    'balance' => '0',
-                    'avg_cost_rate' => $rate,
-                    'last_valuation_rate' => $rate,
-                ]
-            );
+            $position = CurrencyPosition::lockForUpdate()
+                ->firstOrCreate(
+                    ['currency_code' => $currencyCode, 'till_id' => $tillId],
+                    [
+                        'balance' => '0',
+                        'avg_cost_rate' => $rate,
+                        'last_valuation_rate' => $rate,
+                    ]
+                );
 
             $oldBalance = $position->balance;
             $oldAvgCost = $position->avg_cost_rate;
@@ -67,6 +68,9 @@ class CurrencyPositionService
             $position->update([
                 'balance' => $newBalance,
                 'avg_cost_rate' => $newAvgCost,
+                'last_valuation_rate' => $rate,
+                'unrealized_pnl' => $this->mathService->calculateRevaluationPnl($newBalance, $newAvgCost, $rate),
+                'last_valuation_at' => now(),
             ]);
 
             return $position->fresh();

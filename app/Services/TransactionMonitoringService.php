@@ -4,11 +4,11 @@ namespace App\Services;
 
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
-use Illuminate\Support\Facades\DB;
 
 class TransactionMonitoringService
 {
     protected ComplianceService $complianceService;
+
     protected MathService $mathService;
 
     public function __construct(
@@ -43,11 +43,13 @@ class TransactionMonitoringService
         }
 
         // Rule 4: EDD Threshold
+        // Only update status if transaction is still in Completed status
+        // Don't override Pending status (which is for transactions >= RM 50k)
         $holdCheck = $this->complianceService->requiresHold(
             $transaction->amount_local,
             $transaction->customer
         );
-        if ($holdCheck['requires_hold']) {
+        if ($holdCheck['requires_hold'] && $transaction->status === 'Completed') {
             $transaction->update(['status' => 'OnHold']);
             foreach ($holdCheck['reasons'] as $reason) {
                 $flags[] = $this->createFlag($transaction, 'EDD_Required', $reason);
@@ -68,7 +70,7 @@ class TransactionMonitoringService
             ->where('created_at', '>=', now()->subDays(90))
             ->avg('amount_local');
 
-        if (!$customerAvg || $customerAvg == 0) {
+        if (! $customerAvg || $customerAvg == 0) {
             return false;
         }
 
