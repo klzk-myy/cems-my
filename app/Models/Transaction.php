@@ -15,18 +15,18 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $customer_id
  * @property int $user_id
  * @property string $till_id
- * @property string $type 'Buy' or 'Sell'
+ * @property TransactionType $type
  * @property string $currency_code
  * @property string $amount_local MYR amount
  * @property string $amount_foreign Foreign currency amount
  * @property string $rate Exchange rate applied
  * @property string|null $purpose Transaction purpose
  * @property string|null $source_of_funds Source of funds
- * @property string $status 'Completed', 'Pending', 'OnHold', 'Cancelled'
+ * @property TransactionStatus $status
  * @property string|null $hold_reason Reason for hold status
  * @property int|null $approved_by User ID who approved
  * @property \Illuminate\Support\Carbon|null $approved_at
- * @property string $cdd_level 'Simplified', 'Standard', 'Enhanced'
+ * @property CddLevel $cdd_level
  * @property \Illuminate\Support\Carbon|null $cancelled_at
  * @property int|null $cancelled_by
  * @property string|null $cancellation_reason
@@ -78,6 +78,9 @@ class Transaction extends Model
         'amount_local' => 'decimal:4',
         'amount_foreign' => 'decimal:4',
         'rate' => 'decimal:6',
+        'type' => \App\Enums\TransactionType::class,
+        'status' => \App\Enums\TransactionStatus::class,
+        'cdd_level' => \App\Enums\CddLevel::class,
         'approved_at' => 'datetime',
         'cancelled_at' => 'datetime',
     ];
@@ -144,7 +147,7 @@ class Transaction extends Model
     public function isRefundable(): bool
     {
         // Must be completed
-        if ($this->status !== 'Completed') {
+        if (! $this->status->isCompleted()) {
             return false;
         }
 

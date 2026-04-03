@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -16,7 +17,7 @@ use Illuminate\Notifications\Notifiable;
  * @property string $username
  * @property string $email
  * @property string $password_hash
- * @property string $role 'teller', 'manager', 'admin', 'compliance_officer'
+ * @property UserRole $role
  * @property bool $mfa_enabled
  * @property string|null $mfa_secret
  * @property bool $is_active
@@ -60,6 +61,7 @@ class User extends Authenticatable
      * @var array<string, string>
      */
     protected $casts = [
+        'role' => \App\Enums\UserRole::class,
         'mfa_enabled' => 'boolean',
         'is_active' => 'boolean',
         'last_login_at' => 'datetime',
@@ -90,7 +92,7 @@ class User extends Authenticatable
      */
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->role->isAdmin();
     }
 
     /**
@@ -98,7 +100,7 @@ class User extends Authenticatable
      */
     public function isManager(): bool
     {
-        return in_array($this->role, ['manager', 'admin']);
+        return $this->role->isManager();
     }
 
     /**
@@ -106,6 +108,6 @@ class User extends Authenticatable
      */
     public function isComplianceOfficer(): bool
     {
-        return $this->role === 'compliance_officer' || $this->isAdmin();
+        return $this->role->isComplianceOfficer();
     }
 }

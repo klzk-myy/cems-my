@@ -21,6 +21,8 @@ class FlaggedTransaction extends Model
     ];
 
     protected $casts = [
+        'flag_type' => \App\Enums\ComplianceFlagType::class,
+        'status' => \App\Enums\FlagStatus::class,
         'resolved_at' => 'datetime',
     ];
 

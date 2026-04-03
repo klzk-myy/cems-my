@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CounterSessionStatus;
+use App\Enums\UserRole;
 use App\Models\Counter;
 use App\Models\CounterSession;
 use App\Models\User;
@@ -29,7 +31,7 @@ class CounterController extends Controller
     {
         $counters = Counter::with(['sessions' => function ($query) {
             $query->where('session_date', now()->toDateString())
-                ->where('status', 'open');
+                ->where('status', CounterSessionStatus::Open);
         }])->get();
 
         $stats = [
@@ -104,7 +106,7 @@ class CounterController extends Controller
     {
         $session = CounterSession::where('counter_id', $counter->id)
             ->where('session_date', now()->toDateString())
-            ->where('status', 'open')
+            ->where('status', CounterSessionStatus::Open)
             ->firstOrFail();
 
         $currencies = \App\Models\Currency::where('is_active', true)->get();
@@ -130,7 +132,7 @@ class CounterController extends Controller
 
         $session = CounterSession::where('counter_id', $counter->id)
             ->where('session_date', now()->toDateString())
-            ->where('status', 'open')
+            ->where('status', CounterSessionStatus::Open)
             ->firstOrFail();
 
         try {
@@ -145,11 +147,11 @@ class CounterController extends Controller
                     'entity_id' => $session->id,
                     'old_values' => [
                         'counter_code' => $counter->code,
-                        'status' => 'open',
+                        'status' => CounterSessionStatus::Open->value,
                     ],
                     'new_values' => [
                         'counter_code' => $counter->code,
-                        'status' => 'closed',
+                        'status' => CounterSessionStatus::Closed->value,
                         'closed_by' => $user->username,
                         'closing_floats' => $closingFloats,
                         'notes' => $notes,
@@ -214,7 +216,7 @@ class CounterController extends Controller
     {
         $session = CounterSession::where('counter_id', $counter->id)
             ->where('session_date', now()->toDateString())
-            ->where('status', 'open')
+            ->where('status', CounterSessionStatus::Open)
             ->firstOrFail();
 
         $availableUsers = User::where('is_active', true)
@@ -222,8 +224,7 @@ class CounterController extends Controller
             ->get();
 
         $supervisors = User::where('is_active', true)
-            ->where('role', 'manager')
-            ->orWhere('role', 'admin')
+            ->whereIn('role', [UserRole::Manager, UserRole::Admin])
             ->get();
 
         $currencies = \App\Models\Currency::where('is_active', true)->get();
@@ -247,7 +248,7 @@ class CounterController extends Controller
 
         $session = CounterSession::where('counter_id', $counter->id)
             ->where('session_date', now()->toDateString())
-            ->where('status', 'open')
+            ->where('status', CounterSessionStatus::Open)
             ->firstOrFail();
 
         $fromUser = Auth::user();
@@ -274,14 +275,14 @@ class CounterController extends Controller
                     'old_values' => [
                         'counter_code' => $counter->code,
                         'from_user' => $fromUser->username,
-                        'status' => 'open',
+                        'status' => CounterSessionStatus::Open->value,
                     ],
                     'new_values' => [
                         'counter_code' => $counter->code,
                         'from_user' => $fromUser->username,
                         'to_user' => $toUser->username,
                         'supervisor' => $supervisor->username,
-                        'status' => 'handed_over',
+                        'status' => CounterSessionStatus::HandedOver->value,
                         'physical_counts' => $physicalCounts,
                     ],
                 ],

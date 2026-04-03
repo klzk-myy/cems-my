@@ -2,6 +2,8 @@
 
 namespace Tests\Unit;
 
+use App\Enums\CddLevel;
+use App\Enums\ComplianceFlagType;
 use App\Models\Customer;
 use App\Services\ComplianceService;
 use App\Services\EncryptionService;
@@ -17,8 +19,8 @@ class ComplianceServiceTest extends TestCase
     {
         parent::setUp();
         $this->service = new ComplianceService(
-            new EncryptionService(),
-            new MathService()
+            new EncryptionService,
+            new MathService
         );
     }
 
@@ -30,8 +32,8 @@ class ComplianceServiceTest extends TestCase
         DB::shouldReceive('count')->andReturn(0);
 
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => false, 'risk_rating' => 'Low']);
-        $level = $this->service->determineCDDLevel(1000, $customer);
-        $this->assertEquals('Simplified', $level);
+        $level = $this->service->determineCDDLevel('1000', $customer);
+        $this->assertEquals(CddLevel::Simplified, $level);
     }
 
     public function test_standard_cdd_for_medium_amounts()
@@ -42,8 +44,8 @@ class ComplianceServiceTest extends TestCase
         DB::shouldReceive('count')->andReturn(0);
 
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => false, 'risk_rating' => 'Low']);
-        $level = $this->service->determineCDDLevel(5000, $customer);
-        $this->assertEquals('Standard', $level);
+        $level = $this->service->determineCDDLevel('5000', $customer);
+        $this->assertEquals(CddLevel::Standard, $level);
     }
 
     public function test_enhanced_cdd_for_large_amounts()
@@ -54,16 +56,16 @@ class ComplianceServiceTest extends TestCase
         DB::shouldReceive('count')->andReturn(0);
 
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => false, 'risk_rating' => 'Low']);
-        $level = $this->service->determineCDDLevel(60000, $customer);
-        $this->assertEquals('Enhanced', $level);
+        $level = $this->service->determineCDDLevel('60000', $customer);
+        $this->assertEquals(CddLevel::Enhanced, $level);
     }
 
     public function test_enhanced_cdd_for_pep()
     {
         // No DB mock needed - PEP check happens before sanction check
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => true, 'risk_rating' => 'Low']);
-        $level = $this->service->determineCDDLevel(1000, $customer);
-        $this->assertEquals('Enhanced', $level);
+        $level = $this->service->determineCDDLevel('1000', $customer);
+        $this->assertEquals(CddLevel::Enhanced, $level);
     }
 
     public function test_requires_hold_for_large_amounts()
@@ -74,9 +76,9 @@ class ComplianceServiceTest extends TestCase
         DB::shouldReceive('count')->andReturn(0);
 
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => false, 'risk_rating' => 'Low']);
-        $result = $this->service->requiresHold(60000, $customer);
+        $result = $this->service->requiresHold('60000', $customer);
         $this->assertTrue($result['requires_hold']);
-        $this->assertContains('EDD_Required', $result['reasons']);
+        $this->assertContains(ComplianceFlagType::EddRequired->value, $result['reasons']);
     }
 
     public function test_enhanced_cdd_for_high_risk_customer()
@@ -87,8 +89,8 @@ class ComplianceServiceTest extends TestCase
         DB::shouldReceive('count')->andReturn(0);
 
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => false, 'risk_rating' => 'High']);
-        $level = $this->service->determineCDDLevel(1000, $customer);
-        $this->assertEquals('Enhanced', $level);
+        $level = $this->service->determineCDDLevel('1000', $customer);
+        $this->assertEquals(CddLevel::Enhanced, $level);
     }
 
     public function test_requires_hold_for_pep_status()
@@ -99,9 +101,9 @@ class ComplianceServiceTest extends TestCase
         DB::shouldReceive('count')->andReturn(0);
 
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => true, 'risk_rating' => 'Low']);
-        $result = $this->service->requiresHold(1000, $customer);
+        $result = $this->service->requiresHold('1000', $customer);
         $this->assertTrue($result['requires_hold']);
-        $this->assertContains('PEP_Status', $result['reasons']);
+        $this->assertContains(ComplianceFlagType::PepStatus->value, $result['reasons']);
     }
 
     public function test_requires_hold_for_high_risk_customer()
@@ -112,9 +114,9 @@ class ComplianceServiceTest extends TestCase
         DB::shouldReceive('count')->andReturn(0);
 
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => false, 'risk_rating' => 'High']);
-        $result = $this->service->requiresHold(1000, $customer);
+        $result = $this->service->requiresHold('1000', $customer);
         $this->assertTrue($result['requires_hold']);
-        $this->assertContains('High_Risk_Customer', $result['reasons']);
+        $this->assertContains(ComplianceFlagType::HighRiskCustomer->value, $result['reasons']);
     }
 
     public function test_requires_hold_for_sanction_match()
@@ -125,9 +127,9 @@ class ComplianceServiceTest extends TestCase
         DB::shouldReceive('count')->andReturn(1);
 
         $customer = new Customer(['full_name' => 'John Doe', 'pep_status' => false, 'risk_rating' => 'Low']);
-        $result = $this->service->requiresHold(1000, $customer);
+        $result = $this->service->requiresHold('1000', $customer);
         $this->assertTrue($result['requires_hold']);
-        $this->assertContains('Sanction_Match', $result['reasons']);
+        $this->assertContains(ComplianceFlagType::SanctionMatch->value, $result['reasons']);
     }
 
     public function test_check_sanction_match_finds_match()

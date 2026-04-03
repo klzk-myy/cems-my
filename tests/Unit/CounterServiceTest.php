@@ -185,4 +185,53 @@ class CounterServiceTest extends TestCase
         $this->assertNotContains($counter1->id, $availableIds);
         $this->assertContains($counter2->id, $availableIds);
     }
+
+    public function test_close_session_query_only_returns_expected_currencies(): void
+    {
+        $counter = Counter::factory()->create();
+        $user = User::factory()->create(['role' => 'teller']);
+
+        // Create multiple currencies - some will be in the session, some won't
+        $usdCurrency = Currency::firstOrCreate(
+            ['code' => 'USD'],
+            ['name' => 'US Dollar', 'symbol' => '$', 'decimal_places' => 2, 'is_active' => true]
+        );
+
+        $eurCurrency = Currency::firstOrCreate(
+            ['code' => 'EUR'],
+            ['name' => 'Euro', 'symbol' => '€', 'decimal_places' => 2, 'is_active' => true]
+        );
+
+        $gbpCurrency = Currency::firstOrCreate(
+            ['code' => 'GBP'],
+            ['name' => 'British Pound', 'symbol' => '£', 'decimal_places' => 2, 'is_active' => true]
+        );
+
+        // Open session with only USD
+        $session = $this->counterService->openSession($counter, $user, [
+            ['currency_id' => $usdCurrency->code, 'amount' => 10000.00],
+        ]);
+
+        // Close session with USD only
+        $this->counterService->closeSession($session, $user, [
+            ['currency_id' => $usdCurrency->code, 'amount' => 10000.00],
+        ]);
+
+        // Verify only till balance for USD was updated, not EUR or GBP
+        $this->assertDatabaseHas('till_balances', [
+            'till_id' => (string) $counter->id,
+            'currency_code' => 'USD',
+            'closing_balance' => 10000.00,
+        ]);
+
+        // Verify no till balances exist for other currencies
+        $this->assertDatabaseMissing('till_balances', [
+            'till_id' => (string) $counter->id,
+            'currency_code' => 'EUR',
+        ]);
+        $this->assertDatabaseMissing('till_balances', [
+            'till_id' => (string) $counter->id,
+            'currency_code' => 'GBP',
+        ]);
+    }
 }

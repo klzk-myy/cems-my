@@ -11,19 +11,11 @@ use Illuminate\Support\Facades\Mail;
 
 class RevaluationService
 {
-    protected MathService $mathService;
-    protected RateApiService $rateApiService;
-    protected AccountingService $accountingService;
-
     public function __construct(
-        MathService $mathService,
-        RateApiService $rateApiService,
-        ?AccountingService $accountingService = null
-    ) {
-        $this->mathService = $mathService;
-        $this->rateApiService = $rateApiService;
-        $this->accountingService = $accountingService ?? app(AccountingService::class);
-    }
+        protected MathService $mathService,
+        protected RateApiService $rateApiService,
+        protected AccountingService $accountingService
+    ) {}
 
     public function runRevaluation(int $postedBy, ?string $tillId = null): array
     {
@@ -53,7 +45,7 @@ class RevaluationService
     protected function revaluePosition(CurrencyPosition $position, string $date, int $postedBy): ?array
     {
         $newRate = $this->getCurrentRate($position->currency_code);
-        if (!$newRate) {
+        if (! $newRate) {
             return null;
         }
 
@@ -101,7 +93,7 @@ class RevaluationService
     protected function getCurrentRate(string $currencyCode): ?string
     {
         $rate = $this->rateApiService->getRateForCurrency($currencyCode);
-        if (!$rate) {
+        if (! $rate) {
             return null;
         }
 
@@ -152,10 +144,10 @@ class RevaluationService
                     continue;
                 }
 
-                $oldRate = $position->avg_cost_rate;
+                $oldRate = $position->last_valuation_rate ?? $position->avg_cost_rate;
                 $newRate = $this->getCurrentRate($position->currency_code) ?? $oldRate;
 
-                if (!$newRate) {
+                if (! $newRate) {
                     continue;
                 }
 
@@ -271,9 +263,9 @@ class RevaluationService
             try {
                 Mail::raw("Revaluation Complete\n\nDate: {$results['date']}\nPositions Updated: {$results['positions_updated']}\nNet P&L: {$results['net_pnl']}", function ($message) use ($recipient, $results) {
                     $message->to($recipient['email'])
-                        ->subject('Monthly Revaluation Complete - ' . now()->format('F Y'));
-                    
-                    if (!empty($results['report_path'])) {
+                        ->subject('Monthly Revaluation Complete - '.now()->format('F Y'));
+
+                    if (! empty($results['report_path'])) {
                         $message->attach($results['report_path']);
                     }
                 });
@@ -288,7 +280,7 @@ class RevaluationService
 
     protected function getNotificationRecipients(): array
     {
-        return User::whereIn('role', ['manager', 'admin'])
+        return User::whereIn('role', [UserRole::Manager, UserRole::Admin])
             ->where('is_active', true)
             ->get()
             ->toArray();

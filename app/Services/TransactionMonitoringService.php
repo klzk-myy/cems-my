@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Enums\ComplianceFlagType;
+use App\Enums\FlagStatus;
+use App\Enums\TransactionStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
 
@@ -29,17 +32,17 @@ class TransactionMonitoringService
             $transaction->amount_local
         );
         if ($velocityCheck['threshold_exceeded']) {
-            $flags[] = $this->createFlag($transaction, 'Velocity', "24h velocity exceeded: RM {$velocityCheck['with_new_transaction']}");
+            $flags[] = $this->createFlag($transaction, ComplianceFlagType::Velocity, "24h velocity exceeded: RM {$velocityCheck['with_new_transaction']}");
         }
 
         // Rule 2: Structuring Detection
         if ($this->complianceService->checkStructuring($transaction->customer_id)) {
-            $flags[] = $this->createFlag($transaction, 'Structuring', 'Potential structuring: 3+ transactions under RM 3,000 within 1 hour');
+            $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, 'Potential structuring: 3+ transactions under RM 3,000 within 1 hour');
         }
 
         // Rule 3: Unusual Pattern
         if ($this->isUnusualPattern($transaction)) {
-            $flags[] = $this->createFlag($transaction, 'Manual', 'Transaction deviates 200% from customer average');
+            $flags[] = $this->createFlag($transaction, ComplianceFlagType::ManualReview, 'Transaction deviates 200% from customer average');
         }
 
         // Rule 4: EDD Threshold
@@ -49,10 +52,10 @@ class TransactionMonitoringService
             $transaction->amount_local,
             $transaction->customer
         );
-        if ($holdCheck['requires_hold'] && $transaction->status === 'Completed') {
-            $transaction->update(['status' => 'OnHold']);
+        if ($holdCheck['requires_hold'] && $transaction->status->isCompleted()) {
+            $transaction->update(['status' => TransactionStatus::OnHold]);
             foreach ($holdCheck['reasons'] as $reason) {
-                $flags[] = $this->createFlag($transaction, 'EDD_Required', $reason);
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::EddRequired, $reason);
             }
         }
 
@@ -82,19 +85,19 @@ class TransactionMonitoringService
         return $this->mathService->compare($deviation, '2') > 0;
     }
 
-    protected function createFlag(Transaction $transaction, string $type, string $reason): FlaggedTransaction
+    protected function createFlag(Transaction $transaction, ComplianceFlagType $type, string $reason): FlaggedTransaction
     {
         return FlaggedTransaction::create([
             'transaction_id' => $transaction->id,
             'flag_type' => $type,
             'flag_reason' => $reason,
-            'status' => 'Open',
+            'status' => FlagStatus::Open,
         ]);
     }
 
     public function getOpenFlags(): array
     {
-        return FlaggedTransaction::where('status', 'Open')
+        return FlaggedTransaction::where('status', FlagStatus::Open)
             ->with(['transaction.customer', 'assignedTo'])
             ->orderBy('created_at', 'asc')
             ->get()
@@ -106,7 +109,7 @@ class TransactionMonitoringService
         return FlaggedTransaction::where('id', $flagId)
             ->update([
                 'assigned_to' => $userId,
-                'status' => 'Under_Review',
+                'status' => FlagStatus::UnderReview,
             ]);
     }
 
@@ -116,7 +119,7 @@ class TransactionMonitoringService
             ->update([
                 'reviewed_by' => $userId,
                 'notes' => $notes,
-                'status' => 'Resolved',
+                'status' => FlagStatus::Resolved,
                 'resolved_at' => now(),
             ]);
     }

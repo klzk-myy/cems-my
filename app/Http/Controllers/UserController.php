@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\SystemLog;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -56,10 +57,10 @@ class UserController extends Controller
     {
         $this->requireAdmin();
         $roles = [
-            'teller' => 'Teller - Can create transactions',
-            'manager' => 'Manager - Can approve >RM 50k transactions',
-            'compliance_officer' => 'Compliance Officer - Can review flagged transactions',
-            'admin' => 'Admin - Full system access',
+            UserRole::Teller->value => UserRole::Teller->description(),
+            UserRole::Manager->value => UserRole::Manager->description(),
+            UserRole::ComplianceOfficer->value => UserRole::ComplianceOfficer->description(),
+            UserRole::Admin->value => UserRole::Admin->description(),
         ];
 
         return view('users.create', compact('roles'));
@@ -80,7 +81,12 @@ class UserController extends Controller
             'email' => 'required|email|max:255|unique:users',
             'password' => 'required|string|min:12|confirmed',
             'password_confirmation' => 'required',
-            'role' => ['required', Rule::in(['teller', 'manager', 'compliance_officer', 'admin'])],
+            'role' => ['required', Rule::in([
+                UserRole::Teller->value,
+                UserRole::Manager->value,
+                UserRole::ComplianceOfficer->value,
+                UserRole::Admin->value,
+            ])],
         ]);
 
         $user = User::create([
@@ -131,10 +137,10 @@ class UserController extends Controller
     {
         $this->requireAdmin();
         $roles = [
-            'teller' => 'Teller',
-            'manager' => 'Manager',
-            'compliance_officer' => 'Compliance Officer',
-            'admin' => 'Admin',
+            UserRole::Teller->value => UserRole::Teller->label(),
+            UserRole::Manager->value => UserRole::Manager->label(),
+            UserRole::ComplianceOfficer->value => UserRole::ComplianceOfficer->label(),
+            UserRole::Admin->value => UserRole::Admin->label(),
         ];
 
         return view('users.edit', compact('user', 'roles'));
@@ -151,11 +157,21 @@ class UserController extends Controller
         $validated = $request->validate([
             'username' => ['required', 'string', 'max:50', Rule::unique('users')->ignore($user->id)],
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'role' => ['required', Rule::in(['teller', 'manager', 'compliance_officer', 'admin'])],
+            'role' => ['required', Rule::in([
+                UserRole::Teller->value,
+                UserRole::Manager->value,
+                UserRole::ComplianceOfficer->value,
+                UserRole::Admin->value,
+            ])],
             'is_active' => 'required|boolean',
         ]);
 
-        $oldValues = $user->only(['username', 'email', 'role', 'is_active']);
+        $oldValues = [
+            'username' => $user->username,
+            'email' => $user->email,
+            'role' => $user->role->value,
+            'is_active' => $user->is_active,
+        ];
 
         $user->update([
             'username' => $validated['username'],
@@ -192,7 +208,7 @@ class UserController extends Controller
         $this->requireAdmin();
 
         // Prevent deleting the last admin
-        if ($user->isAdmin() && User::where('role', 'admin')->count() <= 1) {
+        if ($user->isAdmin() && User::where('role', UserRole::Admin)->count() <= 1) {
             return redirect()->route('users.index')
                 ->with('error', 'Cannot delete the last admin user!');
         }
@@ -262,7 +278,7 @@ class UserController extends Controller
         }
 
         // Prevent deactivating last admin
-        if ($user->isAdmin() && $user->is_active && User::where('role', 'admin')->where('is_active', true)->count() <= 1) {
+        if ($user->isAdmin() && $user->is_active && User::where('role', UserRole::Admin)->where('is_active', true)->count() <= 1) {
             return redirect()->route('users.index')
                 ->with('error', 'Cannot deactivate the last active admin!');
         }

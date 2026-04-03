@@ -17,24 +17,15 @@ class TransactionImportService
 
     protected int $successCount = 0;
 
-    protected MathService $mathService;
-
-    protected ComplianceService $complianceService;
-
-    protected CurrencyPositionService $positionService;
-
-    protected AccountingService $accountingService;
-
-    protected TransactionMonitoringService $monitoringService;
-
-    public function __construct(TransactionImport $import)
-    {
+    public function __construct(
+        TransactionImport $import,
+        protected MathService $mathService,
+        protected ComplianceService $complianceService,
+        protected CurrencyPositionService $positionService,
+        protected AccountingService $accountingService,
+        protected TransactionMonitoringService $monitoringService
+    ) {
         $this->import = $import;
-        $this->mathService = app(MathService::class);
-        $this->complianceService = app(ComplianceService::class);
-        $this->positionService = app(CurrencyPositionService::class);
-        $this->accountingService = app(AccountingService::class);
-        $this->monitoringService = app(TransactionMonitoringService::class);
     }
 
     /**
@@ -128,11 +119,11 @@ class TransactionImportService
             }
 
             // Validate numeric amounts
-            if (! is_numeric($data['amount_foreign']) || (float) $data['amount_foreign'] <= 0) {
+            if (! is_numeric($data['amount_foreign']) || BcmathHelper::lte($data['amount_foreign'], '0')) {
                 throw new \Exception("Invalid amount_foreign: {$data['amount_foreign']}");
             }
 
-            if (! is_numeric($data['rate']) || (float) $data['rate'] <= 0) {
+            if (! is_numeric($data['rate']) || BcmathHelper::lte($data['rate'], '0')) {
                 throw new \Exception("Invalid rate: {$data['rate']}");
             }
 
@@ -154,13 +145,13 @@ class TransactionImportService
 
             // Compliance checks
             $cddLevel = $this->complianceService->determineCDDLevel(
-                (float) $amountLocal,
+                $amountLocal,
                 $customer
             );
 
             // Check if requires hold/approval
             $holdCheck = $this->complianceService->requiresHold(
-                (float) $amountLocal,
+                $amountLocal,
                 $customer
             );
 
@@ -170,7 +161,7 @@ class TransactionImportService
             $approvedBy = null;
 
             if ($holdCheck['requires_hold']) {
-                if ((float) $amountLocal >= 50000) {
+                if ($this->mathService->compare($amountLocal, '50000') >= 0) {
                     // Large transaction needs manager approval
                     $status = 'Pending';
                     $holdReason = 'EDD_Required: '.implode(', ', $holdCheck['reasons']);

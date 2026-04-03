@@ -12,6 +12,7 @@ class UserManagementTest extends TestCase
     use RefreshDatabase;
 
     protected User $adminUser;
+
     protected User $tellerUser;
 
     protected function setUp(): void
@@ -425,7 +426,8 @@ class UserManagementTest extends TestCase
         $this->assertNotNull($log);
         $this->assertArrayHasKey('role', $log->old_values ?? []);
         $this->assertArrayHasKey('role', $log->new_values ?? []);
-        $this->assertEquals($oldRole, $log->old_values['role'] ?? null);
+        // Compare enum values as strings since old_values/new_values are stored as JSON
+        $this->assertEquals($oldRole->value, $log->old_values['role'] ?? null);
         $this->assertEquals('manager', $log->new_values['role'] ?? null);
     }
 }

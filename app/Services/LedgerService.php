@@ -7,12 +7,10 @@ use App\Models\ChartOfAccount;
 
 class LedgerService
 {
-    protected MathService $mathService;
-
-    public function __construct(MathService $mathService)
-    {
-        $this->mathService = $mathService;
-    }
+    public function __construct(
+        protected MathService $mathService,
+        protected AccountingService $accountingService
+    ) {}
 
     public function getTrialBalance(?string $asOfDate = null): array
     {
@@ -24,7 +22,7 @@ class LedgerService
         $totalCredits = '0';
 
         foreach ($accounts as $account) {
-            $balance = app(AccountingService::class)->getAccountBalance($account->account_code, $asOfDate);
+            $balance = $this->accountingService->getAccountBalance($account->account_code, $asOfDate);
 
             $debit = $this->mathService->compare($balance, '0') >= 0 ? $balance : '0';
             $credit = $this->mathService->compare($balance, '0') < 0 ? $this->mathService->multiply($balance, '-1') : '0';
@@ -130,7 +128,7 @@ class LedgerService
         $totalAssets = '0';
 
         foreach ($assets as $asset) {
-            $balance = app(AccountingService::class)->getAccountBalance($asset->account_code, $asOfDate);
+            $balance = $this->accountingService->getAccountBalance($asset->account_code, $asOfDate);
             $assetData[] = [
                 'account_code' => $asset->account_code,
                 'account_name' => $asset->account_name,
@@ -144,7 +142,7 @@ class LedgerService
         $totalLiabilities = '0';
 
         foreach ($liabilities as $liability) {
-            $balance = app(AccountingService::class)->getAccountBalance($liability->account_code, $asOfDate);
+            $balance = $this->accountingService->getAccountBalance($liability->account_code, $asOfDate);
             $liabilityData[] = [
                 'account_code' => $liability->account_code,
                 'account_name' => $liability->account_name,
@@ -158,7 +156,7 @@ class LedgerService
         $totalEquity = '0';
 
         foreach ($equities as $equity) {
-            $balance = app(AccountingService::class)->getAccountBalance($equity->account_code, $asOfDate);
+            $balance = $this->accountingService->getAccountBalance($equity->account_code, $asOfDate);
             $equityData[] = [
                 'account_code' => $equity->account_code,
                 'account_name' => $equity->account_name,
@@ -195,7 +193,7 @@ class LedgerService
 
     protected function getClosingBalance(string $accountCode, string $toDate): string
     {
-        return app(AccountingService::class)->getAccountBalance($accountCode, $toDate);
+        return $this->accountingService->getAccountBalance($accountCode, $toDate);
     }
 
     protected function getAccountActivity(string $accountCode, string $fromDate, string $toDate): string

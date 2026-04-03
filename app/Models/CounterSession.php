@@ -25,6 +25,7 @@ class CounterSession extends Model
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
         'session_date' => 'date',
+        'status' => \App\Enums\CounterSessionStatus::class,
     ];
 
     public function counter()
@@ -54,7 +55,7 @@ class CounterSession extends Model
 
     public function scopeOpen($query)
     {
-        return $query->where('status', 'open');
+        return $query->where('status', CounterSessionStatus::Open);
     }
 
     public function scopeForCounter($query, $counterId)
@@ -69,16 +70,16 @@ class CounterSession extends Model
 
     public function isOpen(): bool
     {
-        return $this->status === 'open';
+        return $this->status->isOpen();
     }
 
     public function isClosed(): bool
     {
-        return $this->status === 'closed';
+        return $this->status->isClosed();
     }
 
     public function isHandedOver(): bool
     {
-        return $this->status === 'handed_over';
+        return $this->status->isHandedOver();
     }
 }

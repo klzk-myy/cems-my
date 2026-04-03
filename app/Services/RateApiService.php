@@ -136,15 +136,17 @@ class RateApiService
         $data = $histories->map(function ($history) {
             return [
                 'date' => $history->effective_date->format('Y-m-d'),
-                'rate' => (float) $history->rate,
+                'rate' => $history->rate,
             ];
         })->toArray();
 
         // Calculate trend
-        $firstRate = (float) $histories->first()->rate;
-        $lastRate = (float) $histories->last()->rate;
-        $change = $lastRate - $firstRate;
-        $percentChange = $firstRate > 0 ? ($change / $firstRate) * 100 : 0;
+        $firstRate = $histories->first()->rate;
+        $lastRate = $histories->last()->rate;
+        $change = bcsub($lastRate, $firstRate, 6);
+        $percentChange = bccomp($firstRate, '0', 6) > 0
+            ? bcmul(bcdiv($change, $firstRate, 6), '100', 2)
+            : '0';
 
         return [
             'currency' => $currencyCode,
@@ -153,9 +155,9 @@ class RateApiService
             'trend' => [
                 'start_rate' => $firstRate,
                 'end_rate' => $lastRate,
-                'change' => round($change, 6),
-                'percent_change' => round($percentChange, 2),
-                'direction' => $change >= 0 ? 'up' : 'down',
+                'change' => $change,
+                'percent_change' => $percentChange,
+                'direction' => bccomp($change, '0', 6) >= 0 ? 'up' : 'down',
             ],
         ];
     }

@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CddLevel;
+use App\Enums\ComplianceFlagType;
+use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\Customer;
@@ -57,7 +61,7 @@ class ReportController extends Controller
         $endDate = $startDate->copy()->endOfMonth();
 
         $transactions = Transaction::where('amount_local', '>=', 25000)
-            ->where('status', 'Completed')
+            ->where('status', TransactionStatus::Completed)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->with(['customer', 'user'])
             ->orderBy('created_at', 'asc')
@@ -65,7 +69,7 @@ class ReportController extends Controller
 
         // Count pending transactions that would qualify
         $pendingTransactions = Transaction::where('amount_local', '>=', 25000)
-            ->where('status', 'Pending')
+            ->where('status', TransactionStatus::Pending)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
 
@@ -117,15 +121,15 @@ class ReportController extends Controller
         $summary = DB::table('transactions')
             ->select(
                 'currency_code',
-                DB::raw("SUM(CASE WHEN type = 'Buy' THEN amount_foreign ELSE 0 END) as buy_volume_foreign"),
-                DB::raw("SUM(CASE WHEN type = 'Buy' THEN amount_local ELSE 0 END) as buy_amount_myr"),
-                DB::raw("COUNT(CASE WHEN type = 'Buy' THEN 1 END) as buy_count"),
-                DB::raw("SUM(CASE WHEN type = 'Sell' THEN amount_foreign ELSE 0 END) as sell_volume_foreign"),
-                DB::raw("SUM(CASE WHEN type = 'Sell' THEN amount_local ELSE 0 END) as sell_amount_myr"),
-                DB::raw("COUNT(CASE WHEN type = 'Sell' THEN 1 END) as sell_count")
+                DB::raw("SUM(CASE WHEN type = '".TransactionType::Buy->value."' THEN amount_foreign ELSE 0 END) as buy_volume_foreign"),
+                DB::raw("SUM(CASE WHEN type = '".TransactionType::Buy->value."' THEN amount_local ELSE 0 END) as buy_amount_myr"),
+                DB::raw("COUNT(CASE WHEN type = '".TransactionType::Buy->value."' THEN 1 END) as buy_count"),
+                DB::raw("SUM(CASE WHEN type = '".TransactionType::Sell->value."' THEN amount_foreign ELSE 0 END) as sell_volume_foreign"),
+                DB::raw("SUM(CASE WHEN type = '".TransactionType::Sell->value."' THEN amount_local ELSE 0 END) as sell_amount_myr"),
+                DB::raw("COUNT(CASE WHEN type = '".TransactionType::Sell->value."' THEN 1 END) as sell_count")
             )
             ->whereDate('created_at', $date)
-            ->where('status', 'Completed')
+            ->where('status', TransactionStatus::Completed)
             ->groupBy('currency_code')
             ->orderBy('currency_code')
             ->get();
@@ -321,7 +325,7 @@ class ReportController extends Controller
 
         // Query monthly data
         $query = Transaction::whereYear('created_at', $year)
-            ->where('status', 'Completed');
+            ->where('status', TransactionStatus::Completed);
 
         if ($currency !== 'all') {
             $query->where('currency_code', $currency);
@@ -330,8 +334,8 @@ class ReportController extends Controller
         $monthlyData = $query->select(
             DB::raw('MONTH(created_at) as month'),
             DB::raw('COUNT(*) as count'),
-            DB::raw('SUM(CASE WHEN type = "Buy" THEN amount_local ELSE 0 END) as buy_volume'),
-            DB::raw('SUM(CASE WHEN type = "Sell" THEN amount_local ELSE 0 END) as sell_volume'),
+            DB::raw("SUM(CASE WHEN type = '".TransactionType::Buy->value."' THEN amount_local ELSE 0 END) as buy_volume"),
+            DB::raw("SUM(CASE WHEN type = '".TransactionType::Sell->value."' THEN amount_local ELSE 0 END) as sell_volume"),
             DB::raw('SUM(amount_local) as total_volume')
         )
             ->groupBy('month')
@@ -441,8 +445,8 @@ class ReportController extends Controller
 
         // Realized P&L (from sell transactions in period)
         $sells = Transaction::where('currency_code', $currencyCode)
-            ->where('type', 'Sell')
-            ->where('status', 'Completed')
+            ->where('type', TransactionType::Sell)
+            ->where('status', TransactionStatus::Completed)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->get();
 
@@ -456,15 +460,15 @@ class ReportController extends Controller
 
         // Buy volume in period
         $buyVolume = Transaction::where('currency_code', $currencyCode)
-            ->where('type', 'Buy')
-            ->where('status', 'Completed')
+            ->where('type', TransactionType::Buy)
+            ->where('status', TransactionStatus::Completed)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->sum('amount_local');
 
         // Sell volume in period
         $sellVolume = Transaction::where('currency_code', $currencyCode)
-            ->where('type', 'Sell')
-            ->where('status', 'Completed')
+            ->where('type', TransactionType::Sell)
+            ->where('status', TransactionStatus::Completed)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->sum('amount_local');
 
@@ -544,12 +548,12 @@ class ReportController extends Controller
             ->count();
 
         // EDD required count
-        $eddCount = Transaction::where('cdd_level', 'Enhanced')
+        $eddCount = Transaction::where('cdd_level', CddLevel::Enhanced)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
 
         // Suspicious activity
-        $suspiciousCount = FlaggedTransaction::whereIn('flag_type', ['Structuring', 'Sanction_Match'])
+        $suspiciousCount = FlaggedTransaction::whereIn('flag_type', [ComplianceFlagType::Structuring, ComplianceFlagType::SanctionMatch])
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
 

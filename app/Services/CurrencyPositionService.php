@@ -91,13 +91,13 @@ class CurrencyPositionService
             ->get();
     }
 
-    public function getTotalPnl(string $tillId = 'MAIN'): float
+    public function getTotalPnl(string $tillId = 'MAIN'): string
     {
         $positions = $this->getAllPositions($tillId);
-        $totalUnrealized = 0.0;
+        $totalUnrealized = '0';
 
         foreach ($positions as $position) {
-            $totalUnrealized += (float) $position['unrealized_pnl'];
+            $totalUnrealized = BcmathHelper::add($totalUnrealized, $position['unrealized_pnl'] ?? '0');
         }
 
         return $totalUnrealized;

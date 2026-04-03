@@ -16,12 +16,12 @@ class CheckRole
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             return redirect()->route('login');
         }
 
         // Check if user has the required role
-        $hasRole = match($role) {
+        $hasRole = match ($role) {
             'admin' => $user->isAdmin(),
             'manager' => $user->isManager(),
             'compliance' => $user->isComplianceOfficer(),
@@ -29,7 +29,7 @@ class CheckRole
             default => false,
         };
 
-        if (!$hasRole) {
+        if (! $hasRole) {
             abort(403, 'Unauthorized. You do not have permission to access this resource.');
         }
 

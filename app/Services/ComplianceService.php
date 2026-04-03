@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\CddLevel;
+use App\Enums\ComplianceFlagType;
 use App\Models\Customer;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
@@ -20,22 +22,22 @@ class ComplianceService
         $this->mathService = $mathService;
     }
 
-    public function determineCDDLevel(string $amount, Customer $customer): string
+    public function determineCDDLevel(string $amount, Customer $customer): CddLevel
     {
         // Enhanced Due Diligence triggers
         if ($customer->pep_status || $this->checkSanctionMatch($customer)) {
-            return 'Enhanced';
+            return CddLevel::Enhanced;
         }
 
         if ($this->mathService->compare($amount, '50000') >= 0 || $customer->risk_rating === 'High') {
-            return 'Enhanced';
+            return CddLevel::Enhanced;
         }
 
         if ($this->mathService->compare($amount, '3000') >= 0) {
-            return 'Standard';
+            return CddLevel::Standard;
         }
 
-        return 'Simplified';
+        return CddLevel::Simplified;
     }
 
     public function checkSanctionMatch(Customer $customer): bool
@@ -59,10 +61,10 @@ class ComplianceService
         $total = $this->mathService->add((string) $velocity, $newAmount);
 
         return [
-            'amount_24h' => (float) $velocity,
-            'with_new_transaction' => (float) $total,
+            'amount_24h' => (string) $velocity,
+            'with_new_transaction' => $total,
             'threshold_exceeded' => $this->mathService->compare($total, '50000') > 0,
-            'threshold_amount' => 50000,
+            'threshold_amount' => '50000',
         ];
     }
 
@@ -82,19 +84,19 @@ class ComplianceService
         $reasons = [];
 
         if ($this->mathService->compare($amount, '50000') >= 0) {
-            $reasons[] = 'EDD_Required';
+            $reasons[] = ComplianceFlagType::EddRequired->value;
         }
 
         if ($customer->pep_status) {
-            $reasons[] = 'PEP_Status';
+            $reasons[] = ComplianceFlagType::PepStatus->value;
         }
 
         if ($this->checkSanctionMatch($customer)) {
-            $reasons[] = 'Sanction_Match';
+            $reasons[] = ComplianceFlagType::SanctionMatch->value;
         }
 
         if ($customer->risk_rating === 'High') {
-            $reasons[] = 'High_Risk_Customer';
+            $reasons[] = ComplianceFlagType::HighRiskCustomer->value;
         }
 
         return [

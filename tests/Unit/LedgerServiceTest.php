@@ -22,8 +22,8 @@ class LedgerServiceTest extends TestCase
     {
         parent::setUp();
         $mathService = new MathService;
-        $this->ledgerService = new LedgerService($mathService);
         $this->accountingService = new AccountingService($mathService);
+        $this->ledgerService = new LedgerService($mathService, $this->accountingService);
 
         $this->seedChartOfAccounts();
     }

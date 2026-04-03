@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ComplianceFlagType;
+use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\SystemLog;
@@ -20,25 +23,13 @@ use Illuminate\Support\Facades\Storage;
 
 class TransactionController extends Controller
 {
-    protected CurrencyPositionService $positionService;
-
-    protected ComplianceService $complianceService;
-
-    protected TransactionMonitoringService $monitoringService;
-
-    protected MathService $mathService;
-
     public function __construct(
-        CurrencyPositionService $positionService,
-        ComplianceService $complianceService,
-        TransactionMonitoringService $monitoringService,
-        MathService $mathService
-    ) {
-        $this->positionService = $positionService;
-        $this->complianceService = $complianceService;
-        $this->monitoringService = $monitoringService;
-        $this->mathService = $mathService;
-    }
+        protected CurrencyPositionService $positionService,
+        protected ComplianceService $complianceService,
+        protected TransactionMonitoringService $monitoringService,
+        protected MathService $mathService,
+        protected AccountingService $accountingService
+    ) {}
 
     /**
      * Display list of transactions
@@ -74,7 +65,7 @@ class TransactionController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,id',
-            'type' => 'required|in:Buy,Sell',
+            'type' => ['required', 'in:'.TransactionType::Buy->value.','.TransactionType::Sell->value],
             'currency_code' => 'required|exists:currencies,code',
             'amount_foreign' => 'required|numeric|min:0.01',
             'rate' => 'required|numeric|min:0.0001',
@@ -140,22 +131,22 @@ class TransactionController extends Controller
         $cddLevel = $this->complianceService->determineCDDLevel($amountLocal, $customer);
         $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
 
-        $status = 'Completed';
+        $status = TransactionStatus::Completed;
         $holdReason = null;
         $approvedBy = null;
 
         if ($holdCheck['requires_hold']) {
             // Check if amount >= 50,000 using BCMath for precision
             if ($this->mathService->compare($amountLocal, '50000') >= 0) {
-                $status = 'Pending';
-                $holdReason = 'EDD_Required: '.implode(', ', $holdCheck['reasons']);
+                $status = TransactionStatus::Pending;
+                $holdReason = ComplianceFlagType::EddRequired->label().': '.implode(', ', $holdCheck['reasons']);
             } else {
-                $status = 'OnHold';
+                $status = TransactionStatus::OnHold;
                 $holdReason = implode(', ', $holdCheck['reasons']);
             }
         }
 
-        if ($validated['type'] === 'Sell') {
+        if ($validated['type'] === TransactionType::Sell->value) {
             $position = $this->positionService->getPosition($validated['currency_code'], $validated['till_id']);
             if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
                 $availableBalance = $position ? $position->balance : '0';
@@ -186,7 +177,7 @@ class TransactionController extends Controller
                 'version' => 0,
             ]);
 
-            if ($status === 'Completed') {
+            if ($status === TransactionStatus::Completed) {
                 $this->positionService->updatePosition(
                     $validated['currency_code'],
                     $amountForeign,
@@ -222,10 +213,10 @@ class TransactionController extends Controller
             // Dispatch event for async processing
             \App\Events\TransactionCreated::dispatch($transaction);
 
-            if ($status === 'Pending') {
+            if ($status === TransactionStatus::Pending) {
                 return redirect()->route('transactions.show', $transaction)
                     ->with('warning', 'Transaction created and pending manager approval (≥ RM 50,000).');
-            } elseif ($status === 'OnHold') {
+            } elseif ($status === TransactionStatus::OnHold) {
                 return redirect()->route('transactions.show', $transaction)
                     ->with('warning', 'Transaction on hold: '.$holdReason);
             }
@@ -265,7 +256,7 @@ class TransactionController extends Controller
             abort(403, 'Unauthorized. Manager approval required.');
         }
 
-        if ($transaction->status !== 'Pending') {
+        if (! $transaction->status->isPending()) {
             return back()->with('error', 'Transaction is not pending approval.');
         }
 
@@ -274,10 +265,10 @@ class TransactionController extends Controller
             // Optimistic locking: Use version to prevent race conditions
             // If another manager approved between the status check and now, this will fail
             $updated = Transaction::where('id', $transaction->id)
-                ->where('status', 'Pending')
+                ->where('status', TransactionStatus::Pending)
                 ->where('version', $transaction->version)
                 ->update([
-                    'status' => 'Completed',
+                    'status' => TransactionStatus::Completed,
                     'approved_by' => auth()->id(),
                     'approved_at' => now(),
                     'version' => DB::raw('version + 1'),
@@ -303,10 +294,10 @@ class TransactionController extends Controller
                     $transaction->currency_code,
                     (string) $transaction->amount_foreign,
                     (string) $transaction->rate,
-                    $transaction->type,
+                    $transaction->type->value,
                     $transaction->till_id ?? 'MAIN'
                 );
-                $this->updateTillBalance($tillBalance, $transaction->type,
+                $this->updateTillBalance($tillBalance, $transaction->type->value,
                     (string) $transaction->amount_local,
                     (string) $transaction->amount_foreign
                 );
@@ -347,7 +338,7 @@ class TransactionController extends Controller
         $currentTotal = $tillBalance->transaction_total ?? '0';
         $foreignTotal = $tillBalance->foreign_total ?? '0';
 
-        if ($type === 'Buy') {
+        if ($type === TransactionType::Buy->value) {
             $tillBalance->update([
                 'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
                 'foreign_total' => $this->mathService->add($foreignTotal, $amountForeign),
@@ -367,7 +358,7 @@ class TransactionController extends Controller
     {
         $entries = [];
 
-        if ($transaction->type === 'Buy') {
+        if ($transaction->type->isBuy()) {
             $entries = [
                 [
                     'account_code' => '2000',
@@ -421,12 +412,11 @@ class TransactionController extends Controller
             }
         }
 
-        $accountingService = app(AccountingService::class);
-        $accountingService->createJournalEntry(
+        $this->accountingService->createJournalEntry(
             $entries,
             'Transaction',
             $transaction->id,
-            "Transaction #{$transaction->id} - {$transaction->type} {$transaction->currency_code}"
+            "Transaction #{$transaction->id} - {$transaction->type->value} {$transaction->currency_code}"
         );
     }
 
@@ -448,7 +438,7 @@ class TransactionController extends Controller
      */
     public function receipt(Transaction $transaction)
     {
-        if ($transaction->status !== 'Completed') {
+        if (! $transaction->status->isCompleted()) {
             return back()->with('error', 'Receipts can only be generated for completed transactions.');
         }
 
@@ -470,8 +460,8 @@ class TransactionController extends Controller
 
         $stats = [
             'total_count' => $allTransactions->count(),
-            'buy_volume' => $allTransactions->where('type', 'Buy')->sum('amount_local'),
-            'sell_volume' => $allTransactions->where('type', 'Sell')->sum('amount_local'),
+            'buy_volume' => $allTransactions->where('type', TransactionType::Buy)->sum('amount_local'),
+            'sell_volume' => $allTransactions->where('type', TransactionType::Sell)->sum('amount_local'),
             'total_volume' => $allTransactions->sum('amount_local'),
             'avg_transaction' => $allTransactions->count() > 0
                 ? $allTransactions->sum('amount_local') / $allTransactions->count()
@@ -502,8 +492,8 @@ class TransactionController extends Controller
             $chartLabels[] = $monthLabel;
 
             $monthData = $monthlyData->get($monthKey, collect());
-            $chartBuyData[] = (float) ($monthData->where('type', 'Buy')->first()?->total ?? 0);
-            $chartSellData[] = (float) ($monthData->where('type', 'Sell')->first()?->total ?? 0);
+            $chartBuyData[] = (float) ($monthData->where('type', TransactionType::Buy)->first()?->total ?? 0);
+            $chartSellData[] = (float) ($monthData->where('type', TransactionType::Sell)->first()?->total ?? 0);
         }
 
         return view('customers.history', compact(
@@ -533,13 +523,13 @@ class TransactionController extends Controller
             foreach ($transactions as $transaction) {
                 fputcsv($file, [
                     $transaction->created_at->format('Y-m-d H:i:s'),
-                    $transaction->type,
+                    $transaction->type->value,
                     $transaction->currency_code,
                     $transaction->amount_foreign,
                     $transaction->amount_local,
                     $transaction->rate,
                     $transaction->user->username ?? 'N/A',
-                    $transaction->status,
+                    $transaction->status->value,
                 ]);
             }
 
@@ -589,7 +579,7 @@ class TransactionController extends Controller
             $refundTransaction = $this->createRefundTransaction($transaction);
 
             $transaction->update([
-                'status' => 'Cancelled',
+                'status' => TransactionStatus::Cancelled,
                 'cancelled_at' => now(),
                 'cancelled_by' => auth()->id(),
                 'cancellation_reason' => $validated['cancellation_reason'],
@@ -603,9 +593,9 @@ class TransactionController extends Controller
                 'action' => 'transaction_cancelled',
                 'entity_type' => 'Transaction',
                 'entity_id' => $transaction->id,
-                'old_values' => ['status' => 'Completed'],
+                'old_values' => ['status' => TransactionStatus::Completed->value],
                 'new_values' => [
-                    'status' => 'Cancelled',
+                    'status' => TransactionStatus::Cancelled->value,
                     'refund_transaction_id' => $refundTransaction->id,
                     'reason' => $validated['cancellation_reason'],
                 ],
@@ -682,7 +672,14 @@ class TransactionController extends Controller
         ]);
 
         // Process import
-        $service = new TransactionImportService($import);
+        $service = new TransactionImportService(
+            $import,
+            $this->mathService,
+            $this->complianceService,
+            $this->positionService,
+            $this->accountingService,
+            $this->monitoringService
+        );
         $service->process($fullPath);
 
         return redirect()->route('transactions.batch-upload.show', $import)
@@ -744,7 +741,7 @@ class TransactionController extends Controller
      */
     protected function createRefundTransaction(Transaction $original): Transaction
     {
-        $refundType = $original->type === 'Buy' ? 'Sell' : 'Buy';
+        $refundType = $original->type->opposite();
 
         return Transaction::create([
             'customer_id' => $original->customer_id,
@@ -757,7 +754,7 @@ class TransactionController extends Controller
             'rate' => $original->rate,
             'purpose' => 'Refund: '.$original->purpose,
             'source_of_funds' => 'Refund',
-            'status' => 'Completed',
+            'status' => TransactionStatus::Completed,
             'cdd_level' => $original->cdd_level,
             'original_transaction_id' => $original->id,
             'is_refund' => true,
@@ -769,12 +766,12 @@ class TransactionController extends Controller
      */
     protected function reverseStockPosition(Transaction $transaction, ?string $tillId = null): void
     {
-        $reverseType = $transaction->type === 'Buy' ? 'Sell' : 'Buy';
+        $reverseType = $transaction->type->opposite();
         $this->positionService->updatePosition(
             $transaction->currency_code,
             (string) $transaction->amount_foreign,
             (string) $transaction->rate,
-            $reverseType,
+            $reverseType->value,
             $tillId ?? $transaction->till_id ?? 'MAIN'
         );
     }
@@ -784,10 +781,8 @@ class TransactionController extends Controller
      */
     protected function createReversingJournalEntries(Transaction $transaction): void
     {
-        $accountingService = app(AccountingService::class);
-
         $entries = [];
-        if ($transaction->type === 'Buy') {
+        if ($transaction->type->isBuy()) {
             $entries = [
                 [
                     'account_code' => '1000',
@@ -819,7 +814,7 @@ class TransactionController extends Controller
             ];
         }
 
-        $accountingService->createJournalEntry(
+        $this->accountingService->createJournalEntry(
             $entries,
             'TransactionCancellation',
             $transaction->id,

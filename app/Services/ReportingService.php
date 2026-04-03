@@ -214,14 +214,14 @@ class ReportingService
             $rows[] = [
                 'Date' => $date,
                 'Currency' => $currency->code,
-                'Buy_Volume_MYR' => (float) $buyTxns->sum('amount_local'),
+                'Buy_Volume_MYR' => (string) $buyTxns->sum('amount_local'),
                 'Buy_Count' => $buyTxns->count(),
-                'Sell_Volume_MYR' => (float) $sellTxns->sum('amount_local'),
+                'Sell_Volume_MYR' => (string) $sellTxns->sum('amount_local'),
                 'Sell_Count' => $sellTxns->count(),
-                'Avg_Buy_Rate' => $buyTxns->avg('rate') ?? 0,
-                'Avg_Sell_Rate' => $sellTxns->avg('rate') ?? 0,
-                'Opening_Position' => $position ? (float) $position->balance : 0,
-                'Closing_Position' => $position ? (float) $position->balance : 0,
+                'Avg_Buy_Rate' => (string) ($buyTxns->avg('rate') ?? '0'),
+                'Avg_Sell_Rate' => (string) ($sellTxns->avg('rate') ?? '0'),
+                'Opening_Position' => $position ? $position->balance : '0',
+                'Closing_Position' => $position ? $position->balance : '0',
             ];
         }
 

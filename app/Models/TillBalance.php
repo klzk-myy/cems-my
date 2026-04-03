@@ -45,14 +45,27 @@ class TillBalance extends Model
     }
 
     /**
-     * Calculate variance based on closing and opening balance
+     * Calculate the expected balance (opening + transaction activity)
+     */
+    public function getExpectedBalance(): float
+    {
+        $opening = (float) $this->opening_balance;
+        $foreignTotal = $this->foreign_total !== null ? (float) $this->foreign_total : 0.0;
+
+        return $opening + $foreignTotal;
+    }
+
+    /**
+     * Calculate variance between closing balance and expected balance
+     * Expected = opening_balance + foreign_total (transaction activity)
      */
     public function calculateVariance(): float
     {
         if ($this->closing_balance === null) {
             return 0.0;
         }
-        return (float) $this->closing_balance - (float) $this->opening_balance;
+
+        return (float) $this->closing_balance - $this->getExpectedBalance();
     }
 
     /**

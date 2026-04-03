@@ -37,7 +37,7 @@ class UserModelTest extends TestCase
      */
     public function test_user_has_correct_fillable_attributes(): void
     {
-        $user = new User();
+        $user = new User;
         $fillable = $user->getFillable();
 
         $this->assertContains('username', $fillable);
@@ -54,7 +54,7 @@ class UserModelTest extends TestCase
      */
     public function test_user_has_correct_hidden_attributes(): void
     {
-        $user = new User();
+        $user = new User;
         $hidden = $user->getHidden();
 
         $this->assertContains('password_hash', $hidden);
@@ -66,7 +66,7 @@ class UserModelTest extends TestCase
      */
     public function test_user_has_correct_casts(): void
     {
-        $user = new User();
+        $user = new User;
         $casts = $user->getCasts();
 
         $this->assertArrayHasKey('mfa_enabled', $casts);
@@ -129,13 +129,13 @@ class UserModelTest extends TestCase
      */
     public function test_transactions_relationship_exists(): void
     {
-        $user = new User();
+        $user = new User;
 
         $this->assertTrue(method_exists($user, 'transactions'));
     }
 
     /**
-     * Test valid roles exist
+     * Test valid roles
      */
     public function test_valid_roles(): void
     {
@@ -143,7 +143,9 @@ class UserModelTest extends TestCase
 
         foreach ($validRoles as $role) {
             $user = User::factory()->make(['role' => $role]);
-            $this->assertEquals($role, $user->role);
+            // Role is now an enum, so we need to compare the value
+            $this->assertInstanceOf(\App\Enums\UserRole::class, $user->role);
+            $this->assertEquals($role, $user->role->value);
         }
     }
 

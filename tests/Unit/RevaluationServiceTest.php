@@ -6,6 +6,7 @@ use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\ExchangeRate;
 use App\Models\User;
+use App\Services\AccountingService;
 use App\Services\MathService;
 use App\Services\RateApiService;
 use App\Services\RevaluationService;
@@ -34,7 +35,8 @@ class RevaluationServiceTest extends TestCase
 
         $mathService = new MathService;
         $rateApiService = new RateApiService;
-        $this->service = new RevaluationService($mathService, $rateApiService);
+        $accountingService = new AccountingService($mathService);
+        $this->service = new RevaluationService($mathService, $rateApiService, $accountingService);
 
         // Seed currency
         Currency::firstOrCreate(
