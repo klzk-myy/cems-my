@@ -105,6 +105,20 @@ Route::middleware('auth')->group(function () {
         Route::get('/accounting/revaluation', [RevaluationController::class, 'index'])->name('accounting.revaluation');
         Route::post('/accounting/revaluation/run', [RevaluationController::class, 'run'])->name('accounting.revaluation.run');
         Route::get('/accounting/revaluation/history', [RevaluationController::class, 'history'])->name('accounting.revaluation.history');
+
+        // Accounting Period Management
+        Route::get('/accounting/periods', [AccountingController::class, 'periods'])
+            ->name('accounting.periods');
+        Route::post('/accounting/periods/{period}/close', [AccountingController::class, 'closePeriod'])
+            ->name('accounting.period.close');
+
+        // Budget Reports
+        Route::get('/accounting/budget', [AccountingController::class, 'budget'])
+            ->name('accounting.budget');
+
+        // Bank Reconciliation
+        Route::get('/accounting/reconciliation', [AccountingController::class, 'reconciliation'])
+            ->name('accounting.reconciliation');
     });
 
     // Reports - Managers, Compliance, and Admin
@@ -156,11 +170,26 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:manager')->group(function () {
         Route::get('/audit', [\App\Http\Controllers\AuditController::class, 'index'])
             ->name('audit.index');
+        Route::get('/audit/dashboard', [\App\Http\Controllers\AuditController::class, 'dashboard'])
+            ->name('audit.dashboard');
+        Route::get('/audit/rotate', [\App\Http\Controllers\AuditController::class, 'rotate'])
+            ->name('audit.rotate');
         Route::get('/audit/{log}', [\App\Http\Controllers\AuditController::class, 'show'])
             ->name('audit.show');
         Route::post('/audit/export', [\App\Http\Controllers\AuditController::class, 'export'])
             ->name('audit.export');
     });
+
+    // Counter Management - All authenticated users
+    Route::get('/counters', [\App\Http\Controllers\CounterController::class, 'index'])->name('counters.index');
+    Route::get('/counters/{counter}/open', [\App\Http\Controllers\CounterController::class, 'showOpen'])->name('counters.open.show');
+    Route::post('/counters/{counter}/open', [\App\Http\Controllers\CounterController::class, 'open'])->name('counters.open');
+    Route::get('/counters/{counter}/close', [\App\Http\Controllers\CounterController::class, 'showClose'])->name('counters.close.show');
+    Route::post('/counters/{counter}/close', [\App\Http\Controllers\CounterController::class, 'close'])->name('counters.close');
+    Route::get('/counters/{counter}/status', [\App\Http\Controllers\CounterController::class, 'status'])->name('counters.status');
+    Route::get('/counters/{counter}/history', [\App\Http\Controllers\CounterController::class, 'history'])->name('counters.history');
+    Route::get('/counters/{counter}/handover', [\App\Http\Controllers\CounterController::class, 'showHandover'])->name('counters.handover.show');
+    Route::post('/counters/{counter}/handover', [\App\Http\Controllers\CounterController::class, 'handover'])->name('counters.handover');
 });
 
 require __DIR__.'/auth.php';
