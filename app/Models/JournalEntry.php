@@ -8,6 +8,32 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Journal Entry Model
+ *
+ * Represents a journal entry in the accounting system. Journal entries are the foundation
+ * of double-entry bookkeeping, recording financial transactions with balanced debit and credit amounts.
+ * Each entry contains multiple journal lines and can be posted to the general ledger.
+ *
+ * @property int $id
+ * @property int $period_id
+ * @property \Illuminate\Support\Carbon $entry_date
+ * @property string|null $reference_type
+ * @property int|null $reference_id
+ * @property string|null $description
+ * @property string $status
+ * @property int|null $posted_by
+ * @property \Illuminate\Support\Carbon|null $posted_at
+ * @property int|null $reversed_by
+ * @property \Illuminate\Support\Carbon|null $reversed_at
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, JournalLine> $lines
+ * @property-read User|null $postedBy
+ * @property-read User|null $reversedBy
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, AccountLedger> $ledgerEntries
+ * @property-read AccountingPeriod $period
+ */
 class JournalEntry extends Model
 {
     use HasFactory;
@@ -31,46 +57,73 @@ class JournalEntry extends Model
         'reversed_at' => 'datetime',
     ];
 
+    /**
+     * Get the journal lines associated with this entry.
+     */
     public function lines(): HasMany
     {
         return $this->hasMany(JournalLine::class)->orderBy('id');
     }
 
+    /**
+     * Get the user who posted this journal entry.
+     */
     public function postedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'posted_by');
     }
 
+    /**
+     * Get the user who reversed this journal entry.
+     */
     public function reversedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reversed_by');
     }
 
+    /**
+     * Get the ledger entries associated with this journal entry.
+     */
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(AccountLedger::class);
     }
 
+    /**
+     * Check if this journal entry has been posted.
+     */
     public function isPosted(): bool
     {
         return $this->status === 'Posted';
     }
 
+    /**
+     * Check if this journal entry has been reversed.
+     */
     public function isReversed(): bool
     {
         return $this->status === 'Reversed';
     }
 
+    /**
+     * Get the total amount of debits for this journal entry.
+     */
     public function getTotalDebits(): string
     {
         return (string) $this->lines()->sum('debit');
     }
 
+    /**
+     * Get the total amount of credits for this journal entry.
+     */
     public function getTotalCredits(): string
     {
         return (string) $this->lines()->sum('credit');
     }
 
+    /**
+     * Check if the journal entry is balanced (total debits equal total credits).
+     */
     public function isBalanced(): bool
     {
         $mathService = new MathService;
@@ -78,6 +131,9 @@ class JournalEntry extends Model
         return $mathService->compare($this->getTotalDebits(), $this->getTotalCredits()) === 0;
     }
 
+    /**
+     * Get the accounting period this journal entry belongs to.
+     */
     public function period(): BelongsTo
     {
         return $this->belongsTo(AccountingPeriod::class);

@@ -5,13 +5,71 @@ namespace App\Services;
 use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
 
+/**
+ * Ledger Service
+ *
+ * Provides comprehensive ledger and financial reporting functionality.
+ * Generates trial balances, account ledgers, profit and loss statements,
+ * and balance sheets with proper accounting treatment for different account types.
+ *
+ * This service handles the core financial reporting needs of the accounting system,
+ * working with ChartOfAccount and AccountLedger models to produce accurate
+ * financial statements. All monetary calculations use high-precision math
+ * via the injected MathService to prevent floating-point errors.
+ */
 class LedgerService
 {
+    /**
+     * Create a new LedgerService instance.
+     *
+     * @param  MathService  $mathService  Service for high-precision mathematical operations
+     * @param  AccountingService  $accountingService  Service for accounting calculations and balance retrieval
+     */
     public function __construct(
         protected MathService $mathService,
         protected AccountingService $accountingService
     ) {}
 
+    /**
+     * Generate a trial balance report as of a specific date.
+     *
+     * The trial balance lists all active accounts with their debit/credit balances,
+     * verifying that total debits equal total credits. Credit-normal accounts
+     * (Liabilities, Equity, Revenue) show positive balances as credits, while
+     * debit-normal accounts (Assets, Expenses) show positive balances as debits.
+     *
+     * Example return structure:
+     * ```
+     * [
+     *     'accounts' => [
+     *         [
+     *             'account_code' => '1000',
+     *             'account_name' => 'Cash',
+     *             'account_type' => 'Asset',
+     *             'debit' => '5000.00',
+     *             'credit' => '0',
+     *             'balance' => '5000.00'
+     *         ],
+     *         // ... more accounts
+     *     ],
+     *     'total_debits' => '15000.00',
+     *     'total_credits' => '15000.00',
+     *     'total_balance' => '0',
+     *     'is_balanced' => true,
+     *     'as_of_date' => '2024-01-31'
+     * ]
+     * ```
+     *
+     * @param  string|null  $asOfDate  Date for balance calculation (YYYY-MM-DD format). Defaults to current date if null.
+     * @return array{
+     *     accounts: array<int, array{account_code: string, account_name: string, account_type: string, debit: string, credit: string, balance: string}>,
+     *     total_debits: string,
+     *     total_credits: string,
+     *     total_balance: string,
+     *     is_balanced: bool,
+     *     as_of_date: string
+     * } Trial balance data with accounts list, totals, and balance status
+     */
     public function getTrialBalance(?string $asOfDate = null): array
     {
         $asOfDate = $asOfDate ?? now()->toDateString();
@@ -59,6 +117,42 @@ class LedgerService
         ];
     }
 
+    /**
+     * Retrieve detailed ledger entries for a specific account within a date range.
+     *
+     * Returns the account information along with all journal entries, opening balance
+     * (balance before the from date), closing balance (balance as of the to date),
+     * and period totals. The entries are ordered chronologically by entry date and ID.
+     *
+     * Example return structure:
+     * ```
+     * [
+     *     'account' => ChartOfAccount {...},
+     *     'entries' => Collection<AccountLedger> [...],
+     *     'opening_balance' => '1000.00',
+     *     'closing_balance' => '2500.00',
+     *     'total_debits' => 2000.00,
+     *     'total_credits' => 500.00,
+     *     'period' => [
+     *         'from' => '2024-01-01',
+     *         'to' => '2024-01-31'
+     *     ]
+     * ]
+     * ```
+     *
+     * @param  string  $accountCode  Unique code of the account to retrieve ledger for
+     * @param  string  $fromDate  Start date for the ledger period (YYYY-MM-DD format)
+     * @param  string  $toDate  End date for the ledger period (YYYY-MM-DD format)
+     * @return array{
+     *     account: ChartOfAccount,
+     *     entries: \Illuminate\Database\Eloquent\Collection<int, AccountLedger>,
+     *     opening_balance: string,
+     *     closing_balance: string,
+     *     total_debits: float,
+     *     total_credits: float,
+     *     period: array{from: string, to: string}
+     * } Account ledger data with entries and balance information
+     */
     public function getAccountLedger(string $accountCode, string $fromDate, string $toDate): array
     {
         $account = ChartOfAccount::findOrFail($accountCode);
@@ -81,6 +175,54 @@ class LedgerService
         ];
     }
 
+    /**
+     * Generate a Profit and Loss (Income) statement for a specific period.
+     *
+     * Calculates total revenues and expenses for the given date range,
+     * then computes the net profit (revenue minus expenses). Positive net profit
+     * indicates profit, negative indicates loss. Each revenue and expense account
+     * is listed with its activity amount for the period.
+     *
+     * Example return structure:
+     * ```
+     * [
+     *     'revenues' => [
+     *         [
+     *             'account_code' => '4000',
+     *             'account_name' => 'Sales Revenue',
+     *             'amount' => '50000.00'
+     *         ],
+     *         // ... more revenue accounts
+     *     ],
+     *     'total_revenue' => '50000.00',
+     *     'expenses' => [
+     *         [
+     *             'account_code' => '5000',
+     *             'account_name' => 'Rent Expense',
+     *             'amount' => '10000.00'
+     *         ],
+     *         // ... more expense accounts
+     *     ],
+     *     'total_expenses' => '35000.00',
+     *     'net_profit' => '15000.00',
+     *     'period' => [
+     *         'from' => '2024-01-01',
+     *         'to' => '2024-01-31'
+     *     ]
+     * ]
+     * ```
+     *
+     * @param  string  $fromDate  Start date for the P&L period (YYYY-MM-DD format)
+     * @param  string  $toDate  End date for the P&L period (YYYY-MM-DD format)
+     * @return array{
+     *     revenues: array<int, array{account_code: string, account_name: string, amount: string}>,
+     *     total_revenue: string,
+     *     expenses: array<int, array{account_code: string, account_name: string, amount: string}>,
+     *     total_expenses: string,
+     *     net_profit: string,
+     *     period: array{from: string, to: string}
+     * } Profit and Loss statement with revenues, expenses, and net profit
+     */
     public function getProfitAndLoss(string $fromDate, string $toDate): array
     {
         $revenues = ChartOfAccount::where('account_type', 'Revenue')->get();
@@ -123,6 +265,63 @@ class LedgerService
         ];
     }
 
+    /**
+     * Generate a Balance Sheet as of a specific date.
+     *
+     * Presents the financial position by listing all assets, liabilities, and equity
+     * accounts with their balances. Verifies the accounting equation:
+     * Assets = Liabilities + Equity. Returns individual account details for each
+     * category along with totals and balance verification status.
+     *
+     * Example return structure:
+     * ```
+     * [
+     *     'assets' => [
+     *         [
+     *             'account_code' => '1000',
+     *             'account_name' => 'Cash',
+     *             'balance' => '25000.00'
+     *         ],
+     *         // ... more asset accounts
+     *     ],
+     *     'total_assets' => '50000.00',
+     *     'liabilities' => [
+     *         [
+     *             'account_code' => '2000',
+     *             'account_name' => 'Accounts Payable',
+     *             'balance' => '10000.00'
+     *         ],
+     *         // ... more liability accounts
+     *     ],
+     *     'total_liabilities' => '15000.00',
+     *     'equity' => [
+     *         [
+     *             'account_code' => '3000',
+     *             'account_name' => 'Retained Earnings',
+     *             'balance' => '35000.00'
+     *         ],
+     *         // ... more equity accounts
+     *     ],
+     *     'total_equity' => '35000.00',
+     *     'liabilities_plus_equity' => '50000.00',
+     *     'is_balanced' => true,
+     *     'as_of_date' => '2024-01-31'
+     * ]
+     * ```
+     *
+     * @param  string  $asOfDate  Date for balance sheet snapshot (YYYY-MM-DD format)
+     * @return array{
+     *     assets: array<int, array{account_code: string, account_name: string, balance: string}>,
+     *     total_assets: string,
+     *     liabilities: array<int, array{account_code: string, account_name: string, balance: string}>,
+     *     total_liabilities: string,
+     *     equity: array<int, array{account_code: string, account_name: string, balance: string}>,
+     *     total_equity: string,
+     *     liabilities_plus_equity: string,
+     *     is_balanced: bool,
+     *     as_of_date: string
+     * } Balance sheet data with assets, liabilities, equity, and verification status
+     */
     public function getBalanceSheet(string $asOfDate): array
     {
         $assets = ChartOfAccount::where('account_type', 'Asset')->get();
@@ -182,6 +381,16 @@ class LedgerService
         ];
     }
 
+    /**
+     * Calculate the opening balance for an account as of a specific date.
+     *
+     * Retrieves the running balance from the last ledger entry before the given date.
+     * Returns '0' if no prior entries exist.
+     *
+     * @param  string  $accountCode  Unique code of the account
+     * @param  string  $fromDate  Date from which to calculate opening balance (YYYY-MM-DD format)
+     * @return string Opening balance amount as a string
+     */
     protected function getOpeningBalance(string $accountCode, string $fromDate): string
     {
         $entry = AccountLedger::where('account_code', $accountCode)
@@ -193,11 +402,33 @@ class LedgerService
         return $entry ? (string) $entry->running_balance : '0';
     }
 
+    /**
+     * Calculate the closing balance for an account as of a specific date.
+     *
+     * Delegates to the AccountingService to retrieve the account balance
+     * at the specified date.
+     *
+     * @param  string  $accountCode  Unique code of the account
+     * @param  string  $toDate  Date for which to calculate closing balance (YYYY-MM-DD format)
+     * @return string Closing balance amount as a string
+     */
     protected function getClosingBalance(string $accountCode, string $toDate): string
     {
         return $this->accountingService->getAccountBalance($accountCode, $toDate);
     }
 
+    /**
+     * Calculate the net activity for an account within a date range.
+     *
+     * Computes the total activity by summing debits and credits for the period,
+     * adjusting based on account type. For Expense accounts, activity equals
+     * debits minus credits. For Revenue accounts, activity equals credits minus debits.
+     *
+     * @param  string  $accountCode  Unique code of the account
+     * @param  string  $fromDate  Start date for activity calculation (YYYY-MM-DD format)
+     * @param  string  $toDate  End date for activity calculation (YYYY-MM-DD format)
+     * @return string Net activity amount as a string
+     */
     protected function getAccountActivity(string $accountCode, string $fromDate, string $toDate): string
     {
         $entries = AccountLedger::where('account_code', $accountCode)

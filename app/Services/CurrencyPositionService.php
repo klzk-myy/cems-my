@@ -5,15 +5,46 @@ namespace App\Services;
 use App\Models\CurrencyPosition;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Currency Position Service
+ *
+ * Manages foreign currency positions for currency exchange operations.
+ * Tracks balances, calculates average costs, and monitors unrealized P&L.
+ * Uses MathService for high-precision calculations to prevent floating-point errors.
+ */
 class CurrencyPositionService
 {
+    /**
+     * Math service instance for high-precision calculations.
+     */
     protected MathService $mathService;
 
+    /**
+     * Create a new CurrencyPositionService instance.
+     *
+     * @param  MathService  $mathService  Math service for high-precision calculations
+     */
     public function __construct(MathService $mathService)
     {
         $this->mathService = $mathService;
     }
 
+    /**
+     * Update a currency position with a new transaction.
+     *
+     * Uses MathService for all high-precision calculations.
+     * For 'Buy' transactions, increases position and recalculates average cost.
+     * For 'Sell' transactions, decreases position (cost basis unchanged).
+     *
+     * @param  string  $currencyCode  Currency code (e.g., 'USD', 'EUR')
+     * @param  string  $amount  Transaction amount as string
+     * @param  string  $rate  Exchange rate for this transaction
+     * @param  string  $type  Transaction type: 'Buy' or 'Sell'
+     * @param  string  $tillId  Till identifier (default: 'MAIN')
+     * @return CurrencyPosition Updated position model
+     *
+     * @throws \InvalidArgumentException If selling with insufficient or zero balance
+     */
     public function updatePosition(
         string $currencyCode,
         string $amount,
@@ -77,6 +108,13 @@ class CurrencyPositionService
         });
     }
 
+    /**
+     * Get a specific currency position.
+     *
+     * @param  string  $currencyCode  Currency code (e.g., 'USD', 'EUR')
+     * @param  string  $tillId  Till identifier (default: 'MAIN')
+     * @return CurrencyPosition|null Position model or null if not found
+     */
     public function getPosition(string $currencyCode, string $tillId = 'MAIN'): ?CurrencyPosition
     {
         return CurrencyPosition::where('currency_code', $currencyCode)
@@ -84,6 +122,12 @@ class CurrencyPositionService
             ->first();
     }
 
+    /**
+     * Get all positions for a specific till.
+     *
+     * @param  string  $tillId  Till identifier (default: 'MAIN')
+     * @return \Illuminate\Database\Eloquent\Collection Collection of position models
+     */
     public function getAllPositions(string $tillId = 'MAIN'): \Illuminate\Database\Eloquent\Collection
     {
         return CurrencyPosition::where('till_id', $tillId)
@@ -91,13 +135,21 @@ class CurrencyPositionService
             ->get();
     }
 
+    /**
+     * Calculate total unrealized P&L across all positions for a till.
+     *
+     * Uses MathService for high-precision addition of position P&L values.
+     *
+     * @param  string  $tillId  Till identifier (default: 'MAIN')
+     * @return string Total unrealized P&L as string
+     */
     public function getTotalPnl(string $tillId = 'MAIN'): string
     {
         $positions = $this->getAllPositions($tillId);
         $totalUnrealized = '0';
 
         foreach ($positions as $position) {
-            $totalUnrealized = BcmathHelper::add($totalUnrealized, $position['unrealized_pnl'] ?? '0');
+            $totalUnrealized = $this->mathService->add($totalUnrealized, $position['unrealized_pnl'] ?? '0');
         }
 
         return $totalUnrealized;

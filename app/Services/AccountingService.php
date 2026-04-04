@@ -10,15 +10,51 @@ use App\Models\JournalLine;
 use App\Models\SystemLog;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Accounting Service
+ *
+ * Handles core accounting operations including journal entry creation,
+ * validation, reversal, and account balance/activity queries.
+ *
+ * Ensures double-entry bookkeeping integrity and maintains ledger consistency.
+ */
 class AccountingService
 {
+    /**
+     * Math service for high-precision calculations.
+     */
     protected MathService $mathService;
 
+    /**
+     * Create a new AccountingService instance.
+     *
+     * @param  MathService  $mathService  Math service for precise calculations
+     */
     public function __construct(MathService $mathService)
     {
         $this->mathService = $mathService;
     }
 
+    /**
+     * Create a new journal entry with validation.
+     *
+     * Validates that the entry is balanced (debits equal credits) and posts
+     * to an open accounting period. Creates journal lines and updates ledger.
+     *
+     * @param  array  $lines  Array of journal line items with keys:
+     *                        - account_code: string Account code
+     *                        - debit?: float|int|string Debit amount (default: 0)
+     *                        - credit?: float|int|string Credit amount (default: 0)
+     *                        - description?: string Line description (optional)
+     * @param  string  $referenceType  Type of reference (e.g., 'Invoice', 'Payment')
+     * @param  int|null  $referenceId  Reference document ID (optional)
+     * @param  string  $description  Entry description
+     * @param  string|null  $entryDate  Entry date in YYYY-MM-DD format (default: today)
+     * @param  int|null  $postedBy  User ID posting the entry (default: authenticated user)
+     * @return JournalEntry Created journal entry with loaded lines
+     *
+     * @throws \InvalidArgumentException If entry is not balanced or period is closed
+     */
     public function createJournalEntry(
         array $lines,
         string $referenceType,
@@ -85,6 +121,17 @@ class AccountingService
         });
     }
 
+    /**
+     * Validate that journal entry lines are balanced.
+     *
+     * Calculates total debits and credits using high-precision arithmetic
+     * and verifies they are equal.
+     *
+     * @param  array  $lines  Array of journal line items with keys:
+     *                        - debit?: float|int|string Debit amount (default: 0)
+     *                        - credit?: float|int|string Credit amount (default: 0)
+     * @return bool True if debits equal credits, false otherwise
+     */
     public function validateBalanced(array $lines): bool
     {
         $totalDebits = '0';
@@ -100,6 +147,19 @@ class AccountingService
         return $this->mathService->compare($totalDebits, $totalCredits) === 0;
     }
 
+    /**
+     * Reverse an existing journal entry.
+     *
+     * Creates a new reversal entry that swaps debits and credits from the
+     * original entry. Updates original entry status to 'Reversed'.
+     *
+     * @param  JournalEntry  $originalEntry  The entry to reverse
+     * @param  string  $reason  Reason for the reversal
+     * @param  int|null  $reversedBy  User ID performing the reversal (default: authenticated user)
+     * @return JournalEntry The newly created reversal entry
+     *
+     * @throws \InvalidArgumentException If entry is already reversed or not posted
+     */
     public function reverseJournalEntry(
         JournalEntry $originalEntry,
         string $reason = '',
@@ -154,6 +214,11 @@ class AccountingService
         });
     }
 
+    /**
+     * Update the account ledger with journal entry lines.
+     *
+     * @param  JournalEntry  $entry  The journal entry to process
+     */
     protected function updateLedger(JournalEntry $entry): void
     {
         foreach ($entry->lines as $line) {
@@ -182,6 +247,14 @@ class AccountingService
         }
     }
 
+    /**
+     * Determine if an account is a debit-balance account.
+     *
+     * @param  string  $accountCode  The account code to check
+     * @return bool True if account type is Asset or Expense
+     *
+     * @throws \InvalidArgumentException If account is not found
+     */
     protected function isDebitAccount(string $accountCode): bool
     {
         $account = ChartOfAccount::find($accountCode);
@@ -192,6 +265,16 @@ class AccountingService
         return in_array($account->account_type, ['Asset', 'Expense']);
     }
 
+    /**
+     * Get the current balance for an account.
+     *
+     * Retrieves the running balance from the most recent ledger entry,
+     * optionally filtered by an as-of date.
+     *
+     * @param  string  $accountCode  The account code to query
+     * @param  string|null  $asOfDate  Date in YYYY-MM-DD format (default: current date)
+     * @return string Account balance as a string for precision
+     */
     public function getAccountBalance(string $accountCode, ?string $asOfDate = null): string
     {
         $query = AccountLedger::where('account_code', $accountCode);
@@ -211,7 +294,14 @@ class AccountingService
 
     /**
      * Get net account activity (change in balance) within a date range.
-     * For expense accounts, this returns the total debits minus credits.
+     *
+     * Calculates the net movement of an account between two dates.
+     * For expense accounts, this returns total debits minus credits.
+     *
+     * @param  string  $accountCode  The account code to query
+     * @param  string  $startDate  Start date in YYYY-MM-DD format (inclusive)
+     * @param  string  $endDate  End date in YYYY-MM-DD format (inclusive)
+     * @return string Net activity amount as a string (positive = net debit, negative = net credit)
      */
     public function getAccountActivity(string $accountCode, string $startDate, string $endDate): string
     {
