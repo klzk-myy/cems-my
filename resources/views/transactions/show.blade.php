@@ -274,7 +274,7 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Type</span>
-                    <span class="detail-value type-{{ strtolower($transaction->type) }}">{{ $transaction->type }}</span>
+                    <span class="detail-value type-{{ strtolower($transaction->type->value) }}">{{ $transaction->type->value }}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Currency</span>
