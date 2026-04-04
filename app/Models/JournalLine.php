@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\MathService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -35,16 +36,25 @@ class JournalLine extends Model
 
     public function isDebit(): bool
     {
-        return (float) $this->debit > 0;
+        $mathService = new MathService;
+
+        return $mathService->compare((string) $this->debit, '0') > 0;
     }
 
     public function isCredit(): bool
     {
-        return (float) $this->credit > 0;
+        $mathService = new MathService;
+
+        return $mathService->compare((string) $this->credit, '0') > 0;
     }
 
-    public function getAmount(): float
+    public function getAmount(): string
     {
-        return (float) $this->debit > 0 ? (float) $this->debit : (float) $this->credit;
+        $mathService = new MathService;
+        if ($mathService->compare((string) $this->debit, '0') > 0) {
+            return (string) $this->debit;
+        }
+
+        return (string) $this->credit;
     }
 }

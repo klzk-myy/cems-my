@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AccountingPeriod;
 use App\Models\Budget;
 use App\Models\ChartOfAccount;
 use Illuminate\Support\Collection;
@@ -38,13 +39,25 @@ class BudgetService
 
     /**
      * Update actual amounts for all budgets in a period
+     * Calculates actuals based on activity within the period date range
      */
     public function updateActuals(string $periodCode): void
     {
+        // Get the period to determine date range
+        $period = AccountingPeriod::where('period_code', $periodCode)->first();
+
+        if (! $period) {
+            return;
+        }
+
         $budgets = Budget::where('period_code', $periodCode)->get();
         foreach ($budgets as $budget) {
-            // Get actual balance for the account in the period
-            $actual = $this->accountingService->getAccountBalance($budget->account_code);
+            // Get actual activity for the account within the period date range
+            $actual = $this->accountingService->getAccountActivity(
+                $budget->account_code,
+                $period->start_date->toDateString(),
+                $period->end_date->toDateString()
+            );
             $budget->update(['actual_amount' => $actual]);
         }
     }

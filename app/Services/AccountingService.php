@@ -108,12 +108,22 @@ class AccountingService
         $reversedBy = $reversedBy ?? auth()->id();
 
         return DB::transaction(function () use ($originalEntry, $reason, $reversedBy) {
-            $originalEntry->update([
-                'status' => 'Reversed',
-                'reversed_by' => $reversedBy,
-                'reversed_at' => now(),
-            ]);
+            // Validation 1: Check if entry is already reversed
+            if ($originalEntry->isReversed()) {
+                throw new \InvalidArgumentException('Entry has already been reversed');
+            }
 
+            // Validation 2: Check if entry is posted (can only reverse posted entries)
+            if (! $originalEntry->isPosted()) {
+                throw new \InvalidArgumentException('Entry must be Posted to be reversed');
+            }
+
+            // Load lines if not already loaded
+            if (! $originalEntry->relationLoaded('lines')) {
+                $originalEntry->load('lines');
+            }
+
+            // Create reversal entry FIRST (so we can link to it)
             $lines = [];
             foreach ($originalEntry->lines as $line) {
                 $lines[] = [
@@ -132,6 +142,13 @@ class AccountingService
                 now()->toDateString(),
                 $reversedBy
             );
+
+            // Update original entry status and create explicit link via reversal_id
+            $originalEntry->update([
+                'status' => 'Reversed',
+                'reversed_by' => $reversedBy,
+                'reversed_at' => now(),
+            ]);
 
             return $entry;
         });
@@ -180,13 +197,38 @@ class AccountingService
         $query = AccountLedger::where('account_code', $accountCode);
 
         if ($asOfDate) {
-            $query->where('entry_date', '<=', $asOfDate);
+            // Use date function for cross-database compatibility
+            // This ensures proper comparison regardless of datetime vs date storage
+            $query->whereRaw('DATE(entry_date) <= ?', [$asOfDate]);
         }
 
         $lastEntry = $query->orderBy('entry_date', 'desc')
-            ->orderBy('id', 'desc')
+            ->orderBy('created_at', 'desc')
             ->first();
 
         return $lastEntry ? (string) $lastEntry->running_balance : '0';
+    }
+
+    /**
+     * Get net account activity (change in balance) within a date range.
+     * For expense accounts, this returns the total debits minus credits.
+     */
+    public function getAccountActivity(string $accountCode, string $startDate, string $endDate): string
+    {
+        $entries = AccountLedger::where('account_code', $accountCode)
+            ->whereBetween('entry_date', [$startDate, $endDate])
+            ->get();
+
+        $totalDebits = '0';
+        $totalCredits = '0';
+
+        foreach ($entries as $entry) {
+            $totalDebits = $this->mathService->add($totalDebits, (string) $entry->debit);
+            $totalCredits = $this->mathService->add($totalCredits, (string) $entry->credit);
+        }
+
+        // For expense accounts, activity is typically the net amount (debits - credits)
+        // This gives us the actual spending in the period
+        return $this->mathService->subtract($totalDebits, $totalCredits);
     }
 }

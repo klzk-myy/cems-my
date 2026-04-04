@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\AccountingPeriod;
+use App\Models\ChartOfAccount;
 use App\Models\CurrencyPosition;
 use App\Models\RevaluationEntry;
 use App\Models\User;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -128,79 +131,102 @@ class RevaluationService
         ];
     }
 
-    public function runRevaluationWithJournal(?string $date = null): array
+    public function runRevaluationWithJournal(?string $date = null, ?int $postedBy = null): array
     {
         $date = $date ?? now()->toDateString();
+        $postedBy = $postedBy ?? auth()->id() ?? 1;
+
+        // FAULT #5 FIX: Validate period before processing
+        $this->validatePeriodForDate($date);
+
         $positions = CurrencyPosition::all();
         $results = [];
         $totalGain = '0';
         $totalLoss = '0';
+        $errors = [];
 
-        DB::beginTransaction();
+        // FAULT #6 FIX: Process each currency independently in its own transaction
+        foreach ($positions as $position) {
+            if ($this->mathService->compare($position->balance, '0') <= 0) {
+                continue;
+            }
 
-        try {
-            foreach ($positions as $position) {
-                if ($this->mathService->compare($position->balance, '0') <= 0) {
-                    continue;
-                }
+            $oldRate = $position->last_valuation_rate ?? $position->avg_cost_rate;
+            $newRate = $this->getCurrentRate($position->currency_code) ?? $oldRate;
 
-                $oldRate = $position->last_valuation_rate ?? $position->avg_cost_rate;
-                $newRate = $this->getCurrentRate($position->currency_code) ?? $oldRate;
+            if (! $newRate) {
+                continue;
+            }
 
-                if (! $newRate) {
-                    continue;
-                }
+            $gainLoss = $this->mathService->calculateRevaluationPnl(
+                $position->balance,
+                $oldRate,
+                $newRate
+            );
 
-                $gainLoss = $this->mathService->calculateRevaluationPnl(
-                    $position->balance,
-                    $oldRate,
-                    $newRate
-                );
+            if ($this->mathService->compare($gainLoss, '0') === 0) {
+                continue;
+            }
 
-                if ($this->mathService->compare($gainLoss, '0') === 0) {
-                    continue;
-                }
+            // Process each currency in its own transaction
+            try {
+                DB::transaction(function () use ($position, $oldRate, $newRate, $gainLoss, $date, $postedBy) {
+                    $revaluationEntry = RevaluationEntry::create([
+                        'currency_code' => $position->currency_code,
+                        'till_id' => $position->till_id,
+                        'old_rate' => $oldRate,
+                        'new_rate' => $newRate,
+                        'position_amount' => $position->balance,
+                        'gain_loss_amount' => $gainLoss,
+                        'revaluation_date' => $date,
+                        'posted_by' => $postedBy,
+                    ]);
 
-                $revaluationEntry = RevaluationEntry::create([
-                    'currency_code' => $position->currency_code,
-                    'till_id' => $position->till_id,
-                    'old_rate' => $oldRate,
-                    'new_rate' => $newRate,
-                    'position_amount' => $position->balance,
-                    'gain_loss_amount' => $gainLoss,
-                    'revaluation_date' => $date,
-                    'posted_by' => auth()->id() ?? 1,
-                ]);
+                    // Validate and get configured account codes
+                    $forexPositionAccount = $this->getValidatedAccountCode('accounting.forex_position_account', '2000');
+                    $gainAccount = $this->getValidatedAccountCode('accounting.revaluation_gain_account', '5100');
+                    $lossAccount = $this->getValidatedAccountCode('accounting.revaluation_loss_account', '6100');
+
+                    $isGain = $this->mathService->compare($gainLoss, '0') > 0;
+                    $lines = [
+                        [
+                            'account_code' => $forexPositionAccount,
+                            'debit' => $isGain ? $gainLoss : '0',
+                            'credit' => $isGain ? '0' : $this->mathService->multiply($gainLoss, '-1'),
+                            'description' => "Revaluation for {$position->currency_code} @ {$newRate}",
+                        ],
+                        [
+                            'account_code' => $isGain ? $gainAccount : $lossAccount,
+                            'debit' => $isGain ? '0' : $this->mathService->multiply($gainLoss, '-1'),
+                            'credit' => $isGain ? $gainLoss : '0',
+                            'description' => "Revaluation gain/loss for {$position->currency_code}",
+                        ],
+                    ];
+
+                    // FAULT #5 FIX: AccountingService will assign period_id to journal entry
+                    $this->accountingService->createJournalEntry(
+                        $lines,
+                        'Revaluation',
+                        $revaluationEntry->id,
+                        "Month-end revaluation: {$position->currency_code}",
+                        $date,
+                        $postedBy
+                    );
+
+                    $position->update([
+                        'unrealized_pnl' => $this->mathService->add($position->unrealized_pnl ?? '0', $gainLoss),
+                        'last_valuation_rate' => $newRate,
+                        'last_valuation_at' => now(),
+                    ]);
+
+                    return [
+                        'currency_code' => $position->currency_code,
+                        'gain_loss' => $gainLoss,
+                        'is_gain' => $isGain,
+                    ];
+                });
 
                 $isGain = $this->mathService->compare($gainLoss, '0') > 0;
-                $lines = [
-                    [
-                        'account_code' => '2000',
-                        'debit' => $isGain ? $gainLoss : '0',
-                        'credit' => $isGain ? '0' : $this->mathService->multiply($gainLoss, '-1'),
-                        'description' => "Revaluation for {$position->currency_code} @ {$newRate}",
-                    ],
-                    [
-                        'account_code' => $isGain ? '5100' : '6100',
-                        'debit' => $isGain ? '0' : $this->mathService->multiply($gainLoss, '-1'),
-                        'credit' => $isGain ? $gainLoss : '0',
-                        'description' => "Revaluation gain/loss for {$position->currency_code}",
-                    ],
-                ];
-
-                $this->accountingService->createJournalEntry(
-                    $lines,
-                    'Revaluation',
-                    $revaluationEntry->id,
-                    "Month-end revaluation: {$position->currency_code}",
-                    $date
-                );
-
-                $position->update([
-                    'unrealized_pnl' => $this->mathService->add($position->unrealized_pnl ?? '0', $gainLoss),
-                    'last_valuation_rate' => $newRate,
-                    'last_valuation_at' => now(),
-                ]);
 
                 if ($isGain) {
                     $totalGain = $this->mathService->add($totalGain, $gainLoss);
@@ -213,24 +239,56 @@ class RevaluationService
                     'gain_loss' => $gainLoss,
                     'is_gain' => $isGain,
                 ];
+            } catch (\Exception $e) {
+                // FAULT #6 FIX: Log error and continue processing other currencies
+                $errorMessage = "Revaluation failed for {$position->currency_code}: {$e->getMessage()}";
+                Log::error($errorMessage);
+                $errors[] = [
+                    'currency_code' => $position->currency_code,
+                    'error' => $errorMessage,
+                ];
             }
+        }
 
-            DB::commit();
+        // If all currencies failed, throw exception
+        if (empty($results) && ! empty($errors)) {
+            throw new \RuntimeException('All revaluations failed: '.implode(', ', array_column($errors, 'error')));
+        }
 
-            return [
-                'date' => $date,
-                'positions_updated' => count($results),
-                'results' => $results,
-                'total_gain' => $totalGain,
-                'total_loss' => $totalLoss,
-                'net_pnl' => $this->mathService->add($totalGain, $totalLoss),
-                'report_path' => null,
-            ];
+        return [
+            'date' => $date,
+            'positions_updated' => count($results),
+            'results' => $results,
+            'total_gain' => $totalGain,
+            'total_loss' => $totalLoss,
+            'net_pnl' => $this->mathService->add($totalGain, $totalLoss),
+            'report_path' => null,
+            'errors' => $errors,
+        ];
+    }
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Revaluation failed', ['error' => $e->getMessage()]);
-            throw $e;
+    /**
+     * FAULT #5 FIX: Validate that the posting date falls within an open period.
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function validatePeriodForDate(string $date): void
+    {
+        // Find the accounting period for this entry date
+        $period = AccountingPeriod::forDate($date)->first();
+
+        // If no period exists for the date, throw exception
+        if (! $period) {
+            throw new \InvalidArgumentException(
+                "No accounting period found for date {$date}. Please create a period for this date or use a different date."
+            );
+        }
+
+        // Validate that the period is open
+        if (! $period->isOpen()) {
+            throw new \InvalidArgumentException(
+                "Cannot post to closed period {$period->period_code}. Please use an open period or contact administrator."
+            );
         }
     }
 
@@ -280,9 +338,31 @@ class RevaluationService
 
     protected function getNotificationRecipients(): array
     {
-        return User::whereIn('role', [UserRole::Manager, UserRole::Admin])
-            ->where('is_active', true)
+        return User::where('is_active', true)
             ->get()
             ->toArray();
+    }
+
+    /**
+     * Get validated account code from config.
+     * Throws exception if account doesn't exist or is inactive (when validation is enabled).
+     */
+    protected function getValidatedAccountCode(string $configKey, string $defaultCode): string
+    {
+        $code = \Illuminate\Support\Facades\Config::get($configKey, $defaultCode);
+
+        if (\Illuminate\Support\Facades\Config::get('accounting.validate_accounts', true)) {
+            $account = ChartOfAccount::where('account_code', $code)->first();
+
+            if (! $account) {
+                throw new \InvalidArgumentException("Configured account '{$configKey}' with code '{$code}' does not exist in chart of accounts");
+            }
+
+            if (! $account->is_active) {
+                throw new \InvalidArgumentException("Configured account '{$configKey}' with code '{$code}' is not active");
+            }
+        }
+
+        return $code;
     }
 }

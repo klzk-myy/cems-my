@@ -24,12 +24,14 @@ class LedgerService
         foreach ($accounts as $account) {
             $balance = $this->accountingService->getAccountBalance($account->account_code, $asOfDate);
 
-            $debit = $this->mathService->compare($balance, '0') >= 0 ? $balance : '0';
-            $credit = $this->mathService->compare($balance, '0') < 0 ? $this->mathService->multiply($balance, '-1') : '0';
-
             if (in_array($account->account_type, ['Liability', 'Equity', 'Revenue'])) {
+                // Credit-normal accounts: positive balance = credit, negative balance = debit
                 $debit = $this->mathService->compare($balance, '0') < 0 ? $this->mathService->multiply($balance, '-1') : '0';
                 $credit = $this->mathService->compare($balance, '0') >= 0 ? $balance : '0';
+            } else {
+                // Debit-normal accounts (Asset, Expense): positive balance = debit, negative balance = credit
+                $debit = $this->mathService->compare($balance, '0') >= 0 ? $balance : '0';
+                $credit = $this->mathService->compare($balance, '0') < 0 ? $this->mathService->multiply($balance, '-1') : '0';
             }
 
             $trialBalance[] = [
@@ -202,10 +204,21 @@ class LedgerService
             ->whereBetween('entry_date', [$fromDate, $toDate])
             ->get();
 
+        // Get account type to determine proper activity calculation
+        $account = ChartOfAccount::find($accountCode);
+        $accountType = $account ? $account->account_type : 'Asset';
+
         $activity = '0';
         foreach ($entries as $entry) {
-            $activity = $this->mathService->add($activity, (string) $entry->credit);
-            $activity = $this->mathService->subtract($activity, (string) $entry->debit);
+            if ($accountType === 'Expense') {
+                // Expense: activity = debits - credits (debit-normal)
+                $activity = $this->mathService->add($activity, (string) $entry->debit);
+                $activity = $this->mathService->subtract($activity, (string) $entry->credit);
+            } else {
+                // Revenue: activity = credits - debits (credit-normal)
+                $activity = $this->mathService->add($activity, (string) $entry->credit);
+                $activity = $this->mathService->subtract($activity, (string) $entry->debit);
+            }
         }
 
         return $activity;

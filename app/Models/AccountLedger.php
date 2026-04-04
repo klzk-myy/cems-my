@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\MathService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,8 +39,10 @@ class AccountLedger extends Model
         return $this->belongsTo(JournalEntry::class);
     }
 
-    public function getNetAmount(): float
+    public function getNetAmount(): string
     {
-        return (float) $this->debit - (float) $this->credit;
+        $mathService = new MathService;
+
+        return $mathService->subtract((string) $this->debit, (string) $this->credit);
     }
 }

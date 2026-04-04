@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\MathService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -60,19 +61,21 @@ class JournalEntry extends Model
         return $this->status === 'Reversed';
     }
 
-    public function getTotalDebits(): float
+    public function getTotalDebits(): string
     {
-        return (float) $this->lines()->sum('debit');
+        return (string) $this->lines()->sum('debit');
     }
 
-    public function getTotalCredits(): float
+    public function getTotalCredits(): string
     {
-        return (float) $this->lines()->sum('credit');
+        return (string) $this->lines()->sum('credit');
     }
 
     public function isBalanced(): bool
     {
-        return abs($this->getTotalDebits() - $this->getTotalCredits()) < 0.0001;
+        $mathService = new MathService;
+
+        return $mathService->compare($this->getTotalDebits(), $this->getTotalCredits()) === 0;
     }
 
     public function period(): BelongsTo

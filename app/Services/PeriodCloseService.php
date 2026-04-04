@@ -116,20 +116,25 @@ class PeriodCloseService
 
         // Only create entry if there's activity
         if ($this->mathService->compare($netIncome, '0') !== 0) {
+            // Validate and get configured account codes
+            $revenueSummaryAccount = $this->getValidatedAccountCode('accounting.revenue_summary_account', '4000');
+            $expenseSummaryAccount = $this->getValidatedAccountCode('accounting.expense_summary_account', '5000');
+            $retainedEarningsAccount = $this->getValidatedAccountCode('accounting.retained_earnings_account', '3100');
+
             $entry = $this->accountingService->createJournalEntry(
                 [
                     [
-                        'account_code' => '4000', // Revenue summary
+                        'account_code' => $revenueSummaryAccount,
                         'debit' => $totalRevenue,
                         'credit' => 0,
                     ],
                     [
-                        'account_code' => '5000', // Expense summary
+                        'account_code' => $expenseSummaryAccount,
                         'debit' => 0,
                         'credit' => $totalExpenses,
                     ],
                     [
-                        'account_code' => '3100', // Retained Earnings
+                        'account_code' => $retainedEarningsAccount,
                         'debit' => $this->mathService->compare($netIncome, '0') < 0 ? $this->mathService->multiply($netIncome, '-1') : 0,
                         'credit' => $this->mathService->compare($netIncome, '0') > 0 ? $netIncome : 0,
                     ],
@@ -147,5 +152,28 @@ class PeriodCloseService
         }
 
         return $entries;
+    }
+
+    /**
+     * Get validated account code from config.
+     * Throws exception if account doesn't exist or is inactive (when validation is enabled).
+     */
+    protected function getValidatedAccountCode(string $configKey, string $defaultCode): string
+    {
+        $code = \Illuminate\Support\Facades\Config::get($configKey, $defaultCode);
+
+        if (\Illuminate\Support\Facades\Config::get('accounting.validate_accounts', true)) {
+            $account = ChartOfAccount::where('account_code', $code)->first();
+
+            if (! $account) {
+                throw new \InvalidArgumentException("Configured account '{$configKey}' with code '{$code}' does not exist in chart of accounts");
+            }
+
+            if (! $account->is_active) {
+                throw new \InvalidArgumentException("Configured account '{$configKey}' with code '{$code}' is not active");
+            }
+        }
+
+        return $code;
     }
 }
