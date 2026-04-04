@@ -136,16 +136,16 @@
         <div class="user-info-row">
             <span class="user-info-label">Current Role:</span>
             <span class="user-info-value">
-                @php
-                    $roleClass = match($user->role) {
-                        'admin' => 'role-admin',
-                        'manager' => 'role-manager',
-                        'compliance_officer' => 'role-compliance',
-                        default => 'role-teller'
-                    };
-                @endphp
+@php
+                $roleClass = match($user->role->value) {
+                    'admin' => 'role-admin',
+                    'manager' => 'role-manager',
+                    'compliance_officer' => 'role-compliance',
+                    default => 'role-teller'
+                };
+            @endphp
                 <span class="role-badge {{ $roleClass }}">
-                    {{ ucfirst(str_replace('_', ' ', $user->role)) }}
+                    {{ ucfirst(str_replace('_', ' ', $user->role->value)) }}
                 </span>
             </span>
         </div>

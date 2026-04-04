@@ -110,9 +110,9 @@ class TransactionReceiptTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertHeader('content-type', 'application/pdf');
-        $response->assertHeader('content-disposition', function ($header) {
-            return str_contains($header, 'receipt_');
-        });
+        $header = $response->headers->get('content-disposition');
+        $this->assertNotNull($header);
+        $this->assertStringContainsString('receipt_', $header);
     }
 
     /**
@@ -313,7 +313,7 @@ class TransactionReceiptTest extends TestCase
             ->post("/transactions/{$transaction->id}/approve");
 
         $transaction->refresh();
-        $this->assertEquals('Completed', $transaction->status);
+        $this->assertTrue($transaction->status->isCompleted());
 
         // Now try to generate receipt
         $response = $this->actingAs($this->tellerUser)

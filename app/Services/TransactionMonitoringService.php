@@ -48,11 +48,14 @@ class TransactionMonitoringService
         // Rule 4: EDD Threshold
         // Only update status if transaction is still in Completed status
         // Don't override Pending status (which is for transactions >= RM 50k)
+        // Don't check holds for already-approved transactions
         $holdCheck = $this->complianceService->requiresHold(
             $transaction->amount_local,
             $transaction->customer
         );
-        if ($holdCheck['requires_hold'] && $transaction->status->isCompleted()) {
+        if ($holdCheck['requires_hold']
+            && $transaction->status->isCompleted()
+            && $transaction->approved_by === null) {
             $transaction->update(['status' => TransactionStatus::OnHold]);
             foreach ($holdCheck['reasons'] as $reason) {
                 $flags[] = $this->createFlag($transaction, ComplianceFlagType::EddRequired, $reason);

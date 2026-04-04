@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccountingPeriod;
+use App\Models\ChartOfAccount;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\Customer;
@@ -96,6 +98,33 @@ class TransactionTest extends TestCase
             'date' => today(),
             'opened_by' => $this->tellerUser->id,
         ]);
+
+        // Create accounting period for journal entries
+        AccountingPeriod::create([
+            'period_code' => now()->format('Y-m'),
+            'start_date' => now()->startOfMonth(),
+            'end_date' => now()->endOfMonth(),
+            'period_type' => 'month',
+            'status' => 'open',
+        ]);
+
+        // Create required chart of accounts for journal entries
+        ChartOfAccount::firstOrCreate(
+            ['account_code' => '1000'],
+            ['account_name' => 'Cash - MYR', 'account_type' => 'Asset', 'is_active' => true]
+        );
+        ChartOfAccount::firstOrCreate(
+            ['account_code' => '2000'],
+            ['account_name' => 'Inventory', 'account_type' => 'Asset', 'is_active' => true]
+        );
+        ChartOfAccount::firstOrCreate(
+            ['account_code' => '5000'],
+            ['account_name' => 'Gain on FX', 'account_type' => 'Revenue', 'is_active' => true]
+        );
+        ChartOfAccount::firstOrCreate(
+            ['account_code' => '6000'],
+            ['account_name' => 'Loss on FX', 'account_type' => 'Expense', 'is_active' => true]
+        );
     }
 
     /**
@@ -244,10 +273,11 @@ class TransactionTest extends TestCase
      */
     public function test_manager_can_approve_transaction(): void
     {
-        // Create pending transaction
+        // Create pending transaction with version for optimistic locking
         $transaction = Transaction::create([
             'customer_id' => $this->customer->id,
             'user_id' => $this->tellerUser->id,
+            'till_id' => 'TILL-001',
             'type' => 'Buy',
             'currency_code' => 'USD',
             'amount_foreign' => '11000',
@@ -257,6 +287,7 @@ class TransactionTest extends TestCase
             'source_of_funds' => 'Business Income',
             'status' => 'Pending',
             'cdd_level' => 'Enhanced',
+            'version' => 0,
         ]);
 
         $response = $this->actingAs($this->managerUser)
@@ -265,7 +296,7 @@ class TransactionTest extends TestCase
         $response->assertRedirect();
 
         $transaction->refresh();
-        $this->assertEquals('Completed', $transaction->status);
+        $this->assertEquals('Completed', $transaction->status->value);
         $this->assertNotNull($transaction->approved_by);
         $this->assertNotNull($transaction->approved_at);
     }
@@ -490,6 +521,7 @@ class TransactionTest extends TestCase
             'source_of_funds' => 'Business Income',
             'status' => 'Pending',
             'cdd_level' => 'Enhanced',
+            'version' => 0,
         ]);
 
         $this->actingAs($this->managerUser)
@@ -503,9 +535,13 @@ class TransactionTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('system_logs', [
-            'action' => 'journal_entry',
-            'entity_type' => 'Transaction',
-            'entity_id' => $transaction->id,
+            'action' => 'journal_entry_created',
+            'entity_type' => 'JournalEntry',
+        ]);
+
+        $this->assertDatabaseHas('journal_entries', [
+            'reference_type' => 'Transaction',
+            'reference_id' => $transaction->id,
         ]);
     }
 }

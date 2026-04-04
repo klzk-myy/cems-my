@@ -208,7 +208,7 @@ class TransactionCancellationFlowTest extends TestCase
 
         // Assert transaction status is Cancelled
         $transaction->refresh();
-        $this->assertEquals('Cancelled', $transaction->status);
+        $this->assertTrue($transaction->status->isCancelled());
         $this->assertNotNull($transaction->cancelled_at);
         $this->assertEquals($this->managerUser->id, $transaction->cancelled_by);
         $this->assertEquals('Customer requested cancellation due to change of plans', $transaction->cancellation_reason);
@@ -217,7 +217,7 @@ class TransactionCancellationFlowTest extends TestCase
         $refundTransaction = Transaction::where('original_transaction_id', $transaction->id)->first();
         $this->assertNotNull($refundTransaction);
         $this->assertTrue((bool) $refundTransaction->is_refund);
-        $this->assertEquals('Sell', $refundTransaction->type); // Reverse of Buy
+        $this->assertEquals('Sell', $refundTransaction->type->value); // Reverse of Buy
         $this->assertEquals($transaction->amount_foreign, $refundTransaction->amount_foreign);
         $this->assertEquals($transaction->amount_local, $refundTransaction->amount_local);
 
@@ -244,7 +244,7 @@ class TransactionCancellationFlowTest extends TestCase
 
         $response->assertRedirect();
         $transaction->refresh();
-        $this->assertEquals('Cancelled', $transaction->status);
+        $this->assertTrue($transaction->status->isCancelled());
     }
 
     /**
@@ -263,7 +263,7 @@ class TransactionCancellationFlowTest extends TestCase
 
         $response->assertRedirect();
         $transaction->refresh();
-        $this->assertEquals('Cancelled', $transaction->status);
+        $this->assertTrue($transaction->status->isCancelled());
         $this->assertEquals($this->tellerUser1->id, $transaction->cancelled_by);
     }
 
@@ -283,7 +283,7 @@ class TransactionCancellationFlowTest extends TestCase
 
         $response->assertStatus(403);
         $transaction->refresh();
-        $this->assertEquals('Completed', $transaction->status);
+        $this->assertTrue($transaction->status->isCompleted());
     }
 
     /**
@@ -312,7 +312,7 @@ class TransactionCancellationFlowTest extends TestCase
         $response->assertSessionHas('error', 'This transaction cannot be cancelled.');
 
         $transaction->refresh();
-        $this->assertEquals('Completed', $transaction->status);
+        $this->assertEquals('Completed', $transaction->status->value);
     }
 
     /**
@@ -512,7 +512,7 @@ class TransactionCancellationFlowTest extends TestCase
         ]);
 
         $refund = Transaction::where('original_transaction_id', $buyTransaction->id)->first();
-        $this->assertEquals('Sell', $refund->type);
+        $this->assertEquals('Sell', $refund->type->value);
 
         // Test Sell -> Buy reversal
         $sellTransaction = $this->createCompletedTransaction($this->tellerUser1, [
@@ -525,7 +525,7 @@ class TransactionCancellationFlowTest extends TestCase
         ]);
 
         $refund = Transaction::where('original_transaction_id', $sellTransaction->id)->first();
-        $this->assertEquals('Buy', $refund->type);
+        $this->assertEquals('Buy', $refund->type->value);
     }
 
     /**
