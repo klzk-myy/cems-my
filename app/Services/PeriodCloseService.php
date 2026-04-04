@@ -23,6 +23,15 @@ class PeriodCloseService
 
     /**
      * Close an accounting period
+     *
+     * Validates all entries are balanced, creates closing entries for revenue/expense accounts,
+     * updates the period status, and logs the action.
+     *
+     * @param  AccountingPeriod  $period  The accounting period to close
+     * @param  int  $closedBy  ID of the user closing the period
+     * @return array Result array containing 'success', 'period', and 'closing_entries'
+     *
+     * @throws Exception If period is already closed or unbalanced entries are found
      */
     public function closePeriod(AccountingPeriod $period, int $closedBy): array
     {
@@ -68,6 +77,10 @@ class PeriodCloseService
 
     /**
      * Validate all journal entries in period are balanced
+     *
+     * @param  AccountingPeriod  $period  The accounting period to validate
+     *
+     * @throws Exception If unbalanced journal entries are found
      */
     protected function validatePeriodBalances(AccountingPeriod $period): void
     {
@@ -84,6 +97,13 @@ class PeriodCloseService
 
     /**
      * Create closing entries to transfer revenue/expense to retained earnings
+     *
+     * Calculates total revenue and expenses for the period, then creates
+     * a journal entry to transfer the net income to retained earnings.
+     *
+     * @param  AccountingPeriod  $period  The accounting period being closed
+     * @param  int  $closedBy  ID of the user creating the closing entries
+     * @return array Array of created closing journal entries
      */
     protected function createClosingEntries(AccountingPeriod $period, int $closedBy): array
     {
@@ -155,8 +175,16 @@ class PeriodCloseService
     }
 
     /**
-     * Get validated account code from config.
-     * Throws exception if account doesn't exist or is inactive (when validation is enabled).
+     * Get validated account code from config
+     *
+     * Retrieves account code from configuration and validates it exists
+     * and is active in the chart of accounts when validation is enabled.
+     *
+     * @param  string  $configKey  Configuration key for the account code
+     * @param  string  $defaultCode  Default account code to use if config not set
+     * @return string The validated account code
+     *
+     * @throws \InvalidArgumentException If account doesn't exist or is inactive (when validation is enabled)
      */
     protected function getValidatedAccountCode(string $configKey, string $defaultCode): string
     {

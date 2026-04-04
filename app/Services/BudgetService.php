@@ -7,12 +7,31 @@ use App\Models\Budget;
 use App\Models\ChartOfAccount;
 use Illuminate\Support\Collection;
 
+/**
+ * Budget Service
+ *
+ * Manages budget creation, updates, and reporting for accounting periods.
+ * Provides functionality for tracking budget vs actual amounts and identifying
+ * accounts without budgets.
+ */
 class BudgetService
 {
+    /**
+     * Accounting service for calculating account activity.
+     */
     protected AccountingService $accountingService;
 
+    /**
+     * Math service for high-precision calculations.
+     */
     protected MathService $mathService;
 
+    /**
+     * Create a new BudgetService instance.
+     *
+     * @param  AccountingService  $accountingService  Service for account activity calculations
+     * @param  MathService  $mathService  Service for high-precision math operations
+     */
     public function __construct(AccountingService $accountingService, MathService $mathService)
     {
         $this->accountingService = $accountingService;
@@ -20,7 +39,14 @@ class BudgetService
     }
 
     /**
-     * Create or update budget for an account in a period
+     * Create or update budget for an account in a period.
+     *
+     * @param  string  $accountCode  Unique identifier for the chart of account
+     * @param  string  $periodCode  Accounting period identifier (e.g., "2024-01")
+     * @param  string  $amount  Budget amount as string for precision
+     * @param  int  $userId  ID of the user creating/updating the budget
+     * @param  string|null  $notes  Optional notes or comments about the budget
+     * @return Budget The created or updated budget model
      */
     public function setBudget(string $accountCode, string $periodCode, string $amount, int $userId, ?string $notes = null): Budget
     {
@@ -38,8 +64,10 @@ class BudgetService
     }
 
     /**
-     * Update actual amounts for all budgets in a period
-     * Calculates actuals based on activity within the period date range
+     * Update actual amounts for all budgets in a period.
+     * Calculates actuals based on activity within the period date range.
+     *
+     * @param  string  $periodCode  Accounting period identifier (e.g., "2024-01")
      */
     public function updateActuals(string $periodCode): void
     {
@@ -63,7 +91,23 @@ class BudgetService
     }
 
     /**
-     * Get budget vs actual report for period
+     * Get budget vs actual report for period.
+     *
+     * @param  string  $periodCode  Accounting period identifier (e.g., "2024-01")
+     * @return array Budget report containing:
+     *               - period_code: string, the period identifier
+     *               - items: array of account budget details with keys:
+     *               - account_code: string
+     *               - account_name: string
+     *               - budget: string
+     *               - actual: string
+     *               - variance: string
+     *               - variance_pct: float|null
+     *               - over_budget: bool
+     *               - total_budget: string, sum of all budget amounts
+     *               - total_actual: string, sum of all actual amounts
+     *               - total_variance: string, difference between total budget and actual
+     *               - over_budget_count: int, number of accounts exceeding budget
      */
     public function getBudgetReport(string $periodCode): array
     {
@@ -101,7 +145,13 @@ class BudgetService
     }
 
     /**
-     * Get accounts without budgets for period
+     * Get accounts without budgets for period.
+     *
+     * Returns expense accounts that have not been assigned a budget
+     * for the specified accounting period.
+     *
+     * @param  string  $periodCode  Accounting period identifier (e.g., "2024-01")
+     * @return Collection Collection of ChartOfAccount models for active expense accounts without budgets
      */
     public function getAccountsWithoutBudget(string $periodCode): Collection
     {

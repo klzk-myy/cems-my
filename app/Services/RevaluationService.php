@@ -14,12 +14,29 @@ use Illuminate\Support\Facades\Mail;
 
 class RevaluationService
 {
+    /**
+     * Create a new RevaluationService instance.
+     */
     public function __construct(
         protected MathService $mathService,
         protected RateApiService $rateApiService,
         protected AccountingService $accountingService
     ) {}
 
+    /**
+     * Run revaluation for all currency positions in a till.
+     *
+     * Calculates gain/loss for each currency position by comparing current
+     * market rate with the last valuation rate, then updates position records.
+     *
+     * @param  int  $postedBy  User ID performing the revaluation
+     * @param  string|null  $tillId  Till identifier (defaults to 'MAIN')
+     * @return array Array containing:
+     *               - date: string Revaluation date (Y-m-d format)
+     *               - till_id: string Till identifier
+     *               - positions_revalued: int Number of positions processed
+     *               - entries: array List of revaluation entry details
+     */
     public function runRevaluation(int $postedBy, ?string $tillId = null): array
     {
         $tillId = $tillId ?? 'MAIN';
@@ -104,6 +121,20 @@ class RevaluationService
         return (string) $rate['mid'];
     }
 
+    /**
+     * Generate a revaluation report for a specific date.
+     *
+     * Retrieves all revaluation entries for the given date and calculates
+     * total gains, total losses, and net P&L.
+     *
+     * @param  string  $date  Date to generate report for (Y-m-d format)
+     * @return array Array containing:
+     *               - date: string Report date
+     *               - entries: \Illuminate\Database\Eloquent\Collection Revaluation entries
+     *               - total_gain: string Total gains (as string for precision)
+     *               - total_loss: string Total losses (as string for precision)
+     *               - net_pnl: string Net profit/loss (as string for precision)
+     */
     public function getRevaluationReport(string $date): array
     {
         $entries = RevaluationEntry::where('revaluation_date', $date)
@@ -131,6 +162,28 @@ class RevaluationService
         ];
     }
 
+    /**
+     * Run revaluation with automatic journal entry creation.
+     *
+     * Performs revaluation for all positions and creates corresponding
+     * journal entries for accounting purposes. Each currency is processed
+     * in its own transaction to ensure data integrity.
+     *
+     * @param  string|null  $date  Revaluation date (defaults to current date)
+     * @param  int|null  $postedBy  User ID performing the revaluation (defaults to authenticated user)
+     * @return array Array containing:
+     *               - date: string Revaluation date
+     *               - positions_updated: int Number of positions processed
+     *               - results: array List of revaluation results by currency
+     *               - total_gain: string Total gains (as string for precision)
+     *               - total_loss: string Total losses (as string for precision)
+     *               - net_pnl: string Net profit/loss (as string for precision)
+     *               - report_path: string|null Path to generated report (if any)
+     *               - errors: array List of errors encountered during processing
+     *
+     * @throws \InvalidArgumentException If posting date falls outside an open period
+     * @throws \RuntimeException If all revaluations fail
+     */
     public function runRevaluationWithJournal(?string $date = null, ?int $postedBy = null): array
     {
         $date = $date ?? now()->toDateString();
@@ -270,7 +323,13 @@ class RevaluationService
     /**
      * FAULT #5 FIX: Validate that the posting date falls within an open period.
      *
-     * @throws \InvalidArgumentException
+     * Checks that the given date falls within an existing accounting period
+     * and that the period is currently open for posting.
+     *
+     * @param  string  $date  Date to validate (Y-m-d format)
+     *
+     * @throws \InvalidArgumentException If no period exists for the date
+     * @throws \InvalidArgumentException If the period is closed
      */
     protected function validatePeriodForDate(string $date): void
     {
@@ -292,11 +351,30 @@ class RevaluationService
         }
     }
 
+    /**
+     * Schedule revaluation for month-end processing.
+     *
+     * Logs a notification that revaluation has been scheduled.
+     * This method is typically called by scheduled tasks/cron jobs.
+     */
     public function scheduleRevaluation(): void
     {
         Log::info('Revaluation scheduled for month-end');
     }
 
+    /**
+     * Get revaluation status for a specific month.
+     *
+     * Checks whether revaluation has been run for the given month
+     * and provides summary information about the revaluation entries.
+     *
+     * @param  string  $month  Month to check (format: Y-m, e.g., "2024-01")
+     * @return array Array containing:
+     *               - month: string The queried month
+     *               - has_run: bool Whether revaluation entries exist
+     *               - entries_count: int Number of revaluation entries
+     *               - currencies: array List of currency codes revalued
+     */
     public function getRevaluationStatus(string $month): array
     {
         $startDate = now()->parse($month)->startOfMonth();
@@ -313,6 +391,19 @@ class RevaluationService
         ];
     }
 
+    /**
+     * Send revaluation completion notification to recipients.
+     *
+     * Sends email notifications to all active users with revaluation
+     * summary information. Attachments are included if a report path
+     * is provided in the results.
+     *
+     * @param  array  $results  Revaluation results array containing:
+     *                          - date: string Revaluation date
+     *                          - positions_updated: int Number of positions updated
+     *                          - net_pnl: string Net profit/loss
+     *                          - report_path: string|null Path to report file
+     */
     public function sendRevaluationNotification(array $results): void
     {
         $recipients = $this->getNotificationRecipients();

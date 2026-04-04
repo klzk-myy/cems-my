@@ -170,7 +170,9 @@ class Transaction extends Model
     }
 
     /**
-     * Check if the transaction has been cancelled.
+     * Determine if the transaction has been cancelled.
+     *
+     * Checks if the cancelled_at timestamp is set.
      */
     public function isCancelled(): bool
     {
