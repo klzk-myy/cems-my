@@ -12,8 +12,11 @@ class AuthenticationTest extends TestCase
     use RefreshDatabase;
 
     protected User $adminUser;
+
     protected User $tellerUser;
+
     protected User $managerUser;
+
     protected User $complianceUser;
 
     protected function setUp(): void
@@ -231,7 +234,7 @@ class AuthenticationTest extends TestCase
         $response = $this->actingAs($this->complianceUser)->get('/compliance');
 
         $response->assertStatus(200);
-        $response->assertSee('Compliance Management');
+        $response->assertSee('Compliance Portal');
     }
 
     /**
@@ -425,6 +428,41 @@ class AuthenticationTest extends TestCase
         $this->assertDatabaseHas('system_logs', [
             'user_id' => $this->adminUser->id,
             'action' => 'login_failed',
+        ]);
+    }
+
+    /**
+     * Test failed login log does not reveal user status
+     */
+    public function test_failed_login_log_does_not_reveal_user_status(): void
+    {
+        $user = User::create([
+            'username' => 'testuser',
+            'email' => 'test@example.com',
+            'password_hash' => Hash::make('password'),
+            'role' => 'teller',
+            'mfa_enabled' => false,
+            'is_active' => false,
+        ]);
+
+        $this->post('/login', [
+            'email' => 'test@example.com',
+            'password' => 'wrong',
+        ]);
+
+        $this->assertDatabaseMissing('system_logs', [
+            'action' => 'login_failed',
+            'description' => 'Failed login attempt - inactive account',
+        ]);
+
+        $this->assertDatabaseMissing('system_logs', [
+            'action' => 'login_failed',
+            'description' => 'Failed login attempt - wrong password',
+        ]);
+
+        $this->assertDatabaseHas('system_logs', [
+            'action' => 'login_failed',
+            'description' => 'Failed login attempt',
         ]);
     }
 }

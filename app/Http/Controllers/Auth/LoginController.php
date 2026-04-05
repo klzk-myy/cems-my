@@ -47,7 +47,7 @@ class LoginController extends Controller
             \App\Models\SystemLog::create([
                 'user_id' => $user->id,
                 'action' => 'login_failed',
-                'description' => 'Failed login attempt - ' . ($user->is_active ? 'wrong password' : 'inactive account'),
+                'description' => 'Failed login attempt',
                 'ip_address' => $request->ip(),
             ]);
         }

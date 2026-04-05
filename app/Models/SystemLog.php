@@ -12,6 +12,7 @@ class SystemLog extends Model
     protected $fillable = [
         'user_id',
         'action',
+        'description',
         'severity',
         'entity_type',
         'entity_id',
@@ -20,6 +21,7 @@ class SystemLog extends Model
         'ip_address',
         'user_agent',
         'session_id',
+        'created_at',
     ];
 
     protected $casts = [
