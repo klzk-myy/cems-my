@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Storage;
 
 class ReportingService
 {
+    // BNM CTR Threshold: Transactions >= RM50,000 require CTR filing
+    public const CTR_THRESHOLD = 50000;
+
     protected EncryptionService $encryptionService;
 
     protected MathService $mathService;
@@ -28,7 +31,7 @@ class ReportingService
         $startDate = now()->parse($month)->startOfMonth();
         $endDate = $startDate->copy()->endOfMonth();
 
-        $transactions = Transaction::where('amount_local', '>=', 25000)
+        $transactions = Transaction::where('amount_local', '>=', self::CTR_THRESHOLD)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->with(['customer', 'user'])
             ->get();
@@ -155,7 +158,7 @@ class ReportingService
 
         $transactions = Transaction::with(['customer', 'user'])
             ->whereBetween('created_at', [$startDate, $endDate])
-            ->where('amount_local', '>=', 25000)
+            ->where('amount_local', '>=', self::CTR_THRESHOLD)
             ->where('status', 'Completed')
             ->orderBy('created_at')
             ->get();
@@ -295,5 +298,305 @@ class ReportingService
             'total_loss' => $totalLoss,
             'net_pnl' => $this->mathService->add($totalGain, $totalLoss),
         ];
+    }
+
+    public function generateFormLMCA(string $month): array
+    {
+        $startDate = Carbon::parse($month)->startOfMonth();
+        $endDate = Carbon::parse($month)->endOfMonth();
+
+        $currencies = Currency::where('is_active', true)->get();
+        $currencyData = [];
+
+        foreach ($currencies as $currency) {
+            $buyTxns = Transaction::whereBetween('created_at', [$startDate, $endDate])
+                ->where('currency_code', $currency->code)
+                ->where('type', 'Buy')
+                ->where('status', 'Completed')
+                ->get();
+
+            $sellTxns = Transaction::whereBetween('created_at', [$startDate, $endDate])
+                ->where('currency_code', $currency->code)
+                ->where('type', 'Sell')
+                ->where('status', 'Completed')
+                ->get();
+
+            $openingPosition = CurrencyPosition::where('currency_code', $currency->code)
+                ->first();
+            $closingPosition = $openingPosition;
+
+            $currencyData[] = [
+                'currency_code' => $currency->code,
+                'currency_name' => $currency->name,
+                'buy_count' => $buyTxns->count(),
+                'buy_volume' => $buyTxns->sum('amount_foreign'),
+                'buy_value_myr' => $buyTxns->sum('amount_local'),
+                'sell_count' => $sellTxns->count(),
+                'sell_volume' => $sellTxns->sum('amount_foreign'),
+                'sell_value_myr' => $sellTxns->sum('amount_local'),
+                'opening_stock' => $openingPosition ? $openingPosition->balance : '0',
+                'closing_stock' => $closingPosition ? $closingPosition->balance : '0',
+            ];
+        }
+
+        $customerCount = Transaction::whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', 'Completed')
+            ->distinct('customer_id')
+            ->count('customer_id');
+
+        $staffCount = DB::table('users')
+            ->where('is_active', true)
+            ->count();
+
+        return [
+            'license_number' => config('app.license_number', 'MSB-XXXXXXX'),
+            'reporting_period' => $month,
+            'report_date' => now()->format('Y-m-d'),
+            'currencies' => $currencyData,
+            'customer_count' => $customerCount,
+            'staff_count' => $staffCount,
+            'generated_at' => now()->toIso8601String(),
+        ];
+    }
+
+    public function generateFormLMCACsv(string $month): string
+    {
+        $data = $this->generateFormLMCA($month);
+        $filename = "LMCA_{$month}.csv";
+        $filepath = "reports/{$filename}";
+
+        if (! Storage::exists('reports')) {
+            Storage::makeDirectory('reports');
+        }
+
+        $csv = fopen(Storage::path($filepath), 'w');
+
+        fputcsv($csv, ['BNM Form LMCA - Monthly Report']);
+        fputcsv($csv, ['License Number', $data['license_number']]);
+        fputcsv($csv, ['Reporting Period', $data['reporting_period']]);
+        fputcsv($csv, ['Report Date', $data['report_date']]);
+        fputcsv($csv, []);
+
+        fputcsv($csv, [
+            'Currency',
+            'Buy Count',
+            'Buy Volume (Foreign)',
+            'Buy Value (MYR)',
+            'Sell Count',
+            'Sell Volume (Foreign)',
+            'Sell Value (MYR)',
+            'Opening Stock',
+            'Closing Stock',
+        ]);
+
+        foreach ($data['currencies'] as $row) {
+            fputcsv($csv, [
+                $row['currency_code'],
+                $row['buy_count'],
+                $row['buy_volume'],
+                $row['buy_value_myr'],
+                $row['sell_count'],
+                $row['sell_volume'],
+                $row['sell_value_myr'],
+                $row['opening_stock'],
+                $row['closing_stock'],
+            ]);
+        }
+
+        fputcsv($csv, []);
+        fputcsv($csv, ['Total Customers Served', $data['customer_count']]);
+        fputcsv($csv, ['Total Active Staff', $data['staff_count']]);
+
+        fclose($csv);
+
+        return $filepath;
+    }
+
+    public function generateQuarterlyLargeValueReport(string $quarter): array
+    {
+        $parts = explode('-', $quarter);
+        $year = (int) $parts[0];
+        $q = (int) substr($parts[1], 1);
+
+        $startMonth = (($q - 1) * 3) + 1;
+        $startDate = Carbon::create($year, $startMonth, 1)->startOfMonth();
+        $endDate = $startDate->copy()->addMonths(3)->subDay();
+
+        $transactions = Transaction::with(['customer', 'user'])
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->where('amount_local', '>=', self::CTR_THRESHOLD)
+            ->where('status', 'Completed')
+            ->orderBy('created_at')
+            ->get();
+
+        $monthlyBreakdown = [];
+        for ($m = 0; $m < 3; $m++) {
+            $monthDate = $startDate->copy()->addMonths($m);
+            $monthTxns = $transactions->filter(function ($txn) use ($monthDate) {
+                return $txn->created_at->format('Y-m') === $monthDate->format('Y-m');
+            });
+
+            $monthlyBreakdown[] = [
+                'month' => $monthDate->format('Y-m'),
+                'count' => $monthTxns->count(),
+                'total_amount' => $monthTxns->sum('amount_local'),
+            ];
+        }
+
+        $byCurrency = $transactions->groupBy('currency_code')->map(function ($txns) {
+            return [
+                'currency' => $txns->first()->currency_code,
+                'count' => $txns->count(),
+                'total_amount' => $txns->sum('amount_local'),
+            ];
+        })->values();
+
+        return [
+            'quarter' => $quarter,
+            'period_start' => $startDate->toDateString(),
+            'period_end' => $endDate->toDateString(),
+            'generated_at' => now()->toIso8601String(),
+            'total_transactions' => $transactions->count(),
+            'total_amount' => $transactions->sum('amount_local'),
+            'monthly_breakdown' => $monthlyBreakdown,
+            'by_currency' => $byCurrency,
+            'data' => $transactions->map(function ($txn) {
+                return [
+                    'Transaction_ID' => 'TXN-'.str_pad($txn->id, 8, '0', STR_PAD_LEFT),
+                    'Date' => $txn->created_at->format('Y-m-d'),
+                    'Customer_Name' => $this->maskName($txn->customer->full_name),
+                    'Amount_Local' => $txn->amount_local,
+                    'Currency' => $txn->currency_code,
+                    'Transaction_Type' => $txn->type,
+                ];
+            })->toArray(),
+        ];
+    }
+
+    public function generateQuarterlyLargeValueCsv(string $quarter): string
+    {
+        $data = $this->generateQuarterlyLargeValueReport($quarter);
+        $filename = "QLVR_{$quarter}.csv";
+        $filepath = "reports/{$filename}";
+
+        if (! Storage::exists('reports')) {
+            Storage::makeDirectory('reports');
+        }
+
+        $csv = fopen(Storage::path($filepath), 'w');
+
+        fputcsv($csv, ['BNM Quarterly Large Value Transaction Report']);
+        fputcsv($csv, ['Quarter', $data['quarter']]);
+        fputcsv($csv, ['Period', $data['period_start'].' to '.$data['period_end']]);
+        fputcsv($csv, ['Total Transactions', $data['total_transactions']]);
+        fputcsv($csv, ['Total Amount (MYR)', number_format($data['total_amount'], 2)]);
+        fputcsv($csv, []);
+
+        fputcsv($csv, ['Transaction_ID', 'Date', 'Customer_Name', 'Amount_Local', 'Currency', 'Transaction_Type']);
+
+        foreach ($data['data'] as $row) {
+            fputcsv($csv, array_values($row));
+        }
+
+        fclose($csv);
+
+        return $filepath;
+    }
+
+    public function generatePositionLimitReport(): array
+    {
+        $positions = CurrencyPosition::with('currency')->get();
+        $limits = config('cems.position_limits', []);
+
+        $data = [];
+        $totalExposure = '0';
+
+        foreach ($positions as $position) {
+            $limit = $limits[$position->currency_code] ?? null;
+            $currentBalance = abs((float) $position->balance);
+            $limitValue = $limit ? (float) $limit : 0;
+            $utilization = $limitValue > 0
+                ? $this->mathService->multiply(
+                    $this->mathService->divide((string) $currentBalance, (string) $limitValue),
+                    '100'
+                )
+                : '0';
+
+            $data[] = [
+                'currency_code' => $position->currency_code,
+                'currency_name' => $position->currency->name ?? $position->currency_code,
+                'current_balance' => $position->balance,
+                'position_limit' => $limit,
+                'utilization_percent' => round((float) $utilization, 2),
+                'avg_cost_rate' => $position->avg_cost_rate,
+                'last_valuation_rate' => $position->last_valuation_rate,
+                'exposure_myr' => $this->mathService->multiply((string) $currentBalance, $position->last_valuation_rate ?? '0'),
+                'status' => $this->mathService->compare($utilization, '90') >= 0
+                    ? 'Critical'
+                    : ($this->mathService->compare($utilization, '75') >= 0 ? 'Warning' : 'Normal'),
+            ];
+
+            $totalExposure = $this->mathService->add(
+                $totalExposure,
+                $this->mathService->multiply((string) $currentBalance, $position->last_valuation_rate ?? '0')
+            );
+        }
+
+        return [
+            'generated_at' => now()->toIso8601String(),
+            'total_exposure_myr' => $totalExposure,
+            'positions' => $data,
+            'summary' => [
+                'total_currencies' => count($data),
+                'currencies_at_warning' => collect($data)->where('status', 'Warning')->count(),
+                'currencies_at_critical' => collect($data)->where('status', 'Critical')->count(),
+            ],
+        ];
+    }
+
+    public function generatePositionLimitCsv(): string
+    {
+        $data = $this->generatePositionLimitReport();
+        $filename = 'PositionLimit_'.now()->format('Y-m-d').'.csv';
+        $filepath = "reports/{$filename}";
+
+        if (! Storage::exists('reports')) {
+            Storage::makeDirectory('reports');
+        }
+
+        $csv = fopen(Storage::path($filepath), 'w');
+
+        fputcsv($csv, ['BNM Position Limit Utilization Report']);
+        fputcsv($csv, ['Generated', $data['generated_at']]);
+        fputcsv($csv, ['Total Exposure (MYR)', $data['total_exposure_myr']]);
+        fputcsv($csv, []);
+
+        fputcsv($csv, [
+            'Currency',
+            'Current Balance',
+            'Position Limit',
+            'Utilization %',
+            'Avg Cost Rate',
+            'Last Valuation Rate',
+            'Exposure (MYR)',
+            'Status',
+        ]);
+
+        foreach ($data['positions'] as $row) {
+            fputcsv($csv, [
+                $row['currency_code'],
+                $row['current_balance'],
+                $row['position_limit'] ?? 'N/A',
+                $row['utilization_percent'].'%',
+                $row['avg_cost_rate'],
+                $row['last_valuation_rate'],
+                $row['exposure_myr'],
+                $row['status'],
+            ]);
+        }
+
+        fclose($csv);
+
+        return $filepath;
     }
 }
