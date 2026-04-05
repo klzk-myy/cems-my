@@ -183,7 +183,7 @@ class StrController extends Controller
 
         $oldStatus = $str->status->value;
         $str->update([
-            'status' => 'pending_approval',
+            'status' => 'Submitted',
             'approved_by' => Auth::id(),
         ]);
 
@@ -191,7 +191,7 @@ class StrController extends Controller
         $this->auditService->logStrAction('str_approved', $str->id, [
             'old' => ['status' => $oldStatus],
             'new' => [
-                'status' => 'pending_approval',
+                'status' => 'Submitted',
                 'approved_by' => Auth::id(),
                 'approved_by_name' => Auth::user()->username,
             ],
