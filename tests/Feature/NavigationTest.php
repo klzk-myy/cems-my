@@ -76,7 +76,11 @@ class NavigationTest extends TestCase
         $response->assertSee('Stock/Cash');
         $response->assertSee('Compliance');
         $response->assertSee('Accounting');
+        $response->assertSee('Tasks');
+        $response->assertSee('Counters');
+        $response->assertSee('STR Reports');
         $response->assertSee('Reports');
+        $response->assertSee('Audit');
         $response->assertSee('Users');
         $response->assertSee('Logout');
     }
@@ -96,7 +100,11 @@ class NavigationTest extends TestCase
         $response->assertSee('Stock/Cash');
         $response->assertSee('Compliance');
         $response->assertSee('Accounting');
+        $response->assertSee('Tasks');
+        $response->assertSee('Counters');
+        $response->assertSee('STR Reports');
         $response->assertSee('Reports');
+        $response->assertSee('Audit');
         $response->assertSee('Users');
         $response->assertSee('Logout');
     }
@@ -116,7 +124,11 @@ class NavigationTest extends TestCase
         $response->assertSee('Stock/Cash');
         $response->assertSee('Compliance');
         $response->assertSee('Accounting');
+        $response->assertSee('Tasks');
+        $response->assertSee('Counters');
+        $response->assertSee('STR Reports');
         $response->assertSee('Reports');
+        $response->assertSee('Audit');
         $response->assertSee('Users');
         $response->assertSee('Logout');
     }
@@ -136,7 +148,11 @@ class NavigationTest extends TestCase
         $response->assertSee('Stock/Cash');
         $response->assertSee('Compliance');
         $response->assertSee('Accounting');
+        $response->assertSee('Tasks');
+        $response->assertSee('Counters');
+        $response->assertSee('STR Reports');
         $response->assertSee('Reports');
+        $response->assertSee('Audit');
         $response->assertSee('Users');
         $response->assertSee('Logout');
     }
@@ -156,7 +172,11 @@ class NavigationTest extends TestCase
         $response->assertSee('href="/stock-cash"', false);
         $response->assertSee('href="/compliance"', false);
         $response->assertSee('href="/accounting"', false);
+        $response->assertSee('href="/tasks"', false);
+        $response->assertSee('href="/counters"', false);
+        $response->assertSee('href="/str"', false);
         $response->assertSee('href="/reports"', false);
+        $response->assertSee('href="/audit"', false);
         $response->assertSee('href="/users"', false);
         // Logout is a form, not a link - check for the logout form instead
         $response->assertSee('action="/logout"', false);
@@ -200,7 +220,11 @@ class NavigationTest extends TestCase
             $response->assertSee('Stock/Cash');
             $response->assertSee('Compliance');
             $response->assertSee('Accounting');
+            $response->assertSee('Tasks');
+            $response->assertSee('Counters');
+            $response->assertSee('STR Reports');
             $response->assertSee('Reports');
+            $response->assertSee('Audit');
             $response->assertSee('Users');
             $response->assertSee('Logout');
         }
@@ -253,13 +277,17 @@ class NavigationTest extends TestCase
 
         $content = $response->getContent();
 
-        // Check order: Dashboard, Transactions, Stock/Cash, Compliance, Accounting, Reports, Users, Logout
+        // Check order: Dashboard, Transactions, Stock/Cash, Compliance, Accounting, Tasks, Counters, STR Reports, Reports, Audit, Users, Logout
         $dashboardPos = strpos($content, '>Dashboard<');
         $transactionsPos = strpos($content, '>Transactions<');
         $stockCashPos = strpos($content, '>Stock/Cash<');
         $compliancePos = strpos($content, '>Compliance<');
         $accountingPos = strpos($content, '>Accounting<');
+        $tasksPos = strpos($content, '>Tasks<');
+        $countersPos = strpos($content, '>Counters<');
+        $strReportsPos = strpos($content, '>STR Reports<');
         $reportsPos = strpos($content, '>Reports<');
+        $auditPos = strpos($content, '>Audit<');
         $usersPos = strpos($content, '>Users<');
         $logoutPos = strpos($content, '>Logout<');
 
@@ -267,8 +295,12 @@ class NavigationTest extends TestCase
         $this->assertTrue($transactionsPos < $stockCashPos, 'Transactions should come before Stock/Cash');
         $this->assertTrue($stockCashPos < $compliancePos, 'Stock/Cash should come before Compliance');
         $this->assertTrue($compliancePos < $accountingPos, 'Compliance should come before Accounting');
-        $this->assertTrue($accountingPos < $reportsPos, 'Accounting should come before Reports');
-        $this->assertTrue($reportsPos < $usersPos, 'Reports should come before Users');
+        $this->assertTrue($accountingPos < $tasksPos, 'Accounting should come before Tasks');
+        $this->assertTrue($tasksPos < $countersPos, 'Tasks should come before Counters');
+        $this->assertTrue($countersPos < $strReportsPos, 'Counters should come before STR Reports');
+        $this->assertTrue($strReportsPos < $reportsPos, 'STR Reports should come before Reports');
+        $this->assertTrue($reportsPos < $auditPos, 'Reports should come before Audit');
+        $this->assertTrue($auditPos < $usersPos, 'Audit should come before Users');
         $this->assertTrue($usersPos < $logoutPos, 'Users should come before Logout');
     }
 }
