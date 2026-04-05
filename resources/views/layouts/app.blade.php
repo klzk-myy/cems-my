@@ -310,10 +310,23 @@
                     <span class="nav-icon">💰</span>
                     <span class="nav-label">Stock/Cash</span>
                 </a>
-                <a href="/compliance" class="{{ request()->is('compliance*') ? 'active' : '' }}">
-                    <span class="nav-icon">🛡️</span>
-                    <span class="nav-label">Compliance</span>
-                </a>
+                <div class="nav-group">
+                    <a href="/compliance" class="{{ request()->is('compliance*') && !request()->is('compliance/edd*') ? 'active' : '' }}">
+                        <span class="nav-icon">🛡️</span>
+                        <span class="nav-label">Compliance</span>
+                        <span style="margin-left: auto; font-size: 0.6rem;">▼</span>
+                    </a>
+                    <div class="nav-submenu">
+                        <a href="/compliance/flagged" class="{{ request()->is('compliance/flagged*') ? 'active' : '' }}">
+                            <span class="nav-icon">🚩</span>
+                            <span class="nav-label">Flagged Transactions</span>
+                        </a>
+                        <a href="/compliance/edd" class="{{ request()->is('compliance/edd*') ? 'active' : '' }}">
+                            <span class="nav-icon">📋</span>
+                            <span class="nav-label">EDD Records</span>
+                        </a>
+                    </div>
+                </div>
                 <div class="nav-group">
                     <a href="/accounting" class="{{ request()->is('accounting*') ? 'active' : '' }}">
                         <span class="nav-icon">📚</span>
