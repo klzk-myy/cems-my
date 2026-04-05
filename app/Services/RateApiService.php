@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ExchangeRateHistory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use App\Services\MathService;
 
 class RateApiService
 {
@@ -14,7 +15,7 @@ class RateApiService
 
     protected int $cacheDuration = 60; // seconds
 
-    public function __construct()
+    public function __construct(protected MathService $mathService = new MathService)
     {
         $this->apiKey = config('services.exchange_rate_api.key');
         $this->baseUrl = 'https://api.exchangerate-api.com/v4';
@@ -54,11 +55,17 @@ class RateApiService
                 $rate = $rates[$currency];
 
                 // Add spread for buy/sell
-                $spread = 0.02; // 2% spread
+                $spreadStr = '0.02'; // 2% spread
+                $half = $this->mathService->divide($spreadStr, '2'); // '0.01'
+                $rateStr = (string) $rate;
 
                 $processed[$currency] = [
-                    'buy' => $this->roundRate($rate * (1 - $spread / 2)),
-                    'sell' => $this->roundRate($rate * (1 + $spread / 2)),
+                    'buy' => $this->roundRate(
+                        (float) $this->mathService->multiply($rateStr, $this->mathService->subtract('1', $half))
+                    ),
+                    'sell' => $this->roundRate(
+                        (float) $this->mathService->multiply($rateStr, $this->mathService->add('1', $half))
+                    ),
                     'mid' => $this->roundRate($rate),
                     'timestamp' => $timestamp,
                 ];
