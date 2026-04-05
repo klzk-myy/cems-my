@@ -16,7 +16,7 @@ class RevaluationController extends Controller
         $this->revaluationService = $revaluationService;
     }
 
-    protected function requireManagerOrAdmin()
+    protected function requireManagerOrAdmin(): void
     {
         if (!auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');

@@ -15,6 +15,7 @@ use App\Models\ReportGenerated;
 use App\Models\Transaction;
 use App\Services\ExportService;
 use App\Services\ReportingService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -33,7 +34,7 @@ class ReportController extends Controller
         $this->exportService = $exportService;
     }
 
-    protected function requireManagerOrAdmin()
+    protected function requireManagerOrAdmin(): void
     {
         if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
@@ -56,11 +57,11 @@ class ReportController extends Controller
             ->where('period_start', now()->parse($month)->startOfMonth())
             ->first();
 
-        // Get qualifying transactions (≥ RM 25,000 and Completed)
+        // Get qualifying transactions (>= RM50,000 and Completed per BNM requirements)
         $startDate = now()->parse($month)->startOfMonth();
         $endDate = $startDate->copy()->endOfMonth();
 
-        $transactions = Transaction::where('amount_local', '>=', 25000)
+        $transactions = Transaction::where('amount_local', '>=', ReportingService::CTR_THRESHOLD)
             ->where('status', TransactionStatus::Completed)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->with(['customer', 'user'])
@@ -68,7 +69,7 @@ class ReportController extends Controller
             ->get();
 
         // Count pending transactions that would qualify
-        $pendingTransactions = Transaction::where('amount_local', '>=', 25000)
+        $pendingTransactions = Transaction::where('amount_local', '>=', ReportingService::CTR_THRESHOLD)
             ->where('status', TransactionStatus::Pending)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
@@ -89,13 +90,19 @@ class ReportController extends Controller
         $month = $request->input('month', now()->format('Y-m'));
         $report = $this->reportingService->generateLCTRData($month);
 
+        $periodStart = now()->parse($month)->startOfMonth();
+        $version = ReportGenerated::where('report_type', 'LCTR')
+            ->where('period_start', $periodStart)
+            ->max('version') + 1;
+
         ReportGenerated::create([
             'report_type' => 'LCTR',
-            'period_start' => now()->parse($month)->startOfMonth(),
+            'period_start' => $periodStart,
             'period_end' => now()->parse($month)->endOfMonth(),
             'generated_by' => auth()->id(),
             'generated_at' => now(),
             'file_format' => 'CSV',
+            'version' => $version,
         ]);
 
         return response()->json($report);
@@ -565,5 +572,258 @@ class ReportController extends Controller
             'startDate',
             'endDate'
         ));
+    }
+
+    /**
+     * BNM Form LMCA - Monthly regulatory report
+     */
+    public function lmca(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'month' => 'nullable|date_format:Y-m',
+        ]);
+
+        $month = $validated['month'] ?? now()->format('Y-m');
+
+        $reportGenerated = ReportGenerated::where('report_type', 'LMCA')
+            ->where('period_start', now()->parse($month)->startOfMonth())
+            ->first();
+
+        $reportData = $this->reportingService->generateFormLMCA($month);
+
+        return view('reports.lmca', compact('month', 'reportData', 'reportGenerated'));
+    }
+
+    /**
+     * Generate BNM Form LMCA CSV
+     */
+    public function lmcaGenerate(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'month' => 'required|date_format:Y-m',
+        ]);
+
+        $month = $validated['month'];
+        $filepath = $this->reportingService->generateFormLMCACsv($month);
+
+        ReportGenerated::create([
+            'report_type' => 'LMCA',
+            'period_start' => now()->parse($month)->startOfMonth(),
+            'period_end' => now()->parse($month)->endOfMonth(),
+            'generated_by' => auth()->id(),
+            'generated_at' => now(),
+            'file_format' => 'CSV',
+        ]);
+
+        return response()->json([
+            'message' => 'Form LMCA generated successfully',
+            'filename' => basename($filepath),
+            'download_url' => url('/reports/download/'.basename($filepath)),
+        ]);
+    }
+
+    /**
+     * Update LMCA report status (mark as submitted)
+     */
+    public function updateLMCAStatus(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'month' => 'required|date_format:Y-m',
+            'status' => 'required|in:Submitted',
+        ]);
+
+        $report = ReportGenerated::where('report_type', 'LMCA')
+            ->where('period_start', now()->parse($validated['month'])->startOfMonth())
+            ->first();
+
+        if (! $report) {
+            return response()->json([
+                'message' => 'Report not found. Generate the report first.',
+            ], 404);
+        }
+
+        $report->update([
+            'status' => $validated['status'],
+            'submitted_at' => now(),
+            'submitted_by' => auth()->id(),
+        ]);
+
+        return response()->json([
+            'message' => 'Report status updated successfully',
+            'status' => $report->status,
+        ]);
+    }
+
+    /**
+     * Quarterly Large Value Report
+     */
+    public function quarterlyLvr(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'quarter' => 'nullable|date_format:Y-q',
+        ]);
+
+        $quarter = $validated['quarter'] ?? now()->format('Y').'-Q'.ceil(now()->format('n') / 3);
+
+        $reportGenerated = ReportGenerated::where('report_type', 'QLVR')
+            ->where('period_start', $this->getQuarterStart($quarter))
+            ->first();
+
+        $reportData = $this->reportingService->generateQuarterlyLargeValueReport($quarter);
+
+        return view('reports.quarterly-lvr', compact('quarter', 'reportData', 'reportGenerated'));
+    }
+
+    /**
+     * Generate Quarterly Large Value Report CSV
+     */
+    public function quarterlyLvrGenerate(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'quarter' => 'required|date_format:Y-q',
+        ]);
+
+        $quarter = $validated['quarter'];
+        $filepath = $this->reportingService->generateQuarterlyLargeValueCsv($quarter);
+
+        ReportGenerated::create([
+            'report_type' => 'QLVR',
+            'period_start' => $this->getQuarterStart($quarter),
+            'period_end' => $this->getQuarterEnd($quarter),
+            'generated_by' => auth()->id(),
+            'generated_at' => now(),
+            'file_format' => 'CSV',
+        ]);
+
+        return response()->json([
+            'message' => 'Quarterly Large Value Report generated successfully',
+            'filename' => basename($filepath),
+            'download_url' => url('/reports/download/'.basename($filepath)),
+        ]);
+    }
+
+    /**
+     * Position Limit Report
+     */
+    public function positionLimit(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $reportGenerated = ReportGenerated::where('report_type', 'PLR')
+            ->whereDate('period_start', now()->toDateString())
+            ->first();
+
+        $reportData = $this->reportingService->generatePositionLimitReport();
+
+        return view('reports.position-limit', compact('reportData', 'reportGenerated'));
+    }
+
+    /**
+     * Generate Position Limit Report CSV
+     */
+    public function positionLimitGenerate(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $filepath = $this->reportingService->generatePositionLimitCsv();
+
+        ReportGenerated::create([
+            'report_type' => 'PLR',
+            'period_start' => now()->startOfDay(),
+            'period_end' => now()->endOfDay(),
+            'generated_by' => auth()->id(),
+            'generated_at' => now(),
+            'file_format' => 'CSV',
+        ]);
+
+        return response()->json([
+            'message' => 'Position Limit Report generated successfully',
+            'filename' => basename($filepath),
+            'download_url' => url('/reports/download/'.basename($filepath)),
+        ]);
+    }
+
+    protected function getQuarterStart(string $quarter): Carbon
+    {
+        $parts = explode('-', $quarter);
+        $year = (int) $parts[0];
+        $q = (int) substr($parts[1], 1);
+        $startMonth = (($q - 1) * 3) + 1;
+
+        return Carbon::create($year, $startMonth, 1)->startOfMonth();
+    }
+
+    protected function getQuarterEnd(string $quarter): Carbon
+    {
+        return $this->getQuarterStart($quarter)->copy()->addMonths(3)->subDay()->endOfDay();
+    }
+
+    /**
+     * Report history with version tracking
+     */
+    public function history(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $reportType = $request->input('type');
+        $periodStart = $request->input('period');
+
+        $query = ReportGenerated::with(['generatedBy', 'submittedBy'])
+            ->orderBy('generated_at', 'desc');
+
+        if ($reportType) {
+            $query->where('report_type', $reportType);
+        }
+
+        if ($periodStart) {
+            $query->where('period_start', $periodStart);
+        }
+
+        $reports = $query->paginate(20);
+
+        $reportTypes = ReportGenerated::select('report_type')->distinct()->pluck('report_type');
+
+        return view('reports.history', compact('reports', 'reportTypes', 'reportType', 'periodStart'));
+    }
+
+    /**
+     * Compare two report versions
+     */
+    public function compare(Request $request)
+    {
+        $this->requireManagerOrAdmin();
+
+        $validated = $request->validate([
+            'report_type' => 'required|string',
+            'period_start' => 'required|date',
+            'version1' => 'required|integer',
+            'version2' => 'required|integer',
+        ]);
+
+        $report1 = ReportGenerated::where('report_type', $validated['report_type'])
+            ->where('period_start', $validated['period_start'])
+            ->where('version', $validated['version1'])
+            ->first();
+
+        $report2 = ReportGenerated::where('report_type', $validated['report_type'])
+            ->where('period_start', $validated['period_start'])
+            ->where('version', $validated['version2'])
+            ->first();
+
+        if (! $report1 || ! $report2) {
+            return back()->with('error', 'Report version not found');
+        }
+
+        return view('reports.compare', compact('report1', 'report2'));
     }
 }

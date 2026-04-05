@@ -16,7 +16,7 @@ class AccountingController extends Controller
         $this->accountingService = $accountingService;
     }
 
-    protected function requireManagerOrAdmin()
+    protected function requireManagerOrAdmin(): void
     {
         if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');

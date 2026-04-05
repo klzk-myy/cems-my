@@ -14,7 +14,7 @@ class FinancialStatementController extends Controller
         $this->ledgerService = $ledgerService;
     }
 
-    protected function requireManagerOrAdmin()
+    protected function requireManagerOrAdmin(): void
     {
         if (!auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');

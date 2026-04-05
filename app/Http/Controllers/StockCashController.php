@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TransactionType;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\SystemLog;
@@ -15,7 +16,7 @@ class StockCashController extends Controller
     /**
      * Check if user can manage stock/cash
      */
-    protected function requireManagerOrAdmin()
+    protected function requireManagerOrAdmin(): void
     {
         if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
@@ -80,7 +81,11 @@ class StockCashController extends Controller
      */
     public function openTill(Request $request)
     {
-        $this->requireManagerOrAdmin();
+        // Allow any authenticated user (teller, manager, admin) to open till
+        // Access control handled by auth middleware in routes
+        if (! auth()->check()) {
+            abort(403, 'Unauthorized');
+        }
 
         $validated = $request->validate([
             'till_id' => 'required|string|max:50',
@@ -105,7 +110,7 @@ class StockCashController extends Controller
             'opening_balance' => $validated['opening_balance'],
             'date' => today(),
             'opened_by' => auth()->id(),
-            'notes' => $validated['notes'],
+            'notes' => $validated['notes'] ?? null,
         ]);
 
         // Log till opening
@@ -130,7 +135,11 @@ class StockCashController extends Controller
      */
     public function closeTill(Request $request)
     {
-        $this->requireManagerOrAdmin();
+        // Allow any authenticated user (teller, manager, admin) to close till
+        // Access control handled by auth middleware in routes
+        if (! auth()->check()) {
+            abort(403, 'Unauthorized');
+        }
 
         $validated = $request->validate([
             'till_id' => 'required|string',
@@ -167,7 +176,7 @@ class StockCashController extends Controller
             'variance' => $variance,
             'closed_by' => auth()->id(),
             'closed_at' => now(),
-            'notes' => $validated['notes'],
+            'notes' => $validated['notes'] ?? null,
         ]);
 
         // Log till closing
@@ -260,12 +269,12 @@ class StockCashController extends Controller
         // Calculate summary statistics
         $summary = [
             'opening_balance' => (float) $tillBalance->opening_balance,
-            'total_buy_count' => $transactions->where('type', 'Buy')->count(),
-            'total_buy_amount' => $transactions->where('type', 'Buy')->sum('amount_local'),
-            'total_sell_count' => $transactions->where('type', 'Sell')->count(),
-            'total_sell_amount' => $transactions->where('type', 'Sell')->sum('amount_local'),
+            'total_buy_count' => $transactions->where('type', TransactionType::Buy)->count(),
+            'total_buy_amount' => $transactions->where('type', TransactionType::Buy)->sum('amount_local'),
+            'total_sell_count' => $transactions->where('type', TransactionType::Sell)->count(),
+            'total_sell_amount' => $transactions->where('type', TransactionType::Sell)->sum('amount_local'),
             'total_transactions' => $transactions->count(),
-            'net_flow' => $transactions->where('type', 'Buy')->sum('amount_local') - $transactions->where('type', 'Sell')->sum('amount_local'),
+            'net_flow' => $transactions->where('type', TransactionType::Buy)->sum('amount_local') - $transactions->where('type', TransactionType::Sell)->sum('amount_local'),
         ];
 
         // Calculate expected closing balance

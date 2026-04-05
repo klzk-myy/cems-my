@@ -26,7 +26,7 @@ class UserController extends Controller
      *
      * @throws \Symfony\Component\HttpKernel\Exception\HttpException
      */
-    protected function requireAdmin()
+    protected function requireAdmin(): void
     {
         if (! auth()->user()->isAdmin()) {
             abort(403, 'Unauthorized. Admin access required.');
