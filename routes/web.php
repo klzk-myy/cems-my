@@ -3,6 +3,8 @@
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinancialStatementController;
+use App\Http\Controllers\FiscalYearController;
+use App\Http\Controllers\JournalEntryWorkflowController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RevaluationController;
@@ -157,6 +159,23 @@ Route::middleware('auth')->group(function () {
         // Bank Reconciliation
         Route::get('/accounting/reconciliation', [AccountingController::class, 'reconciliation'])
             ->name('accounting.reconciliation');
+
+        // Journal Entry Workflow
+        Route::get('/accounting/journal/workflow', [JournalEntryWorkflowController::class, 'workflow'])->name('accounting.journal.workflow');
+        Route::post('/accounting/journal/{entry}/approve', [JournalEntryWorkflowController::class, 'approve'])->name('accounting.journal.approve');
+        Route::post('/accounting/journal/{entry}/submit', [JournalEntryWorkflowController::class, 'submit'])->name('accounting.journal.submit');
+
+        // Cash Flow Statement
+        Route::get('/accounting/cash-flow', [FinancialStatementController::class, 'cashFlow'])->name('accounting.cash-flow');
+
+        // Financial Ratios
+        Route::get('/accounting/ratios', [FinancialStatementController::class, 'ratios'])->name('accounting.ratios');
+
+        // Fiscal Year Management
+        Route::get('/accounting/fiscal-years', [FiscalYearController::class, 'index'])->name('accounting.fiscal-years');
+        Route::post('/accounting/fiscal-years', [FiscalYearController::class, 'store'])->name('accounting.fiscal-years.store');
+        Route::post('/accounting/fiscal-years/{year}/close', [FiscalYearController::class, 'close'])->name('accounting.fiscal-years.close');
+        Route::get('/accounting/fiscal-years/{yearCode}/report', [FiscalYearController::class, 'report'])->name('accounting.fiscal-years.report');
     });
 
     // Reports - Managers and Admin only (compliance officers use dedicated compliance module)

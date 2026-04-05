@@ -28,6 +28,13 @@ class DatabaseSeeder extends Seeder
         // Seed Chart of Accounts (18 accounts)
         $this->call(ChartOfAccountsSeeder::class);
 
+        // Seed Departments and Cost Centers
+        $this->call(DepartmentSeeder::class);
+        $this->call(CostCenterSeeder::class);
+
+        // Seed Enhanced Chart of Accounts (50+ accounts)
+        $this->call(EnhancedChartOfAccountsSeeder::class);
+
         // Seed Accounting Periods (current + 2 months)
         $this->call(AccountingPeriodSeeder::class);
 

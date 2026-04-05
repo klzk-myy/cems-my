@@ -16,14 +16,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $account_code Primary key for the account
  * @property string $account_name Human-readable name of the account
  * @property string $account_type Type of account (Asset, Liability, Equity, Revenue, Expense)
+ * @property string|null $account_class Account class (Cash, Receivable, Payable, etc.)
  * @property string|null $parent_code Reference to parent account in hierarchy
  * @property bool $is_active Whether the account is active
+ * @property bool $allow_journal Whether journal entries can be posted directly
+ * @property int|null $cost_center_id Associated cost center
+ * @property int|null $department_id Associated department
  * @property \Illuminate\Support\Carbon|null $created_at Timestamp when record was created
  * @property \Illuminate\Support\Carbon|null $updated_at Timestamp when record was last updated
  * @property-read ChartOfAccount|null $parent The parent account in the hierarchy
  * @property-read \Illuminate\Database\Eloquent\Collection<int, ChartOfAccount> $children Child accounts in the hierarchy
  * @property-read \Illuminate\Database\Eloquent\Collection<int, JournalLine> $journalLines Journal lines associated with this account
  * @property-read \Illuminate\Database\Eloquent\Collection<int, AccountLedger> $ledgerEntries Ledger entries associated with this account
+ * @property-read CostCenter|null $costCenter
+ * @property-read Department|null $department
  */
 class ChartOfAccount extends Model
 {
@@ -39,12 +45,17 @@ class ChartOfAccount extends Model
         'account_code',
         'account_name',
         'account_type',
+        'account_class',
         'parent_code',
         'is_active',
+        'allow_journal',
+        'cost_center_id',
+        'department_id',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'allow_journal' => 'boolean',
     ];
 
     /**
@@ -85,6 +96,26 @@ class ChartOfAccount extends Model
     public function ledgerEntries(): HasMany
     {
         return $this->hasMany(AccountLedger::class, 'account_code', 'account_code');
+    }
+
+    /**
+     * Get the cost center associated with this account.
+     *
+     * @return BelongsTo The cost center relationship
+     */
+    public function costCenter(): BelongsTo
+    {
+        return $this->belongsTo(CostCenter::class);
+    }
+
+    /**
+     * Get the department associated with this account.
+     *
+     * @return BelongsTo The department relationship
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     /**

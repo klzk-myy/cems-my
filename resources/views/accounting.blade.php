@@ -131,6 +131,22 @@
             <span class="quick-link-icon">💰</span>
             <span>Budget</span>
         </a>
+        <a href="{{ route('accounting.journal.workflow') }}" class="quick-link">
+            <span class="quick-link-icon">✅</span>
+            <span>Entry Workflow</span>
+        </a>
+        <a href="{{ route('accounting.cash-flow') }}" class="quick-link">
+            <span class="quick-link-icon">💵</span>
+            <span>Cash Flow</span>
+        </a>
+        <a href="{{ route('accounting.ratios') }}" class="quick-link">
+            <span class="quick-link-icon">📐</span>
+            <span>Financial Ratios</span>
+        </a>
+        <a href="{{ route('accounting.fiscal-years') }}" class="quick-link">
+            <span class="quick-link-icon">📆</span>
+            <span>Fiscal Years</span>
+        </a>
     </div>
 </div>
 

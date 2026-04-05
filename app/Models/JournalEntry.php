@@ -16,23 +16,34 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Each entry contains multiple journal lines and can be posted to the general ledger.
  *
  * @property int $id
+ * @property string|null $entry_number Unique entry number (JE-YYYYMM-XXXX)
  * @property int $period_id
  * @property \Illuminate\Support\Carbon $entry_date
  * @property string|null $reference_type
  * @property int|null $reference_id
  * @property string|null $description
- * @property string $status
+ * @property string $status Draft, Pending, Posted, Reversed
  * @property int|null $posted_by
  * @property \Illuminate\Support\Carbon|null $posted_at
  * @property int|null $reversed_by
  * @property \Illuminate\Support\Carbon|null $reversed_at
+ * @property int|null $created_by
+ * @property int|null $approved_by
+ * @property \Illuminate\Support\Carbon|null $approved_at
+ * @property string|null $approval_notes
+ * @property int|null $cost_center_id
+ * @property int|null $department_id
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @property-read \Illuminate\Database\Eloquent\Collection<int, JournalLine> $lines
  * @property-read User|null $postedBy
  * @property-read User|null $reversedBy
+ * @property-read User|null $creator
+ * @property-read User|null $approver
  * @property-read \Illuminate\Database\Eloquent\Collection<int, AccountLedger> $ledgerEntries
  * @property-read AccountingPeriod $period
+ * @property-read CostCenter|null $costCenter
+ * @property-read Department|null $department
  */
 class JournalEntry extends Model
 {
@@ -49,12 +60,20 @@ class JournalEntry extends Model
         'posted_at',
         'reversed_by',
         'reversed_at',
+        'entry_number',
+        'created_by',
+        'approved_by',
+        'approved_at',
+        'approval_notes',
+        'cost_center_id',
+        'department_id',
     ];
 
     protected $casts = [
         'entry_date' => 'date',
         'posted_at' => 'datetime',
         'reversed_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     /**
@@ -79,6 +98,38 @@ class JournalEntry extends Model
     public function reversedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reversed_by');
+    }
+
+    /**
+     * Get the user who created this journal entry.
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get the user who approved this journal entry.
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Get the cost center associated with this journal entry.
+     */
+    public function costCenter(): BelongsTo
+    {
+        return $this->belongsTo(CostCenter::class);
+    }
+
+    /**
+     * Get the department associated with this journal entry.
+     */
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     /**
