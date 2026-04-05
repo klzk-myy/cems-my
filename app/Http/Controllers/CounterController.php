@@ -11,7 +11,6 @@ use App\Services\AuditService;
 use App\Services\CounterService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
 class CounterController extends Controller
 {
@@ -121,13 +120,6 @@ class CounterController extends Controller
     public function close(Request $request, Counter $counter)
     {
         $this->requireManagerOrAdmin();
-
-        // Debug: Log the counter
-        \Log::debug('Close counter called', [
-            'counter_id' => $counter->id ?? 'null',
-            'counter_code' => $counter->code ?? 'null',
-            'request_uri' => $request->getRequestUri(),
-        ]);
 
         $request->validate([
             'closing_floats' => 'required|array',
