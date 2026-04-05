@@ -1,7 +1,7 @@
 # CEMS-MY Comprehensive Logical Faults and Inconsistencies Analysis
 
 **Date:** 2026-04-03  
-**Updated:** 2026-04-04  
+**Updated:** 2026-04-05  
 **Analyst:** OpenCode Systematic Analysis  
 **Scope:** Full codebase - Models, Controllers, Services, Migrations, Events  
 **Methodology:** Phase-by-phase systematic review following debugging best practices
@@ -17,18 +17,18 @@
 | **Concurrency/Race Conditions** | 3 | 1 | 1 | 1 | 0 | ✅ 100% |
 | **Precision/Type Safety** | 4 | 1 | 2 | 1 | 0 | ✅ 100% |
 | **Code Quality** | 4 | 0 | 3 | 1 | 0 | ✅ 100% |
-| **Design Inconsistencies** | 7 | 0 | 2 | 3 | 2 | 🔄 57% |
-| **Security Gaps** | 4 | 0 | 2 | 2 | 0 | 🔄 50% |
-| **TOTAL** | **40** | **5** | **18** | **13** | **4** | **✅ 92%** |
+| **Design Inconsistencies** | 10 | 0 | 3 | 5 | 2 | 🔄 40% |
+| **Security Gaps** | 6 | 1 | 3 | 2 | 0 | 🔄 33% |
+| **TOTAL** | **49** | **6** | **21** | **15** | **4** | **🔄 76%** |
 
 ### 🎉 Resolution Status
 
-**CRITICAL ISSUES:** ✅ **ALL RESOLVED** (5/5)
-**HIGH PRIORITY:** ✅ **ALL RESOLVED** (11/11)
-**MEDIUM PRIORITY:** ✅ **ALL RESOLVED** (6/6)
-**PRECISION/TYPE SAFETY:** ✅ **ALL RESOLVED** (4/4)
-**CODE QUALITY:** ✅ **ALL RESOLVED** (4/4)
-**OVERALL PROGRESS:** 92% (36/40 issues resolved)
+**CRITICAL ISSUES:** 🔄 **5/6 RESOLVED** (1 new open — CounterController RBAC)
+**HIGH PRIORITY:** 🔄 **16/21 RESOLVED** (5 open — see Section 11)
+**MEDIUM PRIORITY:** 🔄 **10/15 RESOLVED** (5 open — see Section 11)
+**PRECISION/TYPE SAFETY:** ✅ **ALL ORIGINAL RESOLVED** (new issues added)
+**CODE QUALITY:** ✅ **ALL ORIGINAL RESOLVED** (new issues added)
+**OVERALL PROGRESS:** 76% (37/49 issues resolved) — Updated 2026-04-05
 
 **Last Updated:** 2026-04-04
 **Test Results:** 
@@ -841,10 +841,20 @@ if ($this->created_at->lte(now()->subHours(24))) {
 
 ### 🔄 REMAINING (Medium + Low Priority)
 
-11. Standardize authentication patterns (5.2) - 🔄 In Progress
-12. Review event usage (5.1) - 🔄 In Progress
-13. Harden login against timing attacks (6.2) - ⏳ Pending
-14. Standardize MathService usage across codebase (5.3) - ⏳ Pending
+11. Standardize authentication patterns (5.2) - 🔄 Partially Fixed (inline checks remain in TransactionController; no role checks on StockCashController openTill/closeTill)
+12. Review event usage (5.1) - ✅ **RESOLVED** (2026-04-05) — TransactionCreated dispatched at lines 214 and 321 of TransactionController; listener functional
+13. Harden login against timing attacks (6.2) - ⏳ Pending — log message still reveals user active status (LoginController.php:50)
+14. Standardize MathService usage across codebase (5.3) - ⏳ Pending — 9+ float calculations remain in ReportController and StockCashController
+
+### 🆕 NEW ISSUES (Discovered 2026-04-05)
+
+15. Missing RBAC on CounterController operations — 🚨 CRITICAL — any authenticated user can open/close counters and initiate handovers
+16. Missing supervisor role check in CounterController::handover() — ⏳ Pending — HIGH severity
+17. Float arithmetic in RateApiService.php:60-61 — ⏳ Pending — HIGH severity
+18. Float arithmetic in ReportingService.php:518 — ⏳ Pending — HIGH severity
+19. Float division on quarterly calculation in ReportController.php:674 — ⏳ Pending — MEDIUM severity
+20. Raw enum string comparisons in TransactionImportService.php — ⏳ Pending — MEDIUM severity
+21. Raw enum string comparison in CurrencyPositionService.php:69 — ⏳ Pending — MEDIUM severity
 
 ---
 
@@ -918,6 +928,127 @@ The CEMS-MY codebase has undergone comprehensive fixes for all critical and high
 - 🎯 Proper dependency injection
 
 **Status:** ✅ **PRODUCTION READY** - All critical and high-priority issues resolved. System is robust and ready for deployment.
+
+---
+
+## 11. NEW ISSUES DISCOVERED 2026-04-05
+
+### 11.1 Missing RBAC on CounterController Operations (CRITICAL)
+
+**Location:** `app/Http/Controllers/CounterController.php` — open(), close(), handover() methods
+
+**Issue:** Counter lifecycle operations have no role-based authorization checks. Routes are only protected by `auth` middleware, allowing any authenticated user (including Tellers) to open/close counters and initiate handovers — operations that should require Manager or Supervisor access.
+
+**Evidence:**
+```php
+public function open(Request $request, Counter $counter) { /* no role check */ }
+public function close(Request $request, Counter $counter) { /* no role check */ }
+public function handover(Request $request, Counter $counter) { /* no role check */ }
+```
+
+**Fix:** Add `$this->requireManagerOrAdmin()` (or equivalent) at the start of close() and handover(); define acceptable teller/manager split for open().
+**Severity:** Critical | **Effort:** S
+
+---
+
+### 11.2 Missing Supervisor Authorization in Handover (HIGH)
+
+**Location:** `app/Http/Controllers/CounterController.php:246`
+
+**Issue:** No check that the currently authenticated user is authorized to initiate a handover before calling the service. Any authenticated user can designate any supervisor and any recipient.
+
+**Evidence:**
+```php
+$supervisor = User::findOrFail($request->input('supervisor_id'));
+// No check: is auth()->user() allowed to initiate this handover?
+$this->counterService->initiateHandover($session, $fromUser, $toUser, $supervisor, $physicalCounts);
+```
+
+**Fix:** Add `if (! auth()->user()->isManager()) abort(403);` before service call.
+**Severity:** High | **Effort:** S
+
+---
+
+### 11.3 Float Arithmetic on Exchange Rate Calculations (HIGH)
+
+**Location:** `app/Services/RateApiService.php:60-61`
+
+**Issue:** Spread calculations use native PHP float arithmetic, violating the BCMath-everywhere rule established for this codebase.
+
+**Evidence:**
+```php
+'buy' => $this->roundRate($rate * (1 - $spread / 2)),
+'sell' => $this->roundRate($rate * (1 + $spread / 2)),
+```
+
+**Fix:** Replace with MathService: `$half = $this->mathService->divide((string)$spread, '2'); $buy = $this->mathService->multiply((string)$rate, $this->mathService->subtract('1', $half));`
+**Severity:** High | **Effort:** S
+
+---
+
+### 11.4 Float Division on Utilization Percentage (HIGH)
+
+**Location:** `app/Services/ReportingService.php:518`
+
+**Issue:** Float division and multiplication on monetary amounts for position limit utilization.
+
+**Evidence:**
+```php
+$utilization = $limitValue > 0 ? ($currentBalance / $limitValue) * 100 : 0;
+```
+
+**Fix:** `$utilization = $limitValue > 0 ? $this->mathService->multiply($this->mathService->divide((string)$currentBalance, (string)$limitValue), '100') : '0';`
+**Severity:** High | **Effort:** S
+
+---
+
+### 11.5 Float Division on Quarterly Period Calculation (MEDIUM)
+
+**Location:** `app/Http/Controllers/ReportController.php:674`
+
+**Issue:** Float division to calculate quarter number; should use integer arithmetic.
+
+**Evidence:**
+```php
+$quarter = $validated['quarter'] ?? now()->format('Y').'-Q'.ceil(now()->format('n') / 3);
+```
+
+**Fix:** `ceil((int)now()->format('n') / 3)` — explicit integer cast before division.
+**Severity:** Medium | **Effort:** S
+
+---
+
+### 11.6 Raw Enum String Comparisons in TransactionImportService (MEDIUM)
+
+**Location:** `app/Services/TransactionImportService.php:176, 211, 228, 256`
+
+**Issue:** Hardcoded string literals compared instead of using the established TransactionType and TransactionStatus enums.
+
+**Evidence:**
+```php
+if ($data['type'] === 'Sell') { ... }
+if ($status === 'Completed') { ... }
+if ($type === 'Buy') { ... }
+```
+
+**Fix:** Import and use enums: `TransactionType::Sell->value`, `TransactionStatus::Completed->value`; or cast via `TransactionType::from($data['type'])`.
+**Severity:** Medium | **Effort:** M
+
+---
+
+### 11.7 Raw Enum String Comparison in CurrencyPositionService (MEDIUM)
+
+**Location:** `app/Services/CurrencyPositionService.php:69`
+
+**Issue:** Type parameter accepted as plain string 'Buy'/'Sell' without enum validation.
+
+**Evidence:**
+```php
+if ($type === 'Buy') {
+```
+
+**Fix:** Type-hint parameter as `TransactionType` enum or validate with `TransactionType::from($type)`.
+**Severity:** Medium | **Effort:** M
 
 ---
 
