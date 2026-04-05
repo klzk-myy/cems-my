@@ -22,13 +22,19 @@ class EddService
         return DB::transaction(function () use ($flag, $data) {
             $eddReference = $this->generateEddReference();
 
-            $record = EnhancedDiligenceRecord::create([
-                'flagged_transaction_id' => $flag->id,
-                'customer_id' => $flag->customer_id,
+            $recordData = [
+                'customer_id' => $flag->customer_id ?? $flag->getAttribute('customer_id'),
                 'edd_reference' => $eddReference,
                 'status' => 'Incomplete',
                 'risk_level' => $data['risk_level'] ?? 'Medium',
-            ]);
+            ];
+
+            // Only set flagged_transaction_id if the flag has an ID (is saved)
+            if ($flag->id) {
+                $recordData['flagged_transaction_id'] = $flag->id;
+            }
+
+            $record = EnhancedDiligenceRecord::create($recordData);
 
             return $record;
         });

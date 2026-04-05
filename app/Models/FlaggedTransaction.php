@@ -18,6 +18,7 @@ class FlaggedTransaction extends Model
         'reviewed_by',
         'notes',
         'resolved_at',
+        'customer_id',
     ];
 
     protected $casts = [
@@ -29,6 +30,11 @@ class FlaggedTransaction extends Model
     public function transaction()
     {
         return $this->belongsTo(Transaction::class);
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function assignedTo()

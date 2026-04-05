@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('flagged_transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->constrained();
+            $table->foreignId('transaction_id')->nullable()->constrained();
+            $table->foreignId('customer_id')->nullable()->constrained('customers');
             $table->enum('flag_type', [
                 'Large_Amount',
                 'Sanctions_Hit',

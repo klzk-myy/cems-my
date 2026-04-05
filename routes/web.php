@@ -113,6 +113,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/compliance/edd/{record}/edit', [EnhancedDiligenceController::class, 'edit'])->name('compliance.edd.edit');
         Route::put('/compliance/edd/{record}', [EnhancedDiligenceController::class, 'update'])->name('compliance.edd.update');
         Route::post('/compliance/edd/{record}/submit', [EnhancedDiligenceController::class, 'submitReview'])->name('compliance.edd.submit');
+    });
+
+    // EDD Approval - Managers and Compliance officers
+    Route::middleware('role:manager,compliance')->group(function () {
         Route::post('/compliance/edd/{record}/approve', [EnhancedDiligenceController::class, 'approve'])->name('compliance.edd.approve');
         Route::post('/compliance/edd/{record}/reject', [EnhancedDiligenceController::class, 'reject'])->name('compliance.edd.reject');
     });
