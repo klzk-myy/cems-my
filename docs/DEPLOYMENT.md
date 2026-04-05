@@ -839,4 +839,86 @@ php artisan schedule:run
 
 ---
 
+## 13. New Features (v1.1+)
+
+### Enhanced Due Diligence (EDD)
+
+The EDD module automates enhanced customer due diligence for high-risk transactions.
+
+**Routes:**
+- `/compliance/edd` - EDD records list
+- `/compliance/edd/create` - Create new EDD record
+
+**EDD Questionnaire Fields:**
+- Source of funds
+- Purpose of transaction
+- Employment information
+- Source of wealth
+
+**Workflow:** Incomplete → Pending Review → Approved/Rejected
+
+### Journal Entry Workflow
+
+Manual journal entries now require multi-level approval before posting.
+
+**Routes:**
+- `/accounting/journal/workflow` - View pending entries
+- Entries: Draft → Pending → Posted (or Reversed)
+
+### Cash Flow Statement
+
+New cash flow reporting with operating, investing, and financing activities.
+
+**Route:** `/accounting/cash-flow`
+
+### Financial Ratios
+
+Key performance metrics including liquidity, profitability, leverage, and efficiency ratios.
+
+**Route:** `/accounting/ratios`
+
+### Fiscal Year Management
+
+Annual fiscal year closing with automatic income summary entries.
+
+**Routes:**
+- `/accounting/fiscal-years` - View and manage fiscal years
+- Close year generates: Revenue → Income Summary → Retained Earnings
+
+### Department & Cost Center Support
+
+Enhanced chart of accounts with department and cost center tracking.
+
+**Database Tables:**
+- `departments` - Organizational departments
+- `cost_centers` - Cost center tracking per department
+
+### Report Enhancements
+
+New report cards on `/reports`:
+- LMCA Report (Monthly Large Money Changers Act)
+- Quarterly LVR (Quarterly Large Value Report)
+- Position Limit Report
+- Report History & Compare
+
+---
+
+## 14. Database Migrations
+
+When updating to v1.1+, run migrations:
+
+```bash
+php artisan migrate
+```
+
+**New tables created:**
+- `departments` - Organizational structure
+- `cost_centers` - Cost center tracking
+- `fiscal_years` - Annual fiscal year records
+- `enhanced_diligence_records` - EDD questionnaire data
+- Enhanced `journal_entries` - Workflow status columns
+- Enhanced `chart_of_accounts` - Department/cost center columns
+
+---
+
 **END OF DEPLOYMENT GUIDE**

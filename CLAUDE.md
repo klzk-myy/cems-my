@@ -88,12 +88,18 @@ Routes are in `routes/web.php` with middleware groups:
 | `Customer` | KYC data, risk ratings |
 | `CurrencyPosition` | Stock tracking with avg cost |
 | `JournalEntry` | Double-entry accounting records |
-| `ChartOfAccount` | COA with 18 default accounts |
+| `JournalLine` | Individual debit/credit lines |
+| `AccountLedger` | Running balance ledger entries |
+| `ChartOfAccount` | COA with 18+ accounts, cost centers |
+| `Department` | Organizational departments |
+| `CostCenter` | Cost center tracking |
+| `FiscalYear` | Annual fiscal year management |
 | `AccountingPeriod` | Monthly periods for financial reporting |
 | `Budget` | Budget vs actual tracking |
 | `TillBalance` | Daily till opening/closing |
 | `FlaggedTransaction` | AML alerts requiring review |
 | `StrReport` | Suspicious Transaction Reports |
+| `EnhancedDiligenceRecord` | EDD questionnaire records |
 
 ### Accounting Module
 
@@ -111,6 +117,11 @@ Routes are in `routes/web.php` with middleware groups:
 - `PeriodCloseService` - Period closing with validation
 - `BudgetService` - Budget vs actual reporting
 - `ReconciliationService` - Bank reconciliation
+- `JournalEntryWorkflowService` - Draft → Pending → Posted workflow
+- `CashFlowService` - Cash flow statement (operating/investing/financing)
+- `FinancialRatioService` - Liquidity, profitability, leverage, efficiency ratios
+- `FiscalYearService` - Fiscal year closing with income summary entries
+- `EddService` - Enhanced Due Diligence workflow management
 
 **Database Seeders**:
 - `ChartOfAccountsSeeder` - Creates 18 default accounts
@@ -119,14 +130,26 @@ Routes are in `routes/web.php` with middleware groups:
 
 **Routes** (`/accounting`):
 - `/accounting/journal` - Manual journal entries
+- `/accounting/journal/create` - New journal entry
+- `/accounting/journal/workflow` - Journal entry approval workflow
 - `/accounting/ledger` - Chart of accounts / account ledgers
 - `/accounting/trial-balance` - Trial balance report
 - `/accounting/profit-loss` - P&L statement
 - `/accounting/balance-sheet` - Balance sheet
+- `/accounting/cash-flow` - Cash flow statement
+- `/accounting/ratios` - Financial ratios analysis
 - `/accounting/revaluation` - Currency revaluation
 - `/accounting/periods` - Period management
+- `/accounting/fiscal-years` - Fiscal year management
 - `/accounting/reconciliation` - Bank reconciliation
 - `/accounting/budget` - Budget vs actual
+
+**Compliance Routes** (`/compliance`):
+- `/compliance` - Compliance dashboard
+- `/compliance/flagged` - Flagged transactions review
+- `/compliance/edd` - Enhanced Due Diligence records
+- `/compliance/edd/create` - New EDD record
+- `/str` - Suspicious Transaction Reports
 
 ### Report Generation
 
@@ -141,8 +164,16 @@ BNM compliance reports are generated via scheduled Artisan commands:
 
 Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`. Key test files:
 - `tests/Feature/TransactionTest.php` - Core transaction workflow
+- `tests/Feature/RealWorldTransactionWorkflowTest.php` - End-to-end daily workflow
 - `tests/Feature/UserManagementTest.php` - RBAC verification
+- `tests/Feature/EddWorkflowTest.php` - EDD workflow tests
+- `tests/Feature/ReportsViewTest.php` - Reports dashboard tests
 - `tests/Unit/MathServiceTest.php` - BCMath precision
+- `tests/Unit/AccountingServiceTest.php` - Accounting journal tests
+- `tests/Unit/LedgerServiceTest.php` - Ledger and trial balance tests
+- `tests/Unit/ComplianceServiceTest.php` - Compliance CDD/CDD level tests
+
+**Total: 364 tests, 1,063 assertions**
 
 ## Important Conventions
 
