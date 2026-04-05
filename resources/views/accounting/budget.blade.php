@@ -21,17 +21,15 @@
     </form>
 </div>
 
-@if(isset($report))
+@if(isset($report) && isset($report['items']) && count($report['items']) > 0)
 <div class="card">
-    <h2>Budget Report - {{ $periodCode }}</h2>
+    <h2>Budget Report - {{ $report['period_code'] ?? $periodCode }}</h2>
 
-    @if(count($report) > 0)
     <table>
         <thead>
             <tr>
                 <th>Account Code</th>
                 <th>Account Name</th>
-                <th>Account Type</th>
                 <th style="text-align: right;">Budget</th>
                 <th style="text-align: right;">Actual</th>
                 <th style="text-align: right;">Variance</th>
@@ -39,19 +37,18 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($report as $row)
+            @foreach($report['items'] as $item)
             <tr>
-                <td>{{ $row['account_code'] }}</td>
-                <td>{{ $row['account_name'] }}</td>
-                <td>{{ $row['account_type'] }}</td>
-                <td style="text-align: right;">{{ number_format($row['budget'], 2) }}</td>
-                <td style="text-align: right;">{{ number_format($row['actual'], 2) }}</td>
-                <td style="text-align: right;" class="{{ $row['variance'] >= 0 ? 'pnl-positive' : 'pnl-negative' }}">
-                    {{ $row['variance'] >= 0 ? '+' : '' }}{{ number_format($row['variance'], 2) }}
+                <td><strong>{{ $item['account_code'] }}</strong></td>
+                <td>{{ $item['account_name'] }}</td>
+                <td style="text-align: right;">{{ number_format((float) $item['budget'], 2) }}</td>
+                <td style="text-align: right;">{{ number_format((float) $item['actual'], 2) }}</td>
+                <td style="text-align: right;" class="{{ (float) $item['variance'] >= 0 ? 'pnl-positive' : 'pnl-negative' }}">
+                    {{ (float) $item['variance'] >= 0 ? '+' : '' }}{{ number_format((float) $item['variance'], 2) }}
                 </td>
                 <td style="text-align: right;">
                     @php
-                        $percent = $row['budget'] != 0 ? ($row['actual'] / $row['budget']) * 100 : 0;
+                        $percent = (float) $item['budget'] != 0 ? ((float) $item['actual'] / (float) $item['budget']) * 100 : 0;
                         $color = $percent > 100 ? '#e53e3e' : ($percent > 80 ? '#dd6b20' : '#38a169');
                     @endphp
                     <span style="color: {{ $color }};">{{ number_format($percent, 1) }}%</span>
@@ -60,11 +57,12 @@
             @endforeach
         </tbody>
     </table>
-    @else
+</div>
+@else
+<div class="card">
     <div class="alert alert-info">
-        No budget data available for this period.
+        No budget data available for this period. Run <code>php artisan db:seed --class=BudgetSeeder</code> to create sample budgets.
     </div>
-    @endif
 </div>
 @endif
 
@@ -89,7 +87,7 @@
                 <td>{{ $account->account_code }}</td>
                 <td>{{ $account->account_name }}</td>
                 <td>{{ $account->account_type }}</td>
-                <td style="text-align: right;">{{ number_format($account->actual_amount, 2) }}</td>
+                <td style="text-align: right;">{{ number_format((float) $account->actual_amount, 2) }}</td>
             </tr>
             @endforeach
         </tbody>
