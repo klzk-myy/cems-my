@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EnhancedDiligenceController;
 use App\Http\Controllers\FinancialStatementController;
 use App\Http\Controllers\FiscalYearController;
 use App\Http\Controllers\JournalEntryWorkflowController;
@@ -103,6 +104,17 @@ Route::middleware('auth')->group(function () {
         // Generate STR from alert
         Route::post('/compliance/flags/{flaggedTransaction}/generate-str', [StrController::class, 'generateFromAlert'])
             ->name('compliance.flags.generate-str');
+
+        // Enhanced Due Diligence
+        Route::get('/compliance/edd', [EnhancedDiligenceController::class, 'index'])->name('compliance.edd.index');
+        Route::get('/compliance/edd/create', [EnhancedDiligenceController::class, 'create'])->name('compliance.edd.create');
+        Route::post('/compliance/edd', [EnhancedDiligenceController::class, 'store'])->name('compliance.edd.store');
+        Route::get('/compliance/edd/{record}', [EnhancedDiligenceController::class, 'show'])->name('compliance.edd.show');
+        Route::get('/compliance/edd/{record}/edit', [EnhancedDiligenceController::class, 'edit'])->name('compliance.edd.edit');
+        Route::put('/compliance/edd/{record}', [EnhancedDiligenceController::class, 'update'])->name('compliance.edd.update');
+        Route::post('/compliance/edd/{record}/submit', [EnhancedDiligenceController::class, 'submitReview'])->name('compliance.edd.submit');
+        Route::post('/compliance/edd/{record}/approve', [EnhancedDiligenceController::class, 'approve'])->name('compliance.edd.approve');
+        Route::post('/compliance/edd/{record}/reject', [EnhancedDiligenceController::class, 'reject'])->name('compliance.edd.reject');
     });
 
     // Task Management - All authenticated users
