@@ -102,9 +102,10 @@ class RealWorldTransactionWorkflowTest extends TestCase
 
         $response->assertRedirect();
 
-        // Get the transaction
+        // Get the transaction - order by id desc to get the most recently created
         $buyTransaction = Transaction::where('customer_id', $customer->id)
             ->where('type', 'Buy')
+            ->orderBy('id', 'desc')
             ->first();
 
         $this->assertNotNull($buyTransaction);
