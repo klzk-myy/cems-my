@@ -1,0 +1,99 @@
+@extends('layouts.app')
+
+@section('title', 'Budget vs Actual - CEMS-MY')
+
+@section('content')
+<div class="accounting-header">
+    <h2>Budget vs Actual Report</h2>
+    <p>Compare budgeted amounts with actual expenditures</p>
+</div>
+
+<div class="card">
+    <h2>Select Period</h2>
+    <form method="GET" action="{{ route('accounting.budget') }}">
+        <div style="display: flex; gap: 1rem; align-items: flex-end;">
+            <div>
+                <label for="period">Accounting Period</label>
+                <input type="month" name="period" id="period" value="{{ $periodCode }}" class="form-control">
+            </div>
+            <button type="submit" class="btn btn-primary">View Report</button>
+        </div>
+    </form>
+</div>
+
+@if(isset($report))
+<div class="card">
+    <h2>Budget Report - {{ $periodCode }}</h2>
+
+    @if(count($report) > 0)
+    <table>
+        <thead>
+            <tr>
+                <th>Account Code</th>
+                <th>Account Name</th>
+                <th>Account Type</th>
+                <th style="text-align: right;">Budget</th>
+                <th style="text-align: right;">Actual</th>
+                <th style="text-align: right;">Variance</th>
+                <th style="text-align: right;">% Used</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($report as $row)
+            <tr>
+                <td>{{ $row['account_code'] }}</td>
+                <td>{{ $row['account_name'] }}</td>
+                <td>{{ $row['account_type'] }}</td>
+                <td style="text-align: right;">{{ number_format($row['budget'], 2) }}</td>
+                <td style="text-align: right;">{{ number_format($row['actual'], 2) }}</td>
+                <td style="text-align: right;" class="{{ $row['variance'] >= 0 ? 'pnl-positive' : 'pnl-negative' }}">
+                    {{ $row['variance'] >= 0 ? '+' : '' }}{{ number_format($row['variance'], 2) }}
+                </td>
+                <td style="text-align: right;">
+                    @php
+                        $percent = $row['budget'] != 0 ? ($row['actual'] / $row['budget']) * 100 : 0;
+                        $color = $percent > 100 ? '#e53e3e' : ($percent > 80 ? '#dd6b20' : '#38a169');
+                    @endphp
+                    <span style="color: {{ $color }};">{{ number_format($percent, 1) }}%</span>
+                </td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+    @else
+    <div class="alert alert-info">
+        No budget data available for this period.
+    </div>
+    @endif
+</div>
+@endif
+
+@if(isset($unbudgeted) && count($unbudgeted) > 0)
+<div class="card">
+    <h2 style="color: #dd6b20;">Accounts Without Budget</h2>
+    <div class="alert alert-warning">
+        The following accounts have transactions but no budget allocated for {{ $periodCode }}.
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Account Code</th>
+                <th>Account Name</th>
+                <th>Account Type</th>
+                <th style="text-align: right;">Actual Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($unbudgeted as $account)
+            <tr>
+                <td>{{ $account->account_code }}</td>
+                <td>{{ $account->account_name }}</td>
+                <td>{{ $account->account_type }}</td>
+                <td style="text-align: right;">{{ number_format($account->actual_amount, 2) }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+@endif
+@endsection

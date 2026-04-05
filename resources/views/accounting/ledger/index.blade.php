@@ -1,57 +1,68 @@
 @extends('layouts.app')
 
+@section('title', 'Ledger - CEMS-MY')
+
 @section('content')
-<div class="container">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h4>Trial Balance - {{ $trialBalance['as_of_date'] }}</h4>
-                </div>
-                <div class="card-body">
-                    @if($trialBalance['is_balanced'])
-                        <div class="alert alert-success">Trial balance is balanced</div>
-                    @else
-                        <div class="alert alert-danger">Trial balance is NOT balanced</div>
-                    @endif
-                    
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Code</th>
-                                <th>Account Name</th>
-                                <th>Type</th>
-                                <th class="text-end">Debit</th>
-                                <th class="text-end">Credit</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($trialBalance['accounts'] as $account)
-                            <tr>
-                                <td>{{ $account['account_code'] }}</td>
-                                <td>{{ $account['account_name'] }}</td>
-                                <td>{{ $account['account_type'] }}</td>
-                                <td class="text-end">{{ number_format($account['debit'], 2) }}</td>
-                                <td class="text-end">{{ number_format($account['credit'], 2) }}</td>
-                                <td>
-                                    <a href="{{ route('accounting.ledger.account', $account['account_code']) }}" class="btn btn-sm btn-info">Ledger</a>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr class="table-dark">
-                                <th colspan="3">TOTAL</th>
-                                <th class="text-end">{{ number_format($trialBalance['total_debits'], 2) }}</th>
-                                <th class="text-end">{{ number_format($trialBalance['total_credits'], 2) }}</th>
-                                <th></th>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-        </div>
+<div class="accounting-header">
+    <h2>Chart of Accounts / Ledger</h2>
+    <p>View all accounts and drill down to individual ledgers</p>
+</div>
+
+<div class="card">
+    <h2>All Accounts</h2>
+
+    @if(count($trialBalance['accounts']) > 0)
+    <table>
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Account Name</th>
+                <th>Type</th>
+                <th style="text-align: right;">Debit Balance</th>
+                <th style="text-align: right;">Credit Balance</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($trialBalance['accounts'] as $account)
+            <tr>
+                <td><strong>{{ $account['account_code'] }}</strong></td>
+                <td>{{ $account['account_name'] }}</td>
+                <td>
+                    <span class="status-badge {{ $account['account_type'] === 'Asset' ? 'status-active' : ($account['account_type'] === 'Liability' ? 'status-flagged' : 'status-pending') }}">
+                        {{ $account['account_type'] }}
+                    </span>
+                </td>
+                <td style="text-align: right;">{{ number_format($account['debit'], 2) }}</td>
+                <td style="text-align: right;">{{ number_format($account['credit'], 2) }}</td>
+                <td>
+                    <a href="{{ route('accounting.ledger.account', $account['account_code']) }}" class="btn btn-sm btn-primary">View Ledger</a>
+                </td>
+            </tr>
+            @endforeach
+        </tbody>
+        <tfoot style="background: #f7fafc; font-weight: 600;">
+            <tr>
+                <td colspan="3">TOTAL</td>
+                <td style="text-align: right;">{{ number_format($trialBalance['total_debits'], 2) }}</td>
+                <td style="text-align: right;">{{ number_format($trialBalance['total_credits'], 2) }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+    @else
+    <div class="alert alert-info">
+        No chart of accounts found. Please run database migrations.
+    </div>
+    @endif
+</div>
+
+<div class="card">
+    <h2>Quick Links</h2>
+    <div style="display: flex; gap: 1rem;">
+        <a href="{{ route('accounting.trial-balance') }}" class="btn btn-primary">Trial Balance</a>
+        <a href="{{ route('accounting.profit-loss') }}" class="btn btn-success">Profit & Loss</a>
+        <a href="{{ route('accounting.balance-sheet') }}" class="btn btn-info">Balance Sheet</a>
     </div>
 </div>
 @endsection

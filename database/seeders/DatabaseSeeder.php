@@ -3,22 +3,14 @@
 namespace Database\Seeders;
 
 use App\Models\Currency;
-use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Create admin user
-        User::create([
-            'username' => 'admin',
-            'email' => 'admin@cems.my',
-            'password_hash' => Hash::make('Admin@1234'),
-            'role' => 'admin',
-            'is_active' => true,
-        ]);
+        // Seed Users (admin, manager, compliance, teller)
+        $this->call(UserSeeder::class);
 
         // Create test currencies
         $currencies = [
@@ -32,5 +24,14 @@ class DatabaseSeeder extends Seeder
         foreach ($currencies as $currency) {
             Currency::firstOrCreate(['code' => $currency['code']], $currency);
         }
+
+        // Seed Chart of Accounts (18 accounts)
+        $this->call(ChartOfAccountsSeeder::class);
+
+        // Seed Accounting Periods (current + 2 months)
+        $this->call(AccountingPeriodSeeder::class);
+
+        // Seed Budgets (sample monthly budgets)
+        $this->call(BudgetSeeder::class);
     }
 }

@@ -32,6 +32,31 @@
     }
     .pnl-positive { color: #48bb78; }
     .pnl-negative { color: #fc8181; }
+
+    .quick-links {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .quick-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: #f7fafc;
+        border-radius: 6px;
+        text-decoration: none;
+        color: #2d3748;
+        transition: all 0.2s;
+    }
+    .quick-link:hover {
+        background: #edf2f7;
+        transform: translateY(-2px);
+    }
+    .quick-link-icon {
+        font-size: 1.5rem;
+    }
 </style>
 @endsection
 
@@ -59,6 +84,53 @@
     <div class="summary-box">
         <div class="summary-value">{{ now()->format('M Y') }}</div>
         <div class="summary-label">Current Month</div>
+    </div>
+</div>
+
+<!-- Quick Links -->
+<div class="card">
+    <h2>Accounting Menu</h2>
+    <div class="quick-links">
+        <a href="{{ route('accounting.journal') }}" class="quick-link">
+            <span class="quick-link-icon">📝</span>
+            <span>Journal Entries</span>
+        </a>
+        <a href="{{ route('accounting.journal.create') }}" class="quick-link">
+            <span class="quick-link-icon">➕</span>
+            <span>New Journal Entry</span>
+        </a>
+        <a href="{{ route('accounting.ledger') }}" class="quick-link">
+            <span class="quick-link-icon">📒</span>
+            <span>Ledger</span>
+        </a>
+        <a href="{{ route('accounting.trial-balance') }}" class="quick-link">
+            <span class="quick-link-icon">⚖️</span>
+            <span>Trial Balance</span>
+        </a>
+        <a href="{{ route('accounting.profit-loss') }}" class="quick-link">
+            <span class="quick-link-icon">📊</span>
+            <span>Profit & Loss</span>
+        </a>
+        <a href="{{ route('accounting.balance-sheet') }}" class="quick-link">
+            <span class="quick-link-icon">📈</span>
+            <span>Balance Sheet</span>
+        </a>
+        <a href="{{ route('accounting.periods') }}" class="quick-link">
+            <span class="quick-link-icon">📅</span>
+            <span>Periods</span>
+        </a>
+        <a href="{{ route('accounting.revaluation') }}" class="quick-link">
+            <span class="quick-link-icon">💱</span>
+            <span>Revaluation</span>
+        </a>
+        <a href="{{ route('accounting.reconciliation') }}" class="quick-link">
+            <span class="quick-link-icon">🏦</span>
+            <span>Reconciliation</span>
+        </a>
+        <a href="{{ route('accounting.budget') }}" class="quick-link">
+            <span class="quick-link-icon">💰</span>
+            <span>Budget</span>
+        </a>
     </div>
 </div>
 
@@ -102,7 +174,7 @@
     @endif
 </div>
 
-<!-- Accounting Actions -->
+<!-- Monthly Revaluation Info -->
 <div class="card">
     <h2>Monthly Revaluation</h2>
     <div class="alert alert-info">
@@ -111,61 +183,8 @@
         <strong>Next Run:</strong> {{ now()->endOfMonth()->format('Y-m-d 23:59') }}
     </div>
     <div style="margin-top: 1rem;">
-        <a href="#" class="btn btn-primary">Run Manual Revaluation</a>
-        <a href="#" class="btn btn-success">View Revaluation History</a>
+        <a href="{{ route('accounting.revaluation.run') }}" class="btn btn-primary">Run Manual Revaluation</a>
+        <a href="{{ route('accounting.revaluation.history') }}" class="btn btn-success">View Revaluation History</a>
     </div>
-</div>
-
-<!-- Chart of Accounts -->
-<div class="card">
-    <h2>Chart of Accounts (Summary)</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Account Code</th>
-                <th>Account Name</th>
-                <th>Type</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>1000</td>
-                <td>Cash - MYR</td>
-                <td>Asset</td>
-                <td><span class="status-badge status-active">Active</span></td>
-            </tr>
-            <tr>
-                <td>1100</td>
-                <td>Cash - USD</td>
-                <td>Asset</td>
-                <td><span class="status-badge status-active">Active</span></td>
-            </tr>
-            <tr>
-                <td>1200</td>
-                <td>Cash - EUR</td>
-                <td>Asset</td>
-                <td><span class="status-badge status-active">Active</span></td>
-            </tr>
-            <tr>
-                <td>4000</td>
-                <td>Revenue - Forex</td>
-                <td>Revenue</td>
-                <td><span class="status-badge status-active">Active</span></td>
-            </tr>
-            <tr>
-                <td>5000</td>
-                <td>Expense - Revaluation Loss</td>
-                <td>Expense</td>
-                <td><span class="status-badge status-active">Active</span></td>
-            </tr>
-            <tr>
-                <td>5100</td>
-                <td>Revenue - Revaluation Gain</td>
-                <td>Revenue</td>
-                <td><span class="status-badge status-active">Active</span></td>
-            </tr>
-        </tbody>
-    </table>
 </div>
 @endsection

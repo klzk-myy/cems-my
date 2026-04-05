@@ -88,9 +88,45 @@ Routes are in `routes/web.php` with middleware groups:
 | `Customer` | KYC data, risk ratings |
 | `CurrencyPosition` | Stock tracking with avg cost |
 | `JournalEntry` | Double-entry accounting records |
+| `ChartOfAccount` | COA with 18 default accounts |
+| `AccountingPeriod` | Monthly periods for financial reporting |
+| `Budget` | Budget vs actual tracking |
 | `TillBalance` | Daily till opening/closing |
 | `FlaggedTransaction` | AML alerts requiring review |
 | `StrReport` | Suspicious Transaction Reports |
+
+### Accounting Module
+
+**Chart of Accounts** (18 accounts):
+- Asset: 1000-2200 (Cash, Inventory, Receivables)
+- Liability: 3000-3100 (Payables, Accruals)
+- Equity: 4000-4200 (Capital, Retained Earnings)
+- Revenue: 5000-5100 (Forex Trading, Revaluation Gains)
+- Expense: 6000-6200 (Forex Loss, Revaluation Loss, Operating)
+
+**Services**:
+- `AccountingService` - Journal entry creation and reversal
+- `LedgerService` - Trial balance, P&L, balance sheet
+- `RevaluationService` - Monthly currency revaluation
+- `PeriodCloseService` - Period closing with validation
+- `BudgetService` - Budget vs actual reporting
+- `ReconciliationService` - Bank reconciliation
+
+**Database Seeders**:
+- `ChartOfAccountsSeeder` - Creates 18 default accounts
+- `AccountingPeriodSeeder` - Creates current + 2 months
+- `BudgetSeeder` - Sample monthly budgets
+
+**Routes** (`/accounting`):
+- `/accounting/journal` - Manual journal entries
+- `/accounting/ledger` - Chart of accounts / account ledgers
+- `/accounting/trial-balance` - Trial balance report
+- `/accounting/profit-loss` - P&L statement
+- `/accounting/balance-sheet` - Balance sheet
+- `/accounting/revaluation` - Currency revaluation
+- `/accounting/periods` - Period management
+- `/accounting/reconciliation` - Bank reconciliation
+- `/accounting/budget` - Budget vs actual
 
 ### Report Generation
 
