@@ -33,6 +33,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | BNM MSB License Number
+    |--------------------------------------------------------------------------
+    |
+    | Your Bank Negara Malaysia Money Services Business license number.
+    | This is used in regulatory reports (LCTR, LMCA, MSB2, QLVR).
+    |
+    */
+
+    'license_number' => env('BNM_LICENSE_NUMBER', 'MSB-XXXXXXXX'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Debug Mode
     |--------------------------------------------------------------------------
     |
