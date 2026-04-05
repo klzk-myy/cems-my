@@ -76,6 +76,28 @@
             border-left-color: #48bb78;
         }
 
+        /* Dropdown */
+        .nav-group {
+            position: relative;
+        }
+        .nav-group > .nav-submenu {
+            display: none;
+            flex-direction: column;
+            background: rgba(0,0,0,0.15);
+            margin-left: 1rem;
+            border-radius: 4px;
+        }
+        .nav-group:hover > .nav-submenu {
+            display: flex;
+        }
+        .nav-submenu a {
+            padding: 0.625rem 1rem 0.625rem 2.5rem;
+            font-size: 0.8rem;
+        }
+        .nav-submenu a:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
         .nav-icon {
             width: 20px;
             height: 20px;
@@ -292,10 +314,29 @@
                     <span class="nav-icon">🛡️</span>
                     <span class="nav-label">Compliance</span>
                 </a>
-                <a href="/accounting" class="{{ request()->is('accounting*') ? 'active' : '' }}">
-                    <span class="nav-icon">📚</span>
-                    <span class="nav-label">Accounting</span>
-                </a>
+                <div class="nav-group">
+                    <a href="/accounting" class="{{ request()->is('accounting*') ? 'active' : '' }}">
+                        <span class="nav-icon">📚</span>
+                        <span class="nav-label">Accounting</span>
+                        <span style="margin-left: auto; font-size: 0.6rem;">▼</span>
+                    </a>
+                    <div class="nav-submenu">
+                        <a href="/accounting/journal">📝 Journal Entries</a>
+                        <a href="/accounting/journal/create">➕ New Entry</a>
+                        <a href="/accounting/journal/workflow">✅ Workflow</a>
+                        <a href="/accounting/ledger">📒 Ledger</a>
+                        <a href="/accounting/trial-balance">⚖️ Trial Balance</a>
+                        <a href="/accounting/profit-loss">📊 P&L</a>
+                        <a href="/accounting/balance-sheet">📈 Balance Sheet</a>
+                        <a href="/accounting/cash-flow">💵 Cash Flow</a>
+                        <a href="/accounting/ratios">📐 Ratios</a>
+                        <a href="/accounting/periods">📅 Periods</a>
+                        <a href="/accounting/fiscal-years">📆 Fiscal Years</a>
+                        <a href="/accounting/revaluation">💱 Revaluation</a>
+                        <a href="/accounting/reconciliation">🏦 Reconciliation</a>
+                        <a href="/accounting/budget">💰 Budget</a>
+                    </div>
+                </div>
                 <a href="/tasks" class="{{ request()->is('tasks*') ? 'active' : '' }}">
                     <span class="nav-icon">✅</span>
                     <span class="nav-label">Tasks</span>
