@@ -81,11 +81,7 @@ class StockCashController extends Controller
      */
     public function openTill(Request $request)
     {
-        // Allow any authenticated user (teller, manager, admin) to open till
-        // Access control handled by auth middleware in routes
-        if (! auth()->check()) {
-            abort(403, 'Unauthorized');
-        }
+        $this->requireManagerOrAdmin();
 
         $validated = $request->validate([
             'till_id' => 'required|string|max:50',
@@ -135,11 +131,7 @@ class StockCashController extends Controller
      */
     public function closeTill(Request $request)
     {
-        // Allow any authenticated user (teller, manager, admin) to close till
-        // Access control handled by auth middleware in routes
-        if (! auth()->check()) {
-            abort(403, 'Unauthorized');
-        }
+        $this->requireManagerOrAdmin();
 
         $validated = $request->validate([
             'till_id' => 'required|string',

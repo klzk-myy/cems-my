@@ -54,12 +54,13 @@ class RealWorldTransactionWorkflowTest extends TestCase
         ]);
 
         // ============ STEP 1: Morning Till Opening ============
-        $this->actingAs($teller)
+        // Manager opens the till (only managers/admins can open tills)
+        $this->actingAs($manager)
             ->post(route('stock-cash.open'), [
                 'till_id' => 'TILL-001',
                 'currency_code' => 'USD',
                 'opening_balance' => 10000,
-                'opened_by' => $teller->id,
+                'opened_by' => $manager->id,
             ])
             ->assertRedirect();
 
@@ -107,7 +108,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
             ->first();
 
         $this->assertNotNull($buyTransaction);
-        $this->assertEquals('Completed', $buyTransaction->status);
+        $this->assertTrue($buyTransaction->status->isCompleted());
         $this->assertEquals(4720.00, $buyTransaction->amount_local); // 1000 * 4.72
 
         // Check stock updated
@@ -138,7 +139,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
             ->first();
 
         $this->assertNotNull($sellTransaction);
-        $this->assertEquals('Completed', $sellTransaction->status);
+        $this->assertTrue($sellTransaction->status->isCompleted());
         $this->assertEquals(2375.00, $sellTransaction->amount_local); // 500 * 4.75
 
         // Check stock reduced
@@ -166,7 +167,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
             ->first();
 
         $this->assertNotNull($largeTransaction);
-        $this->assertEquals('Pending', $largeTransaction->status); // Pending approval
+        $this->assertTrue($largeTransaction->status->isPending()); // Pending approval
         $this->assertEquals(56640.00, $largeTransaction->amount_local); // 12000 * 4.72
 
         // ============ STEP 6: Manager Approval ============
@@ -176,7 +177,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
         $response->assertRedirect();
 
         $largeTransaction->refresh();
-        $this->assertEquals('Completed', $largeTransaction->status);
+        $this->assertTrue($largeTransaction->status->isCompleted());
         $this->assertEquals($manager->id, $largeTransaction->approved_by);
         $this->assertNotNull($largeTransaction->approved_at);
 
@@ -191,7 +192,8 @@ class RealWorldTransactionWorkflowTest extends TestCase
         ]);
 
         // ============ STEP 8: End of Day Till Closing ============
-        $response = $this->actingAs($teller)
+        // Manager closes the till (only managers/admins can close tills)
+        $response = $this->actingAs($manager)
             ->post(route('stock-cash.close'), [
                 'till_id' => 'TILL-001',
                 'currency_code' => 'USD',
@@ -239,6 +241,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
             'currency_code' => 'USD',
             'date' => today(),
             'opening_balance' => 1000,
+            'opened_by' => $teller->id,
         ]);
 
         // Create position
@@ -284,7 +287,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
             ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', 'Till is not open');
+        $response->assertSessionHas('error', 'Till is not open for this currency. Please open the till first.');
     }
 
     /**
@@ -303,6 +306,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
             'currency_code' => 'USD',
             'date' => today(),
             'opening_balance' => 1000,
+            'opened_by' => $teller->id,
         ]);
 
         // Create completed transaction
