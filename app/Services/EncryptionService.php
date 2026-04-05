@@ -18,23 +18,31 @@ class EncryptionService
 
     public function encrypt(string $data): string
     {
-        return openssl_encrypt(
+        $iv = random_bytes(16);
+        $ciphertext = openssl_encrypt(
             $data,
             'AES-256-CBC',
             $this->key,
             OPENSSL_RAW_DATA,
-            $this->getIv()
+            $iv
         );
+        return base64_encode($iv . $ciphertext);
     }
 
     public function decrypt(string $encryptedData): ?string
     {
+        $data = base64_decode($encryptedData);
+        if ($data === false || strlen($data) < 17) {
+            return null;
+        }
+        $iv = substr($data, 0, 16);
+        $ciphertext = substr($data, 16);
         $result = openssl_decrypt(
-            $encryptedData,
+            $ciphertext,
             'AES-256-CBC',
             $this->key,
             OPENSSL_RAW_DATA,
-            $this->getIv()
+            $iv
         );
         return $result !== false ? $result : null;
     }

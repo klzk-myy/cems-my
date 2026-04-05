@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AccountCode;
 use App\Enums\ComplianceFlagType;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
@@ -390,13 +391,13 @@ class TransactionController extends Controller
         if ($transaction->type->isBuy()) {
             $entries = [
                 [
-                    'account_code' => '2000',
+                    'account_code' => AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
                     'debit' => $transaction->amount_local,
                     'credit' => '0',
                     'description' => "Buy {$transaction->amount_foreign} {$transaction->currency_code} @ {$transaction->rate}",
                 ],
                 [
-                    'account_code' => '1000',
+                    'account_code' => AccountCode::CASH_MYR->value,
                     'debit' => '0',
                     'credit' => $transaction->amount_local,
                     'description' => "Payment for {$transaction->currency_code} purchase",
@@ -411,13 +412,13 @@ class TransactionController extends Controller
 
             $entries = [
                 [
-                    'account_code' => '1000',
+                    'account_code' => AccountCode::CASH_MYR->value,
                     'debit' => $transaction->amount_local,
                     'credit' => '0',
                     'description' => "Sale of {$transaction->amount_foreign} {$transaction->currency_code}",
                 ],
                 [
-                    'account_code' => '2000',
+                    'account_code' => AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
                     'debit' => '0',
                     'credit' => $costBasis,
                     'description' => "Cost of {$transaction->currency_code} sold",
@@ -426,14 +427,14 @@ class TransactionController extends Controller
 
             if ($isGain) {
                 $entries[] = [
-                    'account_code' => '5000',
+                    'account_code' => AccountCode::FOREX_TRADING_REVENUE->value,
                     'debit' => '0',
                     'credit' => $revenue,
                     'description' => "Gain on {$transaction->currency_code} sale",
                 ];
             } else {
                 $entries[] = [
-                    'account_code' => '6000',
+                    'account_code' => AccountCode::FOREX_LOSS->value,
                     'debit' => $this->mathService->multiply($revenue, '-1'),
                     'credit' => '0',
                     'description' => "Loss on {$transaction->currency_code} sale",
@@ -493,8 +494,11 @@ class TransactionController extends Controller
             'sell_volume' => $allTransactions->where('type', TransactionType::Sell)->sum('amount_local'),
             'total_volume' => $allTransactions->sum('amount_local'),
             'avg_transaction' => $allTransactions->count() > 0
-                ? $allTransactions->sum('amount_local') / $allTransactions->count()
-                : 0,
+                ? $this->mathService->divide(
+                    (string) $allTransactions->sum('amount_local'),
+                    (string) $allTransactions->count()
+                  )
+                : '0',
             'first_transaction' => $allTransactions->min('created_at'),
             'last_transaction' => $allTransactions->max('created_at'),
         ];
@@ -762,14 +766,18 @@ class TransactionController extends Controller
      */
     protected function canCancel($user, Transaction $transaction): bool
     {
-        if ($user->isAdmin()) {
+        // Managers and admins can cancel any transaction
+        if ($user->isAdmin() || $user->isManager()) {
             return true;
         }
 
-        if ($user->isManager()) {
-            return true;
+        // Large transactions (>= RM 50,000) require manager approval for cancellation
+        // Transaction creator cannot cancel their own large transaction
+        if ($this->mathService->compare($transaction->amount_local, '50000') >= 0) {
+            return false;
         }
 
+        // Small transactions can be cancelled by the creator
         if ($user->id === $transaction->user_id) {
             return true;
         }
@@ -783,6 +791,42 @@ class TransactionController extends Controller
     protected function createRefundTransaction(Transaction $original): Transaction
     {
         $refundType = $original->type->opposite();
+        $customer = Customer::find($original->customer_id);
+        $amountLocal = $this->mathService->multiply(
+            (string) $original->amount_foreign,
+            (string) $original->rate
+        );
+
+        // Evaluate compliance for refund transaction
+        $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
+
+        $status = TransactionStatus::Completed;
+        $holdReason = null;
+
+        if ($holdCheck['requires_hold']) {
+            if ($this->mathService->compare($amountLocal, '50000') >= 0) {
+                $status = TransactionStatus::Pending;
+                $holdReason = implode(', ', $holdCheck['reasons']);
+            } else {
+                $status = TransactionStatus::OnHold;
+                $holdReason = implode(', ', $holdCheck['reasons']);
+            }
+        }
+
+        // Log compliance decision for refund audit trail
+        SystemLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'refund_compliance_check',
+            'entity_type' => 'Transaction',
+            'entity_id' => null,
+            'new_values' => [
+                'original_transaction_id' => $original->id,
+                'amount_local' => $amountLocal,
+                'status' => $status->value,
+                'hold_reason' => $holdReason,
+                'compliance_reasons' => $holdCheck['reasons'],
+            ],
+        ]);
 
         return Transaction::create([
             'customer_id' => $original->customer_id,
@@ -791,11 +835,11 @@ class TransactionController extends Controller
             'type' => $refundType,
             'currency_code' => $original->currency_code,
             'amount_foreign' => $original->amount_foreign,
-            'amount_local' => $original->amount_local,
+            'amount_local' => $amountLocal,
             'rate' => $original->rate,
             'purpose' => 'Refund: '.$original->purpose,
             'source_of_funds' => 'Refund',
-            'status' => TransactionStatus::Completed,
+            'status' => $status,
             'cdd_level' => $original->cdd_level,
             'original_transaction_id' => $original->id,
             'is_refund' => true,

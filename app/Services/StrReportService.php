@@ -187,7 +187,7 @@ class StrReportService
             $reason .= "\nTransaction Details:\n";
             $reason .= "- Transaction ID: #{$txn->id}\n";
             $reason .= "- Amount: RM {$txn->amount_local}\n";
-            $reason .= "- Currency: {$txn->currency}\n";
+            $reason .= "- Currency: {$txn->currency_code}\n";
             $reason .= "- Date: {$txn->created_at->format('Y-m-d H:i:s')}\n";
         }
 

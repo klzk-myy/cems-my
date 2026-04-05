@@ -251,7 +251,8 @@ class AmlRuleService
         ->get()
         ->map(function ($rule) use ($startDate) {
             $hitCount = SystemLog::where('action', 'aml_rule_triggered')
-                ->where('new_values', 'LIKE', '%"rule_code":"' . $rule->rule_code . '"%')
+                ->where('new_values', 'LIKE', '%"rule_code":"' . DB::raw('?') . '"%')
+                ->addBinding([$rule->rule_code], 'where')
                 ->where('created_at', '>=', $startDate)
                 ->count();
 

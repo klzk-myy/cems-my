@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * CustomerController
@@ -540,7 +541,7 @@ class CustomerController extends Controller
         $file = $request->file('document_file');
 
         // Store file with encryption consideration
-        $filename = Hash::make($customer->id . '-' . time()) . '.' . $file->getClientOriginalExtension();
+        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
         $path = $file->storeAs('customer-documents/' . $customer->id, $filename, 'local');
 
         // Calculate file hash for integrity

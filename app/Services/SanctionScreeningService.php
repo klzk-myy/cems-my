@@ -79,7 +79,7 @@ class SanctionScreeningService
         $listId = DB::table('sanction_lists')->insertGetId([
             'name' => basename($filePath),
             'list_type' => $this->detectListType($filePath),
-            'source_file' => $filePath,
+            'source_file' => basename($filePath),
             'uploaded_by' => $uploadedBy,
             'uploaded_at' => now(),
         ]);

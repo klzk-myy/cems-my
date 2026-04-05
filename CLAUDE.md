@@ -64,6 +64,7 @@ public function __construct(
 - `AccountingService` creates journal entries for every transaction
 - `LedgerService` maintains running balances
 - `RevaluationService` handles monthly currency revaluation (RM 50k+)
+- Account codes use `AccountCode` enum (e.g., `AccountCode::CASH_MYR->value`)
 
 **4. BCMath Precision**
 All monetary calculations use `App\Services\MathService` (BCMath), not floats. Never cast money values to `float`.
@@ -72,6 +73,8 @@ All monetary calculations use `App\Services\MathService` (BCMath), not floats. N
 - Transactions ≥ RM 50,000 require manager approval
 - `ComplianceService` runs sanction screening
 - `TransactionMonitoringService` detects velocity/structuring patterns
+- **Refunds** are processed through compliance pipeline (not auto-completed)
+- **Cancellation** of large transactions (≥ RM 50,000) requires manager approval
 
 ### Route Organization
 
@@ -151,3 +154,6 @@ Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`.
 - **Audit**: Critical operations must create `SystemLog` entries.
 - **RBAC**: Check permissions via enum methods, not string comparison.
 - **Services over Controllers**: Business logic belongs in services, not controllers.
+- **Encryption**: Use `EncryptionService` with random IV per encryption (IV prepended to ciphertext).
+- **File Uploads**: Sanitize filenames with `basename()` or use `Str::uuid()` for naming.
+- **Query Parameters**: Use parameterized queries for user-supplied values in LIKE clauses.
