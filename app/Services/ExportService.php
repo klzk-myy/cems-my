@@ -55,30 +55,26 @@ class ExportService
     {
         $path = $this->basePath . '/' . $filename;
 
-        if (!file_exists($this->basePath)) {
+        if (! file_exists($this->basePath)) {
             mkdir($this->basePath, 0755, true);
         }
 
         $export = new class($data) implements \Maatwebsite\Excel\Concerns\FromArray {
             protected $data;
-            
+
             public function __construct($data)
             {
                 $this->data = $data;
             }
-            
+
             public function array(): array
             {
                 return $this->data;
             }
         };
 
-        \Maatwebsite\Excel\Facades\Excel::store($export, $filename, 'local');
-        $storedPath = storage_path('app/' . $filename);
-        
-        if ($storedPath !== $path) {
-            rename($storedPath, $path);
-        }
+        // Store directly to the reports subdirectory using the full path
+        \Maatwebsite\Excel\Facades\Excel::store($export, 'reports/' . $filename, 'local');
 
         return $path;
     }
