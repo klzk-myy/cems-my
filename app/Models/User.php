@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * User Model
@@ -20,6 +21,7 @@ use Illuminate\Notifications\Notifiable;
  * @property UserRole $role
  * @property bool $mfa_enabled
  * @property string|null $mfa_secret
+ * @property \Illuminate\Support\Carbon|null $mfa_verified_at
  * @property bool $is_active
  * @property \Illuminate\Support\Carbon|null $last_login_at
  * @property \Illuminate\Support\Carbon $created_at
@@ -41,6 +43,7 @@ class User extends Authenticatable
         'role',
         'mfa_enabled',
         'mfa_secret',
+        'mfa_verified_at',
         'is_active',
         'last_login_at',
     ];
@@ -65,6 +68,7 @@ class User extends Authenticatable
         'mfa_enabled' => 'boolean',
         'is_active' => 'boolean',
         'last_login_at' => 'datetime',
+        'mfa_verified_at' => 'datetime',
     ];
 
     /**
@@ -109,5 +113,72 @@ class User extends Authenticatable
     public function isComplianceOfficer(): bool
     {
         return $this->role->isComplianceOfficer();
+    }
+
+    /**
+     * Check if MFA is verified for this session.
+     */
+    public function isMfaVerified(): bool
+    {
+        if (! $this->mfa_enabled) {
+            return true; // MFA not enabled, consider verified
+        }
+
+        return $this->mfa_verified_at !== null;
+    }
+
+    /**
+     * Get recovery codes for this user.
+     */
+    public function mfaRecoveryCodes(): HasMany
+    {
+        return $this->hasMany(MfaRecoveryCode::class);
+    }
+
+    /**
+     * Get trusted devices for this user.
+     */
+    public function trustedDevices(): HasMany
+    {
+        return $this->hasMany(DeviceComputations::class);
+    }
+
+    /**
+     * Check if user needs to set up MFA (based on role and grace period).
+     */
+    public function needsMfaSetup(): bool
+    {
+        if ($this->mfa_enabled) {
+            return false;
+        }
+
+        // Check if role requires MFA
+        $mfaService = app(\App\Services\MfaService::class);
+        if (! $mfaService->isMfaRequiredForRole($this)) {
+            return false;
+        }
+
+        // Check grace period (if first login is within grace period)
+        $graceDays = config('cems.mfa.grace_days', 30);
+        if ($this->last_login_at && $this->last_login_at->diffInDays(now()) > $graceDays) {
+            return true;
+        }
+
+        // First login - within grace period doesn't need setup yet
+        return false;
+    }
+
+    /**
+     * Check if user's MFA session has expired.
+     */
+    public function isMfaSessionExpired(): bool
+    {
+        if (! $this->mfa_enabled) {
+            return false;
+        }
+
+        // MFA verification is per-session, so this is always false after verification
+        // The session expiry is handled by Laravel's session management
+        return false;
     }
 }

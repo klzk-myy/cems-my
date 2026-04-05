@@ -284,6 +284,10 @@
                     <span class="nav-icon">💱</span>
                     <span class="nav-label">Transactions</span>
                 </a>
+                <a href="/customers" class="{{ request()->is('customers*') ? 'active' : '' }}">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-label">Customers</span>
+                </a>
                 <a href="/stock-cash" class="{{ request()->is('stock-cash*') ? 'active' : '' }}">
                     <span class="nav-icon">💰</span>
                     <span class="nav-label">Stock/Cash</span>

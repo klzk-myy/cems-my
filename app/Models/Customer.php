@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property int $id
  * @property string $full_name
- * @property string $id_type 'mykad', 'passport', 'other'
+ * @property string $id_type 'MyKad', 'Passport', 'Others'
  * @property string $id_number_encrypted Encrypted ID/passport number
  * @property string $nationality
  * @property \Illuminate\Support\Carbon $date_of_birth
@@ -21,8 +21,15 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $phone
  * @property string|null $email
  * @property bool $pep_status Politically Exposed Person
+ * @property bool $sanction_hit Sanctions list match
  * @property int $risk_score 0-100
  * @property string $risk_rating 'Low', 'Medium', 'High'
+ * @property string $cdd_level 'Simplified', 'Standard', 'Enhanced'
+ * @property bool $is_active
+ * @property string|null $occupation
+ * @property string|null $employer_name
+ * @property string|null $employer_address
+ * @property float|null $annual_volume_estimate
  * @property \Illuminate\Support\Carbon|null $risk_assessed_at
  * @property \Illuminate\Support\Carbon|null $last_transaction_at
  * @property \Illuminate\Support\Carbon $created_at
@@ -47,8 +54,14 @@ class Customer extends Model
         'phone',
         'email',
         'pep_status',
+        'sanction_hit',
         'risk_score',
         'risk_rating',
+        'cdd_level',
+        'is_active',
+        'occupation',
+        'employer_name',
+        'employer_address',
         'annual_volume_estimate',
         'risk_assessed_at',
         'last_transaction_at',
@@ -62,6 +75,8 @@ class Customer extends Model
     protected $casts = [
         'date_of_birth' => 'date',
         'pep_status' => 'boolean',
+        'sanction_hit' => 'boolean',
+        'is_active' => 'boolean',
         'risk_score' => 'integer',
         'annual_volume_estimate' => 'decimal:4',
         'risk_assessed_at' => 'datetime',
@@ -103,6 +118,14 @@ class Customer extends Model
      */
     public function isHighRisk(): bool
     {
-        return $this->risk_rating === 'High' || $this->pep_status;
+        return $this->risk_rating === 'High' || $this->pep_status || $this->sanction_hit;
+    }
+
+    /**
+     * Get CDD level display label.
+     */
+    public function getCddLevelLabelAttribute(): string
+    {
+        return $this->cdd_level ?? 'Simplified';
     }
 }

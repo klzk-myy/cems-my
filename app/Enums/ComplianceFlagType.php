@@ -23,6 +23,7 @@ enum ComplianceFlagType: string
     case HighRiskCountry = 'High_Risk_Country';
     case RoundAmount = 'Round_Amount';
     case ProfileDeviation = 'Profile_Deviation';
+    case AmlRuleTriggered = 'Aml_Rule_Triggered';
 
     /**
      * Check if this flag type indicates a sanctions issue.

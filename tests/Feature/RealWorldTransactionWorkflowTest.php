@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccountingPeriod;
+use App\Models\ChartOfAccount;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\Customer;
@@ -32,6 +34,33 @@ class RealWorldTransactionWorkflowTest extends TestCase
     {
         parent::setUp();
         $this->artisan('migrate');
+
+        // Create accounting period for journal entries
+        AccountingPeriod::create([
+            'period_code' => now()->format('Y-m'),
+            'start_date' => now()->startOfMonth(),
+            'end_date' => now()->endOfMonth(),
+            'period_type' => 'month',
+            'status' => 'open',
+        ]);
+
+        // Create required chart of accounts for journal entries
+        ChartOfAccount::firstOrCreate(
+            ['account_code' => '1000'],
+            ['account_name' => 'Cash - MYR', 'account_type' => 'Asset', 'is_active' => true]
+        );
+        ChartOfAccount::firstOrCreate(
+            ['account_code' => '2000'],
+            ['account_name' => 'Inventory', 'account_type' => 'Asset', 'is_active' => true]
+        );
+        ChartOfAccount::firstOrCreate(
+            ['account_code' => '5000'],
+            ['account_name' => 'Gain on FX', 'account_type' => 'Revenue', 'is_active' => true]
+        );
+        ChartOfAccount::firstOrCreate(
+            ['account_code' => '6000'],
+            ['account_name' => 'Loss on FX', 'account_type' => 'Expense', 'is_active' => true]
+        );
     }
 
     /**

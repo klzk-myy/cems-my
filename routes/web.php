@@ -1,9 +1,12 @@
 <?php
 
 use App\Http\Controllers\AccountingController;
+use App\Http\Controllers\AmlRuleController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FinancialStatementController;
 use App\Http\Controllers\LedgerController;
+use App\Http\Controllers\MfaController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RevaluationController;
 use App\Http\Controllers\StockCashController;
@@ -28,13 +31,33 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
+    // MFA Routes - Must be accessible before MFA setup
+    Route::get('/mfa/setup', [MfaController::class, 'setup'])
+        ->name('mfa.setup');
+    Route::post('/mfa/setup', [MfaController::class, 'setupStore'])
+        ->name('mfa.setup.store');
+    Route::get('/mfa/verify', [MfaController::class, 'verify'])
+        ->name('mfa.verify');
+    Route::post('/mfa/verify', [MfaController::class, 'verifyStore'])
+        ->name('mfa.verify.store');
+    Route::post('/mfa/disable', [MfaController::class, 'disable'])
+        ->name('mfa.disable');
+    Route::get('/mfa/recovery', [MfaController::class, 'recovery'])
+        ->name('mfa.recovery');
+    Route::get('/mfa/trusted-devices', [MfaController::class, 'trustedDevices'])
+        ->name('mfa.trusted-devices');
+    Route::delete('/mfa/trusted-devices/{deviceId}', [MfaController::class, 'removeDevice'])
+        ->name('mfa.trusted-devices.remove');
+
     // Transactions - All authenticated users
     Route::get('/transactions', [TransactionController::class, 'index'])
         ->name('transactions.index');
     Route::get('/transactions/create', [TransactionController::class, 'create'])
-        ->name('transactions.create');
+        ->name('transactions.create')
+        ->middleware('mfa.verified');
     Route::post('/transactions', [TransactionController::class, 'store'])
-        ->name('transactions.store');
+        ->name('transactions.store')
+        ->middleware('mfa.verified');
 
     // Also keep 'transactions' name for backward compatibility
     Route::get('/transactions/list', [TransactionController::class, 'index'])
@@ -58,13 +81,38 @@ Route::middleware('auth')->group(function () {
         ->middleware('auth');
     Route::post('/transactions/{transaction}/approve', [TransactionController::class, 'approve'])
         ->name('transactions.approve')
-        ->middleware('role:manager');
+        ->middleware(['role:manager', 'mfa.verified']);
     Route::get('/transactions/{transaction}/cancel', [TransactionController::class, 'showCancel'])
         ->name('transactions.cancel.show');
     Route::post('/transactions/{transaction}/cancel', [TransactionController::class, 'cancel'])
         ->name('transactions.cancel');
-    Route::get('/customers/create', [DashboardController::class, 'index'])
+
+    // Customers - All authenticated users
+    Route::get('/customers', [CustomerController::class, 'index'])
+        ->name('customers.index');
+    Route::get('/customers/create', [CustomerController::class, 'create'])
         ->name('customers.create');
+    Route::post('/customers', [CustomerController::class, 'store'])
+        ->name('customers.store');
+    Route::get('/customers/{customer}', [CustomerController::class, 'show'])
+        ->name('customers.show');
+    Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])
+        ->name('customers.edit');
+    Route::put('/customers/{customer}', [CustomerController::class, 'update'])
+        ->name('customers.update');
+    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
+        ->name('customers.destroy');
+
+    // Customer KYC Document Management
+    Route::get('/customers/{customer}/kyc', [CustomerController::class, 'kyc'])
+        ->name('customers.kyc');
+    Route::post('/customers/{customer}/kyc', [CustomerController::class, 'uploadDocument'])
+        ->name('customers.kyc.upload');
+    Route::post('/customers/{customer}/kyc/{document}/verify', [CustomerController::class, 'verifyDocument'])
+        ->name('customers.kyc.verify')
+        ->middleware('role:compliance');
+    Route::delete('/customers/{customer}/kyc/{document}', [CustomerController::class, 'deleteDocument'])
+        ->name('customers.kyc.delete');
 
     // Stock/Cash Management - All authenticated users (access controlled in controller)
     Route::get('/stock-cash', [StockCashController::class, 'index'])
@@ -95,12 +143,22 @@ Route::middleware('auth')->group(function () {
         Route::post('/str/{str}/submit-review', [StrController::class, 'submitForReview'])->name('str.submit-review');
         Route::post('/str/{str}/submit-approval', [StrController::class, 'submitForApproval'])->name('str.submit-approval');
         Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
-        Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit');
+        Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit')->middleware('mfa.verified');
         Route::post('/str/{str}/track-acknowledgment', [StrController::class, 'trackAcknowledgment'])->name('str.track-acknowledgment');
 
         // Generate STR from alert
         Route::post('/compliance/flags/{flaggedTransaction}/generate-str', [StrController::class, 'generateFromAlert'])
             ->name('compliance.flags.generate-str');
+
+        // AML Rules Management
+        Route::get('/compliance/rules', [AmlRuleController::class, 'index'])->name('compliance.rules.index');
+        Route::get('/compliance/rules/create', [AmlRuleController::class, 'create'])->name('compliance.rules.create');
+        Route::post('/compliance/rules', [AmlRuleController::class, 'store'])->name('compliance.rules.store');
+        Route::get('/compliance/rules/{rule}', [AmlRuleController::class, 'show'])->name('compliance.rules.show');
+        Route::get('/compliance/rules/{rule}/edit', [AmlRuleController::class, 'edit'])->name('compliance.rules.edit');
+        Route::put('/compliance/rules/{rule}', [AmlRuleController::class, 'update'])->name('compliance.rules.update');
+        Route::patch('/compliance/rules/{rule}/toggle', [AmlRuleController::class, 'toggle'])->name('compliance.rules.toggle');
+        Route::delete('/compliance/rules/{rule}', [AmlRuleController::class, 'destroy'])->name('compliance.rules.destroy');
     });
 
     // Task Management - All authenticated users
@@ -124,11 +182,16 @@ Route::middleware('auth')->group(function () {
             ->name('accounting');
 
         // Journal Entries
-        Route::get('/accounting/journal', [AccountingController::class, 'index'])->name('accounting.journal');
-        Route::get('/accounting/journal/create', [AccountingController::class, 'create'])->name('accounting.journal.create');
-        Route::post('/accounting/journal', [AccountingController::class, 'store'])->name('accounting.journal.store');
-        Route::get('/accounting/journal/{entry}', [AccountingController::class, 'show'])->name('accounting.journal.show');
-        Route::post('/accounting/journal/{entry}/reverse', [AccountingController::class, 'reverse'])->name('accounting.journal.reverse');
+        Route::get('/accounting/journal', [AccountingController::class, 'index'])->name('accounting.journal')
+            ->middleware('mfa.verified');
+        Route::get('/accounting/journal/create', [AccountingController::class, 'create'])->name('accounting.journal.create')
+            ->middleware('mfa.verified');
+        Route::post('/accounting/journal', [AccountingController::class, 'store'])->name('accounting.journal.store')
+            ->middleware('mfa.verified');
+        Route::get('/accounting/journal/{entry}', [AccountingController::class, 'show'])->name('accounting.journal.show')
+            ->middleware('mfa.verified');
+        Route::post('/accounting/journal/{entry}/reverse', [AccountingController::class, 'reverse'])->name('accounting.journal.reverse')
+            ->middleware('mfa.verified');
 
         // Ledger
         Route::get('/accounting/ledger', [LedgerController::class, 'index'])->name('accounting.ledger');
@@ -187,7 +250,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // User Management - Admin only
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware(['role:admin', 'mfa.verified'])->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');

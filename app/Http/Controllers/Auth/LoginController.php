@@ -59,6 +59,10 @@ class LoginController extends Controller
 
     public function logout(Request $request)
     {
+        // Clear MFA session data
+        $request->session()->forget('mfa_verified');
+        $request->session()->forget('mfa_verified_at');
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

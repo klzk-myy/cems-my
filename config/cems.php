@@ -36,8 +36,88 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | MFA (Multi-Factor Authentication) Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for TOTP-based MFA implementation per BNM security
+    | compliance requirements.
+    |
+    */
+    'mfa' => [
+        // Enable/disable MFA feature globally
+        'enabled' => env('MFA_ENABLED', true),
+
+        // Issuer name shown in authenticator apps
+        'issuer' => 'CEMS-MY',
+
+        // TOTP parameters
+        'period' => 30,      // Time step in seconds
+        'digits' => 6,       // Number of digits in TOTP
+
+        // Roles that are required to set up MFA
+        'require_for_roles' => ['admin', 'manager', 'compliance'],
+
+        // Grace period (days) after first login to set up MFA
+        'grace_days' => 30,
+
+        // Days to remember device when "Remember this device" is checked
+        'remember_days' => 30,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | System Configuration
     |--------------------------------------------------------------------------
     */
     'version' => '1.0.0',
+
+    /*
+    |--------------------------------------------------------------------------
+    | MSB License Configuration
+    |--------------------------------------------------------------------------
+    |
+    | BNM MSB License number for regulatory reporting.
+    |
+    */
+    'license_number' => env('BNM_LICENSE_NUMBER', 'MSB-XXXXXXX'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Company Information
+    |--------------------------------------------------------------------------
+    |
+    | Company name for regulatory reports and internal use.
+    |
+    */
+    'company_name' => env('COMPANY_NAME', 'CEMS-MY MSB'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | BNM Reporting Contact
+    |--------------------------------------------------------------------------
+    |
+    | Contact details for BNM regulatory reporting.
+    |
+    */
+    'bnm_reporting' => [
+        'contact_name' => env('BNM_CONTACT_NAME', ''),
+        'contact_email' => env('BNM_CONTACT_EMAIL', ''),
+        'contact_phone' => env('BNM_CONTACT_PHONE', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | goAML Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for FIU reporting via goAML system.
+    |
+    */
+    'goaml' => [
+        'enabled' => env('GOAML_ENABLED', false),
+        'endpoint' => env('GOAML_ENDPOINT', ''),
+        'api_key' => env('GOAML_API_KEY', ''),
+        'reporter_name' => env('GOAML_REPORTER_NAME', ''),
+        'branch_code' => env('GOAML_BRANCH_CODE', ''),
+    ],
 ];
