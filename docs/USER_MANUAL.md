@@ -18,7 +18,20 @@
 6. [Customer Management](#6-customer-management)
 7. [Stock & Cash Management](#7-stock--cash-management)
 8. [Compliance & Reporting](#8-compliance--reporting)
+   - [8.1 Compliance Dashboard](#81-compliance-dashboard)
+   - [8.2 Flagged Transactions](#82-flagged-transactions)
+   - [8.3 Generating Reports](#83-generating-reports)
+   - [8.4 Enhanced Due Diligence (EDD)](#84-enhanced-due-diligence-edd)
+   - [8.5 BNM Compliance Reports](#85-bnm-compliance-reports)
 9. [Accounting Operations](#9-accounting-operations)
+   - [9.1 Chart of Accounts](#91-chart-of-accounts)
+   - [9.2 Journal Entries](#92-journal-entries)
+   - [9.3 Journal Entry Workflow](#93-journal-entry-workflow)
+   - [9.4 Cash Flow Statement](#94-cash-flow-statement)
+   - [9.5 Financial Ratios](#95-financial-ratios)
+   - [9.6 Fiscal Year Management](#96-fiscal-year-management)
+   - [9.7 Month-End Revaluation](#97-month-end-revaluation)
+   - [9.8 Financial Statements](#98-financial-statements)
 10. [Troubleshooting](#10-troubleshooting)
 11. [Appendix](#11-appendix)
 
@@ -430,7 +443,49 @@ System automatically assigns risk levels:
 5. Click **"Generate"**
 6. Preview or export
 
-### 8.4 BNM Compliance Reports
+### 8.4 Enhanced Due Diligence (EDD)
+
+**When Required:**
+- Transactions ≥RM 100,000
+- High-risk customers (PEP, complex structures)
+- Unusual transaction patterns
+- Compliance officer request
+
+**EDD Questionnaire:**
+
+1. **Source of Funds**
+   - Salary income
+   - Business proceeds
+   - Investment returns
+   - Inheritance/gift
+   - Other (specify)
+
+2. **Purpose of Transaction**
+   - Travel/education abroad
+   - Business payment
+   - Investment
+   - Family maintenance
+   - Other (specify)
+
+3. **Employment Information**
+   - Company name
+   - Position
+   - Monthly income range
+
+4. **Source of Wealth**
+   - Total assets estimate
+   - Income sources
+
+**EDD Status Flow:**
+- `Incomplete` → `Pending Review` → `Approved` / `Rejected`
+
+**EDD Risk Levels:**
+- Low (simplified review)
+- Medium (standard review)
+- High (enhanced review)
+- Critical (immediate escalation)
+
+### 8.5 BNM Compliance Reports
 
 **Required Reports:**
 - Daily Transaction Summary
@@ -482,7 +537,113 @@ Dr Foreign Currency Inventory (1100)    4,750.00
 Created by: teller01
 ```
 
-### 9.3 Month-End Revaluation
+### 9.3 Journal Entry Workflow
+
+**Purpose:** Multi-level approval for manual journal entries before posting
+
+**Workflow States:**
+- `Draft` → `Pending` → `Posted` / `Reversed`
+
+**Roles:**
+- **Teller/Manager**: Create draft entries
+- **Manager**: Submit draft for approval
+- **Manager/Admin**: Approve and post entries
+
+**Workflow Steps:**
+
+1. Create journal entry (saved as Draft)
+2. Submit entry for approval (status → Pending)
+3. Reviewer approves (status → Posted, creates ledger entries)
+4. Or: Reviewer rejects (entry remains Pending, can be reversed)
+
+**Viewing Workflow:**
+
+1. Navigate to **Accounting → Workflow**
+2. See all pending entries
+3. Review entry details
+4. Click **Approve** or **Reject**
+
+### 9.4 Cash Flow Statement
+
+**Purpose:** Track actual cash movements across operating, investing, and financing activities
+
+**Sections:**
+- **Operating Activities**: Core business cash flows (transactions, compliance)
+- **Investing Activities**: Asset purchases/sales, currency revaluation
+- **Financing Activities**: Capital contributions, owner drawings
+
+**Generating Cash Flow:**
+
+1. Navigate to **Accounting → Cash Flow**
+2. Select date range (start and end dates)
+3. Click **"Generate Cash Flow"**
+4. View cash movements by category
+5. Export to PDF/Excel
+
+### 9.5 Financial Ratios
+
+**Purpose:** Key performance and health metrics
+
+**Ratio Categories:**
+
+**Liquidity Ratios:**
+- Current Ratio = Current Assets / Current Liabilities
+- Quick Ratio = (Current Assets - Inventory) / Current Liabilities
+
+**Profitability Ratios:**
+- Gross Profit Margin = Gross Profit / Revenue × 100
+- Net Profit Margin = Net Profit / Revenue × 100
+- ROE = Net Profit / Equity × 100
+- ROA = Net Profit / Total Assets × 100
+
+**Leverage Ratio:**
+- Debt-to-Equity = Total Liabilities / Total Equity
+
+**Efficiency Ratios:**
+- Asset Turnover = Revenue / Average Total Assets
+- Inventory Turnover = COGS / Average Inventory
+
+**Generating Ratios:**
+
+1. Navigate to **Accounting → Ratios**
+2. Select period
+3. Click **"Calculate Ratios"**
+4. View ratio analysis with benchmarks
+5. Export report
+
+### 9.6 Fiscal Year Management
+
+**Purpose:** Manage annual accounting periods and year-end closing
+
+**Features:**
+- Create fiscal years (12-month periods)
+- View fiscal year report
+- Close fiscal year (generate closing entries)
+- Track year status (Open, Closed, Archived)
+
+**Year-End Closing Process:**
+
+1. Navigate to **Accounting → Fiscal Years**
+2. Select fiscal year to close
+3. Click **"Close Year"**
+4. System generates closing entries:
+   - Close Revenue accounts → Income Summary → Retained Earnings
+   - Close Expense accounts → Income Summary → Retained Earnings
+5. Year status changes to `Closed`
+
+**Closing Entries Generated:**
+```
+Dr Revenue (all)     xxx
+    Cr Income Summary              xxx
+
+Dr Income Summary    xxx
+    Cr Expense (all)              xxx
+
+Dr Income Summary    xxx
+    Cr Retained Earnings          xxx
+```
+
+### 9.7 Month-End Revaluation
 
 **Purpose:** Calculate unrealized gains/losses on currency positions
 
@@ -495,7 +656,7 @@ Created by: teller01
 5. Click **"Process Revaluation"**
 6. System creates journal entries
 
-### 9.4 Financial Statements
+### 9.8 Financial Statements
 
 **Balance Sheet:**
 - Assets: Cash, Inventory, Receivables
