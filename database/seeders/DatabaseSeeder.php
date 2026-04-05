@@ -15,7 +15,7 @@ class DatabaseSeeder extends Seeder
         User::create([
             'username' => 'admin',
             'email' => 'admin@cems.my',
-            'password_hash' => Hash::make('SecurePassword123!'),
+            'password_hash' => Hash::make('Admin@1234'),
             'role' => 'admin',
             'is_active' => true,
         ]);

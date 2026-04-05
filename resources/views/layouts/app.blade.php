@@ -296,9 +296,25 @@
                     <span class="nav-icon">📚</span>
                     <span class="nav-label">Accounting</span>
                 </a>
+                <a href="/tasks" class="{{ request()->is('tasks*') ? 'active' : '' }}">
+                    <span class="nav-icon">✅</span>
+                    <span class="nav-label">Tasks</span>
+                </a>
+                <a href="/counters" class="{{ request()->is('counters*') ? 'active' : '' }}">
+                    <span class="nav-icon">🖥️</span>
+                    <span class="nav-label">Counters</span>
+                </a>
+                <a href="/str" class="{{ request()->is('str*') ? 'active' : '' }}">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-label">STR Reports</span>
+                </a>
                 <a href="/reports" class="{{ request()->is('reports*') ? 'active' : '' }}">
                     <span class="nav-icon">📈</span>
                     <span class="nav-label">Reports</span>
+                </a>
+                <a href="/audit" class="{{ request()->is('audit*') ? 'active' : '' }}">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-label">Audit</span>
                 </a>
                 <a href="/users" class="{{ request()->is('users*') ? 'active' : '' }}">
                     <span class="nav-icon">👥</span>
