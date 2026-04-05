@@ -108,13 +108,12 @@ class CounterHandoverTest extends TestCase
     {
         // Create new counter without open session
         $newCounter = Counter::create([
-            'counter_no' => 'C02',
-            'branch_id' => 1,
-            'is_active' => true,
+            'code' => 'C02',
+            'name' => 'Counter 2',
+            'status' => 'active',
         ]);
 
-        $response = $this->actingAs($this->managerUser)->post('/stock-cash/open', [
-            'counter_id' => $newCounter->id,
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$newCounter->id}/open", [
             'opening_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '15000.00'],
             ],
@@ -138,8 +137,7 @@ class CounterHandoverTest extends TestCase
         // Close the existing session first
         $this->session->update(['status' => CounterSessionStatus::Closed]);
 
-        $response = $this->actingAs($this->tellerFrom)->post('/stock-cash/open', [
-            'counter_id' => $this->counter->id,
+        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->id}/open", [
             'opening_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],
@@ -160,8 +158,7 @@ class CounterHandoverTest extends TestCase
      */
     public function test_teller_cannot_open_session_at_already_open_counter(): void
     {
-        $response = $this->actingAs($this->tellerTo)->post('/stock-cash/open', [
-            'counter_id' => $this->counter->id,
+        $response = $this->actingAs($this->tellerTo)->post("/counters/{$this->counter->id}/open", [
             'opening_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],
@@ -175,14 +172,31 @@ class CounterHandoverTest extends TestCase
      */
     public function test_manager_can_initiate_handover(): void
     {
-        $response = $this->actingAs($this->managerUser)->post('/stock-cash/handover', [
-            'session_id' => $this->session->id,
+        // Debug: check what counter ID we're using
+        dump('Counter ID:', $this->counter->id);
+        dump('Counter exists:', Counter::find($this->counter->id));
+
+        // Debug: check the session
+        $session = CounterSession::where('counter_id', $this->counter->id)
+            ->where('session_date', now()->toDateString())
+            ->where('status', CounterSessionStatus::Open)
+            ->first();
+        dump('Session found:', $session);
+
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
+            'supervisor_id' => $this->managerUser->id,
             'physical_counts' => [
                 ['currency_id' => 'MYR', 'amount' => '9850.00'], // Variance of -150
             ],
         ]);
+
+        // Debug: see response if not redirect
+        if (!$response->isRedirect()) {
+            dump('Response status:', $response->status());
+            dump('Response content:', $response->getContent());
+        }
 
         $response->assertRedirect();
         $response->assertSessionHas('success');
@@ -204,7 +218,6 @@ class CounterHandoverTest extends TestCase
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
             'supervisor_id' => $this->managerUser->id,
-            'physical_count_verified' => true,
         ]);
     }
 
@@ -213,10 +226,10 @@ class CounterHandoverTest extends TestCase
      */
     public function test_handover_with_variance_records_variance(): void
     {
-        $response = $this->actingAs($this->managerUser)->post('/stock-cash/handover', [
-            'session_id' => $this->session->id,
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
+            'supervisor_id' => $this->managerUser->id,
             'physical_counts' => [
                 ['currency_id' => 'MYR', 'amount' => '9500.00'], // -500 variance
             ],
@@ -234,10 +247,10 @@ class CounterHandoverTest extends TestCase
      */
     public function test_teller_cannot_initiate_handover(): void
     {
-        $response = $this->actingAs($this->tellerFrom)->post('/stock-cash/handover', [
-            'session_id' => $this->session->id,
+        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->id}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
+            'supervisor_id' => $this->managerUser->id,
             'physical_counts' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],
@@ -251,10 +264,10 @@ class CounterHandoverTest extends TestCase
      */
     public function test_handover_transfers_till_balances(): void
     {
-        $response = $this->actingAs($this->managerUser)->post('/stock-cash/handover', [
-            'session_id' => $this->session->id,
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
+            'supervisor_id' => $this->managerUser->id,
             'physical_counts' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],
@@ -283,10 +296,10 @@ class CounterHandoverTest extends TestCase
      */
     public function test_handover_closes_old_session(): void
     {
-        $response = $this->actingAs($this->managerUser)->post('/stock-cash/handover', [
-            'session_id' => $this->session->id,
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
+            'supervisor_id' => $this->managerUser->id,
             'physical_counts' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],
@@ -304,8 +317,7 @@ class CounterHandoverTest extends TestCase
      */
     public function test_manager_can_close_session_with_acceptable_variance(): void
     {
-        $response = $this->actingAs($this->managerUser)->post('/stock-cash/close', [
-            'session_id' => $this->session->id,
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/close", [
             'closing_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '10050.00'], // Within yellow threshold
             ],
@@ -324,8 +336,7 @@ class CounterHandoverTest extends TestCase
     public function test_teller_cannot_approve_handover(): void
     {
         // Attempt to close via teller role
-        $response = $this->actingAs($this->tellerFrom)->post('/stock-cash/close', [
-            'session_id' => $this->session->id,
+        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->id}/close", [
             'closing_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],

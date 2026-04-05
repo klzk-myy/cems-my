@@ -26,7 +26,7 @@ Route::get('/', function () {
 })->name('home');
 
 // Protected routes with auth middleware
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'session.timeout'])->group(function () {
     // Dashboard - All authenticated users
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
@@ -57,7 +57,7 @@ Route::middleware('auth')->group(function () {
         ->middleware('mfa.verified');
     Route::post('/transactions', [TransactionController::class, 'store'])
         ->name('transactions.store')
-        ->middleware('mfa.verified');
+        ->middleware(['mfa.verified', 'throttle:transactions']);
 
     // Also keep 'transactions' name for backward compatibility
     Route::get('/transactions/list', [TransactionController::class, 'index'])
@@ -86,6 +86,14 @@ Route::middleware('auth')->group(function () {
         ->name('transactions.cancel.show');
     Route::post('/transactions/{transaction}/cancel', [TransactionController::class, 'cancel'])
         ->name('transactions.cancel');
+
+    // Transaction Confirmation for Large Transactions (>= RM 50,000)
+    Route::get('/transactions/{transaction}/confirm', [TransactionController::class, 'showConfirm'])
+        ->name('transactions.confirm.show')
+        ->middleware(['role:manager']);
+    Route::post('/transactions/{transaction}/confirm', [TransactionController::class, 'confirm'])
+        ->name('transactions.confirm')
+        ->middleware(['role:manager']);
 
     // Customers - All authenticated users
     Route::get('/customers', [CustomerController::class, 'index'])
@@ -118,9 +126,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/stock-cash', [StockCashController::class, 'index'])
         ->name('stock-cash.index');
     Route::post('/stock-cash/open', [StockCashController::class, 'openTill'])
-        ->name('stock-cash.open');
+        ->name('stock-cash.open')
+        ->middleware('role:manager');
     Route::post('/stock-cash/close', [StockCashController::class, 'closeTill'])
-        ->name('stock-cash.close');
+        ->name('stock-cash.close')
+        ->middleware('role:manager');
 
     // Compliance - Compliance officers and Admin only
     Route::middleware('role:compliance')->group(function () {
@@ -136,15 +146,11 @@ Route::middleware('auth')->group(function () {
         // STR Reports
         Route::get('/str', [StrController::class, 'index'])->name('str.index');
         Route::get('/str/create', [StrController::class, 'create'])->name('str.create');
-        Route::post('/str', [StrController::class, 'store'])->name('str.store');
+        Route::post('/str', [StrController::class, 'store'])->name('str.store')->middleware('throttle:str-submission');
         Route::get('/str/{str}', [StrController::class, 'show'])->name('str.show');
         Route::get('/str/{str}/edit', [StrController::class, 'edit'])->name('str.edit');
         Route::put('/str/{str}', [StrController::class, 'update'])->name('str.update');
         Route::post('/str/{str}/submit-review', [StrController::class, 'submitForReview'])->name('str.submit-review');
-        Route::post('/str/{str}/submit-approval', [StrController::class, 'submitForApproval'])->name('str.submit-approval');
-        Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
-        Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit')->middleware('mfa.verified');
-        Route::post('/str/{str}/track-acknowledgment', [StrController::class, 'trackAcknowledgment'])->name('str.track-acknowledgment');
 
         // Generate STR from alert
         Route::post('/compliance/flags/{flaggedTransaction}/generate-str', [StrController::class, 'generateFromAlert'])
@@ -159,6 +165,14 @@ Route::middleware('auth')->group(function () {
         Route::put('/compliance/rules/{rule}', [AmlRuleController::class, 'update'])->name('compliance.rules.update');
         Route::patch('/compliance/rules/{rule}/toggle', [AmlRuleController::class, 'toggle'])->name('compliance.rules.toggle');
         Route::delete('/compliance/rules/{rule}', [AmlRuleController::class, 'destroy'])->name('compliance.rules.destroy');
+    });
+
+    // STR Approval Routes - Manager or Compliance Officer can access
+    Route::middleware(['role.any:compliance,manager'])->group(function () {
+        Route::post('/str/{str}/submit-approval', [StrController::class, 'submitForApproval'])->name('str.submit-approval');
+        Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
+        Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit')->middleware(['mfa.verified', 'throttle:str-submission']);
+        Route::post('/str/{str}/track-acknowledgment', [StrController::class, 'trackAcknowledgment'])->name('str.track-acknowledgment');
     });
 
     // Task Management - All authenticated users
@@ -220,6 +234,22 @@ Route::middleware('auth')->group(function () {
         // Bank Reconciliation
         Route::get('/accounting/reconciliation', [AccountingController::class, 'reconciliation'])
             ->name('accounting.reconciliation');
+        Route::post('/accounting/reconciliation/import', [AccountingController::class, 'importBankStatement'])
+            ->name('accounting.reconciliation.import');
+        Route::post('/accounting/reconciliation/{reconciliation}/exception', [AccountingController::class, 'markAsException'])
+            ->name('accounting.reconciliation.exception');
+        Route::get('/accounting/reconciliation/report', [AccountingController::class, 'reconciliationReport'])
+            ->name('accounting.reconciliation.report');
+        Route::get('/accounting/reconciliation/export', [AccountingController::class, 'exportReconciliation'])
+            ->name('accounting.reconciliation.export');
+
+        // Budget Management
+        Route::post('/accounting/budget', [AccountingController::class, 'storeBudget'])
+            ->name('accounting.budget.store');
+        Route::put('/accounting/budget/{budget}', [AccountingController::class, 'updateBudget'])
+            ->name('accounting.budget.update');
+        Route::patch('/accounting/budget/{budget}', [AccountingController::class, 'updateBudget'])
+            ->name('accounting.budget.patch');
     });
 
     // Reports - Managers and Admin only (compliance officers use dedicated compliance module)

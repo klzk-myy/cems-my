@@ -144,6 +144,6 @@ class ChartOfAccountsSeeder extends Seeder
             );
         }
 
-        $this->command->info('Seeded ' . count($accounts) . ' chart of accounts');
+        $this->command->info('Seeded '.count($accounts).' chart of accounts');
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BankReconciliation;
+use App\Models\Budget;
 use App\Models\ChartOfAccount;
 use App\Models\JournalEntry;
 use App\Services\AccountingService;
@@ -177,14 +179,196 @@ class AccountingController extends Controller
             ->where('account_name', 'like', '%Cash%')
             ->where('is_active', true)
             ->get();
-        $accountCode = $request->get('account', $cashAccounts->first()?->account_code);
+        $accountCode = $request->get('account_code', $request->get('account', $cashAccounts->first()?->account_code));
+        $fromDate = $request->get('from', now()->startOfMonth()->toDateString());
+        $toDate = $request->get('to', now()->endOfMonth()->toDateString());
         $service = new \App\Services\ReconciliationService;
-        $report = $service->getReconciliationReport(
+        $rawReport = $service->getReconciliationReport(
             $accountCode,
-            now()->startOfMonth()->toDateString(),
-            now()->endOfMonth()->toDateString()
+            $fromDate,
+            $toDate
         );
 
+        // Transform report to match view expectations
+        $outstandingChecks = collect();
+        $outstandingDeposits = collect();
+        foreach ($rawReport['unmatched_items'] as $item) {
+            $itemData = [
+                'date' => $item->statement_date?->toDateString(),
+                'reference' => $item->reference,
+                'amount' => $item->getAmount(),
+            ];
+            if ($item->debit > 0) {
+                $outstandingChecks->push($itemData);
+            } else {
+                $outstandingDeposits->push($itemData);
+            }
+        }
+
+        $report = [
+            'book_balance' => $rawReport['statement_balance'] ?? 0,
+            'outstanding_checks' => $outstandingChecks->sum(fn ($i) => $i['amount']),
+            'outstanding_deposits' => $outstandingDeposits->sum(fn ($i) => abs($i['amount'])),
+            'adjusted_balance' => ($rawReport['statement_balance'] ?? 0) + $outstandingChecks->sum(fn ($i) => $i['amount']) - $outstandingDeposits->sum(fn ($i) => abs($i['amount'])),
+            'outstanding_checks_list' => $outstandingChecks->toArray(),
+            'outstanding_deposits_list' => $outstandingDeposits->toArray(),
+        ];
+
         return view('accounting.reconciliation', compact('report', 'cashAccounts'));
+    }
+
+    /**
+     * Import bank statement lines
+     */
+    public function importBankStatement(Request $request)
+    {
+        if (! auth()->user()->isManager()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'account_code' => 'required|string|exists:chart_of_accounts,account_code',
+            'lines' => 'required|array|min:1',
+            'lines.*.date' => 'required|date',
+            'lines.*.reference' => 'nullable|string|max:255',
+            'lines.*.description' => 'required|string|max:500',
+            'lines.*.debit' => 'nullable|numeric|min:0',
+            'lines.*.credit' => 'nullable|numeric|min:0',
+        ]);
+
+        $service = new \App\Services\ReconciliationService;
+        $result = $service->importStatement(
+            $validated['account_code'],
+            $validated['lines'],
+            auth()->id()
+        );
+
+        return redirect()->route('accounting.reconciliation')
+            ->with('success', "Imported {$result['imported']} lines. {$result['unmatched']} unmatched.");
+    }
+
+    /**
+     * Mark a reconciliation item as exception
+     */
+    public function markAsException(Request $request, BankReconciliation $reconciliation)
+    {
+        if (! auth()->user()->isManager()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $service = new \App\Services\ReconciliationService;
+        $service->markAsException($reconciliation->id, $validated['reason'], auth()->id());
+
+        return redirect()->route('accounting.reconciliation')
+            ->with('success', 'Item marked as exception.');
+    }
+
+    /**
+     * Generate bank reconciliation report
+     */
+    public function reconciliationReport(Request $request)
+    {
+        if (! auth()->user()->isManager()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'account_code' => 'required|string|exists:chart_of_accounts,account_code',
+            'from' => 'required|date',
+            'to' => 'required|date',
+        ]);
+
+        $service = new \App\Services\ReconciliationService;
+        $report = $service->getReconciliationReport(
+            $validated['account_code'],
+            $validated['from'],
+            $validated['to']
+        );
+
+        return view('accounting.reconciliation_report', compact('report'));
+    }
+
+    /**
+     * Export bank reconciliation report
+     */
+    public function exportReconciliation(Request $request)
+    {
+        if (! auth()->user()->isManager()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'account_code' => 'required|string|exists:chart_of_accounts,account_code',
+            'from' => 'required|date',
+            'to' => 'required|date',
+        ]);
+
+        $service = new \App\Services\ReconciliationService;
+        $report = $service->getReconciliationReport(
+            $validated['account_code'],
+            $validated['from'],
+            $validated['to']
+        );
+
+        return view('accounting.reconciliation_export', compact('report'));
+    }
+
+    /**
+     * Store or update budget for a period
+     */
+    public function storeBudget(Request $request)
+    {
+        if (! auth()->user()->isManager()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'period_code' => 'required|string',
+            'budgets' => 'required|array|min:1',
+            'budgets.*.account_code' => 'required|string|exists:chart_of_accounts,account_code',
+            'budgets.*.amount' => 'required|numeric|min:0',
+        ]);
+
+        $service = new \App\Services\BudgetService(
+            new \App\Services\AccountingService(new \App\Services\MathService),
+            new \App\Services\MathService
+        );
+
+        foreach ($validated['budgets'] as $budgetData) {
+            $service->setBudget(
+                $budgetData['account_code'],
+                $validated['period_code'],
+                $budgetData['amount'],
+                auth()->id()
+            );
+        }
+
+        return redirect()->route('accounting.budget', ['period' => $validated['period_code']])
+            ->with('success', 'Budget saved successfully.');
+    }
+
+    /**
+     * Update an existing budget
+     */
+    public function updateBudget(Request $request, Budget $budget)
+    {
+        if (! auth()->user()->isManager()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0',
+        ]);
+
+        $budget->update([
+            'budget_amount' => $validated['amount'],
+        ]);
+
+        return redirect()->route('accounting.budget')
+            ->with('success', 'Budget updated successfully.');
     }
 }

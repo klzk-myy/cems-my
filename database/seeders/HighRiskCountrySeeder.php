@@ -44,6 +44,6 @@ class HighRiskCountrySeeder extends Seeder
             );
         }
 
-        $this->command->info('Seeded ' . count($countries) . ' high-risk countries');
+        $this->command->info('Seeded '.count($countries).' high-risk countries');
     }
 }

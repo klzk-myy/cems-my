@@ -12,7 +12,7 @@ class MfaServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mfaService = new MfaService();
+        $this->mfaService = new MfaService;
     }
 
     /**
@@ -36,7 +36,7 @@ class MfaServiceTest extends TestCase
         $result = $this->mfaService->generateSecret();
 
         $this->assertStringStartsWith('otpauth://totp/', $result['otpauth_url']);
-        $this->assertStringContainsString('secret=' . $result['secret'], $result['otpauth_url']);
+        $this->assertStringContainsString('secret='.$result['secret'], $result['otpauth_url']);
         $this->assertStringContainsString('digits=6', $result['otpauth_url']);
         $this->assertStringContainsString('period=30', $result['otpauth_url']);
     }
@@ -94,7 +94,7 @@ class MfaServiceTest extends TestCase
         $secretData = $this->mfaService->generateSecret();
         $code = $this->mfaService->generateCode($secretData['secret']);
 
-        $this->assertTrue($this->mfaService->verifyCode($secretData['secret'], '  ' . $code . '  '));
+        $this->assertTrue($this->mfaService->verifyCode($secretData['secret'], '  '.$code.'  '));
     }
 
     /**

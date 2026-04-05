@@ -13,7 +13,6 @@ use App\Models\ChartOfAccount;
 use App\Models\Customer;
 use App\Models\FlaggedTransaction;
 use App\Models\JournalEntry;
-use App\Models\SystemLog;
 use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\User;
@@ -190,7 +189,7 @@ class ComplianceFlaggingTest extends TestCase
         // Compliance flag should be created
         $this->assertDatabaseHas('flagged_transactions', [
             'transaction_id' => $transaction->id,
-            'flag_type' => ComplianceFlagType::LargeTransaction,
+            'flag_type' => ComplianceFlagType::LargeAmount,
             'status' => FlagStatus::Open,
         ]);
     }
@@ -220,7 +219,7 @@ class ComplianceFlaggingTest extends TestCase
         // Create flag
         FlaggedTransaction::create([
             'transaction_id' => $transaction->id,
-            'flag_type' => ComplianceFlagType::LargeTransaction,
+            'flag_type' => ComplianceFlagType::LargeAmount,
             'flag_reason' => 'Transaction amount exceeds RM 50,000 threshold',
             'status' => FlagStatus::Open,
         ]);
@@ -365,7 +364,7 @@ class ComplianceFlaggingTest extends TestCase
 
         FlaggedTransaction::create([
             'transaction_id' => $transaction->id,
-            'flag_type' => ComplianceFlagType::LargeTransaction,
+            'flag_type' => ComplianceFlagType::LargeAmount,
             'flag_reason' => 'Large transaction threshold',
             'status' => FlagStatus::Open,
         ]);
@@ -399,7 +398,7 @@ class ComplianceFlaggingTest extends TestCase
 
         $flag = FlaggedTransaction::create([
             'transaction_id' => $transaction->id,
-            'flag_type' => ComplianceFlagType::LargeTransaction,
+            'flag_type' => ComplianceFlagType::LargeAmount,
             'flag_reason' => 'Large transaction threshold',
             'status' => FlagStatus::Open,
             'assigned_to' => $this->complianceOfficer->id,
@@ -469,7 +468,7 @@ class ComplianceFlaggingTest extends TestCase
             'customer_id' => $this->regularCustomer->id,
             'type' => 'Buy',
             'currency_code' => 'USD',
-            'amount_foreign' => '1000', // RM 4,720 - below threshold
+            'amount_foreign' => '1000', // RM 4,720 - above Simplified threshold (>= RM 3,000)
             'rate' => '4.7200',
             'purpose' => 'Travel',
             'source_of_funds' => 'Savings',
@@ -484,7 +483,7 @@ class ComplianceFlaggingTest extends TestCase
 
         $this->assertNotNull($transaction);
         $this->assertEquals(TransactionStatus::Completed, $transaction->status);
-        $this->assertEquals(CddLevel::Simplified, $transaction->cdd_level);
+        $this->assertEquals(CddLevel::Standard, $transaction->cdd_level);
 
         // No flag should be created for regular transactions
         $this->assertDatabaseMissing('flagged_transactions', [

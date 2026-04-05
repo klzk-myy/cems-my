@@ -14,7 +14,7 @@ class RiskRatingServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new RiskRatingService();
+        $this->service = new RiskRatingService;
     }
 
     public function test_calculate_score_for_low_risk_customer()

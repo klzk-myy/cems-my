@@ -18,7 +18,9 @@ use Illuminate\Support\Str;
 class MfaService
 {
     private int $period;
+
     private int $digits;
+
     private string $issuer;
 
     public function __construct()
@@ -159,7 +161,7 @@ class MfaService
 
         for ($i = 0; $i < 10; $i++) {
             // Generate 10 random recovery codes
-            $code = strtoupper(Str::random(4) . '-' . Str::random(4));
+            $code = strtoupper(Str::random(4).'-'.Str::random(4));
             $codes[] = $code;
 
             // Hash and store
@@ -275,6 +277,7 @@ class MfaService
         if ($trustedDevice) {
             // Update last used
             $trustedDevice->update(['last_used_at' => now()]);
+
             return true;
         }
 
@@ -284,7 +287,7 @@ class MfaService
     /**
      * Remember a device for MFA bypass.
      */
-    public function rememberDevice(User $user, string $fingerprint, string $deviceName = null, int $days = null): void
+    public function rememberDevice(User $user, string $fingerprint, ?string $deviceName = null, ?int $days = null): void
     {
         $days = $days ?? config('cems.mfa.remember_days', 30);
 

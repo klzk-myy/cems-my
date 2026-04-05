@@ -13,7 +13,7 @@ class CurrencyPosition extends Model
         'avg_cost_rate',
         'last_valuation_rate',
         'unrealized_pnl',
-        'last_valuation_at'
+        'last_valuation_at',
     ];
 
     protected $casts = [

@@ -101,8 +101,6 @@ class CustomerDocument extends Model
 
     /**
      * Check if the document is verified.
-     *
-     * @return bool
      */
     public function isVerified(): bool
     {
@@ -111,8 +109,6 @@ class CustomerDocument extends Model
 
     /**
      * Check if the document is expired.
-     *
-     * @return bool
      */
     public function isExpired(): bool
     {
@@ -121,8 +117,6 @@ class CustomerDocument extends Model
 
     /**
      * Check if the document is expiring soon (within 30 days).
-     *
-     * @return bool
      */
     public function isExpiringSoon(): bool
     {
@@ -136,7 +130,7 @@ class CustomerDocument extends Model
     /**
      * Scope a query to only include verified documents.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeVerified($query)
@@ -147,7 +141,7 @@ class CustomerDocument extends Model
     /**
      * Scope a query to only include unverified documents.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeUnverified($query)
@@ -158,7 +152,7 @@ class CustomerDocument extends Model
     /**
      * Scope a query to only include expired documents.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeExpired($query)
@@ -169,7 +163,7 @@ class CustomerDocument extends Model
     /**
      * Scope a query to only include documents expiring soon.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeExpiringSoon($query)

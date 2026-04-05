@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
 
 class LoginController extends Controller
 {
@@ -27,6 +27,9 @@ class LoginController extends Controller
         if ($user && $user->is_active && Hash::check($request->password, $user->password_hash)) {
             Auth::login($user);
             $request->session()->regenerate();
+
+            // Initialize session timeout tracking
+            $request->session()->put('last_activity', time());
 
             // Update last login timestamp
             $user->update(['last_login_at' => now()]);

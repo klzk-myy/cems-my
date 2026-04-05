@@ -12,7 +12,7 @@ class MathServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new MathService();
+        $this->service = new MathService;
     }
 
     public function test_basic_arithmetic_operations()

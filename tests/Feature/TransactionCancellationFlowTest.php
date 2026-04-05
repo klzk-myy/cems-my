@@ -248,9 +248,9 @@ class TransactionCancellationFlowTest extends TestCase
     }
 
     /**
-     * Test that original teller can cancel their own transaction
+     * Test that original teller cannot cancel their own transaction (requires manager)
      */
-    public function test_original_teller_can_cancel_own_transaction(): void
+    public function test_original_teller_cannot_cancel_own_transaction(): void
     {
         $transaction = $this->createCompletedTransaction($this->tellerUser1);
 
@@ -261,10 +261,10 @@ class TransactionCancellationFlowTest extends TestCase
             'confirm_understanding' => '1',
         ]);
 
-        $response->assertRedirect();
+        // Tellers cannot cancel transactions - requires manager approval
+        $response->assertStatus(403);
         $transaction->refresh();
-        $this->assertTrue($transaction->status->isCancelled());
-        $this->assertEquals($this->tellerUser1->id, $transaction->cancelled_by);
+        $this->assertFalse($transaction->status->isCancelled());
     }
 
     /**

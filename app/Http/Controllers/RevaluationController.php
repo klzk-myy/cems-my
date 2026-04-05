@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\RevaluationService;
 use App\Models\CurrencyPosition;
 use App\Models\RevaluationEntry;
+use App\Services\RevaluationService;
 use Illuminate\Http\Request;
 
 class RevaluationController extends Controller
@@ -18,7 +18,7 @@ class RevaluationController extends Controller
 
     protected function requireManagerOrAdmin(): void
     {
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
         }
     }
@@ -39,12 +39,12 @@ class RevaluationController extends Controller
 
         try {
             $results = $this->revaluationService->runRevaluationWithJournal();
-            
+
             return redirect()->route('accounting.revaluation.index')
                 ->with('success', "Revaluation complete. {$results['positions_updated']} positions updated.");
 
         } catch (\Exception $e) {
-            return back()->with('error', 'Revaluation failed: ' . $e->getMessage());
+            return back()->with('error', 'Revaluation failed: '.$e->getMessage());
         }
     }
 

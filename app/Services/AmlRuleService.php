@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AmlRuleType;
 use App\Enums\ComplianceFlagType;
 use App\Enums\FlagStatus;
 use App\Enums\TransactionStatus;
@@ -23,7 +24,7 @@ class AmlRuleService
     /**
      * Evaluate all active rules against a transaction.
      *
-     * @param Transaction $transaction The transaction to evaluate
+     * @param  Transaction  $transaction  The transaction to evaluate
      * @return array{triggered: bool, rules_triggered: array, total_risk_score: int, action: string}
      */
     public function evaluateTransaction(Transaction $transaction): array
@@ -69,22 +70,22 @@ class AmlRuleService
     /**
      * Get rules that are applicable to a transaction.
      *
-     * @param Transaction $transaction The transaction to check
+     * @param  Transaction  $transaction  The transaction to check
      * @return Collection<AmlRule>
      */
     public function getRulesForTransaction(Transaction $transaction): Collection
     {
         return AmlRule::active()
             ->get()
-            ->filter(fn(AmlRule $rule) => $rule->isApplicableTo($transaction));
+            ->filter(fn (AmlRule $rule) => $rule->isApplicableTo($transaction));
     }
 
     /**
      * Log when a rule is triggered.
      *
-     * @param AmlRule $rule The rule that was triggered
-     * @param Transaction $transaction The transaction that triggered the rule
-     * @param array $result The evaluation result
+     * @param  AmlRule  $rule  The rule that was triggered
+     * @param  Transaction  $transaction  The transaction that triggered the rule
+     * @param  array  $result  The evaluation result
      */
     public function logRuleHit(AmlRule $rule, Transaction $transaction, array $result): void
     {
@@ -107,7 +108,7 @@ class AmlRuleService
     /**
      * Get breakdown of risk score contributions for a transaction.
      *
-     * @param Transaction $transaction The transaction to analyze
+     * @param  Transaction  $transaction  The transaction to analyze
      * @return array{applicable_rules: array, risk_contributions: array, total_score: int}
      */
     public function getRiskScoreContributions(Transaction $transaction): array
@@ -146,14 +147,14 @@ class AmlRuleService
     /**
      * Process a transaction through AML rules and apply actions.
      *
-     * @param Transaction $transaction The transaction to process
+     * @param  Transaction  $transaction  The transaction to process
      * @return array{action_taken: string, rules_triggered: int, transaction_status: TransactionStatus}
      */
     public function processTransaction(Transaction $transaction): array
     {
         $evaluation = $this->evaluateTransaction($transaction);
 
-        if (!$evaluation['triggered']) {
+        if (! $evaluation['triggered']) {
             return [
                 'action_taken' => 'none',
                 'rules_triggered' => 0,
@@ -185,7 +186,7 @@ class AmlRuleService
             // Blocked transactions are cancelled
             $transaction->update([
                 'status' => TransactionStatus::Cancelled,
-                'hold_reason' => 'BLOCKED: ' . implode('; ', $holdReasons),
+                'hold_reason' => 'BLOCKED: '.implode('; ', $holdReasons),
             ]);
             $newStatus = TransactionStatus::Cancelled;
 
@@ -200,7 +201,7 @@ class AmlRuleService
                     'total_risk_score' => $evaluation['total_risk_score'],
                 ],
             ]);
-        } elseif ($action === 'hold' && !in_array($transaction->status, [TransactionStatus::Pending, TransactionStatus::Completed])) {
+        } elseif ($action === 'hold' && ! in_array($transaction->status, [TransactionStatus::Pending, TransactionStatus::Completed])) {
             // Only hold if not already pending or completed
             $transaction->update([
                 'status' => TransactionStatus::OnHold,
@@ -220,9 +221,9 @@ class AmlRuleService
     /**
      * Create a flagged transaction record.
      *
-     * @param Transaction $transaction The transaction to flag
-     * @param AmlRule $rule The rule that triggered
-     * @param string|null $reason The reason for flagging
+     * @param  Transaction  $transaction  The transaction to flag
+     * @param  AmlRule  $rule  The rule that triggered
+     * @param  string|null  $reason  The reason for flagging
      */
     protected function createFlaggedTransaction(Transaction $transaction, AmlRule $rule, ?string $reason): FlaggedTransaction
     {
@@ -237,8 +238,7 @@ class AmlRuleService
     /**
      * Get rules with their hit counts for reporting.
      *
-     * @param int|null $days Number of days to look back
-     * @return Collection
+     * @param  int|null  $days  Number of days to look back
      */
     public function getRulesWithHitCounts(?int $days = 30): Collection
     {
@@ -247,27 +247,27 @@ class AmlRuleService
         return AmlRule::withCount([
             'creator',
         ])
-        ->active()
-        ->get()
-        ->map(function ($rule) use ($startDate) {
-            $hitCount = SystemLog::where('action', 'aml_rule_triggered')
-                ->where('new_values', 'LIKE', '%"rule_code":"' . DB::raw('?') . '"%')
-                ->addBinding([$rule->rule_code], 'where')
-                ->where('created_at', '>=', $startDate)
-                ->count();
+            ->active()
+            ->get()
+            ->map(function ($rule) use ($startDate) {
+                $hitCount = SystemLog::where('action', 'aml_rule_triggered')
+                    ->where('new_values', 'LIKE', '%"rule_code":"'.DB::raw('?').'"%')
+                    ->addBinding([$rule->rule_code], 'where')
+                    ->where('created_at', '>=', $startDate)
+                    ->count();
 
-            return [
-                'rule' => $rule,
-                'hit_count' => $hitCount,
-            ];
-        });
+                return [
+                    'rule' => $rule,
+                    'hit_count' => $hitCount,
+                ];
+            });
     }
 
     /**
      * Validate conditions JSON for a rule type.
      *
-     * @param AmlRuleType $ruleType The rule type
-     * @param array $conditions The conditions to validate
+     * @param  AmlRuleType  $ruleType  The rule type
+     * @param  array  $conditions  The conditions to validate
      * @return array{valid: bool, errors: array}
      */
     public function validateConditions(AmlRuleType $ruleType, array $conditions): array
@@ -276,43 +276,43 @@ class AmlRuleService
 
         switch ($ruleType) {
             case AmlRuleType::Velocity:
-                if (!isset($conditions['window_hours']) || !is_numeric($conditions['window_hours'])) {
+                if (! isset($conditions['window_hours']) || ! is_numeric($conditions['window_hours'])) {
                     $errors[] = 'window_hours is required and must be numeric';
                 }
-                if (!isset($conditions['max_transactions']) || !is_numeric($conditions['max_transactions'])) {
+                if (! isset($conditions['max_transactions']) || ! is_numeric($conditions['max_transactions'])) {
                     $errors[] = 'max_transactions is required and must be numeric';
                 }
                 break;
 
             case AmlRuleType::Structuring:
-                if (!isset($conditions['window_days']) || !is_numeric($conditions['window_days'])) {
+                if (! isset($conditions['window_days']) || ! is_numeric($conditions['window_days'])) {
                     $errors[] = 'window_days is required and must be numeric';
                 }
-                if (!isset($conditions['min_transaction_count']) || !is_numeric($conditions['min_transaction_count'])) {
+                if (! isset($conditions['min_transaction_count']) || ! is_numeric($conditions['min_transaction_count'])) {
                     $errors[] = 'min_transaction_count is required and must be numeric';
                 }
-                if (!isset($conditions['aggregate_threshold']) || !is_numeric($conditions['aggregate_threshold'])) {
+                if (! isset($conditions['aggregate_threshold']) || ! is_numeric($conditions['aggregate_threshold'])) {
                     $errors[] = 'aggregate_threshold is required and must be numeric';
                 }
                 break;
 
             case AmlRuleType::AmountThreshold:
-                if (!isset($conditions['min_amount']) || !is_numeric($conditions['min_amount'])) {
+                if (! isset($conditions['min_amount']) || ! is_numeric($conditions['min_amount'])) {
                     $errors[] = 'min_amount is required and must be numeric';
                 }
                 break;
 
             case AmlRuleType::Frequency:
-                if (!isset($conditions['window_hours']) || !is_numeric($conditions['window_hours'])) {
+                if (! isset($conditions['window_hours']) || ! is_numeric($conditions['window_hours'])) {
                     $errors[] = 'window_hours is required and must be numeric';
                 }
-                if (!isset($conditions['max_transactions']) || !is_numeric($conditions['max_transactions'])) {
+                if (! isset($conditions['max_transactions']) || ! is_numeric($conditions['max_transactions'])) {
                     $errors[] = 'max_transactions is required and must be numeric';
                 }
                 break;
 
             case AmlRuleType::Geographic:
-                if (!isset($conditions['countries']) || !is_array($conditions['countries'])) {
+                if (! isset($conditions['countries']) || ! is_array($conditions['countries'])) {
                     $errors[] = 'countries is required and must be an array';
                 }
                 if (empty($conditions['countries'])) {

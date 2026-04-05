@@ -26,6 +26,6 @@ class CurrencySeeder extends Seeder
             Currency::firstOrCreate(['code' => $currency['code']], $currency);
         }
 
-        $this->command->info('Seeded ' . count($currencies) . ' currencies');
+        $this->command->info('Seeded '.count($currencies).' currencies');
     }
 }

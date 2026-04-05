@@ -2,14 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Enums\TransactionStatus;
-use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Models\AccountingPeriod;
 use App\Models\BankReconciliation;
 use App\Models\ChartOfAccount;
 use App\Models\Currency;
-use App\Models\Customer;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\TillBalance;
@@ -199,9 +196,10 @@ class BankReconciliationTest extends TestCase
         $journal = JournalEntry::create([
             'entry_date' => now()->toDateString(),
             'description' => 'Customer deposit',
-            'reference' => 'BANK-001',
+            'reference_type' => 'BankReconciliation',
+            'reference_id' => null,
             'status' => 'Posted',
-            'created_by' => $this->managerUser->id,
+            'posted_by' => $this->managerUser->id,
         ]);
 
         JournalLine::create([
@@ -271,7 +269,7 @@ class BankReconciliationTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/reconciliation?account_code=1000&from=' . now()->startOfMonth()->toDateString() . '&to=' . now()->endOfMonth()->toDateString());
+            ->get('/accounting/reconciliation?account_code=1000&from='.now()->startOfMonth()->toDateString().'&to='.now()->endOfMonth()->toDateString());
 
         $response->assertStatus(200);
         $response->assertSee('BANK-001');
@@ -346,7 +344,7 @@ class BankReconciliationTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/reconciliation/report?account_code=1000&from=' . now()->startOfMonth()->toDateString() . '&to=' . now()->endOfMonth()->toDateString());
+            ->get('/accounting/reconciliation/report?account_code=1000&from='.now()->startOfMonth()->toDateString().'&to='.now()->endOfMonth()->toDateString());
 
         $response->assertStatus(200);
         $response->assertSee('1000'); // Account code
@@ -437,7 +435,7 @@ class BankReconciliationTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/reconciliation/export?account_code=1000&from=' . now()->startOfMonth()->toDateString() . '&to=' . now()->endOfMonth()->toDateString());
+            ->get('/accounting/reconciliation/export?account_code=1000&from='.now()->startOfMonth()->toDateString().'&to='.now()->endOfMonth()->toDateString());
 
         // Should return some response (could be download or view)
         $this->assertNotEquals(403, $response->status());

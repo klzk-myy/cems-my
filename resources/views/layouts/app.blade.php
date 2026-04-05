@@ -327,7 +327,6 @@
             </nav>
 
 <div class="sidebar-footer">
- <!-- @csrf -->
  <form id="logout-form" action="/logout" method="POST">
  @csrf
  <button type="submit" class="logout-btn">

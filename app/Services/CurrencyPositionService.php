@@ -53,15 +53,23 @@ class CurrencyPositionService
         string $tillId = 'MAIN'
     ): CurrencyPosition {
         return DB::transaction(function () use ($currencyCode, $amount, $rate, $type, $tillId) {
-            $position = CurrencyPosition::lockForUpdate()
-                ->firstOrCreate(
-                    ['currency_code' => $currencyCode, 'till_id' => $tillId],
-                    [
-                        'balance' => '0',
-                        'avg_cost_rate' => $rate,
-                        'last_valuation_rate' => $rate,
-                    ]
-                );
+            // Lock the position row for update to prevent race conditions on concurrent sells
+            $position = CurrencyPosition::where('currency_code', $currencyCode)
+                ->where('till_id', $tillId)
+                ->lockForUpdate()
+                ->first();
+
+            // Create position if it doesn't exist
+            if ($position === null) {
+                $position = new CurrencyPosition([
+                    'currency_code' => $currencyCode,
+                    'till_id' => $tillId,
+                    'balance' => '0',
+                    'avg_cost_rate' => $rate,
+                    'last_valuation_rate' => $rate,
+                ]);
+                $position->save();
+            }
 
             $oldBalance = $position->balance;
             $oldAvgCost = $position->avg_cost_rate;

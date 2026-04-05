@@ -11,7 +11,7 @@ class ExchangeRate extends Model
         'rate_buy',
         'rate_sell',
         'source',
-        'fetched_at'
+        'fetched_at',
     ];
 
     protected $casts = [

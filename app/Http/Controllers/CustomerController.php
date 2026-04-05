@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\UserRole;
 use App\Models\Customer;
 use App\Models\CustomerDocument;
 use App\Models\SystemLog;
@@ -10,9 +9,9 @@ use App\Services\EncryptionService;
 use App\Services\RiskRatingService;
 use App\Services\SanctionScreeningService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -32,7 +31,6 @@ class CustomerController extends Controller
     /**
      * Display a paginated listing of all customers.
      *
-     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\View\View
      */
     public function index(Request $request)
@@ -130,7 +128,6 @@ class CustomerController extends Controller
     /**
      * Store a newly created customer in the database.
      *
-     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
@@ -242,7 +239,7 @@ class CustomerController extends Controller
 
             $message = "Customer {$customer->full_name} created successfully.";
             if ($hasSanctionHit) {
-                $message .= " WARNING: Sanction match(es) found - customer flagged as High Risk.";
+                $message .= ' WARNING: Sanction match(es) found - customer flagged as High Risk.';
             }
 
             return redirect()->route('customers.show', $customer)
@@ -259,7 +256,7 @@ class CustomerController extends Controller
                 'ip_address' => $request->ip(),
             ]);
 
-            return back()->with('error', 'Failed to create customer: ' . $e->getMessage())
+            return back()->with('error', 'Failed to create customer: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -267,7 +264,6 @@ class CustomerController extends Controller
     /**
      * Display the specified customer's profile with transaction history.
      *
-     * @param  \App\Models\Customer  $customer
      * @return \Illuminate\View\View
      */
     public function show(Customer $customer)
@@ -302,7 +298,6 @@ class CustomerController extends Controller
     /**
      * Show the form for editing the specified customer.
      *
-     * @param  \App\Models\Customer  $customer
      * @return \Illuminate\View\View
      */
     public function edit(Customer $customer)
@@ -344,8 +339,6 @@ class CustomerController extends Controller
     /**
      * Update the specified customer in the database.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Customer  $customer
      * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, Customer $customer)
@@ -453,7 +446,7 @@ class CustomerController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Failed to update customer: ' . $e->getMessage())
+            return back()->with('error', 'Failed to update customer: '.$e->getMessage())
                 ->withInput();
         }
     }
@@ -461,8 +454,6 @@ class CustomerController extends Controller
     /**
      * Remove the specified customer from the database.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Customer  $customer
      * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(Request $request, Customer $customer)
@@ -503,7 +494,6 @@ class CustomerController extends Controller
     /**
      * Show the KYC document management form.
      *
-     * @param  \App\Models\Customer  $customer
      * @return \Illuminate\View\View
      */
     public function kyc(Customer $customer)
@@ -526,8 +516,6 @@ class CustomerController extends Controller
     /**
      * Handle KYC document upload.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Customer  $customer
      * @return \Illuminate\Http\RedirectResponse
      */
     public function uploadDocument(Request $request, Customer $customer)
@@ -541,8 +529,8 @@ class CustomerController extends Controller
         $file = $request->file('document_file');
 
         // Store file with encryption consideration
-        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs('customer-documents/' . $customer->id, $filename, 'local');
+        $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
+        $path = $file->storeAs('customer-documents/'.$customer->id, $filename, 'local');
 
         // Calculate file hash for integrity
         $fileHash = hash_file('sha256', $file->getRealPath());
@@ -580,9 +568,6 @@ class CustomerController extends Controller
     /**
      * Verify a KYC document.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Customer  $customer
-     * @param  \App\Models\CustomerDocument  $document
      * @return \Illuminate\Http\RedirectResponse
      */
     public function verifyDocument(Request $request, Customer $customer, CustomerDocument $document)
@@ -623,9 +608,6 @@ class CustomerController extends Controller
     /**
      * Delete a KYC document.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Customer  $customer
-     * @param  \App\Models\CustomerDocument  $document
      * @return \Illuminate\Http\RedirectResponse
      */
     public function deleteDocument(Request $request, Customer $customer, CustomerDocument $document)
@@ -670,9 +652,6 @@ class CustomerController extends Controller
 
     /**
      * Calculate initial risk score based on customer attributes.
-     *
-     * @param  array  $data
-     * @return int
      */
     protected function calculateInitialRiskScore(array $data): int
     {

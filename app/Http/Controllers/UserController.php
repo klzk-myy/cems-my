@@ -22,7 +22,6 @@ class UserController extends Controller
      *
      * Throws 403 if user is not an admin.
      *
-     * @return void
      *
      * @throws \Symfony\Component\HttpKernel\Exception\HttpException
      */
@@ -79,7 +78,13 @@ class UserController extends Controller
         $validated = $request->validate([
             'username' => 'required|string|max:50|unique:users',
             'email' => 'required|email|max:255|unique:users',
-            'password' => 'required|string|min:12|confirmed',
+            'password' => [
+                'required',
+                'string',
+                'min:12',
+                'confirmed',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/',
+            ],
             'password_confirmation' => 'required',
             'role' => ['required', Rule::in([
                 UserRole::Teller->value,
@@ -244,7 +249,13 @@ class UserController extends Controller
     {
         $this->requireAdmin();
         $validated = $request->validate([
-            'password' => 'required|string|min:12|confirmed',
+            'password' => [
+                'required',
+                'string',
+                'min:12',
+                'confirmed',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/',
+            ],
         ]);
 
         $user->update([

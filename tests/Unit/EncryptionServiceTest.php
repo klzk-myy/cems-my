@@ -12,7 +12,7 @@ class EncryptionServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new EncryptionService();
+        $this->service = new EncryptionService;
     }
 
     public function test_can_encrypt_and_decrypt_data()

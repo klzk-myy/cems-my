@@ -11,7 +11,6 @@ use App\Enums\UserRole;
 use App\Models\Customer;
 use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
-use App\Models\SystemLog;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

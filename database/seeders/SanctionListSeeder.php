@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\SanctionList;
 use App\Models\SanctionEntry;
+use App\Models\SanctionList;
 use Illuminate\Database\Seeder;
 
 class SanctionListSeeder extends Seeder

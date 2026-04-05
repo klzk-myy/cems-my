@@ -39,7 +39,7 @@ class SanctionController extends Controller
         $path = $file->store('sanction_lists');
 
         $count = $this->screeningService->importSanctionList(
-            storage_path('app/' . $path),
+            storage_path('app/'.$path),
             auth()->id()
         );
 

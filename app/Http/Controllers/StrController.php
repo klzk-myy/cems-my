@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 class StrController extends Controller
 {
     protected StrReportService $strService;
+
     protected AuditService $auditService;
 
     public function __construct(StrReportService $strService, AuditService $auditService)
@@ -117,9 +118,12 @@ class StrController extends Controller
         return view('str.show', compact('str', 'transactions'));
     }
 
-    public function generateFromAlert(FlaggedTransaction $alert)
+    public function generateFromAlert(FlaggedTransaction $flaggedTransaction)
     {
         try {
+            // Explicitly find the flag to ensure it's loaded from DB
+            $alert = FlaggedTransaction::with(['transaction.customer'])->findOrFail($flaggedTransaction->id);
+
             $strReport = $this->strService->generateFromAlert($alert);
 
             return redirect()->route('str.show', $strReport)
@@ -183,7 +187,6 @@ class StrController extends Controller
 
         $oldStatus = $str->status->value;
         $str->update([
-            'status' => 'pending_approval',
             'approved_by' => Auth::id(),
         ]);
 
@@ -191,7 +194,6 @@ class StrController extends Controller
         $this->auditService->logStrAction('str_approved', $str->id, [
             'old' => ['status' => $oldStatus],
             'new' => [
-                'status' => 'pending_approval',
                 'approved_by' => Auth::id(),
                 'approved_by_name' => Auth::user()->username,
             ],

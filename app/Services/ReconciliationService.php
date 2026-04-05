@@ -24,6 +24,11 @@ class ReconciliationService
                 'credit' => $line['credit'] ?? 0,
                 'status' => 'unmatched',
                 'created_by' => $userId,
+                // Check fields if present
+                'check_number' => $line['check_number'] ?? null,
+                'check_date' => $line['check_date'] ?? null,
+                'check_status' => $line['check_status'] ?? null,
+                'check_payee' => $line['check_payee'] ?? null,
             ]);
 
             $imported[] = $record;
@@ -41,6 +46,102 @@ class ReconciliationService
     }
 
     /**
+     * Create an outstanding check entry (check issued but not yet presented)
+     *
+     * @param  string  $accountCode  Cash/bank account code
+     * @param  array  $checkData  Check details (check_number, check_date, check_payee, amount, etc.)
+     * @param  int  $userId  User creating the entry
+     */
+    public function createOutstandingCheck(string $accountCode, array $checkData, int $userId): BankReconciliation
+    {
+        return BankReconciliation::create([
+            'account_code' => $accountCode,
+            'statement_date' => $checkData['check_date'] ?? today(),
+            'reference' => $checkData['check_number'],
+            'description' => 'Check issued: '.($checkData['check_payee'] ?? 'Unknown payee'),
+            'debit' => $checkData['amount'] ?? 0,
+            'credit' => 0,
+            'status' => 'unmatched',
+            'created_by' => $userId,
+            'check_number' => $checkData['check_number'],
+            'check_date' => $checkData['check_date'] ?? today(),
+            'check_status' => 'issued',
+            'check_payee' => $checkData['check_payee'] ?? null,
+        ]);
+    }
+
+    /**
+     * Present a check (mark as presented for payment)
+     */
+    public function presentCheck(int $reconciliationId, ?string $presentedDate = null): BankReconciliation
+    {
+        $record = BankReconciliation::findOrFail($reconciliationId);
+
+        if ($record->check_status !== 'issued') {
+            throw new \InvalidArgumentException("Check {$record->check_number} is not in 'issued' status.");
+        }
+
+        $record->update([
+            'check_status' => 'presented',
+        ]);
+
+        return $record;
+    }
+
+    /**
+     * Clear a check (mark as settled by bank)
+     */
+    public function clearCheck(int $reconciliationId, string $clearedDate): BankReconciliation
+    {
+        $record = BankReconciliation::findOrFail($reconciliationId);
+
+        if (! in_array($record->check_status, ['issued', 'presented'])) {
+            throw new \InvalidArgumentException("Check {$record->check_number} cannot be cleared from '{$record->check_status}' status.");
+        }
+
+        $record->update([
+            'check_status' => 'cleared',
+            'status' => 'matched', // Auto-match when cleared
+        ]);
+
+        return $record;
+    }
+
+    /**
+     * Stop a check (cancel the check)
+     */
+    public function stopCheck(int $reconciliationId, string $reason, int $userId): BankReconciliation
+    {
+        $record = BankReconciliation::findOrFail($reconciliationId);
+
+        if ($record->check_status === 'cleared') {
+            throw new \InvalidArgumentException("Check {$record->check_number} has already been cleared and cannot be stopped.");
+        }
+
+        $record->update([
+            'check_status' => 'stopped',
+            'notes' => $record->notes ? $record->notes."; Stopped: {$reason}" : "Stopped: {$reason}",
+        ]);
+
+        return $record;
+    }
+
+    /**
+     * Return a check (e.g., insufficient funds)
+     */
+    public function returnCheck(int $reconciliationId, string $reason): BankReconciliation
+    {
+        $record = BankReconciliation::findOrFail($reconciliationId);
+
+        $record->update([
+            'check_status' => 'returned',
+            'notes' => $record->notes ? $record->notes."; Returned: {$reason}" : "Returned: {$reason}",
+        ]);
+
+        return $record;
+    }
+
+    /**
      * Auto-match statement lines to journal entries
      */
     protected function autoMatch(string $accountCode): void
@@ -50,6 +151,11 @@ class ReconciliationService
             ->get();
 
         foreach ($unmatched as $record) {
+            // Skip checks - they are matched manually when presented/cleared
+            if ($record->check_number !== null) {
+                continue;
+            }
+
             // Look for matching journal entry
             $amount = abs($record->getAmount());
             $isDebit = $record->getAmount() > 0;
@@ -100,6 +206,127 @@ class ReconciliationService
             'unmatched_items' => $unmatchedItems,
             'exception_count' => $exceptions->count(),
             'exceptions' => $exceptions,
+        ];
+    }
+
+    /**
+     * Get outstanding checks report
+     *
+     * Returns checks that have been issued but not yet cleared,
+     * categorized by their status.
+     */
+    public function getOutstandingChecksReport(string $accountCode, ?string $asOfDate = null): array
+    {
+        $asOfDate = $asOfDate ?? today()->toDateString();
+
+        $query = BankReconciliation::where('account_code', $accountCode)
+            ->whereNotNull('check_number')
+            ->where('check_date', '<=', $asOfDate);
+
+        $issued = (clone $query)->where('check_status', 'issued')->get();
+        $presented = (clone $query)->where('check_status', 'presented')->get();
+        $cleared = (clone $query)->where('check_status', 'cleared')->get();
+        $returned = (clone $query)->where('check_status', 'returned')->get();
+        $stopped = (clone $query)->where('check_status', 'stopped')->get();
+
+        return [
+            'account_code' => $accountCode,
+            'as_of_date' => $asOfDate,
+            'issued' => [
+                'count' => $issued->count(),
+                'total' => $issued->sum(fn ($r) => $r->getAmount()),
+                'items' => $issued,
+            ],
+            'presented' => [
+                'count' => $presented->count(),
+                'total' => $presented->sum(fn ($r) => $r->getAmount()),
+                'items' => $presented,
+            ],
+            'cleared' => [
+                'count' => $cleared->count(),
+                'total' => $cleared->sum(fn ($r) => $r->getAmount()),
+                'items' => $cleared,
+            ],
+            'returned' => [
+                'count' => $returned->count(),
+                'total' => $returned->sum(fn ($r) => $r->getAmount()),
+                'items' => $returned,
+            ],
+            'stopped' => [
+                'count' => $stopped->count(),
+                'total' => $stopped->sum(fn ($r) => $r->getAmount()),
+                'items' => $stopped,
+            ],
+            'total_outstanding' => $issued->sum(fn ($r) => $r->getAmount()) + $presented->sum(fn ($r) => $r->getAmount()),
+        ];
+    }
+
+    /**
+     * Get aging of outstanding checks
+     *
+     * Categorizes outstanding checks by how long they've been outstanding.
+     */
+    public function getChecksAgingReport(string $accountCode, ?string $asOfDate = null): array
+    {
+        $asOfDate = $asOfDate ?? today();
+        $outstanding = BankReconciliation::where('account_code', $accountCode)
+            ->whereNotNull('check_number')
+            ->whereIn('check_status', ['issued', 'presented'])
+            ->where('check_date', '<=', $asOfDate)
+            ->get();
+
+        $current = collect();
+        $days30 = collect();
+        $days60 = collect();
+        $days90 = collect();
+        $over90 = collect();
+
+        foreach ($outstanding as $check) {
+            $daysOutstanding = $check->check_date->diffInDays($asOfDate);
+
+            if ($daysOutstanding <= 30) {
+                $current->push($check);
+            } elseif ($daysOutstanding <= 60) {
+                $days30->push($check);
+            } elseif ($daysOutstanding <= 90) {
+                $days60->push($check);
+            } elseif ($daysOutstanding <= 90) {
+                $days90->push($check);
+            } else {
+                $over90->push($check);
+            }
+        }
+
+        return [
+            'account_code' => $accountCode,
+            'as_of_date' => $asOfDate->toDateString(),
+            'aging' => [
+                'current_0_30' => [
+                    'count' => $current->count(),
+                    'total' => $current->sum(fn ($r) => $r->getAmount()),
+                    'items' => $current,
+                ],
+                'days_31_60' => [
+                    'count' => $days30->count(),
+                    'total' => $days30->sum(fn ($r) => $r->getAmount()),
+                    'items' => $days30,
+                ],
+                'days_61_90' => [
+                    'count' => $days60->count(),
+                    'total' => $days60->sum(fn ($r) => $r->getAmount()),
+                    'items' => $days60,
+                ],
+                'days_91_180' => [
+                    'count' => $days90->count(),
+                    'total' => $days90->sum(fn ($r) => $r->getAmount()),
+                    'items' => $days90,
+                ],
+                'over_180' => [
+                    'count' => $over90->count(),
+                    'total' => $over90->sum(fn ($r) => $r->getAmount()),
+                    'items' => $over90,
+                ],
+            ],
         ];
     }
 

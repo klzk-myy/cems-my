@@ -10,10 +10,10 @@ return new class extends Migration
     {
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
-        $table->foreignId('customer_id')->constrained();
-        $table->foreignId('user_id')->constrained();
-        $table->string('till_id', 50)->default('MAIN');
-        $table->enum('type', ['Buy', 'Sell']);
+            $table->foreignId('customer_id')->constrained();
+            $table->foreignId('user_id')->constrained();
+            $table->string('till_id', 50)->default('MAIN');
+            $table->enum('type', ['Buy', 'Sell']);
             $table->string('currency_code', 3);
             $table->decimal('amount_local', 18, 4);
             $table->decimal('amount_foreign', 18, 4);

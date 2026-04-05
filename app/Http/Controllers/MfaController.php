@@ -59,6 +59,7 @@ class MfaController extends Controller
         if (! $this->mfaService->verifyCode($pendingSecret, $request->code)) {
             // Re-generate secret and start over
             Session::forget('mfa_setup_started_at');
+
             return redirect()->route('mfa.setup')
                 ->withErrors(['code' => 'Invalid verification code. Please try again.']);
         }
@@ -119,7 +120,7 @@ class MfaController extends Controller
     public function verifyStore(Request $request)
     {
         $request->validate([
-            'code' => 'required|digits:6',
+            'code' => 'required|string|min:6|max:10', // 6 for TOTP, 10 for recovery code
         ]);
 
         $user = auth()->user();
@@ -240,7 +241,7 @@ class MfaController extends Controller
         // This is a placeholder - actual implementation would retrieve from secure storage
         return response()->streamDownload(function () {
             echo "Recovery codes are no longer available after initial display.\n";
-            echo "Please disable and re-enable MFA to generate new recovery codes.";
+            echo 'Please disable and re-enable MFA to generate new recovery codes.';
         }, 'recovery-codes.txt', [
             'Content-Type' => 'text/plain',
         ]);

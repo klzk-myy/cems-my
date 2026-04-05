@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Budget;
-use App\Models\ChartOfAccount;
 use Illuminate\Database\Seeder;
 
 class BudgetSeeder extends Seeder
@@ -53,6 +52,6 @@ class BudgetSeeder extends Seeder
             );
         }
 
-        $this->command->info('Created budgets for period: ' . $currentPeriod);
+        $this->command->info('Created budgets for period: '.$currentPeriod);
     }
 }

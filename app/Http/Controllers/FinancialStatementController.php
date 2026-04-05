@@ -16,7 +16,7 @@ class FinancialStatementController extends Controller
 
     protected function requireManagerOrAdmin(): void
     {
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
         }
     }

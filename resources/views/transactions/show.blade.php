@@ -381,7 +381,7 @@
                 <h2>Accounting Journal Entries</h2>
                 @if($transaction->type === 'Buy')
                     <div class="journal-entry">
-                        <div class="journal-dr">Dr Foreign Currency Inventory (1100)</div>
+                        <div class="journal-dr">Dr Foreign Currency Inventory (2000)</div>
                         <div style="margin-left: 2rem;">RM {{ number_format($transaction->amount_local, 2) }}</div>
                     </div>
                     <div class="journal-entry">
@@ -397,7 +397,7 @@
                         <div style="margin-left: 2rem;">RM {{ number_format($transaction->amount_local, 2) }}</div>
                     </div>
                     <div class="journal-entry">
-                        <div class="journal-cr">Cr Foreign Currency Inventory (1100)</div>
+                        <div class="journal-cr">Cr Foreign Currency Inventory (2000)</div>
                         <div style="margin-left: 2rem;">RM {{ number_format($transaction->amount_local, 2) }}</div>
                     </div>
                     @php

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 class ExportService
@@ -16,17 +15,17 @@ class ExportService
 
     public function toCSV(array $data, string $filename): string
     {
-        $path = $this->basePath . '/' . $filename;
-        
-        if (!file_exists($this->basePath)) {
+        $path = $this->basePath.'/'.$filename;
+
+        if (! file_exists($this->basePath)) {
             mkdir($this->basePath, 0755, true);
         }
 
         $handle = fopen($path, 'w+');
 
-        if (!empty($data)) {
+        if (! empty($data)) {
             fputcsv($handle, array_keys($data[0]));
-            
+
             foreach ($data as $row) {
                 fputcsv($handle, array_values($row));
             }
@@ -39,9 +38,9 @@ class ExportService
 
     public function toPDF(array $data, string $template, string $filename): string
     {
-        $path = $this->basePath . '/' . $filename;
+        $path = $this->basePath.'/'.$filename;
 
-        if (!file_exists($this->basePath)) {
+        if (! file_exists($this->basePath)) {
             mkdir($this->basePath, 0755, true);
         }
 
@@ -53,13 +52,14 @@ class ExportService
 
     public function toExcel(array $data, string $filename): string
     {
-        $path = $this->basePath . '/' . $filename;
+        $path = $this->basePath.'/'.$filename;
 
         if (! file_exists($this->basePath)) {
             mkdir($this->basePath, 0755, true);
         }
 
-        $export = new class($data) implements \Maatwebsite\Excel\Concerns\FromArray {
+        $export = new class($data) implements \Maatwebsite\Excel\Concerns\FromArray
+        {
             protected $data;
 
             public function __construct($data)
@@ -74,7 +74,7 @@ class ExportService
         };
 
         // Store directly to the reports subdirectory using the full path
-        \Maatwebsite\Excel\Facades\Excel::store($export, 'reports/' . $filename, 'local');
+        \Maatwebsite\Excel\Facades\Excel::store($export, 'reports/'.$filename, 'local');
 
         return $path;
     }
@@ -87,6 +87,7 @@ class ExportService
                     ->subject($subject)
                     ->attach($filePath);
             });
+
             return true;
         } catch (\Exception $e) {
             Log::error('Failed to email report', [
@@ -94,13 +95,14 @@ class ExportService
                 'subject' => $subject,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
 
     public function getExportPath(string $filename): string
     {
-        return $this->basePath . '/' . $filename;
+        return $this->basePath.'/'.$filename;
     }
 
     public function cleanupOldReports(int $days = 90): int
@@ -108,7 +110,7 @@ class ExportService
         $cutoff = now()->subDays($days);
         $deleted = 0;
 
-        $files = glob($this->basePath . '/*');
+        $files = glob($this->basePath.'/*');
         foreach ($files as $file) {
             if (is_file($file) && filemtime($file) < $cutoff->timestamp) {
                 unlink($file);

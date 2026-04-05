@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\ExchangeRateHistory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use App\Services\MathService;
 
 class RateApiService
 {

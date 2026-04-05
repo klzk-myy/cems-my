@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\JournalEntry;
 use App\Models\ReportGenerated;
 use App\Services\AccountingService;
 use Carbon\Carbon;
@@ -25,8 +24,8 @@ class GenerateTrialBalance extends Command
         try {
             $reportData = $accountingService->generateTrialBalance($date);
 
-            $filename = 'TrialBalance_' . $date->format('Y-m-d') . '.csv';
-            $filepath = storage_path('app/reports/' . $filename);
+            $filename = 'TrialBalance_'.$date->format('Y-m-d').'.csv';
+            $filepath = storage_path('app/reports/'.$filename);
 
             if (! is_dir(dirname($filepath))) {
                 mkdir(dirname($filepath), 0755, true);
@@ -67,7 +66,7 @@ class GenerateTrialBalance extends Command
 
             return 0;
         } catch (\Exception $e) {
-            $this->error('Trial Balance generation failed: ' . $e->getMessage());
+            $this->error('Trial Balance generation failed: '.$e->getMessage());
 
             return 1;
         }

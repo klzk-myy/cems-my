@@ -28,6 +28,27 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        // Rate limiter for login/authentication endpoints
+        RateLimiter::for('login', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip())->response(function () {
+                return response('Too many login attempts. Please try again later.', 429);
+            });
+        });
+
+        // Rate limiter for transaction creation
+        RateLimiter::for('transactions', function (Request $request) {
+            return Limit::perMinute(30)->by($request->user()?->id ?: $request->ip())->response(function () {
+                return response('Too many transaction attempts. Please slow down.', 429);
+            });
+        });
+
+        // Rate limiter for STR submission
+        RateLimiter::for('str-submission', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip())->response(function () {
+                return response('Too many STR submission attempts. Please slow down.', 429);
+            });
+        });
+
         $this->routes(function () {
             Route::middleware('api')
                 ->prefix('api')

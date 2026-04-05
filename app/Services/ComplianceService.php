@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\CddLevel;
 use App\Enums\ComplianceFlagType;
 use App\Models\Customer;
+use App\Models\CustomerDocument;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
 use Carbon\Carbon;
@@ -235,9 +236,10 @@ class ComplianceService
      */
     public function checkAggregateTransactions(int $customerId, string $currentAmount): array
     {
-        $oneDayAgo = now()->subDay();
+        $lookbackDays = config('cems.aggregate_lookback_days', 7);
+        $lookbackPeriod = now()->subDays($lookbackDays);
         $relatedTransactions = Transaction::where('customer_id', $customerId)
-            ->where('created_at', '>=', $oneDayAgo)
+            ->where('created_at', '>=', $lookbackPeriod)
             ->where('status', '!=', 'Cancelled')
             ->orderBy('created_at', 'desc')
             ->get();
@@ -374,8 +376,8 @@ class ComplianceService
      */
     public function requiresCtos(string $amount, string $transactionType): bool
     {
-        // CTOS applies to cash transactions (Buy transactions are typically cash)
-        if ($transactionType !== 'Buy') {
+        // CTOS applies to all cash transactions (both Buy and Sell) >= RM 10,000
+        if (! in_array($transactionType, ['Buy', 'Sell'], true)) {
             return false;
         }
 
@@ -398,5 +400,56 @@ class ComplianceService
             ->orderBy('created_at', 'desc')
             ->get()
             ->toArray();
+    }
+
+    /**
+     * Check if required documents are uploaded and verified for the CDD level.
+     *
+     * Verifies that the customer has the necessary KYC documents based on
+     * the required due diligence level. Simplified CDD requires only MyKad,
+     * Standard CDD requires MyKad + Proof of Address, Enhanced CDD requires
+     * all documents plus additional verification.
+     *
+     * @param  Customer  $customer  The customer to verify documents for
+     * @param  CddLevel  $cddLevel  The required CDD level
+     * @return array<string, mixed> Document verification result containing:
+     *                              - is_compliant: bool Whether documents meet requirements
+     *                              - missing_documents: array<string> List of missing document types
+     *                              - unverified_documents: array<string> List of uploaded but unverified documents
+     *                              - is_verified: bool Whether all uploaded documents are verified
+     */
+    public function verifyCddDocuments(Customer $customer, CddLevel $cddLevel): array
+    {
+        $documents = CustomerDocument::where('customer_id', $customer->id)->get();
+
+        // Define required document types per CDD level
+        $requiredDocs = match ($cddLevel) {
+            CddLevel::Simplified => ['MyKad_Front', 'MyKad_Back'],
+            CddLevel::Standard => ['MyKad_Front', 'MyKad_Back', 'Proof_of_Address'],
+            CddLevel::Enhanced => ['MyKad_Front', 'MyKad_Back', 'Proof_of_Address', 'Passport'],
+        };
+
+        $uploadedTypes = $documents->pluck('document_type')->toArray();
+        $verifiedTypes = $documents->filter(fn ($doc) => $doc->isVerified())->pluck('document_type')->toArray();
+
+        $missingDocuments = array_diff($requiredDocs, $uploadedTypes);
+        $unverifiedDocuments = array_diff($uploadedTypes, $verifiedTypes);
+
+        // Enhanced CDD requires all documents to be verified
+        if ($cddLevel === CddLevel::Enhanced) {
+            $isCompliant = empty($missingDocuments) && empty($unverifiedDocuments);
+        } else {
+            // Standard/Simplified only requires documents to be uploaded (verification can be pending)
+            $isCompliant = empty($missingDocuments);
+        }
+
+        return [
+            'is_compliant' => $isCompliant,
+            'missing_documents' => array_values($missingDocuments),
+            'unverified_documents' => array_values($unverifiedDocuments),
+            'is_verified' => empty($unverifiedDocuments),
+            'uploaded_documents' => $uploadedTypes,
+            'verified_documents' => $verifiedTypes,
+        ];
     }
 }

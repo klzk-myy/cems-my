@@ -8,7 +8,48 @@ use Illuminate\Support\Facades\Request;
 class AuditService
 {
     /**
-     * Log with severity level
+     * Compute SHA-256 hash for a log entry (tamper-evident chain)
+     *
+     * Each log entry's hash is computed from:
+     * - timestamp (created_at)
+     * - user_id
+     * - action
+     * - entity_type
+     * - entity_id
+     * - previous_hash (chain link to prior entry)
+     */
+    public function computeEntryHash(
+        string $timestamp,
+        ?int $userId,
+        string $action,
+        ?string $entityType,
+        ?int $entityId,
+        ?string $previousHash
+    ): string {
+        $data = implode('|', [
+            $timestamp,
+            (string) $userId,
+            $action,
+            $entityType ?? '',
+            $entityId !== null ? (string) $entityId : '',
+            $previousHash ?? '',
+        ]);
+
+        return hash('sha256', $data);
+    }
+
+    /**
+     * Get the hash of the most recent system log entry
+     */
+    protected function getLastEntryHash(): ?string
+    {
+        $lastLog = SystemLog::orderBy('id', 'desc')->first();
+
+        return $lastLog?->entry_hash;
+    }
+
+    /**
+     * Log with severity level (tamper-evident with hash chaining)
      */
     public function logWithSeverity(
         string $action,
@@ -16,6 +57,18 @@ class AuditService
         string $severity = 'INFO'
     ): SystemLog {
         $userId = $data['user_id'] ?? auth()->id();
+        $previousHash = $this->getLastEntryHash();
+        $timestamp = now()->toIso8601String();
+
+        // Compute entry hash for tamper detection
+        $entryHash = $this->computeEntryHash(
+            $timestamp,
+            $userId,
+            $action,
+            $data['entity_type'] ?? null,
+            $data['entity_id'] ?? null,
+            $previousHash
+        );
 
         return SystemLog::create([
             'user_id' => $userId,
@@ -28,6 +81,8 @@ class AuditService
             'ip_address' => Request::ip(),
             'user_agent' => Request::userAgent(),
             'session_id' => session()->getId(),
+            'previous_hash' => $previousHash,
+            'entry_hash' => $entryHash,
         ]);
     }
 
@@ -149,7 +204,6 @@ class AuditService
      * @param  string  $action  STR action (str_created, str_submitted, str_approved, etc.)
      * @param  int  $strId  STR Report ID
      * @param  array  $data  Additional data
-     * @return SystemLog
      */
     public function logStrAction(string $action, int $strId, array $data = []): SystemLog
     {
@@ -174,7 +228,6 @@ class AuditService
      * @param  int  $entityId  Entity ID (flag ID, transaction ID, etc.)
      * @param  array  $data  Decision data including old/new values
      * @param  string  $severity  Log severity level
-     * @return SystemLog
      */
     public function logComplianceDecision(string $action, int $entityId, array $data = [], string $severity = 'INFO'): SystemLog
     {
@@ -196,7 +249,6 @@ class AuditService
      * @param  int  $transactionId  Transaction ID
      * @param  string  $cddLevel  CDD level determined
      * @param  array  $triggers  What triggered the CDD level
-     * @return SystemLog
      */
     public function logCddDecision(int $transactionId, string $cddLevel, array $triggers = []): SystemLog
     {
@@ -284,5 +336,73 @@ class AuditService
         };
 
         return ['callback' => $callback, 'headers' => $headers];
+    }
+
+    /**
+     * Verify the integrity of the audit log chain.
+     *
+     * Checks that each entry's stored hash matches the recomputed hash
+     * based on its actual data and the previous entry's hash.
+     *
+     * @param  int|null  $limit  Number of recent entries to verify (null = all)
+     * @return array{valid: bool, broken_at: int|null, message: string}
+     */
+    public function verifyChainIntegrity(?int $limit = null): array
+    {
+        $query = SystemLog::orderBy('id', 'asc');
+
+        if ($limit !== null) {
+            // Get the last N entries and verify backwards
+            $totalCount = SystemLog::count();
+            $query = SystemLog::orderBy('id', 'desc')
+                ->limit($limit)
+                ->orderBy('id', 'asc');
+        }
+
+        $entries = $query->get();
+        $previousHash = null;
+
+        foreach ($entries as $entry) {
+            // Skip entries without hash (migrated data)
+            if (empty($entry->entry_hash)) {
+                continue;
+            }
+
+            // Verify the previous_hash chain link
+            if ($entry->previous_hash !== $previousHash) {
+                return [
+                    'valid' => false,
+                    'broken_at' => $entry->id,
+                    'message' => "Chain broken at entry {$entry->id}: previous_hash mismatch. Expected ".
+                        ($previousHash ?? 'null').', got '.($entry->previous_hash ?? 'null'),
+                ];
+            }
+
+            // Recompute the entry hash and verify it matches
+            $recomputedHash = $this->computeEntryHash(
+                $entry->created_at->toIso8601String(),
+                $entry->user_id,
+                $entry->action,
+                $entry->entity_type,
+                $entry->entity_id,
+                $entry->previous_hash
+            );
+
+            if ($recomputedHash !== $entry->entry_hash) {
+                return [
+                    'valid' => false,
+                    'broken_at' => $entry->id,
+                    'message' => "Hash mismatch at entry {$entry->id}: stored hash appears to have been tampered with.",
+                ];
+            }
+
+            $previousHash = $entry->entry_hash;
+        }
+
+        return [
+            'valid' => true,
+            'broken_at' => null,
+            'message' => "Chain integrity verified: {$entries->count()} entries checked.",
+        ];
     }
 }

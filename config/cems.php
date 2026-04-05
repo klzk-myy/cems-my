@@ -3,6 +3,27 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | Transaction Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for transaction behavior and limits.
+    |
+    */
+    'transaction_cancellation_window_hours' => env('CANCELLATION_WINDOW_HOURS', 24),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Compliance Lookback Period
+    |--------------------------------------------------------------------------
+    |
+    | Number of days for aggregate transaction lookback in compliance checks.
+    | BNM AML/CFT requires up to 7-day lookback for structuring detection.
+    |
+    */
+    'aggregate_lookback_days' => env('AGGREGATE_LOOKBACK_DAYS', 7),
+
+    /*
+    |--------------------------------------------------------------------------
     | Position Limits
     |--------------------------------------------------------------------------
     |
@@ -55,7 +76,7 @@ return [
         'digits' => 6,       // Number of digits in TOTP
 
         // Roles that are required to set up MFA
-        'require_for_roles' => ['admin', 'manager', 'compliance'],
+        'require_for_roles' => ['admin', 'manager', 'compliance', 'teller'],
 
         // Grace period (days) after first login to set up MFA
         'grace_days' => 30,
@@ -66,10 +87,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | System Configuration
+    | Session Timeout
     |--------------------------------------------------------------------------
+    |
+    | Session idle timeout in minutes. Users will be logged out after
+    | this period of inactivity. Default is 15 minutes per BNM security
+    | compliance requirements for MSB systems.
+    |
     */
-    'version' => '1.0.0',
+    'session_timeout_minutes' => env('SESSION_TIMEOUT_MINUTES', 15),
 
     /*
     |--------------------------------------------------------------------------

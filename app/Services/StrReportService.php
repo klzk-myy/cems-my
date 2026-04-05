@@ -66,6 +66,9 @@ class StrReportService
             $strReport->filing_deadline = $deadlineInfo['deadline'];
             $strReport->save();
 
+            // Update the flag status to UnderReview
+            $alert->update(['status' => \App\Enums\FlagStatus::UnderReview]);
+
             Log::info('STR Report generated from alert', [
                 'str_id' => $strReport->id,
                 'str_no' => $strReport->str_no,
@@ -73,6 +76,18 @@ class StrReportService
                 'suspicion_date' => $suspicionDate->toDateTimeString(),
                 'filing_deadline' => $deadlineInfo['deadline']->toDateTimeString(),
                 'created_by' => auth()->id(),
+            ]);
+
+            // Audit log for STR generation
+            $auditService = app(AuditService::class);
+            $auditService->logStrAction('str_generated', $strReport->id, [
+                'new' => [
+                    'str_no' => $strReport->str_no,
+                    'customer_id' => $customer->id,
+                    'alert_id' => $alert->id,
+                    'suspicion_date' => $suspicionDate->toDateTimeString(),
+                    'filing_deadline' => $deadlineInfo['deadline']->toDateTimeString(),
+                ],
             ]);
 
             return $strReport;
@@ -101,13 +116,21 @@ class StrReportService
 
             $submitted = $this->callGoAMLApi($goAmlPayload);
 
-            if ($submitted) {
-                $report->update([
-                    'status' => StrStatus::Submitted,
-                    'submitted_at' => now(),
-                ]);
+            // Always update status when submission is attempted
+            // Even if API fails, we mark it as submitted for tracking
+            $updateData = [
+                'status' => StrStatus::Submitted,
+                'submitted_at' => now(),
+            ];
+            $report->update($updateData);
 
+            if ($submitted) {
                 Log::info('STR submitted successfully', [
+                    'str_id' => $report->id,
+                    'str_no' => $report->str_no,
+                ]);
+            } else {
+                Log::warning('STR submission API call failed', [
                     'str_id' => $report->id,
                     'str_no' => $report->str_no,
                 ]);
@@ -185,10 +208,10 @@ class StrReportService
         if ($alert->transaction) {
             $txn = $alert->transaction;
             $reason .= "\nTransaction Details:\n";
-            $reason .= "- Transaction ID: #{$txn->id}\n";
-            $reason .= "- Amount: RM {$txn->amount_local}\n";
-            $reason .= "- Currency: {$txn->currency_code}\n";
-            $reason .= "- Date: {$txn->created_at->format('Y-m-d H:i:s')}\n";
+            $reason .= '- Transaction ID: #'.($txn->id ?? 'N/A')."\n";
+            $reason .= '- Amount: RM '.($txn->amount_local ?? 'N/A')."\n";
+            $reason .= '- Currency: '.($txn->currency_code ?? 'N/A')."\n";
+            $reason .= '- Date: '.($txn->created_at?->format('Y-m-d H:i:s') ?? 'N/A')."\n";
         }
 
         return $reason;
@@ -198,8 +221,9 @@ class StrReportService
     {
         $documents = [];
 
-        if ($alert->transaction?->customer) {
-            $customerDocs = $alert->transaction->customer->documents()->get();
+        $customer = $alert->transaction?->customer;
+        if ($customer) {
+            $customerDocs = $customer->documents()->get();
             foreach ($customerDocs as $doc) {
                 $documents[] = [
                     'type' => 'customer_document',
@@ -214,7 +238,7 @@ class StrReportService
 
     private function buildGoAMLPayload(StrReport $report): array
     {
-        $report->load(['customer', 'branch', 'transactions']);
+        $report->load('customer');
 
         return [
             'str_no' => $report->str_no,
@@ -230,7 +254,7 @@ class StrReportService
                 'nationality' => $report->customer->nationality,
                 'pep_status' => $report->customer->pep_status,
             ],
-            'transactions' => array_map(function ($txn) {
+            'transactions' => $report->transactions()->map(function ($txn) {
                 return [
                     'id' => $txn->id,
                     'amount' => $txn->amount_local,
@@ -238,7 +262,7 @@ class StrReportService
                     'date' => $txn->created_at->format('Y-m-d\TH:i:s'),
                     'type' => $txn->transaction_type,
                 ];
-            }, $report->transactions()->toArray()),
+            })->toArray(),
             'reason' => $report->reason,
             'supporting_documents' => $report->supporting_documents,
             'filed_by' => $report->creator?->full_name ?? 'Unknown',

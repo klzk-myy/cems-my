@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Services\LedgerService;
-use App\Models\ChartOfAccount;
 use Illuminate\Http\Request;
 
 class LedgerController extends Controller
@@ -17,7 +16,7 @@ class LedgerController extends Controller
 
     protected function requireManagerOrAdmin(): void
     {
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
         }
     }

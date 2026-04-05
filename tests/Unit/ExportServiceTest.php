@@ -62,7 +62,7 @@ class ExportServiceTest extends TestCase
         $path = $this->service->toExcel($data, $filename);
 
         // Check via storage since the test uses Storage::fake('local')
-        $this->assertTrue(Storage::disk('local')->exists('reports/' . $filename));
+        $this->assertTrue(Storage::disk('local')->exists('reports/'.$filename));
     }
 
     public function test_cleanup_old_reports_deletes_files_older_than_days()

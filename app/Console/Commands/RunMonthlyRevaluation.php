@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Services\RevaluationService;
 use App\Services\ExportService;
+use App\Services\RevaluationService;
 use Illuminate\Console\Command;
 
 class RunMonthlyRevaluation extends Command
@@ -15,9 +15,10 @@ class RunMonthlyRevaluation extends Command
     public function handle(RevaluationService $service, ExportService $exportService): int
     {
         $isMonthEnd = now()->isLastOfMonth();
-        
-        if (!$isMonthEnd && !$this->option('force')) {
+
+        if (! $isMonthEnd && ! $this->option('force')) {
             $this->info('Not month-end. Use --force to run manually.');
+
             return 0;
         }
 
@@ -26,7 +27,7 @@ class RunMonthlyRevaluation extends Command
         try {
             $results = $service->runRevaluationWithJournal();
 
-            $filename = 'Revaluation_' . now()->format('Y-m') . '.csv';
+            $filename = 'Revaluation_'.now()->format('Y-m').'.csv';
             $path = $exportService->toCSV($results['results'], $filename);
             $results['report_path'] = $path;
 
@@ -34,11 +35,12 @@ class RunMonthlyRevaluation extends Command
 
             $this->info("Revaluation complete. {$results['positions_updated']} positions updated.");
             $this->info("Net P&L: {$results['net_pnl']}");
-            
+
             return 0;
 
         } catch (\Exception $e) {
-            $this->error('Revaluation failed: ' . $e->getMessage());
+            $this->error('Revaluation failed: '.$e->getMessage());
+
             return 1;
         }
     }

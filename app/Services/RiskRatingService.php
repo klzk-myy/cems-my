@@ -46,6 +46,7 @@ class RiskRatingService
         if ($score <= 60) {
             return 'Medium';
         }
+
         return 'High';
     }
 

@@ -52,6 +52,7 @@ class EnsureMfaVerified
             // Mark session as verified
             $request->session()->put('mfa_verified', true);
             $request->session()->put('mfa_verified_at', now()->timestamp);
+
             return $next($request);
         }
 

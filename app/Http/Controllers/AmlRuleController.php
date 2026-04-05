@@ -7,7 +7,6 @@ use App\Models\AmlRule;
 use App\Models\SystemLog;
 use App\Services\AmlRuleService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 /**
  * AML Rule Controller
@@ -69,7 +68,6 @@ class AmlRuleController extends Controller
     /**
      * Store a newly created AML rule.
      *
-     * @param Request $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
@@ -78,7 +76,7 @@ class AmlRuleController extends Controller
             'rule_code' => 'required|string|max:50|unique:aml_rules,rule_code',
             'rule_name' => 'required|string|max:100',
             'description' => 'nullable|string',
-            'rule_type' => 'required|in:' . implode(',', AmlRuleType::values()),
+            'rule_type' => 'required|in:'.implode(',', AmlRuleType::values()),
             'conditions' => 'required|array',
             'action' => 'required|in:flag,hold,block',
             'risk_score' => 'required|integer|min:0|max:100',
@@ -89,7 +87,7 @@ class AmlRuleController extends Controller
         $ruleType = AmlRuleType::from($validated['rule_type']);
         $conditionsValidation = $this->amlRuleService->validateConditions($ruleType, $validated['conditions']);
 
-        if (!$conditionsValidation['valid']) {
+        if (! $conditionsValidation['valid']) {
             return back()
                 ->withErrors($conditionsValidation['errors'])
                 ->withInput();
@@ -124,7 +122,6 @@ class AmlRuleController extends Controller
     /**
      * Display the specified AML rule.
      *
-     * @param AmlRule $rule
      * @return \Illuminate\View\View
      */
     public function show(AmlRule $rule)
@@ -133,14 +130,14 @@ class AmlRuleController extends Controller
 
         // Get rule hit history from SystemLog
         $hitHistory = SystemLog::where('action', 'aml_rule_triggered')
-            ->where('new_values', 'LIKE', '%"rule_code":"' . $rule->rule_code . '"%')
+            ->where('new_values', 'LIKE', '%"rule_code":"'.$rule->rule_code.'"%')
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get();
 
         // Get hit count for last 30 days
         $hitCount = SystemLog::where('action', 'aml_rule_triggered')
-            ->where('new_values', 'LIKE', '%"rule_code":"' . $rule->rule_code . '"%')
+            ->where('new_values', 'LIKE', '%"rule_code":"'.$rule->rule_code.'"%')
             ->where('created_at', '>=', now()->subDays(30))
             ->count();
 
@@ -150,7 +147,6 @@ class AmlRuleController extends Controller
     /**
      * Show the form for editing the specified AML rule.
      *
-     * @param AmlRule $rule
      * @return \Illuminate\View\View
      */
     public function edit(AmlRule $rule)
@@ -171,17 +167,15 @@ class AmlRuleController extends Controller
     /**
      * Update the specified AML rule.
      *
-     * @param Request $request
-     * @param AmlRule $rule
      * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, AmlRule $rule)
     {
         $validated = $request->validate([
-            'rule_code' => 'required|string|max:50|unique:aml_rules,rule_code,' . $rule->id,
+            'rule_code' => 'required|string|max:50|unique:aml_rules,rule_code,'.$rule->id,
             'rule_name' => 'required|string|max:100',
             'description' => 'nullable|string',
-            'rule_type' => 'required|in:' . implode(',', AmlRuleType::values()),
+            'rule_type' => 'required|in:'.implode(',', AmlRuleType::values()),
             'conditions' => 'required|array',
             'action' => 'required|in:flag,hold,block',
             'risk_score' => 'required|integer|min:0|max:100',
@@ -192,7 +186,7 @@ class AmlRuleController extends Controller
         $ruleType = AmlRuleType::from($validated['rule_type']);
         $conditionsValidation = $this->amlRuleService->validateConditions($ruleType, $validated['conditions']);
 
-        if (!$conditionsValidation['valid']) {
+        if (! $conditionsValidation['valid']) {
             return back()
                 ->withErrors($conditionsValidation['errors'])
                 ->withInput();
@@ -229,12 +223,11 @@ class AmlRuleController extends Controller
     /**
      * Toggle the active status of an AML rule.
      *
-     * @param AmlRule $rule
      * @return \Illuminate\Http\RedirectResponse
      */
     public function toggle(AmlRule $rule)
     {
-        $newStatus = !$rule->is_active;
+        $newStatus = ! $rule->is_active;
 
         $rule->update([
             'is_active' => $newStatus,
@@ -245,7 +238,7 @@ class AmlRuleController extends Controller
             'action' => $newStatus ? 'aml_rule_activated' : 'aml_rule_deactivated',
             'entity_type' => 'AmlRule',
             'entity_id' => $rule->id,
-            'description' => "AML Rule " . ($newStatus ? 'activated' : 'deactivated') . ": {$rule->rule_code}",
+            'description' => 'AML Rule '.($newStatus ? 'activated' : 'deactivated').": {$rule->rule_code}",
         ]);
 
         $message = $newStatus ? 'Rule activated successfully.' : 'Rule deactivated successfully.';
@@ -258,7 +251,6 @@ class AmlRuleController extends Controller
     /**
      * Remove the specified AML rule (soft delete).
      *
-     * @param AmlRule $rule
      * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(AmlRule $rule)

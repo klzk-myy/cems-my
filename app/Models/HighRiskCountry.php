@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class HighRiskCountry extends Model
 {
     protected $primaryKey = 'country_code';
+
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [

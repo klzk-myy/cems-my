@@ -4,7 +4,6 @@ namespace Tests\Unit;
 
 use App\Enums\AmlRuleType;
 use App\Enums\TransactionStatus;
-use App\Enums\TransactionType;
 use App\Models\AmlRule;
 use App\Models\Customer;
 use App\Models\Transaction;
@@ -21,7 +20,7 @@ class AmlRuleTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new AmlRuleService();
+        $this->service = new AmlRuleService;
     }
 
     // ========================================
@@ -165,8 +164,9 @@ class AmlRuleTest extends TestCase
         $customer = Customer::factory()->create();
         $user = \App\Models\User::factory()->create();
 
-        // Create existing transactions
-        Transaction::factory()->count(2)->create([
+        // Create 3 existing transactions (threshold is 3, but current tx is excluded from count)
+        // So we need 3 old + 1 new = 4 total, but only 3 are counted (>= 3 triggers)
+        Transaction::factory()->count(3)->create([
             'customer_id' => $customer->id,
             'user_id' => $user->id,
             'created_at' => now()->subHours(1),
@@ -566,10 +566,18 @@ class AmlRuleTest extends TestCase
         $customer = Customer::factory()->create();
         $user = \App\Models\User::factory()->create();
 
+        // Create old transaction for velocity rule (1 old + current = 2 >= 1 triggers)
+        Transaction::factory()->create([
+            'customer_id' => $customer->id,
+            'user_id' => $user->id,
+            'created_at' => now()->subHours(1),
+        ]);
+
+        // Create new transaction with high amount for amount threshold rule
         $transaction = Transaction::factory()->create([
             'customer_id' => $customer->id,
             'user_id' => $user->id,
-            'amount_local' => 1000,
+            'amount_local' => 75000, // High enough to trigger 50000 threshold
         ]);
 
         $result = $this->service->evaluateTransaction($transaction);

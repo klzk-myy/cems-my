@@ -196,6 +196,6 @@ class AmlRuleSeeder extends Seeder
             );
         }
 
-        $this->command->info('Seeded ' . count($rules) . ' AML rules');
+        $this->command->info('Seeded '.count($rules).' AML rules');
     }
 }

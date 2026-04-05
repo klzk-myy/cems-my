@@ -163,8 +163,9 @@ class Transaction extends Model
             return false;
         }
 
-        // Must be within 24 hours
-        if ($this->created_at->diffInHours(now()) > 24) {
+        // Must be within configured cancellation window
+        $cancellationWindowHours = config('cems.transaction_cancellation_window_hours', 24);
+        if ($this->created_at->diffInHours(now()) > $cancellationWindowHours) {
             return false;
         }
 

@@ -2,8 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Crypt;
-
 class EncryptionService
 {
     protected string $key;
@@ -26,7 +24,8 @@ class EncryptionService
             OPENSSL_RAW_DATA,
             $iv
         );
-        return base64_encode($iv . $ciphertext);
+
+        return base64_encode($iv.$ciphertext);
     }
 
     public function decrypt(string $encryptedData): ?string
@@ -44,6 +43,7 @@ class EncryptionService
             OPENSSL_RAW_DATA,
             $iv
         );
+
         return $result !== false ? $result : null;
     }
 
@@ -55,6 +55,6 @@ class EncryptionService
 
     public function hash(string $data): string
     {
-        return hash('sha256', $data . $this->key);
+        return hash('sha256', $data.$this->key);
     }
 }

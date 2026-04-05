@@ -64,8 +64,6 @@ class AmlRule extends Model
 
     /**
      * Get the user who created this rule.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function creator(): BelongsTo
     {
@@ -75,7 +73,7 @@ class AmlRule extends Model
     /**
      * Scope to get only active rules.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeActive($query)
@@ -86,8 +84,8 @@ class AmlRule extends Model
     /**
      * Scope to filter rules by type.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param AmlRuleType|string $type
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  AmlRuleType|string  $type
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeByType($query, $type)
@@ -95,18 +93,19 @@ class AmlRule extends Model
         if ($type instanceof AmlRuleType) {
             $type = $type->value;
         }
+
         return $query->where('rule_type', $type);
     }
 
     /**
      * Evaluate this rule against a transaction.
      *
-     * @param Transaction $transaction The transaction to evaluate
+     * @param  Transaction  $transaction  The transaction to evaluate
      * @return array{triggered: bool, risk_score: int, action: string, reason: string|null}
      */
     public function evaluate(Transaction $transaction): array
     {
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return [
                 'triggered' => false,
                 'risk_score' => 0,
@@ -129,7 +128,7 @@ class AmlRule extends Model
                 default => false,
             };
         } catch (\Exception $e) {
-            \Log::error("AML Rule evaluation error", [
+            \Log::error('AML Rule evaluation error', [
                 'rule_id' => $this->id,
                 'rule_code' => $this->rule_code,
                 'error' => $e->getMessage(),
@@ -261,7 +260,7 @@ class AmlRule extends Model
         }
 
         $customer = $transaction->customer;
-        if (!$customer) {
+        if (! $customer) {
             return false;
         }
 
@@ -280,22 +279,25 @@ class AmlRule extends Model
     /**
      * Check if this rule matches a transaction type/context.
      * Used to filter rules before evaluation.
-     *
-     * @param Transaction $transaction
-     * @return bool
      */
     public function isApplicableTo(Transaction $transaction): bool
     {
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return false;
         }
 
         $conditions = $this->conditions ?? [];
 
-        // For geographic rules, check if we have the required customer data
+        // For geographic rules, check if customer's nationality matches
         if ($this->rule_type === AmlRuleType::Geographic) {
             $customer = $transaction->customer;
-            if (!$customer || !$customer->nationality) {
+            if (! $customer || ! $customer->nationality) {
+                return false;
+            }
+
+            // Check if nationality matches the rule's countries
+            $countries = $conditions['countries'] ?? [];
+            if (! empty($countries) && ! in_array($customer->nationality, $countries)) {
                 return false;
             }
         }

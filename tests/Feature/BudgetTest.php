@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Enums\TransactionStatus;
-use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Models\AccountingPeriod;
 use App\Models\Budget;
@@ -13,7 +11,6 @@ use App\Models\Customer;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\TillBalance;
-use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -253,9 +250,10 @@ class BudgetTest extends TestCase
         $journal = JournalEntry::create([
             'entry_date' => now()->toDateString(),
             'description' => 'Forex trading gain',
-            'reference' => 'FX-001',
+            'reference_type' => 'Budget',
+            'reference_id' => null,
             'status' => 'Posted',
-            'created_by' => $this->managerUser->id,
+            'posted_by' => $this->managerUser->id,
         ]);
 
         JournalLine::create([
@@ -277,7 +275,7 @@ class BudgetTest extends TestCase
         $budget->update(['actual_amount' => '15000.00']);
 
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/budget?period=' . $this->currentPeriod->period_code);
+            ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
         $response->assertSee('50000.00'); // Budget
@@ -316,7 +314,7 @@ class BudgetTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/budget?period=' . $this->currentPeriod->period_code);
+            ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
         $response->assertSee('30000.00'); // Actual
@@ -356,7 +354,7 @@ class BudgetTest extends TestCase
 
         // View current period report
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/budget?period=' . $this->currentPeriod->period_code);
+            ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
         $response->assertSee('50000.00');
@@ -393,7 +391,7 @@ class BudgetTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/budget?period=' . $this->currentPeriod->period_code);
+            ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
         $response->assertSee('over_budget_count');
@@ -425,7 +423,7 @@ class BudgetTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/budget?period=' . $this->currentPeriod->period_code);
+            ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
         // Should show that 6000 and 6100 don't have budgets
@@ -453,7 +451,7 @@ class BudgetTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->managerUser)
-            ->get('/accounting/budget?period=' . $this->currentPeriod->period_code);
+            ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
         $response->assertSee('total_budget');

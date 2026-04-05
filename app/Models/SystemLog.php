@@ -21,6 +21,8 @@ class SystemLog extends Model
         'ip_address',
         'user_agent',
         'session_id',
+        'previous_hash',
+        'entry_hash',
         'created_at',
     ];
 

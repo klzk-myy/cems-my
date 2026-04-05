@@ -40,7 +40,7 @@ class SanctionScreeningService
         }
 
         // Sort by match score descending
-        usort($matches, fn($a, $b) => $b['match_score'] <=> $a['match_score']);
+        usort($matches, fn ($a, $b) => $b['match_score'] <=> $a['match_score']);
 
         return $matches;
     }
@@ -92,16 +92,21 @@ class SanctionScreeningService
     protected function detectListType(string $filePath): string
     {
         $name = strtolower($filePath);
-        if (str_contains($name, 'unscr')) return 'UNSCR';
-        if (str_contains($name, 'moha')) return 'MOHA';
+        if (str_contains($name, 'unscr')) {
+            return 'UNSCR';
+        }
+        if (str_contains($name, 'moha')) {
+            return 'MOHA';
+        }
+
         return 'Internal';
     }
 
     protected function processCsvFile(string $filePath, int $listId): int
     {
         $handle = fopen($filePath, 'r');
-        if (!$handle) {
-            throw new \RuntimeException('Cannot open file: ' . $filePath);
+        if (! $handle) {
+            throw new \RuntimeException('Cannot open file: '.$filePath);
         }
 
         $headers = fgetcsv($handle);
