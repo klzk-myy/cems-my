@@ -131,6 +131,35 @@ class TransactionController extends Controller
         $cddLevel = $this->complianceService->determineCDDLevel($amountLocal, $customer);
         $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
 
+        // Log CDD decision for compliance audit trail
+        $cddTriggers = [];
+        if ($customer->pep_status) {
+            $cddTriggers[] = 'PEP customer';
+        }
+        if ($this->mathService->compare($amountLocal, '50000') >= 0) {
+            $cddTriggers[] = 'Large amount >= RM 50,000';
+        } elseif ($this->mathService->compare($amountLocal, '3000') >= 0) {
+            $cddTriggers[] = 'Standard amount >= RM 3,000';
+        }
+        if ($customer->risk_rating === 'High') {
+            $cddTriggers[] = 'High risk customer';
+        }
+
+        SystemLog::create([
+            'user_id' => auth()->id(),
+            'action' => 'cdd_decision',
+            'entity_type' => 'Transaction',
+            'entity_id' => null, // Will be updated after creation
+            'new_values' => [
+                'customer_id' => $customer->id,
+                'customer_name' => $customer->full_name,
+                'cdd_level' => $cddLevel->value,
+                'triggers' => $cddTriggers,
+                'amount_local' => $amountLocal,
+            ],
+            'ip_address' => $request->ip(),
+        ]);
+
         $status = TransactionStatus::Completed;
         $holdReason = null;
         $approvedBy = null;
@@ -475,8 +504,11 @@ class TransactionController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
+        $dbDriver = DB::getDriverName();
+        $dateFormat = $dbDriver === 'sqlite' ? "strftime('%Y-%m', created_at)" : "DATE_FORMAT(created_at, '%Y-%m')";
+
         $monthlyData = Transaction::where('customer_id', $customer->id)
-            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, type, SUM(amount_local) as total")
+            ->selectRaw("{$dateFormat} as month, type, SUM(amount_local) as total")
             ->groupBy('month', 'type')
             ->orderBy('month')
             ->get()
@@ -671,19 +703,28 @@ class TransactionController extends Controller
             'status' => 'pending',
         ]);
 
-        // Process import
-        $service = new TransactionImportService(
-            $import,
-            $this->mathService,
-            $this->complianceService,
-            $this->positionService,
-            $this->accountingService,
-            $this->monitoringService
-        );
-        $service->process($fullPath);
+        try {
+            // Process import
+            $service = new TransactionImportService(
+                $import,
+                $this->mathService,
+                $this->complianceService,
+                $this->positionService,
+                $this->accountingService,
+                $this->monitoringService
+            );
+            $service->process($fullPath);
 
-        return redirect()->route('transactions.batch-upload.show', $import)
-            ->with('success', "Import completed. {$import->success_count} transactions imported, {$import->error_count} errors.");
+            return redirect()->route('transactions.batch-upload.show', $import)
+                ->with('success', "Import completed. {$import->success_count} transactions imported, {$import->error_count} errors.");
+        } catch (\Exception $e) {
+            $import->update([
+                'status' => 'failed',
+                'completed_at' => now(),
+            ]);
+
+            return back()->with('error', 'Import failed: '.$e->getMessage());
+        }
     }
 
     /**
@@ -691,8 +732,8 @@ class TransactionController extends Controller
      */
     public function showImportResults(TransactionImport $import)
     {
-        // Authorization check - only owner or manager can view
-        if ($import->user_id !== auth()->id() && ! auth()->user()->isManager()) {
+        // Authorization check - only owner can view (managers can only view their own imports)
+        if ($import->user_id !== auth()->id()) {
             abort(403, 'Unauthorized. You can only view your own import results.');
         }
 

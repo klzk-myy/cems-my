@@ -60,6 +60,22 @@ class DashboardController extends Controller
         // Get paginated flags
         $flags = $query->orderBy('created_at', 'desc')->paginate(20);
 
+        // Calculate STR stats including overdue tracking
+        $strStats = [
+            'draft' => \App\Models\StrReport::where('status', 'draft')->count(),
+            'pending_review' => \App\Models\StrReport::where('status', 'pending_review')->count(),
+            'pending_approval' => \App\Models\StrReport::where('status', 'pending_approval')->count(),
+            'submitted' => \App\Models\StrReport::where('status', 'submitted')->count(),
+            'overdue' => \App\Models\StrReport::whereNotNull('filing_deadline')
+                ->where('filing_deadline', '<', now())
+                ->whereIn('status', ['draft', 'pending_review', 'pending_approval'])
+                ->count(),
+            'near_deadline' => \App\Models\StrReport::whereNotNull('filing_deadline')
+                ->whereBetween('filing_deadline', [now(), now()->addDays(2)])
+                ->whereIn('status', ['draft', 'pending_review', 'pending_approval'])
+                ->count(),
+        ];
+
         // Calculate stats
         $stats = [
             'open' => FlaggedTransaction::where('status', 'Open')->count(),
@@ -67,12 +83,12 @@ class DashboardController extends Controller
             'resolved_today' => FlaggedTransaction::where('status', 'Resolved')
                 ->whereDate('resolved_at', today())
                 ->count(),
-            'high_priority' => FlaggedTransaction::whereIn('flag_type', ['Sanction_Match', 'Structuring'])
+            'high_priority' => FlaggedTransaction::whereIn('flag_type', ['Sanction_Match', 'Structuring', 'Velocity'])
                 ->where('status', '!=', 'Resolved')
                 ->count(),
         ];
 
-        return view('compliance', compact('flags', 'stats'));
+        return view('compliance', compact('flags', 'stats', 'strStats'));
     }
 
     public function assignFlag(Request $request, FlaggedTransaction $flaggedTransaction)
@@ -166,8 +182,8 @@ class DashboardController extends Controller
     public function reports()
     {
         // Only Managers, Compliance Officers and Admins can access
-        if (! auth()->user()->isManager()) {
-            abort(403, 'Unauthorized. Manager access required.');
+        if (! auth()->user()->role->canViewReports()) {
+            abort(403, 'Unauthorized. Manager or Compliance Officer access required.');
         }
 
         $recentReports = \App\Models\ReportGenerated::with('generatedBy')

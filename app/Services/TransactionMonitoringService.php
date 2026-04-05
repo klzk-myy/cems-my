@@ -7,6 +7,7 @@ use App\Enums\FlagStatus;
 use App\Enums\TransactionStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
+use Illuminate\Support\Facades\DB;
 
 class TransactionMonitoringService
 {
@@ -26,7 +27,7 @@ class TransactionMonitoringService
     {
         $flags = [];
 
-        // Rule 1: 24h Velocity Check
+        // Velocity check - 24h cumulative threshold
         $velocityCheck = $this->complianceService->checkVelocity(
             $transaction->customer_id,
             $transaction->amount_local
@@ -35,20 +36,55 @@ class TransactionMonitoringService
             $flags[] = $this->createFlag($transaction, ComplianceFlagType::Velocity, "24h velocity exceeded: RM {$velocityCheck['with_new_transaction']}");
         }
 
-        // Rule 2: Structuring Detection
+        // Structuring detection - multiple small transactions
         if ($this->complianceService->checkStructuring($transaction->customer_id)) {
             $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, 'Potential structuring: 3+ transactions under RM 3,000 within 1 hour');
         }
 
-        // Rule 3: Unusual Pattern
+        // Aggregate transaction check - related transactions exceeding threshold
+        $aggregateCheck = $this->complianceService->checkAggregateTransactions(
+            $transaction->customer_id,
+            $transaction->amount_local
+        );
+        if ($aggregateCheck['has_aggregate_concern']) {
+            $flags[] = $this->createFlag(
+                $transaction,
+                ComplianceFlagType::LargeAmount,
+                "Aggregate concern: RM {$aggregateCheck['total_aggregate']} across {$aggregateCheck['transaction_count']} transactions in 24h"
+            );
+        }
+
+        // Unusual pattern detection
         if ($this->isUnusualPattern($transaction)) {
             $flags[] = $this->createFlag($transaction, ComplianceFlagType::ManualReview, 'Transaction deviates 200% from customer average');
         }
 
-        // Rule 4: EDD Threshold
-        // Only update status if transaction is still in Completed status
-        // Don't override Pending status (which is for transactions >= RM 50k)
-        // Don't check holds for already-approved transactions
+        // High-risk country transaction
+        if ($this->isHighRiskCountry($transaction)) {
+            $flags[] = $this->createFlag($transaction, ComplianceFlagType::HighRiskCountry, 'High-risk country transaction: '.$transaction->customer->nationality);
+        }
+
+        // Round amount detection
+        if ($this->isRoundAmount($transaction)) {
+            $flags[] = $this->createFlag($transaction, ComplianceFlagType::RoundAmount, 'Round amount transaction - review purpose: RM '.$transaction->amount_local);
+        }
+
+        // Profile deviation check
+        if ($this->isProfileDeviation($transaction)) {
+            $flags[] = $this->createFlag($transaction, ComplianceFlagType::ProfileDeviation, 'Transaction volume exceeds customer profile');
+        }
+
+        // Duration threshold check for large transactions on hold
+        $durationCheck = $this->complianceService->checkTransactionDuration($transaction);
+        if ($durationCheck['has_duration_concern']) {
+            $flags[] = $this->createFlag(
+                $transaction,
+                ComplianceFlagType::EddRequired,
+                "Duration threshold exceeded: {$durationCheck['hours_on_hold']} hours on hold (threshold: {$durationCheck['threshold_hours']} hours) - {$durationCheck['severity']}"
+            );
+        }
+
+        // Hold decision
         $holdCheck = $this->complianceService->requiresHold(
             $transaction->amount_local,
             $transaction->customer
@@ -86,6 +122,57 @@ class TransactionMonitoringService
         );
 
         return $this->mathService->compare($deviation, '2') > 0;
+    }
+
+    protected function isHighRiskCountry(Transaction $transaction): bool
+    {
+        if (! $transaction->customer || ! $transaction->customer->nationality) {
+            return false;
+        }
+
+        if ($this->mathService->compare($transaction->amount_local, '3000') < 0) {
+            return false;
+        }
+
+        $highRiskCountries = DB::table('high_risk_countries')
+            ->pluck('country_name')
+            ->toArray();
+
+        return in_array($transaction->customer->nationality, $highRiskCountries, true);
+    }
+
+    protected function isRoundAmount(Transaction $transaction): bool
+    {
+        if ($this->mathService->compare($transaction->amount_local, '10000') < 0) {
+            return false;
+        }
+
+        $remainder = bcmod((string) $transaction->amount_local, '10000');
+
+        return $this->mathService->compare($remainder, '0') === 0;
+    }
+
+    protected function isProfileDeviation(Transaction $transaction): bool
+    {
+        if (! $transaction->customer || ! $transaction->customer->annual_volume_estimate) {
+            return false;
+        }
+
+        $annualEstimate = (string) $transaction->customer->annual_volume_estimate;
+
+        if ($this->mathService->compare($annualEstimate, '0') <= 0) {
+            return false;
+        }
+
+        $monthlyThreshold = $this->mathService->divide($annualEstimate, '12');
+        $monthlyThreshold = $this->mathService->multiply($monthlyThreshold, '2');
+
+        $startOfMonth = now()->startOfMonth();
+        $currentMonthVolume = Transaction::where('customer_id', $transaction->customer_id)
+            ->where('created_at', '>=', $startOfMonth)
+            ->sum('amount_local');
+
+        return $this->mathService->compare((string) $currentMonthVolume, $monthlyThreshold) > 0;
     }
 
     protected function createFlag(Transaction $transaction, ComplianceFlagType $type, string $reason): FlaggedTransaction

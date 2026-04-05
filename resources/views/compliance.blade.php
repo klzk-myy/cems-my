@@ -240,6 +240,23 @@
     </div>
 </div>
 
+<!-- STR Deadline Warning -->
+@if(isset($strStats) && ($strStats['overdue'] > 0 || $strStats['near_deadline'] > 0))
+<div class="alert alert-warning" style="margin-top: 1rem; padding: 1rem; border-radius: 8px; background: #fff3cd; border: 1px solid #ffc107;">
+    <h4 style="margin: 0 0 0.5rem 0; color: #856404;">STR Filing Deadline Warning</h4>
+    @if($strStats['overdue'] > 0)
+    <p style="margin: 0; color: #721c24;">
+        <strong>{{ $strStats['overdue'] }} STR(s) overdue</strong> - Filing deadline (3 working days from suspicion) has passed. Immediate action required.
+    </p>
+    @endif
+    @if($strStats['near_deadline'] > 0)
+    <p style="margin: 0.5rem 0 0 0; color: #856404;">
+        <strong>{{ $strStats['near_deadline'] }} STR(s) approaching deadline</strong> - Filing deadline within 2 days.
+    </p>
+    @endif
+</div>
+@endif
+
 <!-- Filter Bar -->
 <div class="filter-bar">
     <label for="status-filter">Status:</label>
@@ -255,10 +272,15 @@
         <option value="all" {{ request('flag_type') == 'all' ? 'selected' : '' }}>All Types</option>
         <option value="Velocity" {{ request('flag_type') == 'Velocity' ? 'selected' : '' }}>Velocity</option>
         <option value="Structuring" {{ request('flag_type') == 'Structuring' ? 'selected' : '' }}>Structuring</option>
-        <option value="EDD" {{ request('flag_type') == 'EDD' ? 'selected' : '' }}>EDD</option>
-        <option value="Sanction" {{ request('flag_type') == 'Sanction' ? 'selected' : '' }}>Sanction</option>
-        <option value="Manual" {{ request('flag_type') == 'Manual' ? 'selected' : '' }}>Manual</option>
-        <option value="PEP" {{ request('flag_type') == 'PEP' ? 'selected' : '' }}>PEP</option>
+        <option value="Large_Amount" {{ request('flag_type') == 'Large_Amount' ? 'selected' : '' }}>Large Amount</option>
+        <option value="EDD_Required" {{ request('flag_type') == 'EDD_Required' ? 'selected' : '' }}>EDD Required</option>
+        <option value="Sanction_Match" {{ request('flag_type') == 'Sanction_Match' ? 'selected' : '' }}>Sanction Match</option>
+        <option value="Pep_Status" {{ request('flag_type') == 'Pep_Status' ? 'selected' : '' }}>PEP Status</option>
+        <option value="High_Risk_Customer" {{ request('flag_type') == 'High_Risk_Customer' ? 'selected' : '' }}>High Risk Customer</option>
+        <option value="High_Risk_Country" {{ request('flag_type') == 'High_Risk_Country' ? 'selected' : '' }}>High Risk Country</option>
+        <option value="Round_Amount" {{ request('flag_type') == 'Round_Amount' ? 'selected' : '' }}>Round Amount</option>
+        <option value="Profile_Deviation" {{ request('flag_type') == 'Profile_Deviation' ? 'selected' : '' }}>Profile Deviation</option>
+        <option value="Manual_Review" {{ request('flag_type') == 'Manual_Review' ? 'selected' : '' }}>Manual Review</option>
     </select>
 
     <a href="{{ route('compliance') }}" class="btn btn-primary">Clear Filters</a>
@@ -298,30 +320,34 @@
                 </td>
                 <td>{{ $flag->transaction->customer->full_name ?? 'N/A' }}</td>
                 <td>
-                    @php
-                    $typeClass = match($flag->flag_type) {
-                        'Velocity' => 'badge-type-velocity',
-                        'Structuring' => 'badge-type-structuring',
-                        'EDD' => 'badge-type-edd',
-                        'Sanction' => 'badge-type-sanction',
-                        'Manual' => 'badge-type-manual',
-                        'PEP' => 'badge-type-pep',
-                        default => 'badge-type-manual'
-                    };
-                    @endphp
-                    <span class="badge {{ $typeClass }}">{{ $flag->flag_type }}</span>
+            @php
+            $typeClass = match($flag->flag_type->value) {
+                'Velocity' => 'badge-type-velocity',
+                'Structuring' => 'badge-type-structuring',
+                'Large_Amount' => 'badge-type-edd',
+                'EDD_Required' => 'badge-type-edd',
+                'Sanction_Match', 'Sanctions_Hit' => 'badge-type-sanction',
+                'Pep_Status' => 'badge-type-pep',
+                'High_Risk_Customer', 'High_Risk_Country' => 'badge-type-sanction',
+                'Round_Amount', 'Profile_Deviation', 'Unusual_Pattern' => 'badge-type-manual',
+                default => 'badge-type-manual'
+            };
+            $typeLabel = $flag->flag_type->value;
+            @endphp
+            <span class="badge {{ $typeClass }}">{{ $typeLabel }}</span>
                 </td>
                 <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">{{ $flag->flag_reason }}</td>
                 <td>
-                    @php
-                    $statusClass = match($flag->status) {
-                        'Open' => 'badge-status-open',
-                        'Under_Review' => 'badge-status-under_review',
-                        'Resolved' => 'badge-status-resolved',
-                        default => 'badge-status-open'
-                    };
-                    @endphp
-                    <span class="badge {{ $statusClass }}">{{ str_replace('_', ' ', $flag->status) }}</span>
+            @php
+            $statusClass = match($flag->status->value) {
+                'Open' => 'badge-status-open',
+                'Under_Review' => 'badge-status-under_review',
+                'Resolved' => 'badge-status-resolved',
+                default => 'badge-status-open'
+            };
+            $statusLabel = str_replace('_', ' ', $flag->status->value);
+            @endphp
+            <span class="badge {{ $statusClass }}">{{ $statusLabel }}</span>
                 </td>
                 <td>{{ $flag->assignedTo->username ?? 'Unassigned' }}</td>
                 <td style="color: #718096; font-size: 0.875rem;">{{ $flag->created_at->diffForHumans() }}</td>

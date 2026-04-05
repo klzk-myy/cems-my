@@ -79,7 +79,7 @@ class AuditLogTest extends TestCase
             'date_to' => now()->toDateString(),
         ]);
 
-        $logs = $result['logs']->get();
+        $logs = collect($result['logs']->items());
 
         $this->assertCount(1, $logs);
         $this->assertEquals('recent_action', $logs->first()->action);
@@ -106,7 +106,7 @@ class AuditLogTest extends TestCase
             'severity' => 'ERROR',
         ]);
 
-        $logs = $result['logs']->get();
+        $logs = collect($result['logs']->items());
 
         $this->assertCount(1, $logs);
         $this->assertEquals('error_action', $logs->first()->action);
@@ -128,7 +128,7 @@ class AuditLogTest extends TestCase
             'user_id' => $this->manager->id,
         ]);
 
-        $logs = $result['logs']->get();
+        $logs = collect($result['logs']->items());
 
         $this->assertCount(1, $logs);
         $this->assertEquals('manager_action', $logs->first()->action);
@@ -152,7 +152,7 @@ class AuditLogTest extends TestCase
             'action' => 'transaction',
         ]);
 
-        $logs = $result['logs']->get();
+        $logs = collect($result['logs']->items());
 
         $this->assertCount(2, $logs);
     }
@@ -282,7 +282,7 @@ class AuditLogTest extends TestCase
             'date_to' => now()->toDateString(),
         ]);
 
-        $logs = $result['logs']->get();
+        $logs = collect($result['logs']->items());
 
         $this->assertCount(1, $logs);
         $this->assertEquals('transaction_created', $logs->first()->action);

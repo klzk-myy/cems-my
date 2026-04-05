@@ -20,6 +20,9 @@ enum ComplianceFlagType: string
     case HighRiskCustomer = 'High_Risk_Customer';
     case UnusualPattern = 'Unusual_Pattern';
     case ManualReview = 'Manual_Review';
+    case HighRiskCountry = 'High_Risk_Country';
+    case RoundAmount = 'Round_Amount';
+    case ProfileDeviation = 'Profile_Deviation';
 
     /**
      * Check if this flag type indicates a sanctions issue.
@@ -102,6 +105,9 @@ enum ComplianceFlagType: string
             self::HighRiskCustomer => 'High Risk Customer',
             self::UnusualPattern => 'Unusual Pattern',
             self::ManualReview => 'Manual Review',
+            self::HighRiskCountry => 'High Risk Country',
+            self::RoundAmount => 'Round Amount',
+            self::ProfileDeviation => 'Profile Deviation',
         };
     }
 
@@ -121,6 +127,9 @@ enum ComplianceFlagType: string
             self::HighRiskCustomer => 'Customer has high risk rating',
             self::UnusualPattern => 'Transaction deviates from customer pattern',
             self::ManualReview => 'Flagged for manual review',
+            self::HighRiskCountry => 'Customer nationality from high-risk country',
+            self::RoundAmount => 'Transaction amount is round number requiring review',
+            self::ProfileDeviation => 'Transaction volume exceeds customer profile estimate',
         };
     }
 

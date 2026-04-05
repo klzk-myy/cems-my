@@ -7,6 +7,7 @@ use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RevaluationController;
 use App\Http\Controllers\StockCashController;
+use App\Http\Controllers\StrController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -28,11 +29,15 @@ Route::middleware('auth')->group(function () {
 
     // Transactions - All authenticated users
     Route::get('/transactions', [TransactionController::class, 'index'])
-        ->name('transactions');
+        ->name('transactions.index');
     Route::get('/transactions/create', [TransactionController::class, 'create'])
         ->name('transactions.create');
     Route::post('/transactions', [TransactionController::class, 'store'])
         ->name('transactions.store');
+
+    // Also keep 'transactions' name for backward compatibility
+    Route::get('/transactions/list', [TransactionController::class, 'index'])
+        ->name('transactions');
 
     // Batch Transaction Upload - Manager only (must be before /transactions/{transaction})
     Route::middleware('role:manager')->group(function () {
@@ -78,6 +83,38 @@ Route::middleware('auth')->group(function () {
             ->name('compliance.flags.assign');
         Route::patch('/compliance/flags/{flaggedTransaction}/resolve', [DashboardController::class, 'resolveFlag'])
             ->name('compliance.flags.resolve');
+
+        // STR Reports
+        Route::get('/str', [StrController::class, 'index'])->name('str.index');
+        Route::get('/str/create', [StrController::class, 'create'])->name('str.create');
+        Route::post('/str', [StrController::class, 'store'])->name('str.store');
+        Route::get('/str/{str}', [StrController::class, 'show'])->name('str.show');
+        Route::get('/str/{str}/edit', [StrController::class, 'edit'])->name('str.edit');
+        Route::put('/str/{str}', [StrController::class, 'update'])->name('str.update');
+        Route::post('/str/{str}/submit-review', [StrController::class, 'submitForReview'])->name('str.submit-review');
+        Route::post('/str/{str}/submit-approval', [StrController::class, 'submitForApproval'])->name('str.submit-approval');
+        Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
+        Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit');
+        Route::post('/str/{str}/track-acknowledgment', [StrController::class, 'trackAcknowledgment'])->name('str.track-acknowledgment');
+
+        // Generate STR from alert
+        Route::post('/compliance/flags/{flaggedTransaction}/generate-str', [StrController::class, 'generateFromAlert'])
+            ->name('compliance.flags.generate-str');
+    });
+
+    // Task Management - All authenticated users
+    Route::middleware('auth')->group(function () {
+        Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
+        Route::get('/tasks/my', [TaskController::class, 'myTasks'])->name('tasks.my');
+        Route::get('/tasks/overdue', [TaskController::class, 'overdue'])->name('tasks.overdue');
+        Route::get('/tasks/create', [TaskController::class, 'create'])->name('tasks.create');
+        Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
+        Route::get('/tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
+        Route::post('/tasks/{task}/acknowledge', [TaskController::class, 'acknowledge'])->name('tasks.acknowledge');
+        Route::post('/tasks/{task}/complete', [TaskController::class, 'complete'])->name('tasks.complete');
+        Route::post('/tasks/{task}/cancel', [TaskController::class, 'cancel'])->name('tasks.cancel');
+        Route::post('/tasks/{task}/escalate', [TaskController::class, 'escalate'])->name('tasks.escalate');
+        Route::get('/api/tasks/stats', [TaskController::class, 'stats'])->name('api.tasks.stats');
     });
 
     // Accounting - Managers and Admin only
@@ -121,16 +158,24 @@ Route::middleware('auth')->group(function () {
             ->name('accounting.reconciliation');
     });
 
-    // Reports - Managers, Compliance, and Admin
+    // Reports - Managers and Admin only (compliance officers use dedicated compliance module)
     Route::get('/reports', [DashboardController::class, 'reports'])
         ->name('reports')
-        ->middleware('role:manager');
+        ->middleware('role:manager,admin');
 
     Route::middleware('role:manager')->group(function () {
         Route::get('/reports/lctr', [ReportController::class, 'lctr'])->name('reports.lctr');
         Route::get('/reports/lctr/generate', [ReportController::class, 'lctrGenerate'])->name('reports.lctr.generate');
         Route::get('/reports/msb2', [ReportController::class, 'msb2'])->name('reports.msb2');
         Route::get('/reports/msb2/generate', [ReportController::class, 'msb2Generate'])->name('reports.msb2.generate');
+        Route::get('/reports/lmca', [ReportController::class, 'lmca'])->name('reports.lmca');
+        Route::get('/reports/lmca/generate', [ReportController::class, 'lmcaGenerate'])->name('reports.lmca.generate');
+        Route::get('/reports/quarterly-lvr', [ReportController::class, 'quarterlyLvr'])->name('reports.quarterly-lvr');
+        Route::get('/reports/quarterly-lvr/generate', [ReportController::class, 'quarterlyLvrGenerate'])->name('reports.quarterly-lvr.generate');
+        Route::get('/reports/position-limit', [ReportController::class, 'positionLimit'])->name('reports.position-limit');
+        Route::get('/reports/position-limit/generate', [ReportController::class, 'positionLimitGenerate'])->name('reports.position-limit.generate');
+        Route::get('/reports/history', [ReportController::class, 'history'])->name('reports.history');
+        Route::get('/reports/compare', [ReportController::class, 'compare'])->name('reports.compare');
         Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
 
         // Advanced Reports (Phase 3)

@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Enums\CddLevel;
 use App\Enums\ComplianceFlagType;
 use App\Models\Customer;
+use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -13,9 +15,13 @@ use Illuminate\Support\Facades\DB;
  *
  * Provides compliance-related operations for money changing transactions.
  * Handles Customer Due Diligence (CDD) level determination, sanctions screening,
- * velocity checks, structuring detection, and transaction hold decisions.
+ * velocity checks, structuring detection, aggregate transaction tracking,
+ * and transaction hold decisions.
  *
- * This service ensures compliance with BNM regulations and AML/CFT requirements.
+ * This service ensures compliance with BNM regulations and AML/CFT requirements:
+ * - BNM AML/CFT Policy (Revised 2025)
+ * - PDPA 2010 (Amended 2024)
+ * - MIA accounting standards
  */
 class ComplianceService
 {
@@ -28,6 +34,26 @@ class ComplianceService
      * Math service for precise financial calculations.
      */
     protected MathService $mathService;
+
+    /**
+     * BNM STR filing deadline in working days.
+     */
+    public const STR_FILING_DEADLINE_DAYS = 3;
+
+    /**
+     * Large transaction threshold (RM 50,000).
+     */
+    public const LARGE_TRANSACTION_THRESHOLD = '50000';
+
+    /**
+     * Standard CDD threshold (RM 3,000).
+     */
+    public const STANDARD_CDD_THRESHOLD = '3000';
+
+    /**
+     * Cash Transaction Report threshold (RM 10,000).
+     */
+    public const CTOS_THRESHOLD = '10000';
 
     /**
      * Create a new ComplianceService instance.
@@ -189,5 +215,188 @@ class ComplianceService
             'requires_hold' => ! empty($reasons),
             'reasons' => $reasons,
         ];
+    }
+
+    /**
+     * Check aggregate transactions for a customer that should be combined.
+     *
+     * BNM AML/CFT requires tracking related transactions that together exceed thresholds,
+     * even if individually below thresholds. This detects potential structuring where
+     * a customer splits a large transaction into smaller ones.
+     *
+     * @param  int  $customerId  The ID of the customer to check
+     * @param  string  $currentAmount  The amount of the current transaction (as string for precision)
+     * @return array<string, mixed> Aggregate check results containing:
+     *                              - has_aggregate_concern: bool Whether aggregate exceeds threshold
+     *                              - total_aggregate: string Total of related transactions
+     *                              - transaction_count: int Number of related transactions
+     *                              - threshold_amount: string The threshold amount
+     *                              - related_transactions: array List of related transaction IDs
+     */
+    public function checkAggregateTransactions(int $customerId, string $currentAmount): array
+    {
+        $oneDayAgo = now()->subDay();
+        $relatedTransactions = Transaction::where('customer_id', $customerId)
+            ->where('created_at', '>=', $oneDayAgo)
+            ->where('status', '!=', 'Cancelled')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $totalAggregate = $this->mathService->add($currentAmount, '0');
+        $relatedIds = [];
+
+        foreach ($relatedTransactions as $txn) {
+            // Skip if same transaction
+            if ($txn->id === null) {
+                continue;
+            }
+
+            $totalAggregate = $this->mathService->add($totalAggregate, (string) $txn->amount_local);
+            $relatedIds[] = $txn->id;
+        }
+
+        $thresholdExceeded = $this->mathService->compare(
+            $totalAggregate,
+            self::LARGE_TRANSACTION_THRESHOLD
+        ) > 0;
+
+        return [
+            'has_aggregate_concern' => $thresholdExceeded && count($relatedIds) > 0,
+            'total_aggregate' => $totalAggregate,
+            'transaction_count' => count($relatedIds) + 1,
+            'threshold_amount' => self::LARGE_TRANSACTION_THRESHOLD,
+            'related_transactions' => $relatedIds,
+        ];
+    }
+
+    /**
+     * Calculate STR filing deadline based on suspicion date.
+     *
+     * BNM requires STR to be filed within 3 working days of suspicion arising.
+     * This method calculates the deadline and checks if it's overdue.
+     *
+     * @param  Carbon|string  $suspicionDate  When suspicion first arose
+     * @return array<string, mixed> Deadline info containing:
+     *                              - deadline: Carbon The filing deadline
+     *                              - is_overdue: bool Whether deadline has passed
+     *                              - days_remaining: int Working days remaining
+     *                              - working_days_until_deadline: int Total working days allowed
+     */
+    public function calculateStrDeadline($suspicionDate): array
+    {
+        $suspicion = $suspicionDate instanceof Carbon
+            ? $suspicionDate
+            : Carbon::parse($suspicionDate);
+
+        // Add 3 working days (excluding weekends)
+        $deadline = $suspicion->copy()->addWorkingDays(self::STR_FILING_DEADLINE_DAYS);
+
+        $now = now();
+        $isOverdue = $now->isAfter($deadline);
+
+        // Calculate working days remaining (negative if overdue)
+        $daysRemaining = $now->workingDaysUntil($deadline);
+
+        return [
+            'deadline' => $deadline,
+            'is_overdue' => $isOverdue,
+            'days_remaining' => $daysRemaining,
+            'working_days_until_deadline' => self::STR_FILING_DEADLINE_DAYS,
+            'suspicion_date' => $suspicion,
+        ];
+    }
+
+    /**
+     * Check if a large transaction has exceeded its duration threshold.
+     *
+     * BNM requires enhanced monitoring for large transactions (>= RM 50,000)
+     * that remain outstanding/held beyond certain duration thresholds.
+     *
+     * @param  Transaction  $transaction  The transaction to check
+     * @return array<string, mixed> Duration check results containing:
+     *                              - has_duration_concern: bool Whether duration threshold exceeded
+     *                              - hours_on_hold: int Hours since transaction was put on hold
+     *                              - threshold_hours: int Duration threshold in hours
+     *                              - severity: string 'warning' or 'critical'
+     */
+    public function checkTransactionDuration(Transaction $transaction): array
+    {
+        // Only check transactions that are on hold or pending
+        if (! in_array($transaction->status->value, ['OnHold', 'Pending'])) {
+            return [
+                'has_duration_concern' => false,
+                'hours_on_hold' => 0,
+                'threshold_hours' => 0,
+                'severity' => 'none',
+            ];
+        }
+
+        // Large transaction threshold
+        if ($this->mathService->compare((string) $transaction->amount_local, self::LARGE_TRANSACTION_THRESHOLD) < 0) {
+            return [
+                'has_duration_concern' => false,
+                'hours_on_hold' => 0,
+                'threshold_hours' => 0,
+                'severity' => 'none',
+            ];
+        }
+
+        $createdAt = $transaction->created_at instanceof Carbon
+            ? $transaction->created_at
+            : Carbon::parse($transaction->created_at);
+
+        $hoursOnHold = $createdAt->diffInHours(now());
+
+        // Warning at 24 hours, critical at 48 hours for large transactions
+        $thresholdHours = 24;
+        $severity = 'warning';
+
+        if ($hoursOnHold >= 48) {
+            $severity = 'critical';
+        }
+
+        return [
+            'has_duration_concern' => $hoursOnHold >= $thresholdHours,
+            'hours_on_hold' => $hoursOnHold,
+            'threshold_hours' => $thresholdHours,
+            'severity' => $severity,
+        ];
+    }
+
+    /**
+     * Check if a transaction requires Cash Transaction Report (CTOS/BNM).
+     *
+     * Cash transactions >= RM 10,000 require reporting to BNM.
+     *
+     * @param  string  $amount  Transaction amount in MYR
+     * @param  string  $transactionType  Buy or Sell
+     * @return bool True if CTOS report is required
+     */
+    public function requiresCtos(string $amount, string $transactionType): bool
+    {
+        // CTOS applies to cash transactions (Buy transactions are typically cash)
+        if ($transactionType !== 'Buy') {
+            return false;
+        }
+
+        return $this->mathService->compare($amount, self::CTOS_THRESHOLD) >= 0;
+    }
+
+    /**
+     * Get all open flags for a customer requiring attention.
+     *
+     * @param  int  $customerId  The customer ID
+     * @return array<FlaggedTransaction> List of open flags
+     */
+    public function getCustomerOpenFlags(int $customerId): array
+    {
+        return FlaggedTransaction::whereHas('transaction', function ($query) use ($customerId) {
+            $query->where('customer_id', $customerId);
+        })
+            ->where('status', '!=', 'Resolved')
+            ->with('transaction')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->toArray();
     }
 }

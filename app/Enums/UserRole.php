@@ -150,4 +150,51 @@ enum UserRole: string
             default => [],
         };
     }
+
+    /**
+     * Get the rate override limit percentage for this role.
+     *
+     * Per BNM compliance requirements:
+     * - Teller: ±0.5% from base rate
+     * - Manager: ±2.0% from base rate
+     * - Admin (Principal Officer): Unlimited
+     *
+     * @return float|null null means unlimited
+     */
+    public function rateOverrideLimit(): ?float
+    {
+        return match ($this) {
+            self::Teller => 0.5,
+            self::Manager => 2.0,
+            self::ComplianceOfficer => null,
+            self::Admin => null, // Unlimited
+        };
+    }
+
+    /**
+     * Check if this role can apply a rate override without approval.
+     *
+     * @param  float  $overridePercentage  The percentage deviation from base rate
+     */
+    public function canOverrideRate(float $overridePercentage): bool
+    {
+        $limit = $this->rateOverrideLimit();
+
+        // null means unlimited
+        if ($limit === null) {
+            return true;
+        }
+
+        return abs($overridePercentage) <= $limit;
+    }
+
+    /**
+     * Check if this role requires rate override approval.
+     *
+     * @param  float  $overridePercentage  The percentage deviation from base rate
+     */
+    public function requiresRateOverrideApproval(float $overridePercentage): bool
+    {
+        return ! $this->canOverrideRate($overridePercentage);
+    }
 }

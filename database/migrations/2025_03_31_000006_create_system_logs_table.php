@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('entity_id')->nullable();
             $table->json('old_values')->nullable();
             $table->json('new_values')->nullable();
-            $table->string('ip_address', 45);
+            $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->timestamps();
             $table->index(['user_id', 'action']);

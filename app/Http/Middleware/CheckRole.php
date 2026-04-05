@@ -12,7 +12,7 @@ class CheckRole
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next, string $role)
+    public function handle(Request $request, Closure $next, string ...$roles)
     {
         $user = auth()->user();
 
@@ -20,14 +20,22 @@ class CheckRole
             return redirect()->route('login');
         }
 
-        // Check if user has the required role
-        $hasRole = match ($role) {
-            'admin' => $user->isAdmin(),
-            'manager' => $user->isManager(),
-            'compliance' => $user->isComplianceOfficer(),
-            'teller' => true, // All authenticated users are at least tellers
-            default => false,
-        };
+        // Check if user has any of the required roles
+        $hasRole = false;
+        foreach ($roles as $role) {
+            $hasRole = match ($role) {
+                'admin' => $user->isAdmin(),
+                'manager' => $user->isManager(),
+                'compliance' => $user->isComplianceOfficer(),
+                'compliance_officer' => $user->isComplianceOfficer(),
+                'teller' => true, // All authenticated users are at least tellers
+                default => false,
+            };
+
+            if ($hasRole) {
+                break;
+            }
+        }
 
         if (! $hasRole) {
             abort(403, 'Unauthorized. You do not have permission to access this resource.');

@@ -32,8 +32,10 @@ CEMS-MY is a comprehensive Currency Exchange Management System designed for Mala
 | **Cash Management** | Till opening/closing with variance tracking | All roles |
 | **Compliance** | CDD/EDD, sanction screening, flagged transactions | Compliance, Admin |
 | **Accounting** | Revaluation, P&L tracking, chart of accounts | Manager, Admin |
-| **Reporting** | LCTR, MSB(2), audit trails | Manager, Compliance, Admin |
+| **Reporting** | LCTR, MSB(2), LMCA, audit trails | Manager, Compliance, Admin |
 | **User Management** | Role-based access control | Admin only |
+| **Task Management** | Compliance, operational, approval tasks | All roles |
+| **Stock Transfers** | Inter-branch stock operations | Manager, Admin |
 
 ### System Architecture
 
@@ -64,6 +66,11 @@ CEMS-MY is a comprehensive Currency Exchange Management System designed for Mala
 | **Stock/Cash** | http://local.host/stock-cash | Inventory management |
 | **Compliance** | http://local.host/compliance | AML/CFT portal |
 | **Accounting** | http://local.host/accounting | Financial reports |
+| **Tasks** | http://local.host/tasks | Task management |
+| **Reports LMCA** | http://local.host/reports/lmca | BNM Form LMCA |
+| **Reports Quarterly LVR** | http://local.host/reports/quarterly-lvr | Quarterly large value |
+| **Reports Position Limit** | http://local.host/reports/position-limit | Position limits |
+| **Reports History** | http://local.host/reports/history | Report version history |
 
 ### System Requirements
 
@@ -1507,10 +1514,14 @@ php artisan migrate:fresh --seed
 | Compliance | http://192.168.1.132/compliance | http://local.host/compliance |
 | Accounting | http://192.168.1.132/accounting | http://local.host/accounting |
 | Reports | http://192.168.1.132/reports | http://local.host/reports |
-| Monthly Trends | http://192.168.1.132/reports/monthly-trends | http://local.host/reports/monthly-trends |
-| Profitability | http://192.168.1.132/reports/profitability | http://local.host/reports/profitability |
-| Customer Analysis | http://192.168.1.132/reports/customer-analysis | http://local.host/reports/customer-analysis |
-| Compliance Summary | http://192.168.1.132/reports/compliance-summary | http://local.host/reports/compliance-summary |
+| Reports LCTR | http://192.168.1.132/reports/lctr | http://local.host/reports/lctr |
+| Reports LMCA | http://192.168.1.132/reports/lmca | http://local.host/reports/lmca |
+| Reports Quarterly LVR | http://192.168.1.132/reports/quarterly-lvr | http://local.host/reports/quarterly-lvr |
+| Reports Position Limit | http://192.168.1.132/reports/position-limit | http://local.host/reports/position-limit |
+| Reports History | http://192.168.1.132/reports/history | http://local.host/reports/history |
+| Tasks | http://192.168.1.132/tasks | http://local.host/tasks |
+| My Tasks | http://192.168.1.132/tasks/my | http://local.host/tasks/my |
+| Overdue Tasks | http://192.168.1.132/tasks/overdue | http://local.host/tasks/overdue |
 
 **Note:** Use IP-based URLs (192.168.1.132) for LAN access from other devices.
 
@@ -1521,17 +1532,29 @@ php artisan migrate:fresh --seed
 php artisan user:create --name=NAME --email=EMAIL --password=PASS --role=ROLE
 
 # Testing
-php test-runner.php                    # Run all tests
-php test-runner.php encryption         # Encryption tests
-php test-runner.php math               # Math service tests
-php test-runner.php user               # User model tests
-php test-runner.php database           # Database tests
-php test-runner.php transaction        # Transaction tests
+php artisan test                       # Run all Laravel tests
+php artisan test --filter=Feature      # Feature tests only
+php artisan test --filter=Unit         # Unit tests only
 
 # Database
 php artisan migrate
 php artisan migrate:fresh --seed
 php artisan db:seed --class=UserSeeder
+
+# Report Generation (Scheduled Commands)
+php artisan report:msb2               # Daily MSB(2) report
+php artisan report:lmca                # Monthly BNM Form LMCA
+php artisan report:lctr                # Monthly Cash Transaction Report
+php artisan report:qlvr                # Quarterly Large Value Report
+php artisan report:position-limit      # Daily Position Limit Report
+
+# Compliance Commands
+php artisan compliance:rescreen        # Monthly sanctions rescreening
+php artisan reports:cleanup --days=90   # Cleanup old reports
+php artisan reports:archive --months=12 # Archive reports (BNM 7-year retention)
+
+# View scheduled tasks
+php artisan schedule:list
 ```
 
 ### File Locations
@@ -1893,15 +1916,86 @@ if ($role->value === 'manager') { }  // For string comparison
 
 ---
 
+## New Features (2026-04-05)
+
+### Task Management Module
+
+**Access:** `/tasks`, `/tasks/my`, `/tasks/overdue`
+
+**Features:**
+- Create, view, acknowledge, complete, cancel tasks
+- Categories: Compliance, Customer, Operations, Admin, Approval
+- Priorities: Urgent, High, Medium, Low
+- SLA tracking with overdue detection
+- Task assignment to users or roles
+- API endpoint: `/api/tasks/stats`
+
+**CLI Commands:**
+```bash
+# Task stats
+curl http://local.host/api/tasks/stats
+```
+
+### Inter-Branch Stock Transfer Module
+
+**Models:** `StockTransfer`, `StockTransferItem`
+
+**Transfer Types:**
+- Standard: Regular stock rebalancing (Branch Manager + HQ approval)
+- Emergency: Urgent stock shortage (Branch Manager expedited)
+- Scheduled: Recurring automated transfers (Pre-approved)
+- Return: Return excess stock to HQ
+
+**Workflow States:**
+```
+Requested → BranchManagerApproved → HQApproved → InTransit → Completed
+```
+
+### Automated Report Scheduling
+
+**Scheduler Commands** (no email notifications):
+
+| Schedule | Command | Description |
+|----------|---------|-------------|
+| Daily 00:05 | `report:msb2` | MSB(2) daily transaction summary |
+| Daily 06:00 | `report:position-limit` | Position limit utilization |
+| Weekly Sun 01:00 | `report:trial-balance` | Trial balance backup |
+| Monthly 1st 00:30 | `report:lmca` | BNM Form LMCA |
+| Monthly 1st 00:45 | `report:lctr` | Cash Transaction Report |
+| Monthly 1st 02:00 | `reports:cleanup` | Cleanup old reports |
+| Monthly 1st 03:00 | `compliance:rescreen` | Sanctions rescreening |
+| Quarterly Jan/Apr/Jul/Oct 1st | `report:qlvr` | Quarterly large value |
+| Yearly Jan 1st 04:00 | `reports:archive` | BNM 7-year retention |
+| Last day 23:59 | `revaluation:run` | Currency revaluation |
+
+**Log Files:** `storage/logs/report-*.log`
+
+### Report Version History
+
+**Access:** `/reports/history`
+
+**Features:**
+- Track all report generations with version numbers
+- Filter by report type and period
+- Compare two versions side-by-side
+- Download previous versions
+
+**Access:** `/reports/compare?report_type=X&period_start=Y&version1=N&version2=M`
+
+---
+
 **Document Information**
-- **Version**: 2.4
-- **Last Updated**: 2026-04-04
+- **Version**: 2.5
+- **Last Updated**: 2026-04-05
 - **System**: CEMS-MY v1.0
 - **Compliance**: BNM AML/CFT Policy (Revised 2025), PDPA 2010 (Amended 2024), MIA Standards
 - **Security Status**: All critical issues resolved ✅
 - **Code Quality**: 90% issues resolved (36/40) ✅
 - **Precision**: Zero float precision issues ✅
 - **Type Safety**: Full enum coverage ✅
-- **Test Status**: Service tests passing (32/32) ✅
+- **Test Status**: 350 tests passing (4 skipped) ✅
 - **Trading Module**: Complete with MIA accounting ✅
-- **Implementation Status**: All missing features complete ✅
+- **Task Management**: Implemented ✅
+- **Stock Transfers**: Implemented ✅
+- **Report Scheduling**: Automated without email ✅
+- **Report Version History**: Implemented ✅

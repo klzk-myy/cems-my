@@ -23,7 +23,7 @@ class TransactionFactory extends Factory
             'user_id' => User::factory(),
             'till_id' => 'MAIN',
             'type' => fake()->randomElement(['Buy', 'Sell']),
-            'currency_code' => Currency::factory(),
+            'currency_code' => fn () => Currency::inRandomOrder()->first()?->code ?? Currency::factory()->create()->code,
             'amount_local' => $amountLocal,
             'amount_foreign' => $amountForeign,
             'rate' => $rate,

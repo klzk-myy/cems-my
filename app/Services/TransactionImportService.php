@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\TransactionImport;
+use App\Support\BcmathHelper;
 use Illuminate\Support\Facades\DB;
 
 class TransactionImportService
@@ -274,7 +275,7 @@ class TransactionImportService
     {
         $entries = [];
 
-        if ($transaction->type === 'Buy') {
+        if ($transaction->type->value === 'Buy') {
             // Buy: Dr Foreign Currency Inventory, Cr Cash - MYR
             $entries = [
                 [
@@ -341,7 +342,7 @@ class TransactionImportService
             $entries,
             'Transaction',
             $transaction->id,
-            "Transaction #{$transaction->id} - {$transaction->type} {$transaction->currency_code}"
+            "Transaction #{$transaction->id} - {$transaction->type->value} {$transaction->currency_code}"
         );
     }
 }

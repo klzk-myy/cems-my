@@ -269,13 +269,13 @@
 <body>
     <div class="app">
         <!-- Left Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h1>CEMS-MY</h1>
-                <p>Currency Exchange MSB</p>
-            </div>
+<aside class="sidebar header">
+ <div class="sidebar-header header">
+ <h1>CEMS-MY</h1>
+ <p>Currency Exchange MSB</p>
+ </div>
 
-            <nav class="nav">
+ <nav class="nav">
                 <a href="/" class="{{ request()->is('/') ? 'active' : '' }}">
                     <span class="nav-icon">📊</span>
                     <span class="nav-label">Dashboard</span>
@@ -306,15 +306,16 @@
                 </a>
             </nav>
 
-            <div class="sidebar-footer">
-                <form action="/logout" method="POST">
-                    @csrf
-                    <button type="submit" class="logout-btn">
-                        <span class="nav-icon">🚪</span>
-                        <span>Logout</span>
-                    </button>
-                </form>
-            </div>
+<div class="sidebar-footer">
+ <!-- @csrf -->
+ <form id="logout-form" action="/logout" method="POST">
+ @csrf
+ <button type="submit" class="logout-btn">
+ <span class="nav-icon">🚪</span>
+ <span>Logout</span>
+ </button>
+ </form>
+ </div>
         </aside>
 
         <!-- Main Content -->

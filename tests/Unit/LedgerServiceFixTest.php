@@ -37,34 +37,33 @@ class LedgerServiceFixTest extends TestCase
 
     protected function seedChartOfAccounts(): void
     {
+        // Delete any existing accounts to ensure clean state
+        // (migration seeds production accounts that conflict with test accounts)
+        ChartOfAccount::truncate();
+
         // Asset (debit-normal): positive = debit, negative = credit
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '1000'],
-            ['account_name' => 'Cash', 'account_type' => 'Asset']
+        ChartOfAccount::create(
+            ['account_code' => '1000', 'account_name' => 'Cash', 'account_type' => 'Asset']
         );
 
         // Liability (credit-normal): positive = credit, negative = debit
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '2000'],
-            ['account_name' => 'Accounts Payable', 'account_type' => 'Liability']
+        ChartOfAccount::create(
+            ['account_code' => '2000', 'account_name' => 'Accounts Payable', 'account_type' => 'Liability']
         );
 
         // Equity (credit-normal): positive = credit, negative = debit
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '3000'],
-            ['account_name' => 'Retained Earnings', 'account_type' => 'Equity']
+        ChartOfAccount::create(
+            ['account_code' => '3000', 'account_name' => 'Retained Earnings', 'account_type' => 'Equity']
         );
 
         // Revenue (credit-normal): positive = credit, negative = debit
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '4000'],
-            ['account_name' => 'Sales Revenue', 'account_type' => 'Revenue']
+        ChartOfAccount::create(
+            ['account_code' => '4000', 'account_name' => 'Sales Revenue', 'account_type' => 'Revenue']
         );
 
         // Expense (debit-normal): positive = debit, negative = credit
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '5000'],
-            ['account_name' => 'Office Expense', 'account_type' => 'Expense']
+        ChartOfAccount::create(
+            ['account_code' => '5000', 'account_name' => 'Office Expense', 'account_type' => 'Expense']
         );
     }
 

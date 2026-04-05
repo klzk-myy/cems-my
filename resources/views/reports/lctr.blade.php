@@ -487,9 +487,9 @@
                         <td>{{ number_format($transaction->amount_foreign, 4) }}</td>
                         <td>{{ $transaction->currency_code }}</td>
                         <td>
-                            <span class="type-badge type-{{ strtolower($transaction->type) }}">
-                                {{ $transaction->type }}
-                            </span>
+<span class="type-badge type-{{ strtolower($transaction->type->value ?? $transaction->type) }}">
+                                    {{ $transaction->type->value ?? $transaction->type }}
+                                </span>
                         </td>
                         <td>MAIN</td>
                         <td>{{ $transaction->user_id }}</td>

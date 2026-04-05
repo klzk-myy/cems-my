@@ -118,26 +118,26 @@
                 <td>#{{ $transaction->id }}</td>
                 <td>{{ $transaction->created_at->format('Y-m-d H:i') }}</td>
                 <td>{{ $transaction->customer->full_name ?? 'N/A' }}</td>
-                <td class="type-{{ strtolower($transaction->type) }}">{{ $transaction->type }}</td>
+                <td class="type-{{ strtolower($transaction->type->value) }}">{{ $transaction->type->label() }}</td>
                 <td>{{ $transaction->currency_code }}</td>
                 <td>{{ number_format($transaction->amount_foreign, 4) }}</td>
                 <td>{{ number_format($transaction->rate, 6) }}</td>
                 <td>{{ number_format($transaction->amount_local, 2) }}</td>
                 <td>
-                    @php
-                        $statusClass = match($transaction->status) {
+@php
+                        $statusClass = match($transaction->status->value) {
                             'Completed' => 'status-completed',
                             'Pending' => 'status-pending',
                             'OnHold' => 'status-onhold',
                             default => 'status-pending'
                         };
-                    @endphp
-                    <span class="status-badge {{ $statusClass }}">{{ $transaction->status }}</span>
+                        @endphp
+                        <span class="status-badge {{ $statusClass }}">{{ $transaction->status->label() }}</span>
                 </td>
                 <td>{{ $transaction->user->username ?? 'N/A' }}</td>
                 <td>
                     <a href="/transactions/{{ $transaction->id }}" class="btn btn-primary" style="font-size: 0.75rem;">View</a>
-                    @if($transaction->status === 'Pending' && auth()->user()->isManager())
+                    @if($transaction->status->isPending() && auth()->user()->isManager())
                         <form action="/transactions/{{ $transaction->id }}/approve" method="POST" style="display: inline;">
                             @csrf
                             <button type="submit" class="btn btn-success" style="font-size: 0.75rem;">Approve</button>

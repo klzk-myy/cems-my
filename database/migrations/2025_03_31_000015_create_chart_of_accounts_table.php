@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -25,9 +25,11 @@ return new class extends Migration
             ['account_code' => '1000', 'account_name' => 'Cash - MYR', 'account_type' => 'Asset'],
             ['account_code' => '1100', 'account_name' => 'Cash - USD', 'account_type' => 'Asset'],
             ['account_code' => '1200', 'account_name' => 'Cash - EUR', 'account_type' => 'Asset'],
+            ['account_code' => '2000', 'account_name' => 'Foreign Currency Inventory', 'account_type' => 'Asset'],
             ['account_code' => '4000', 'account_name' => 'Revenue - Forex', 'account_type' => 'Revenue'],
-            ['account_code' => '5000', 'account_name' => 'Expense - Revaluation Loss', 'account_type' => 'Expense'],
+            ['account_code' => '5000', 'account_name' => 'Revenue - Forex Trading', 'account_type' => 'Revenue'],
             ['account_code' => '5100', 'account_name' => 'Revenue - Revaluation Gain', 'account_type' => 'Revenue'],
+            ['account_code' => '6000', 'account_name' => 'Expense - Forex Loss', 'account_type' => 'Expense'],
         ]);
     }
 

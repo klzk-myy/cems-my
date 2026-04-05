@@ -53,6 +53,10 @@ class Transaction extends Model
         'amount_local',
         'amount_foreign',
         'rate',
+        'base_rate',
+        'rate_override',
+        'rate_override_approved_by',
+        'rate_override_approved_at',
         'purpose',
         'source_of_funds',
         'status',
@@ -78,11 +82,14 @@ class Transaction extends Model
         'amount_local' => 'decimal:4',
         'amount_foreign' => 'decimal:4',
         'rate' => 'decimal:6',
+        'base_rate' => 'decimal:6',
+        'rate_override' => 'boolean',
         'type' => \App\Enums\TransactionType::class,
         'status' => \App\Enums\TransactionStatus::class,
         'cdd_level' => \App\Enums\CddLevel::class,
         'approved_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'rate_override_approved_at' => 'datetime',
     ];
 
     /**

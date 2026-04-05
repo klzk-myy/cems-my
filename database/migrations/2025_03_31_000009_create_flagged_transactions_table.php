@@ -11,7 +11,21 @@ return new class extends Migration
         Schema::create('flagged_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('transaction_id')->constrained();
-            $table->enum('flag_type', ['EDD_Required', 'Sanction_Match', 'Velocity', 'Structuring', 'Manual']);
+            $table->enum('flag_type', [
+                'Large_Amount',
+                'Sanctions_Hit',
+                'Velocity',
+                'Structuring',
+                'EDD_Required',
+                'Pep_Status',
+                'Sanction_Match',
+                'High_Risk_Customer',
+                'Unusual_Pattern',
+                'Manual_Review',
+                'High_Risk_Country',
+                'Round_Amount',
+                'Profile_Deviation',
+            ]);
             $table->text('flag_reason');
             $table->enum('status', ['Open', 'Under_Review', 'Resolved', 'Rejected'])->default('Open');
             $table->foreignId('assigned_to')->nullable()->constrained('users');

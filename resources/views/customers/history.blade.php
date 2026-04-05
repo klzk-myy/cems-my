@@ -149,8 +149,8 @@
                 <td>{{ number_format($transaction->rate, 6) }}</td>
                 <td>{{ $transaction->user->username ?? 'N/A' }}</td>
                 <td>
-                    <span class="status-badge status-{{ strtolower($transaction->status) }}">
-                        {{ $transaction->status }}
+                            <span class="status-badge status-{{ strtolower($transaction->status->value) }}">
+                                {{ $transaction->status->value }}
                     </span>
                 </td>
             </tr>

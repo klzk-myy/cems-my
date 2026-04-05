@@ -12,8 +12,11 @@ class NavigationTest extends TestCase
     use RefreshDatabase;
 
     protected User $adminUser;
+
     protected User $managerUser;
+
     protected User $complianceUser;
+
     protected User $tellerUser;
 
     protected function setUp(): void
@@ -66,7 +69,7 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->adminUser)->get('/dashboard');
 
         $response->assertStatus(200);
-        
+
         // Check all navigation items are present
         $response->assertSee('Dashboard');
         $response->assertSee('Transactions');
@@ -86,7 +89,7 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->managerUser)->get('/dashboard');
 
         $response->assertStatus(200);
-        
+
         // Manager should see all menu items
         $response->assertSee('Dashboard');
         $response->assertSee('Transactions');
@@ -106,7 +109,7 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->complianceUser)->get('/dashboard');
 
         $response->assertStatus(200);
-        
+
         // Compliance should see all menu items
         $response->assertSee('Dashboard');
         $response->assertSee('Transactions');
@@ -126,7 +129,7 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->tellerUser)->get('/dashboard');
 
         $response->assertStatus(200);
-        
+
         // Teller should see all menu items (access controlled by middleware)
         $response->assertSee('Dashboard');
         $response->assertSee('Transactions');
@@ -146,16 +149,17 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->adminUser)->get('/dashboard');
 
         $response->assertStatus(200);
-        
-        // Check links are present with correct URLs
-        $response->assertSee('href="/"');
-        $response->assertSee('href="/transactions"');
-        $response->assertSee('href="/stock-cash"');
-        $response->assertSee('href="/compliance"');
-        $response->assertSee('href="/accounting"');
-        $response->assertSee('href="/reports"');
-        $response->assertSee('href="/users"');
-        $response->assertSee('href="/logout"');
+
+        // Check links are present with correct URLs (escape=false for HTML content)
+        $response->assertSee('href="/"', false);
+        $response->assertSee('href="/transactions"', false);
+        $response->assertSee('href="/stock-cash"', false);
+        $response->assertSee('href="/compliance"', false);
+        $response->assertSee('href="/accounting"', false);
+        $response->assertSee('href="/reports"', false);
+        $response->assertSee('href="/users"', false);
+        // Logout is a form, not a link - check for the logout form instead
+        $response->assertSee('action="/logout"', false);
     }
 
     /**
@@ -166,12 +170,12 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->adminUser)->get('/dashboard');
 
         $response->assertStatus(200);
-        
+
         // Check logout form exists with CSRF protection
-        $response->assertSee('id="logout-form"');
-        $response->assertSee('action="/logout"');
-        $response->assertSee('method="POST"');
-        $response->assertSee('@csrf');
+        $response->assertSee('id="logout-form"', false);
+        $response->assertSee('action="/logout"', false);
+        $response->assertSee('method="POST"', false);
+        $response->assertSee('_token'); // CSRF token field
     }
 
     /**
@@ -189,7 +193,7 @@ class NavigationTest extends TestCase
         foreach ($pages as $page) {
             $response = $this->actingAs($this->adminUser)->get($page);
             $response->assertStatus(200);
-            
+
             // All pages should have the same navigation
             $response->assertSee('Dashboard');
             $response->assertSee('Transactions');
@@ -210,10 +214,10 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->adminUser)->get('/dashboard');
 
         $response->assertStatus(200);
-        
+
         // Check Stock/Cash is in the menu
         $response->assertSee('Stock/Cash');
-        $response->assertSee('href="/stock-cash"');
+        $response->assertSee('href="/stock-cash"', false);
     }
 
     /**
@@ -224,10 +228,10 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->adminUser)->get('/dashboard');
 
         $response->assertStatus(200);
-        
+
         // Check CSS classes exist
-        $response->assertSee('class="header"');
-        $response->assertSee('class="nav"');
+        $response->assertSee('sidebar-header', false); // header class on sidebar
+        $response->assertSee('class="nav"', false);
     }
 
     /**
@@ -248,7 +252,7 @@ class NavigationTest extends TestCase
         $response = $this->actingAs($this->adminUser)->get('/dashboard');
 
         $content = $response->getContent();
-        
+
         // Check order: Dashboard, Transactions, Stock/Cash, Compliance, Accounting, Reports, Users, Logout
         $dashboardPos = strpos($content, '>Dashboard<');
         $transactionsPos = strpos($content, '>Transactions<');

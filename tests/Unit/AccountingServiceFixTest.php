@@ -27,33 +27,32 @@ class AccountingServiceFixTest extends TestCase
 
     protected function seedChartOfAccounts(): void
     {
+        // Delete any existing accounts to ensure clean state
+        // (migration seeds production accounts that conflict with test accounts)
+        ChartOfAccount::truncate();
+
         // Assets - Debit normal accounts
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '1000'],
-            ['account_name' => 'Cash', 'account_type' => 'Asset']
+        ChartOfAccount::create(
+            ['account_code' => '1000', 'account_name' => 'Cash', 'account_type' => 'Asset']
         );
 
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '5000'],
-            ['account_name' => 'Office Expenses', 'account_type' => 'Expense']
+        ChartOfAccount::create(
+            ['account_code' => '5000', 'account_name' => 'Office Expenses', 'account_type' => 'Expense']
         );
 
         // Liabilities - Credit normal accounts
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '2000'],
-            ['account_name' => 'Accounts Payable', 'account_type' => 'Liability']
+        ChartOfAccount::create(
+            ['account_code' => '2000', 'account_name' => 'Accounts Payable', 'account_type' => 'Liability']
         );
 
         // Revenue - Credit normal accounts
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '4000'],
-            ['account_name' => 'Revenue', 'account_type' => 'Revenue']
+        ChartOfAccount::create(
+            ['account_code' => '4000', 'account_name' => 'Revenue', 'account_type' => 'Revenue']
         );
 
         // Equity - Credit normal accounts
-        ChartOfAccount::firstOrCreate(
-            ['account_code' => '3000'],
-            ['account_name' => 'Owner Equity', 'account_type' => 'Equity']
+        ChartOfAccount::create(
+            ['account_code' => '3000', 'account_name' => 'Owner Equity', 'account_type' => 'Equity']
         );
     }
 

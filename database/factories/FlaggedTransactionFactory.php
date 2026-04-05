@@ -14,7 +14,7 @@ class FlaggedTransactionFactory extends Factory
     {
         return [
             'transaction_id' => Transaction::factory(),
-            'flag_type' => fake()->randomElement(['Velocity', 'Structuring', 'EDD_Required', 'Sanction_Match', 'Manual', 'PEP_Status']),
+            'flag_type' => fake()->randomElement(['Velocity', 'Structuring', 'EDD_Required', 'Sanction_Match', 'Manual_Review']),
             'flag_reason' => fake()->sentence(),
             'status' => fake()->randomElement(['Open', 'Under_Review', 'Resolved']),
             'assigned_to' => null,

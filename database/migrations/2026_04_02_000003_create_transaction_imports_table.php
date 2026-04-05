@@ -20,7 +20,7 @@ return new class extends Migration
             $table->integer('success_count')->default(0);
             $table->integer('error_count')->default(0);
             $table->json('errors')->nullable();
-            $table->enum('status', ['pending', 'processing', 'completed', 'failed'])->default('pending');
+            $table->enum('status', ['pending', 'processing', 'completed', 'completed_with_errors', 'failed'])->default('pending');
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();

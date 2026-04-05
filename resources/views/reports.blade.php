@@ -283,7 +283,7 @@
     <a href="{{ route('accounting.profit-loss') }}" class="report-card financial">
         <div class="report-card-header">
             <span class="report-icon">📈</span>
-            <h3 class="report-card-title">Profit & Loss</h3>
+            <h3 class="report-card-title">{{ 'Profit & Loss' }}</h3>
         </div>
         <p class="report-card-description">Revenue and expense statement showing financial performance.</p>
         <div class="report-card-meta">Monthly/Quarterly/Annual</div>

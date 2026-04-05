@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Models\Customer;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
-use App\Models\Customer;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -58,12 +58,12 @@ class ComplianceViewTest extends TestCase
         $customer = Customer::factory()->create();
         $transaction = Transaction::factory()->create([
             'customer_id' => $customer->id,
-            'status' => 'Completed'
+            'status' => 'Completed',
         ]);
         $flag = FlaggedTransaction::factory()->create([
             'transaction_id' => $transaction->id,
             'flag_type' => 'Velocity',
-            'status' => 'Open'
+            'status' => 'Open',
         ]);
 
         $response = $this->actingAs($user)
@@ -96,7 +96,7 @@ class ComplianceViewTest extends TestCase
         $this->assertDatabaseHas('flagged_transactions', [
             'id' => $flag->id,
             'status' => 'Under_Review',
-            'assigned_to' => $user->id
+            'assigned_to' => $user->id,
         ]);
     }
 
@@ -112,7 +112,7 @@ class ComplianceViewTest extends TestCase
         $this->assertDatabaseHas('flagged_transactions', [
             'id' => $flag->id,
             'status' => 'Resolved',
-            'reviewed_by' => $user->id
+            'reviewed_by' => $user->id,
         ]);
     }
 }

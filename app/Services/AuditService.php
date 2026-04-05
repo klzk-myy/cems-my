@@ -133,11 +133,85 @@ class AuditService
         // Default sort by newest first
         $query->orderBy('created_at', 'desc');
 
+        // Get total count before pagination
+        $count = $query->count();
+
         return [
             'logs' => $query->paginate($filters['per_page'] ?? 50),
             'filters' => $filters,
-            'count' => $query->count(),
+            'count' => $count,
         ];
+    }
+
+    /**
+     * Log STR (Suspicious Transaction Report) action for compliance audit trail.
+     *
+     * @param  string  $action  STR action (str_created, str_submitted, str_approved, etc.)
+     * @param  int  $strId  STR Report ID
+     * @param  array  $data  Additional data
+     * @return SystemLog
+     */
+    public function logStrAction(string $action, int $strId, array $data = []): SystemLog
+    {
+        $severity = $data['severity'] ?? 'WARNING';
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'StrReport',
+                'entity_id' => $strId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log compliance decision action (flag resolved, EDD decision, etc.).
+     *
+     * @param  string  $action  Action type
+     * @param  int  $entityId  Entity ID (flag ID, transaction ID, etc.)
+     * @param  array  $data  Decision data including old/new values
+     * @param  string  $severity  Log severity level
+     * @return SystemLog
+     */
+    public function logComplianceDecision(string $action, int $entityId, array $data = [], string $severity = 'INFO'): SystemLog
+    {
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => $data['entity_type'] ?? 'Compliance',
+                'entity_id' => $entityId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log CDD/EDD decision for a transaction.
+     *
+     * @param  int  $transactionId  Transaction ID
+     * @param  string  $cddLevel  CDD level determined
+     * @param  array  $triggers  What triggered the CDD level
+     * @return SystemLog
+     */
+    public function logCddDecision(int $transactionId, string $cddLevel, array $triggers = []): SystemLog
+    {
+        return $this->logWithSeverity(
+            'cdd_decision',
+            [
+                'entity_type' => 'Transaction',
+                'entity_id' => $transactionId,
+                'new_values' => [
+                    'cdd_level' => $cddLevel,
+                    'triggers' => $triggers,
+                ],
+            ],
+            'INFO'
+        );
     }
 
     /**

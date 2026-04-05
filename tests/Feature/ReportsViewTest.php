@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\ReportGenerated;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,14 +29,14 @@ class ReportsViewTest extends TestCase
         $response->assertSee('Reports & Analytics');
     }
 
-    public function test_compliance_officer_can_access_reports_dashboard()
+    public function test_compliance_officer_cannot_access_reports_dashboard()
     {
         $user = User::factory()->create(['role' => 'compliance_officer']);
 
         $response = $this->actingAs($user)
             ->get(route('reports'));
 
-        $response->assertStatus(200);
+        $response->assertStatus(403);
     }
 
     public function test_admin_can_access_reports_dashboard()
@@ -64,7 +64,7 @@ class ReportsViewTest extends TestCase
         $user = User::factory()->create(['role' => 'manager']);
         ReportGenerated::factory()->count(3)->create([
             'report_type' => 'LCTR',
-            'generated_by' => $user->id
+            'generated_by' => $user->id,
         ]);
 
         $response = $this->actingAs($user)

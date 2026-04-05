@@ -49,6 +49,7 @@ class Customer extends Model
         'pep_status',
         'risk_score',
         'risk_rating',
+        'annual_volume_estimate',
         'risk_assessed_at',
         'last_transaction_at',
     ];
@@ -62,6 +63,7 @@ class Customer extends Model
         'date_of_birth' => 'date',
         'pep_status' => 'boolean',
         'risk_score' => 'integer',
+        'annual_volume_estimate' => 'decimal:4',
         'risk_assessed_at' => 'datetime',
         'last_transaction_at' => 'datetime',
     ];

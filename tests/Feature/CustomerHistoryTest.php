@@ -134,7 +134,7 @@ class CustomerHistoryTest extends TestCase
         $response = $this->get(route('customers.export', $this->customer));
 
         $response->assertStatus(200);
-        $response->assertHeader('Content-Type', 'text/csv');
+        $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
         $response->assertHeader('Content-Disposition');
     }
 

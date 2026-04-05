@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\AccountingPeriod;
+use App\Models\ChartOfAccount;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\TillBalance;
@@ -84,6 +86,35 @@ class TransactionReceiptTest extends TestCase
             'date' => today(),
             'opened_by' => $this->tellerUser->id,
         ]);
+
+        // Create required ChartOfAccount records for accounting entries
+        $chartAccounts = [
+            ['account_code' => '1000', 'account_name' => 'Cash - MYR', 'account_type' => 'Asset'],
+            ['account_code' => '2000', 'account_name' => 'Foreign Currency Inventory', 'account_type' => 'Asset'],
+            ['account_code' => '5000', 'account_name' => 'Revenue - Forex Trading', 'account_type' => 'Revenue'],
+            ['account_code' => '6000', 'account_name' => 'Expense - Forex Loss', 'account_type' => 'Expense'],
+        ];
+
+        foreach ($chartAccounts as $account) {
+            ChartOfAccount::firstOrCreate(
+                ['account_code' => $account['account_code']],
+                $account
+            );
+        }
+
+        // Create accounting period for today
+        $today = now();
+        AccountingPeriod::firstOrCreate(
+            [
+                'period_code' => $today->format('Y-m'),
+            ],
+            [
+                'start_date' => $today->copy()->startOfMonth()->toDateString(),
+                'end_date' => $today->copy()->endOfMonth()->toDateString(),
+                'period_type' => 'month',
+                'status' => 'open',
+            ]
+        );
     }
 
     /**
