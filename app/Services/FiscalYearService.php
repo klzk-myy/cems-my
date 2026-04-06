@@ -61,12 +61,13 @@ class FiscalYearService
      * 3. Close Income Summary → Retained Earnings (4999)
      *
      * @param  FiscalYear  $year
+     * @param  int|null  $userId  Optional user ID for testing (defaults to auth()->id())
      * @return array Year-end report data
      * @throws \InvalidArgumentException
      */
-    public function closeFiscalYear(FiscalYear $year): array
+    public function closeFiscalYear(FiscalYear $year, ?int $userId = null): array
     {
-        $userId = auth()->id();
+        $userId = $userId ?? auth()->id();
         $user = User::find($userId);
 
         // Validate user permissions
@@ -171,17 +172,18 @@ class FiscalYearService
      * Open a new fiscal year with opening balances.
      *
      * @param  FiscalYear  $year
+     * @param  int|null  $userId  Optional user ID for testing (defaults to auth()->id())
      * @return FiscalYear
      */
-    public function openNewFiscalYear(FiscalYear $year): FiscalYear
+    public function openNewFiscalYear(FiscalYear $year, ?int $userId = null): FiscalYear
     {
         if (! $year->isClosed()) {
             throw new \InvalidArgumentException('Only closed fiscal years can be opened');
         }
 
         // Create opening entries to transfer retained earnings
-        return DB::transaction(function () use ($year) {
-            $userId = auth()->id();
+        return DB::transaction(function () use ($year, $userId) {
+            $userId = $userId ?? auth()->id();
             $openingDate = $year->start_date->toDateString();
 
             // Get retained earnings from closing
@@ -194,6 +196,7 @@ class FiscalYearService
                 'entry_number' => $entryNumber,
                 'entry_date' => $openingDate,
                 'period_id' => $this->getPeriodId($openingDate),
+                'reference_type' => 'FiscalYearOpening',
                 'description' => 'Opening balances for ' . $year->year_code,
                 'status' => 'Posted',
                 'created_by' => $userId,
@@ -247,7 +250,7 @@ class FiscalYearService
      */
     protected function validateAllPeriodsClosed(FiscalYear $year): void
     {
-        $openPeriods = $year->periods()->where('status', 'Open')->count();
+        $openPeriods = $year->periods()->where('status', 'open')->count();
 
         if ($openPeriods > 0) {
             throw new \InvalidArgumentException(
@@ -267,6 +270,7 @@ class FiscalYearService
             'entry_number' => $entryNumber,
             'entry_date' => $entryDate,
             'period_id' => $this->getPeriodId($entryDate),
+            'reference_type' => 'FiscalYearClosing',
             'description' => 'Closing Revenue to Income Summary',
             'status' => 'Posted',
             'created_by' => $userId,

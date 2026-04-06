@@ -33,12 +33,38 @@ class StrReportService
     public function generateFromAlert(FlaggedTransaction $alert): StrReport
     {
         return DB::transaction(function () use ($alert) {
-            $alert->load(['transaction', 'transaction.customer']);
+            // DEBUG: Log raw alert data
+            \Illuminate\Support\Facades\Log::info('STR generateFromAlert START', [
+                'alert_id_provided' => $alert->id,
+                'alert_customer_id' => $alert->getAttribute('customer_id'),
+                'alert_transaction_id' => $alert->getAttribute('transaction_id'),
+            ]);
 
-            $transaction = $alert->transaction;
-            $customer = $transaction?->customer;
+            // Try transaction first
+            if ($alert->getAttribute('transaction_id')) {
+                $txnId = $alert->getAttribute('transaction_id');
+                $transaction = \App\Models\Transaction::with('customer')->find($txnId);
+                \Illuminate\Support\Facades\Log::info('Transaction lookup', [
+                    'txn_id' => $txnId,
+                    'found' => $transaction ? true : false,
+                    'txn_customer' => $transaction?->customer ? ['id' => $transaction->customer->id] : null,
+                ]);
+                $customer = $transaction?->customer;
+            } else {
+                $customer = null;
+            }
 
-            if (! $customer) {
+            // Fall back to customer_id on alert
+            if (!$customer && $alert->getAttribute('customer_id')) {
+                $custId = $alert->getAttribute('customer_id');
+                $customer = \App\Models\Customer::find($custId);
+                \Illuminate\Support\Facades\Log::info('Customer fallback lookup', [
+                    'cust_id' => $custId,
+                    'found' => $customer ? true : false,
+                ]);
+            }
+
+            if (!$customer) {
                 throw new \Exception('Cannot generate STR: Alert has no associated customer');
             }
 

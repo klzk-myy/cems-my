@@ -87,7 +87,8 @@
             margin-left: 1rem;
             border-radius: 4px;
         }
-        .nav-group:hover > .nav-submenu {
+        .nav-group:hover > .nav-submenu,
+        .nav-group.open > .nav-submenu {
             display: flex;
         }
         .nav-submenu a {
@@ -311,7 +312,7 @@
                     <span class="nav-label">Stock/Cash</span>
                 </a>
                 <div class="nav-group">
-                    <a href="/compliance" class="{{ request()->is('compliance*') && !request()->is('compliance/edd*') ? 'active' : '' }}">
+                    <a href="/compliance" class="{{ request()->is('compliance') || request()->is('compliance/flagged') ? 'active' : '' }}">
                         <span class="nav-icon">🛡️</span>
                         <span class="nav-label">Compliance</span>
                         <span style="margin-left: auto; font-size: 0.6rem;">▼</span>
@@ -328,7 +329,7 @@
                     </div>
                 </div>
                 <div class="nav-group">
-                    <a href="/accounting" class="{{ request()->is('accounting*') ? 'active' : '' }}">
+                    <a href="/accounting" class="{{ request()->is('accounting') ? 'active' : '' }}">
                         <span class="nav-icon">📚</span>
                         <span class="nav-label">Accounting</span>
                         <span style="margin-left: auto; font-size: 0.6rem;">▼</span>
@@ -407,6 +408,20 @@
             </footer>
         </div>
     </div>
+
+    <script>
+        // Mobile-friendly dropdown toggle
+        document.querySelectorAll('.nav-group > a').forEach(function(toggle) {
+            toggle.addEventListener('click', function(e) {
+                // Only toggle if the clicked element is the nav-group's direct child anchor
+                var navGroup = this.parentElement;
+                if (navGroup.classList.contains('nav-group')) {
+                    e.preventDefault();
+                    navGroup.classList.toggle('open');
+                }
+            });
+        });
+    </script>
 
     @yield('scripts')
 </body>

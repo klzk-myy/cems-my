@@ -97,15 +97,21 @@ Route::middleware('auth')->group(function () {
         Route::put('/str/{str}', [StrController::class, 'update'])->name('str.update');
         Route::post('/str/{str}/submit-review', [StrController::class, 'submitForReview'])->name('str.submit-review');
         Route::post('/str/{str}/submit-approval', [StrController::class, 'submitForApproval'])->name('str.submit-approval');
-        Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
         Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit');
         Route::post('/str/{str}/track-acknowledgment', [StrController::class, 'trackAcknowledgment'])->name('str.track-acknowledgment');
 
-        // Generate STR from alert
+        // Generate STR from alert - compliance creates STRs
         Route::post('/compliance/flags/{flaggedTransaction}/generate-str', [StrController::class, 'generateFromAlert'])
             ->name('compliance.flags.generate-str');
+    });
 
-        // Enhanced Due Diligence
+    // STR Approval - Managers only (segregation of duties: compliance prepares, manager approves)
+    Route::middleware('role:manager')->group(function () {
+        Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
+    });
+
+    // Enhanced Due Diligence - Compliance officers create/manage, managers and compliance approve
+    Route::middleware('role:compliance')->group(function () {
         Route::get('/compliance/edd', [EnhancedDiligenceController::class, 'index'])->name('compliance.edd.index');
         Route::get('/compliance/edd/create', [EnhancedDiligenceController::class, 'create'])->name('compliance.edd.create');
         Route::post('/compliance/edd', [EnhancedDiligenceController::class, 'store'])->name('compliance.edd.store');
@@ -115,7 +121,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/compliance/edd/{record}/submit', [EnhancedDiligenceController::class, 'submitReview'])->name('compliance.edd.submit');
     });
 
-    // EDD Approval - Managers and Compliance officers
+    // EDD Approval - Managers and Compliance officers can approve/reject
     Route::middleware('role:manager,compliance')->group(function () {
         Route::post('/compliance/edd/{record}/approve', [EnhancedDiligenceController::class, 'approve'])->name('compliance.edd.approve');
         Route::post('/compliance/edd/{record}/reject', [EnhancedDiligenceController::class, 'reject'])->name('compliance.edd.reject');

@@ -288,14 +288,15 @@ class ComplianceService
             ? $suspicionDate
             : Carbon::parse($suspicionDate);
 
-        // Add 3 working days (excluding weekends)
-        $deadline = $suspicion->copy()->addWorkingDays(self::STR_FILING_DEADLINE_DAYS);
+        // Add 3 working days (excluding weekends) - use addWeekdays for Carbon 2.x compatibility
+        $deadline = $suspicion->copy()->addWeekdays(self::STR_FILING_DEADLINE_DAYS);
 
         $now = now();
         $isOverdue = $now->isAfter($deadline);
 
         // Calculate working days remaining (negative if overdue)
-        $daysRemaining = $now->workingDaysUntil($deadline);
+        // For Carbon 2.x, we calculate this manually
+        $daysRemaining = $this->countWorkingDays($now, $deadline);
 
         return [
             'deadline' => $deadline,
@@ -304,6 +305,24 @@ class ComplianceService
             'working_days_until_deadline' => self::STR_FILING_DEADLINE_DAYS,
             'suspicion_date' => $suspicion,
         ];
+    }
+
+    /**
+     * Count working days between two dates (excluding weekends).
+     */
+    protected function countWorkingDays(Carbon $from, Carbon $to): int
+    {
+        $days = 0;
+        $current = $from->copy();
+
+        while ($current->lt($to)) {
+            if (!$current->isWeekend()) {
+                $days++;
+            }
+            $current->addDay();
+        }
+
+        return $days;
     }
 
     /**

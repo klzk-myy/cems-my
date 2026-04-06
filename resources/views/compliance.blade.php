@@ -318,7 +318,7 @@
                     <span style="color: #718096;">N/A</span>
                     @endif
                 </td>
-                <td>{{ $flag->transaction->customer->full_name ?? 'N/A' }}</td>
+                <td>{{ $flag->transaction?->customer?->full_name ?? 'N/A' }}</td>
                 <td>
             @php
             $typeClass = match($flag->flag_type->value) {
@@ -356,7 +356,13 @@
                         @if($flag->transaction)
                         <a href="{{ route('transactions.show', $flag->transaction) }}" class="action-btn btn-view">View</a>
                         @endif
-                        @if($flag->status !== 'Resolved')
+                        @if(!$flag->alert)
+                        <form action="{{ route('compliance.flags.generate-str', $flag) }}" method="POST" style="display: inline;">
+                            @csrf
+                            <button type="submit" class="action-btn" style="background: #6b46c1; color: white;">Generate STR</button>
+                        </form>
+                        @endif
+                        @if(!$flag->status->isResolved())
                             @if(!$flag->assigned_to || $flag->assigned_to !== auth()->id())
                             <form action="{{ route('compliance.flags.assign', $flag) }}" method="POST" style="display: inline;">
                                 @csrf
