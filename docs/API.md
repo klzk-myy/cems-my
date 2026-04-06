@@ -1,817 +1,893 @@
-# CEMS-MY API Documentation
+# CEMS-MY Web Application Documentation
 
-**Version**: 1.0  
-**Last Updated**: April 2026  
-**Base URL**: `https://api.your-domain.com/api/v1`
+**Version**: 1.0
+**Last Updated**: April 2026
+**Authentication**: Session-based (Laravel web routes)
+
+---
+
+## Overview
+
+CEMS-MY is a Laravel 11.x web application for Malaysian Money Services Businesses (MSB), compliant with Bank Negara Malaysia (BNM) AML/CFT requirements. All routes use session-based authentication via Laravel's built-in session handling. This is not a REST API - it is a traditional server-rendered web application.
+
+**Key Differences from REST API:**
+- Authentication via session cookies, not Bearer tokens
+- All routes are in the web middleware group (`/`)
+- No `X-RateLimit-*` headers on responses
+- No SDK libraries - users interact via browser
 
 ---
 
 ## Table of Contents
 
 1. [Authentication](#1-authentication)
-2. [Rate Limiting](#2-rate-limiting)
-3. [Error Handling](#3-error-handling)
-4. [Transactions API](#4-transactions-api)
-5. [Customers API](#5-customers-api)
-6. [Currency API](#6-currency-api)
-7. [Reports API](#7-reports-api)
-8. [Webhooks](#8-webhooks)
+2. [Transactions](#2-transactions)
+3. [Customers](#3-customers)
+4. [Counters (Tills)](#4-counters-tills)
+5. [Accounting](#5-accounting)
+6. [Compliance & AML](#6-compliance--aml)
+7. [Reports](#7-reports)
+8. [User Management](#8-user-management)
 
 ---
 
 ## 1. Authentication
 
-CEMS-MY API uses Bearer token authentication.
+### Login Form
 
-### Obtaining a Token
+**Route**: `GET /login`
 
-**Endpoint**: `POST /auth/login`
+Display the login form.
 
-**Request:**
-```json
-{
-  "email": "user@example.com",
-  "password": "your-password",
-  "mfa_code": "123456"  // Optional, if MFA enabled
-}
-```
+**Route**: `POST /login`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "token_type": "Bearer",
-    "expires_in": 28800,
-    "user": {
-      "id": 1,
-      "username": "john.doe",
-      "email": "user@example.com",
-      "role": "manager"
-    }
-  }
-}
-```
+Authenticate user with email/password.
 
-### Using the Token
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| email | string | Yes | User email address |
+| password | string | Yes | User password |
+| mfa_code | string | No | 6-digit MFA code (if MFA enabled) |
 
-Include the token in the Authorization header:
+**Redirects to**: `/mfa/verify` if MFA is enabled and not yet verified.
 
-```http
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-### Refreshing the Token
-
-**Endpoint**: `POST /auth/refresh`
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "expires_in": 28800
-  }
-}
-```
+---
 
 ### Logout
 
-**Endpoint**: `POST /auth/logout`
+**Route**: `POST /logout`
+
+Invalidate the current session and log out the user.
+
+**Redirects to**: `/login`
 
 ---
 
-## 2. Rate Limiting
+### MFA Setup
 
-- **Authenticated requests**: 60 requests per minute
-- **Authentication endpoints**: 10 requests per minute
+**Route**: `GET /mfa/setup`
 
-Rate limit headers are included in responses:
+Display MFA configuration page (TOTP QR code).
 
-```http
-X-RateLimit-Limit: 60
-X-RateLimit-Remaining: 45
-X-RateLimit-Reset: 1649092800
-```
+**Route**: `POST /mfa/setup`
 
----
+Store MFA secret and enable MFA for the user.
 
-## 3. Error Handling
-
-All errors follow a consistent format:
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "The given data was invalid.",
-    "details": {
-      "amount": ["The amount field is required."],
-      "currency": ["The selected currency is invalid."]
-    }
-  }
-}
-```
-
-### HTTP Status Codes
-
-| Code | Meaning |
-|------|---------|
-| 200 | Success |
-| 201 | Created |
-| 400 | Bad Request |
-| 401 | Unauthorized |
-| 403 | Forbidden |
-| 404 | Not Found |
-| 422 | Validation Error |
-| 429 | Too Many Requests |
-| 500 | Server Error |
-
-### Error Codes
-
-| Code | Description |
-|------|-------------|
-| `AUTHENTICATION_ERROR` | Invalid credentials |
-| `AUTHORIZATION_ERROR` | Insufficient permissions |
-| `VALIDATION_ERROR` | Request validation failed |
-| `RESOURCE_NOT_FOUND` | Requested resource not found |
-| `INSUFFICIENT_BALANCE` | Not enough currency stock |
-| `RATE_LIMIT_EXCEEDED` | Rate limit reached |
-| `SERVER_ERROR` | Internal server error |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| mfa_code | string | Yes | 6-digit code from authenticator app to verify setup |
 
 ---
 
-## 4. Transactions API
+### MFA Verification
+
+**Route**: `GET /mfa/verify`
+
+Display MFA verification prompt.
+
+**Route**: `POST /mfa/verify`
+
+Verify MFA code.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| mfa_code | string | Yes | 6-digit code from authenticator app |
+
+**Redirects to**: `/dashboard` on success.
+
+---
+
+### MFA Recovery
+
+**Route**: `GET /mfa/recovery`
+
+Display recovery codes for MFA users.
+
+---
+
+### MFA Trusted Devices
+
+**Route**: `GET /mfa/trusted-devices`
+
+List trusted devices for MFA.
+
+**Route**: `DELETE /mfa/trusted-devices/{deviceId}`
+
+Remove a trusted device.
+
+---
+
+### Disable MFA
+
+**Route**: `POST /mfa/disable`
+
+Disable MFA for the current user.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| mfa_code | string | Yes | Current MFA code to confirm disable |
+
+---
+
+## 2. Transactions
+
+### Transaction List
+
+**Route**: `GET /transactions`
+
+Display paginated list of transactions. Supports filtering via query parameters.
+
+**Query Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| status | string | Filter by status (Pending, Completed, Cancelled, etc.) |
+| type | string | Filter by type (Buy, Sell) |
+| currency_code | string | Filter by currency (USD, EUR, etc.) |
+| date_from | date | Start date (YYYY-MM-DD) |
+| date_to | date | End date (YYYY-MM-DD) |
+| customer_id | integer | Filter by customer |
+
+---
 
 ### Create Transaction
 
+**Route**: `GET /transactions/create`
+
+Display transaction creation form.
+
+**Route**: `POST /transactions`
+
 Create a new foreign currency transaction.
 
-**Endpoint**: `POST /transactions`
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| customer_id | integer | Yes | Customer ID |
+| type | string | Yes | Transaction type: "Buy" or "Sell" |
+| currency_code | string | Yes | ISO currency code (USD, EUR, GBP, etc.) |
+| amount_foreign | numeric | Yes | Amount in foreign currency |
+| rate | numeric | Yes | Exchange rate to MYR |
+| purpose | string | No | Purpose of transaction |
+| source_of_funds | string | No | Source of funds |
 
-**Authorization**: Teller, Manager, Admin
+**Business Rules**:
+- Transactions >= RM 50,000 require manager approval
+- All cash transactions >= RM 10,000 require CTOS reporting
+- CDD (Customer Due Diligence) level determined automatically
 
-**Request:**
-```json
-{
-  "customer_id": 123,
-  "till_id": "TILL-001",
-  "type": "Buy",
-  "currency_code": "USD",
-  "amount_foreign": "1000.00",
-  "rate": "4.7500",
-  "purpose": "Travel",
-  "source_of_funds": "Salary",
-  "idempotency_key": "unique-key-123"
-}
-```
+---
 
-**Response (201):**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 456,
-    "customer_id": 123,
-    "till_id": "TILL-001",
-    "type": "Buy",
-    "currency_code": "USD",
-    "amount_foreign": "1000.00",
-    "amount_local": "4750.00",
-    "rate": "4.7500",
-    "status": "Pending",
-    "cdd_level": "Standard",
-    "hold_reason": "EDD_Required: Large transaction (≥ RM 50,000)",
-    "created_at": "2026-04-04T10:30:00Z",
-    "requires_approval": true
-  },
-  "message": "Transaction created successfully. Manager approval required."
-}
-```
+### View Transaction
 
-### Get Transaction
+**Route**: `GET /transactions/{transaction}`
 
-Retrieve a specific transaction.
+Display transaction details including customer info, approval status, and audit trail.
 
-**Endpoint**: `GET /transactions/{id}`
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 456,
-    "customer": {
-      "id": 123,
-      "full_name": "John Doe",
-      "id_type": "mykad",
-      "nationality": "Malaysian"
-    },
-    "user": {
-      "id": 10,
-      "username": "teller01"
-    },
-    "till_id": "TILL-001",
-    "type": "Buy",
-    "currency_code": "USD",
-    "amount_foreign": "1000.00",
-    "amount_local": "4750.00",
-    "rate": "4.7500",
-    "purpose": "Travel",
-    "source_of_funds": "Salary",
-    "status": "Completed",
-    "cdd_level": "Standard",
-    "approved_by": {
-      "id": 5,
-      "username": "manager01"
-    },
-    "approved_at": "2026-04-04T10:35:00Z",
-    "created_at": "2026-04-04T10:30:00Z"
-  }
-}
-```
-
-### List Transactions
-
-Retrieve a paginated list of transactions.
-
-**Endpoint**: `GET /transactions`
-
-**Query Parameters:**
-- `page` (integer, optional): Page number, default 1
-- `per_page` (integer, optional): Items per page, default 20, max 100
-- `status` (string, optional): Filter by status
-- `currency_code` (string, optional): Filter by currency
-- `type` (string, optional): Filter by type (Buy/Sell)
-- `date_from` (date, optional): Start date (YYYY-MM-DD)
-- `date_to` (date, optional): End date (YYYY-MM-DD)
-- `customer_id` (integer, optional): Filter by customer
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "transactions": [
-      {
-        "id": 456,
-        "type": "Buy",
-        "currency_code": "USD",
-        "amount_foreign": "1000.00",
-        "amount_local": "4750.00",
-        "status": "Completed",
-        "created_at": "2026-04-04T10:30:00Z"
-      }
-    ],
-    "meta": {
-      "current_page": 1,
-      "last_page": 10,
-      "per_page": 20,
-      "total": 195,
-      "total_revenue": "125000.00"
-    }
-  }
-}
-```
+---
 
 ### Approve Transaction
 
-Approve a pending transaction.
+**Route**: `POST /transactions/{transaction}/approve`
 
-**Endpoint**: `POST /transactions/{id}/approve`
+Approve a pending transaction (Manager/Admin only).
 
-**Authorization**: Manager, Admin only
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| notes | string | No | Approval notes |
 
-**Request:**
-```json
-{
-  "notes": "Approved after verifying customer information"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 456,
-    "status": "Completed",
-    "approved_by": {
-      "id": 5,
-      "username": "manager01"
-    },
-    "approved_at": "2026-04-04T10:35:00Z"
-  },
-  "message": "Transaction approved successfully"
-}
-```
-
-### Reject Transaction
-
-Reject a pending transaction.
-
-**Endpoint**: `POST /transactions/{id}/reject`
-
-**Authorization**: Manager, Admin only
-
-**Request:**
-```json
-{
-  "reason": "Customer information incomplete"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 456,
-    "status": "OnHold",
-    "hold_reason": "Rejected: Customer information incomplete"
-  },
-  "message": "Transaction rejected"
-}
-```
+---
 
 ### Cancel Transaction
 
+**Route**: `GET /transactions/{transaction}/cancel`
+
+Display cancellation form.
+
+**Route**: `POST /transactions/{transaction}/cancel`
+
 Cancel a transaction.
 
-**Endpoint**: `POST /transactions/{id}/cancel`
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| reason | string | Yes | Reason for cancellation |
 
-**Request:**
-```json
-{
-  "reason": "Customer requested cancellation"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 456,
-    "status": "Cancelled",
-    "cancelled_at": "2026-04-04T11:00:00Z",
-    "cancellation_reason": "Customer requested cancellation"
-  },
-  "message": "Transaction cancelled successfully"
-}
-```
-
-### Refund Transaction
-
-Create a refund for a completed transaction.
-
-**Endpoint**: `POST /transactions/{id}/refund`
-
-**Request:**
-```json
-{
-  "reason": "Customer returned currency"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "original_transaction_id": 456,
-    "refund_transaction_id": 457,
-    "amount_foreign": "1000.00",
-    "amount_local": "4750.00",
-    "created_at": "2026-04-04T12:00:00Z"
-  },
-  "message": "Refund processed successfully"
-}
-```
+**Note**: All cancellations require manager approval for segregation of duties.
 
 ---
 
-## 5. Customers API
+### Confirm Transaction
+
+**Route**: `GET /transactions/{transaction}/confirm`
+
+Display large transaction confirmation form.
+
+**Route**: `POST /transactions/{transaction}/confirm`
+
+Confirm a large transaction (>= RM 50,000) with manager sign-off.
+
+---
+
+### Transaction Receipt
+
+**Route**: `GET /transactions/{transaction}/receipt`
+
+Generate and display transaction receipt.
+
+---
+
+### Batch Upload
+
+**Route**: `GET /transactions/batch-upload`
+
+Display batch upload form for bulk transactions.
+
+**Route**: `POST /transactions/batch-upload`
+
+Process batch upload file (CSV/Excel).
+
+---
+
+## 3. Customers
+
+### Customer List
+
+**Route**: `GET /customers`
+
+Display paginated list of customers with search and filtering.
+
+**Query Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| search | string | Search by name, phone, or ID number |
+| risk_rating | string | Filter by risk (Low, Medium, High) |
+| date_from | date | Registration date from |
+| date_to | date | Registration date to |
+
+---
 
 ### Create Customer
 
+**Route**: `GET /customers/create`
+
+Display customer registration form.
+
+**Route**: `POST /customers`
+
 Register a new customer.
 
-**Endpoint**: `POST /customers`
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| full_name | string | Yes | Customer full name |
+| id_type | string | Yes | ID type: "mykad", "passport", "police", "army" |
+| id_number | string | Yes | ID number |
+| nationality | string | Yes | Nationality |
+| date_of_birth | date | Yes | Date of birth (YYYY-MM-DD) |
+| address | string | No | Address |
+| phone | string | No | Phone number |
+| email | string | No | Email address |
+| occupation | string | No | Occupation |
+| employer | string | No | Employer name |
 
-**Request:**
-```json
-{
-  "full_name": "John Doe",
-  "id_type": "mykad",
-  "id_number": "900101-14-5678",
-  "nationality": "Malaysian",
-  "date_of_birth": "1990-01-01",
-  "address": "123 Jalan Bukit Bintang",
-  "phone": "+60123456789",
-  "email": "john@example.com",
-  "occupation": "Software Engineer",
-  "employer": "Tech Company Sdn Bhd"
-}
-```
+---
 
-**Response (201):**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 123,
-    "full_name": "John Doe",
-    "id_type": "mykad",
-    "nationality": "Malaysian",
-    "date_of_birth": "1990-01-01",
-    "phone": "+60123456789",
-    "email": "john@example.com",
-    "risk_rating": "Low",
-    "risk_score": 25,
-    "created_at": "2026-04-04T10:00:00Z"
-  },
-  "message": "Customer created successfully"
-}
-```
+### View Customer
 
-### Get Customer
+**Route**: `GET /customers/{customer}`
 
-Retrieve customer details.
+Display customer details including KYC status, risk rating, and transaction history.
 
-**Endpoint**: `GET /customers/{id}`
+---
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 123,
-    "full_name": "John Doe",
-    "id_type": "mykad",
-    "nationality": "Malaysian",
-    "date_of_birth": "1990-01-01",
-    "address": "123 Jalan Bukit Bintang",
-    "phone": "+60123456789",
-    "email": "john@example.com",
-    "risk_rating": "Low",
-    "risk_score": 25,
-    "pep_status": false,
-    "last_transaction_at": "2026-04-04T10:30:00Z",
-    "transaction_count": 5,
-    "total_volume": "25000.00",
-    "created_at": "2026-04-04T10:00:00Z"
-  }
-}
-```
+### Edit Customer
 
-### List Customers
-
-Retrieve a paginated list of customers.
-
-**Endpoint**: `GET /customers`
-
-**Query Parameters:**
-- `page` (integer, optional): Page number
-- `per_page` (integer, optional): Items per page
-- `search` (string, optional): Search by name/phone/ID
-- `risk_rating` (string, optional): Filter by risk (Low/Medium/High)
-- `date_from` (date, optional): Registration date from
-- `date_to` (date, optional): Registration date to
-
-### Update Customer
+**Route**: `PUT /customers/{customer}`
 
 Update customer information.
 
-**Endpoint**: `PUT /customers/{id}`
+---
 
-**Request:**
-```json
-{
-  "address": "456 Jalan Ampang",
-  "phone": "+60198765432"
-}
-```
+### Customer KYC Documents
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": 123,
-    "address": "456 Jalan Ampang",
-    "phone": "+60198765432",
-    "updated_at": "2026-04-04T11:00:00Z"
-  },
-  "message": "Customer updated successfully"
-}
-```
+**Route**: `GET /customers/{customer}/kyc`
 
-### Get Customer Transactions
+Display KYC document management page.
 
-Get transaction history for a customer.
+**Route**: `POST /customers/{customer}/kyc`
 
-**Endpoint**: `GET /customers/{id}/transactions`
+Upload KYC document.
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "transactions": [
-      {
-        "id": 456,
-        "type": "Buy",
-        "currency_code": "USD",
-        "amount_foreign": "1000.00",
-        "status": "Completed",
-        "created_at": "2026-04-04T10:30:00Z"
-      }
-    ],
-    "meta": {
-      "total": 5,
-      "total_volume": "25000.00",
-      "avg_transaction": "5000.00"
-    }
-  }
-}
-```
+**Route**: `DELETE /customers/{customer}/kyc/{document}`
+
+Delete KYC document.
+
+**Route**: `POST /customers/{customer}/kyc/{document}/verify`
+
+Verify a KYC document.
 
 ---
 
-## 6. Currency API
+### Customer Transaction History
 
-### Get Current Rates
+**Route**: `GET /customers/{customer}/history`
 
-Retrieve current exchange rates.
+Display customer's transaction history.
 
-**Endpoint**: `GET /currencies/rates`
+**Route**: `GET /customers/{customer}/history/export`
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "base": "MYR",
-    "rates": {
-      "USD": {
-        "code": "USD",
-        "name": "US Dollar",
-        "rate": "4.7500",
-        "buy_rate": "4.7400",
-        "sell_rate": "4.7600",
-        "updated_at": "2026-04-04T10:00:00Z"
-      },
-      "EUR": {
-        "code": "EUR",
-        "name": "Euro",
-        "rate": "5.1200",
-        "buy_rate": "5.1100",
-        "sell_rate": "5.1300",
-        "updated_at": "2026-04-04T10:00:00Z"
-      }
-    }
-  }
-}
-```
-
-### Get Currency Positions
-
-Get current currency inventory positions.
-
-**Endpoint**: `GET /currencies/positions`
-
-**Authorization**: Manager, Admin
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "positions": [
-      {
-        "currency_code": "USD",
-        "till_id": "TILL-001",
-        "balance": "15250.00",
-        "avg_cost_rate": "4.6500",
-        "last_valuation_rate": "4.7500",
-        "unrealized_pnl": "1525.00",
-        "last_valuation_at": "2026-04-04T00:00:00Z"
-      }
-    ]
-  }
-}
-```
-
-### Calculate Transaction
-
-Calculate transaction amounts without creating.
-
-**Endpoint**: `POST /currencies/calculate`
-
-**Request:**
-```json
-{
-  "type": "Buy",
-  "currency_code": "USD",
-  "amount_foreign": "1000.00"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "type": "Buy",
-    "currency_code": "USD",
-    "amount_foreign": "1000.00",
-    "amount_local": "4740.00",
-    "rate": "4.7400",
-    "commission": "0.00",
-    "total": "4740.00"
-  }
-}
-```
+Export transaction history (CSV).
 
 ---
 
-## 7. Reports API
+## 4. Counters (Tills)
 
-### Generate Transaction Report
+### Counter List
 
-**Endpoint**: `POST /reports/transactions`
+**Route**: `GET /counters`
 
-**Authorization**: Manager, Admin, Compliance Officer
+Display all counters with current status.
 
-**Request:**
-```json
-{
-  "date_from": "2026-04-01",
-  "date_to": "2026-04-04",
-  "currency_code": "USD",
-  "format": "pdf"
-}
-```
+---
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "report_id": "REP-20260404-001",
-    "download_url": "https://api.your-domain.com/reports/download/REP-20260404-001",
-    "expires_at": "2026-04-04T12:00:00Z"
-  }
-}
-```
+### Open Counter
 
-### Get Compliance Summary
+**Route**: `GET /counters/{counter}/open`
 
-**Endpoint**: `GET /reports/compliance-summary`
+Display counter opening form with currency selection.
 
-**Authorization**: Compliance Officer, Admin
+**Route**: `POST /counters/{counter}/open`
 
-**Query Parameters:**
-- `date_from` (date, required)
-- `date_to` (date, required)
+Open counter with initial float amounts.
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "period": {
-      "from": "2026-04-01",
-      "to": "2026-04-04"
-    },
-    "summary": {
-      "total_transactions": 195,
-      "total_amount": "2500000.00",
-      "flagged_transactions": 3,
-      "large_transactions": 12,
-      "suspicious_activities": 1,
-      "sanctions_hits": 0
-    },
-    "by_currency": {
-      "USD": { "count": 120, "amount": "1500000.00" },
-      "EUR": { "count": 45, "amount": "600000.00" },
-      "GBP": { "count": 30, "amount": "400000.00" }
-    }
-  }
-}
-```
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| currencies | array | Yes | Array of currency floats: `[{"currency": "USD", "amount": "1000.00"}, ...]` |
+| notes | string | No | Opening notes |
+
+---
+
+### Close Counter
+
+**Route**: `GET /counters/{counter}/close`
+
+Display counter closing form.
+
+**Route**: `POST /counters/{counter}/close`
+
+Close counter with final counts and closing float.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| currencies | array | Yes | Array of currency counts |
+| notes | string | No | Closing notes |
+
+---
+
+### Counter Handover
+
+**Route**: `GET /counters/{counter}/handover`
+
+Display handover confirmation form.
+
+**Route**: `POST /counters/{counter}/handover`
+
+Transfer counter custody to another user.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| target_user_id | integer | Yes | User ID of receiving teller |
+| notes | string | No | Handover notes |
+
+---
+
+### Counter Status
+
+**Route**: `GET /counters/{counter}/status`
+
+Display real-time counter status including current holdings and today's transactions.
+
+---
+
+### Counter History
+
+**Route**: `GET /counters/{counter}/history`
+
+Display counter transaction history.
+
+---
+
+## 5. Accounting
+
+### Journal Entries
+
+**Route**: `GET /accounting/journal`
+
+Display journal entries list.
+
+**Route**: `GET /accounting/journal/create`
+
+Display journal entry creation form.
+
+**Route**: `POST /accounting/journal`
+
+Create a manual journal entry.
+
+**Route**: `GET /accounting/journal/{entry}`
+
+Display journal entry details.
+
+**Route**: `POST /accounting/journal/{entry}/reverse`
+
+Reverse a journal entry.
+
+---
+
+### Ledger
+
+**Route**: `GET /accounting/ledger`
+
+Display chart of accounts / account list.
+
+**Route**: `GET /accounting/ledger/{accountCode}`
+
+Display account ledger detail for specific account code.
+
+---
+
+### Trial Balance
+
+**Route**: `GET /accounting/trial-balance`
+
+Display trial balance report.
+
+---
+
+### Profit & Loss Statement
+
+**Route**: `GET /accounting/profit-loss`
+
+Display P&L statement.
+
+---
+
+### Balance Sheet
+
+**Route**: `GET /accounting/balance-sheet`
+
+Display balance sheet.
+
+---
+
+### Currency Revaluation
+
+**Route**: `GET /accounting/revaluation`
+
+Display revaluation form.
+
+**Route**: `POST /accounting/revaluation/run`
+
+Run currency revaluation for current period.
+
+**Route**: `GET /accounting/revaluation/history`
+
+Display revaluation history.
+
+---
+
+### Accounting Periods
+
+**Route**: `GET /accounting/periods`
+
+Display accounting periods list.
+
+**Route**: `POST /accounting/periods/{period}/close`
+
+Close an accounting period.
+
+**Note**: Periods must be closed in sequence. Closing a period prevents further journal entries from being posted to that period.
+
+---
+
+### Budget
+
+**Route**: `GET /accounting/budget`
+
+Display budget vs actual report.
+
+**Route**: `POST /accounting/budget`
+
+Create budget entry.
+
+**Route**: `PUT /accounting/budget/{budget}`
+
+Update budget entry.
+
+**Route**: `PATCH /accounting/budget/{budget}`
+
+Patch budget entry.
+
+---
+
+### Bank Reconciliation
+
+**Route**: `GET /accounting/reconciliation`
+
+Display bank reconciliation page.
+
+**Route**: `POST /accounting/reconciliation/import`
+
+Import bank statement file (CSV/Excel).
+
+**Route**: `GET /accounting/reconciliation/report`
+
+Display reconciliation report.
+
+**Route**: `POST /accounting/reconciliation/{reconciliation}/exception`
+
+Mark item as exception.
+
+**Route**: `GET /accounting/reconciliation/export`
+
+Export reconciliation data.
+
+---
+
+## 6. Compliance & AML
+
+### Compliance Dashboard
+
+**Route**: `GET /compliance`
+
+Display compliance overview with flags, alerts, and risk metrics.
+
+---
+
+### Flagged Transactions
+
+**Route**: `GET /compliance/flagged`
+
+Display list of flagged transactions requiring review.
+
+**Route**: `PATCH /compliance/flags/{flaggedTransaction}/assign`
+
+Assign flagged transaction to a reviewer.
+
+**Route**: `PATCH /compliance/flags/{flaggedTransaction}/resolve`
+
+Resolve a flagged transaction.
+
+**Route**: `POST /compliance/flags/{flaggedTransaction}/generate-str`
+
+Generate STR (Suspicious Transaction Report) from flagged transaction.
+
+---
+
+### AML Rules
+
+**Route**: `GET /compliance/rules`
+
+Display AML rule configuration.
+
+**Route**: `POST /compliance/rules`
+
+Create new AML rule.
+
+**Route**: `GET /compliance/rules/create`
+
+Display AML rule creation form.
+
+**Route**: `GET /compliance/rules/{rule}`
+
+Display AML rule details.
+
+**Route**: `PUT /compliance/rules/{rule}`
+
+Update AML rule.
+
+**Route**: `DELETE /compliance/rules/{rule}`
+
+Delete AML rule.
+
+**Route**: `PATCH /compliance/rules/{rule}/toggle`
+
+Enable/disable AML rule.
+
+---
+
+### STR (Suspicious Transaction Reports)
+
+**Route**: `GET /str`
+
+Display STR list.
+
+**Route**: `GET /str/create`
+
+Display STR creation form.
+
+**Route**: `POST /str`
+
+Create new STR.
+
+**Route**: `GET /str/{str}`
+
+Display STR details.
+
+**Route**: `PUT /str/{str}`
+
+Update STR.
+
+**Route**: `POST /str/{str}/submit`
+
+Submit STR for internal review.
+
+**Route**: `POST /str/{str}/submit-review`
+
+Submit STR for compliance officer review.
+
+**Route**: `POST /str/{str}/submit-approval`
+
+Submit STR for approval.
+
+**Route**: `POST /str/{str}/approve`
+
+Approve STR.
+
+**Route**: `POST /str/{str}/track-acknowledgment`
+
+Track STR acknowledgment from BNM.
+
+---
+
+## 7. Reports
+
+### Reports Dashboard
+
+**Route**: `GET /reports`
+
+Display reports menu with available report types.
+
+---
+
+### LCTR (Large Cash Transaction Report)
+
+**Route**: `GET /reports/lctr`
+
+Display LCTR report form.
+
+**Route**: `GET /reports/lctr/generate`
+
+Generate LCTR report for >= RM 50,000 transactions.
+
+**BNM Requirement**: Daily report for cash transactions >= RM 50,000
+
+---
+
+### MSB2 Report
+
+**Route**: `GET /reports/msb2`
+
+Display MSB2 report form.
+
+**Route**: `GET /reports/msb2/generate`
+
+Generate MSB2 daily transaction summary.
+
+**BNM Requirement**: Daily transaction summary report
+
+---
+
+### LMCA (Large Cash Account) Report
+
+**Route**: `GET /reports/lmca`
+
+Display LMCA report form.
+
+**Route**: `GET /reports/lmca/generate`
+
+Generate LMCA monthly report.
+
+**BNM Requirement**: Monthly report for large cash accounts
+
+---
+
+### Quarterly LVR (Large Value Report)
+
+**Route**: `GET /reports/quarterly-lvr`
+
+Display quarterly LVR report form.
+
+**Route**: `GET /reports/quarterly-lvr/generate`
+
+Generate quarterly large value transactions report.
+
+**BNM Requirement**: Quarterly large value transactions report
+
+---
+
+### Position Limit Report
+
+**Route**: `GET /reports/position-limit`
+
+Display position limit report form.
+
+**Route**: `GET /reports/position-limit/generate`
+
+Generate currency position limit report.
+
+---
+
+### Compliance Summary
+
+**Route**: `GET /reports/compliance-summary`
+
+Display compliance summary for date range.
+
+---
 
 ### Export Data
 
-**Endpoint**: `POST /reports/export`
+**Route**: `GET /reports/export`
 
-**Request:**
-```json
-{
-  "type": "transactions",
-  "date_from": "2026-04-01",
-  "date_to": "2026-04-04",
-  "format": "csv"
-}
-```
-
-**Supported Formats:**
-- `csv` - CSV file
-- `xlsx` - Excel file
-- `pdf` - PDF report
-- `json` - JSON data
+Export data in various formats.
 
 ---
 
-## 8. Webhooks
+### Report History
 
-### Event Types
+**Route**: `GET /reports/history`
 
-| Event | Description |
-|-------|-------------|
-| `transaction.created` | New transaction created |
-| `transaction.approved` | Transaction approved |
-| `transaction.rejected` | Transaction rejected |
-| `transaction.cancelled` | Transaction cancelled |
-| `transaction.flagged` | Transaction flagged for review |
-| `customer.created` | New customer registered |
-| `customer.risk_updated` | Customer risk rating changed |
-| `rate.updated` | Exchange rate updated |
-
-### Webhook Payload
-
-```json
-{
-  "event": "transaction.created",
-  "timestamp": "2026-04-04T10:30:00Z",
-  "data": {
-    "id": 456,
-    "type": "Buy",
-    "currency_code": "USD",
-    "amount_foreign": "1000.00",
-    "amount_local": "4750.00",
-    "status": "Pending"
-  }
-}
-```
-
-### Webhook Security
-
-Webhooks are signed with HMAC-SHA256:
-
-```http
-X-Webhook-Signature: sha256=abc123...
-```
-
-Verify signature:
-
-```php
-$signature = hash_hmac('sha256', $payload, $webhook_secret);
-```
-
-### Retries
-
-- Failed webhooks are retried up to 3 times
-- Exponential backoff: 1s, 5s, 25s
-- After 3 failures, webhook is disabled
+Display previously generated reports.
 
 ---
 
-## Appendix
+### Compare Reports
 
-### Testing
+**Route**: `GET /reports/compare`
 
-**API Testing with cURL:**
-
-```bash
-# Login
-curl -X POST https://api.your-domain.com/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","password":"your-password"}'
-
-# Create transaction
-curl -X POST https://api.your-domain.com/api/v1/transactions \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_id": 123,
-    "till_id": "TILL-001",
-    "type": "Buy",
-    "currency_code": "USD",
-    "amount_foreign": "1000.00"
-  }'
-```
-
-### SDKs and Libraries
-
-- **PHP**: `composer require cems-my/sdk`
-- **JavaScript**: `npm install cems-my-sdk`
-- **Python**: `pip install cems-my`
+Compare two report periods.
 
 ---
 
-**END OF API DOCUMENTATION**
+### Customer Analysis
+
+**Route**: `GET /reports/customer-analysis`
+
+Display customer analysis report.
+
+---
+
+### Profitability Report
+
+**Route**: `GET /reports/profitability`
+
+Display profitability analysis report.
+
+---
+
+### Monthly Trends
+
+**Route**: `GET /reports/monthly-trends`
+
+Display monthly trend analysis.
+
+---
+
+## 8. User Management
+
+### User List
+
+**Route**: `GET /users`
+
+Display user list.
+
+**Route**: `POST /users`
+
+Create new user.
+
+---
+
+### View User
+
+**Route**: `GET /users/{user}`
+
+Display user details.
+
+---
+
+### Edit User
+
+**Route**: `PUT /users/{user}`
+
+Update user.
+
+**Route**: `GET /users/{user}/edit`
+
+Display user edit form.
+
+---
+
+### Toggle User Status
+
+**Route**: `POST /users/{user}/toggle`
+
+Activate/deactivate user.
+
+---
+
+### Audit Log
+
+**Route**: `GET /audit`
+
+Display system audit log.
+
+**Route**: `GET /audit/dashboard`
+
+Display audit dashboard.
+
+**Route**: `GET /audit/{log}`
+
+Display audit log entry details.
+
+**Route**: `POST /audit/export`
+
+Export audit log entries.
+
+**Route**: `GET /audit/rotate`
+
+Display audit log rotation controls.
+
+---
+
+## Appendix: Middleware Stack
+
+All routes are protected by authentication middleware. Additional middleware applied based on route:
+
+| Middleware | Purpose |
+|-----------|---------|
+| auth | All authenticated users |
+| role:manager | Manager or Admin role required |
+| role:compliance | Compliance Officer or Admin required |
+| mfa.verified | MFA verification required |
+| session.timeout | Idle session timeout (configurable, default 15 min) |
+| throttle | Rate limiting (varies by endpoint) |
+
+---
+
+## Appendix: Session-Based Authentication Notes
+
+CEMS-MY uses Laravel's session-based authentication:
+
+1. **Login**: User submits credentials to `POST /login`, Laravel establishes session
+2. **Session Cookie**: Browser receives session cookie (not Authorization header)
+3. **MFA**: After password auth, MFA code required for first-time or每次 login
+4. **Session Timeout**: Sessions expire after configurable idle period (default 15 minutes)
+5. **CSRF Protection**: All non-GET form submissions require valid CSRF token
+
+This is fundamentally different from REST API token-based auth:
+
+- No `Authorization: Bearer <token>` header needed
+- No `X-RateLimit-*` response headers
+- Session cookie automatically included with each request
+- Logout invalidates session server-side
+
+---
+
+**END OF DOCUMENTATION**

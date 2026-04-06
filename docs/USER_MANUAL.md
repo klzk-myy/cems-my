@@ -2,8 +2,8 @@
 
 **Currency Exchange Management System - Malaysia**
 
-**Version**: 1.0  
-**Last Updated**: April 2026  
+**Version**: 2.0
+**Last Updated**: April 2026
 **Document Type**: User Guide
 
 ---
@@ -13,12 +13,12 @@
 1. [Introduction](#1-introduction)
 2. [Getting Started](#2-getting-started)
 3. [User Roles & Permissions](#3-user-roles--permissions)
-4. [Daily Operations](#4-daily-operations)
+4. [Counter/Till Management](#4-countertill-management)
 5. [Transaction Management](#5-transaction-management)
 6. [Customer Management](#6-customer-management)
-7. [Stock & Cash Management](#7-stock--cash-management)
-8. [Compliance & Reporting](#8-compliance--reporting)
-9. [Accounting Operations](#9-accounting-operations)
+7. [Compliance & AML](#7-compliance--aml)
+8. [Accounting Operations](#8-accounting-operations)
+9. [Reports & Regulatory Filing](#9-reports--regulatory-filing)
 10. [Troubleshooting](#10-troubleshooting)
 11. [Appendix](#11-appendix)
 
@@ -28,17 +28,24 @@
 
 ### 1.1 About CEMS-MY
 
-CEMS-MY is a comprehensive Currency Exchange Management System designed for Malaysian Money Services Businesses (MSB). It provides:
+CEMS-MY is a Laravel-based Currency Exchange Management System designed for Malaysian Money Services Businesses (MSB). It provides:
 
-- **Real-time trading** of foreign currencies
-- **Compliance management** for BNM AML/CFT regulations
-- **Complete audit trail** of all operations
-- **Automated accounting** following MIA standards
-- **Multi-role access** for secure operations
+- **Foreign currency trading** (buy/sell transactions)
+- **Counter/till management** with opening, closing, and handover workflows
+- **BNM AML/CFT compliance** including CDD, STR reporting, and sanctions screening
+- **Double-entry accounting** with journal entries, ledger, and financial statements
+- **Budget vs actual tracking** and bank reconciliation
+- **Multi-role access control** with MFA enforcement
 
 ### 1.2 System Access
 
-**Login URL**: `https://your-domain.com/login`
+**Authentication**: Session-based (not token-based)
+
+**MFA Requirement**: ALL users must set up MFA before using the system. There is no option to disable MFA.
+
+**Login URL**: `/login`
+
+**Session Timeout**: Configurable (default 15 minutes idle)
 
 **Supported Browsers**:
 - Chrome 90+
@@ -46,7 +53,19 @@ CEMS-MY is a comprehensive Currency Exchange Management System designed for Mala
 - Safari 14+
 - Edge 90+
 
-**Session Timeout**: 8 hours (480 minutes)
+### 1.3 Navigation Structure
+
+```
+Top Navigation Bar
+├── Dashboard
+├── Transactions
+├── Customers
+├── Counters (Stock & Cash)
+├── Compliance
+├── Accounting
+├── Reports
+└── User Menu (Profile, Settings, Logout)
+```
 
 ---
 
@@ -54,42 +73,21 @@ CEMS-MY is a comprehensive Currency Exchange Management System designed for Mala
 
 ### 2.1 First Login
 
-1. Navigate to the login page
+1. Navigate to `/login`
 2. Enter your **email** and **password**
-3. Click "Login"
-4. If MFA is enabled, enter the 6-digit code from your authenticator app
+3. If MFA is not yet set up, you will be redirected to MFA setup
+4. Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)
+5. Enter the 6-digit code to verify
+6. Upon successful verification, you are logged in
 
 ### 2.2 Dashboard Overview
 
-After login, you'll see the main dashboard:
+After login, the dashboard displays:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  CEMS-MY Dashboard                                          │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
-│  │ Today's  │ │ Active   │ │ Pending  │ │ Flagged  │      │
-│  │ Revenue  │ │ Tills    │ │ Approval │ │ Trans.   │      │
-│  │ RM 5,250 │ │    3     │ │    2     │ │    1     │      │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
-│                                                             │
-│  [Navigation Menu]                                          │
-│  ├── Dashboard                                              │
-│  ├── Transactions                                           │
-│  ├── Customers                                              │
-│  ├── Stock & Cash                                           │
-│  ├── Reports                                                │
-│  ├── Accounting                                             │
-│  ├── Compliance                                             │
-│  └── Settings                                               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 2.3 Navigation
-
-- **Top Navigation**: Quick access to common functions
-- **Sidebar Menu**: Full navigation by module
-- **User Menu**: Profile, settings, and logout
+- **Today's Revenue**: Sum of completed transactions
+- **Active Counters**: Number of currently open counters
+- **Pending Approvals**: Transactions awaiting manager approval
+- **Flagged Transactions**: Compliance flags requiring review
 
 ---
 
@@ -99,421 +97,638 @@ After login, you'll see the main dashboard:
 
 | Role | Description | Key Permissions |
 |------|-------------|-----------------|
-| **Teller** | Front-line staff | Create transactions, view customers, manage their own till |
-| **Manager** | Operations supervisor | Approve large transactions, manage all tills, view reports |
-| **Compliance Officer** | Compliance specialist | Review flagged transactions, access audit logs, generate compliance reports |
+| **Teller** | Front-line staff conducting transactions | Create transactions, view own transactions, manage own counter session |
+| **Manager** | Operations supervisor | Approve large transactions (>=RM 50k), open/close any counter, view reports, manage users |
+| **Compliance Officer** | Compliance specialist | Review flagged transactions, manage STR reports, view audit logs, access compliance reports |
 | **Admin** | System administrator | Full system access, user management, system configuration |
 
 ### 3.2 Role Matrix
 
 | Action | Teller | Manager | Compliance Officer | Admin |
 |--------|--------|---------|-------------------|-------|
-| Create Transaction | ✅ | ✅ | ❌ | ✅ |
-| Approve >RM 50k | ❌ | ✅ | ❌ | ✅ |
-| View All Transactions | Own only | ✅ | ✅ | ✅ |
-| Open/Close Till | Own only | All | ❌ | ✅ |
-| View Compliance Reports | ❌ | ❌ | ✅ | ✅ |
-| Manage Users | ❌ | ❌ | ❌ | ✅ |
-| System Configuration | ❌ | ❌ | ❌ | ✅ |
+| Create Transaction | Yes | Yes | No | Yes |
+| Approve >=RM 50k | No | Yes | No | Yes |
+| View All Transactions | No | Yes | Yes | Yes |
+| Open/Close Own Counter | Yes | Yes | No | Yes |
+| Open/Close Any Counter | No | Yes | No | Yes |
+| Counter Handover | Yes (initiate) | Yes (approve) | No | Yes |
+| View Compliance Reports | No | No | Yes | Yes |
+| Review Flagged Transactions | No | No | Yes | Yes |
+| Manage STR Reports | No | No | Yes | Yes |
+| Manage Users | No | No | No | Yes |
+| System Configuration | No | No | No | Yes |
+| View Audit Logs | No | No | Yes | Yes |
+
+### 3.3 Rate Override Limits
+
+Users can apply rate overrides within their role limits:
+
+| Role | Rate Override Limit |
+|------|---------------------|
+| Teller | +/- 0.5% from base rate |
+| Manager | +/- 2.0% from base rate |
+| Compliance Officer | View only (no overrides) |
+| Admin (Principal Officer) | Unlimited |
+
+Overrides beyond these limits require approval from a higher role.
 
 ---
 
-## 4. Daily Operations
+## 4. Counter/Till Management
 
-### 4.1 Starting Your Day
+### 4.1 Counter Concepts
 
-**For Tellers:**
+A **Counter** (also called till) is a dedicated cash drawer for conducting currency exchange transactions. Each counter:
 
-1. **Login** to the system
-2. **Open Your Till** (Stock & Cash → Open Till)
-3. **Enter Opening Balance** (count physical cash)
-4. **Verify** the amount matches previous closing
+- Has a unique code (e.g., TILL-001)
+- Can have multiple currency sessions per day
+- Tracks opening and closing balances
+- Supports handover between users
 
-**Step-by-Step: Opening a Till**
+### 4.2 Opening a Counter
 
-1. Navigate to **Stock & Cash**
-2. Click **"Open Till"**
-3. Select your **Till ID** (e.g., TILL-001)
-4. Select **Currency** (e.g., USD)
-5. Enter **Opening Balance** (physical count)
+**Who can open**: Any user assigned to the counter (Teller, Manager, Admin)
+
+**Steps**:
+
+1. Navigate to **Counters** or **Stock & Cash**
+2. Click **"Open Counter"**
+3. Select your **Counter ID**
+4. Select the **Currency** for this session
+5. Enter the **Opening Balance** (count physical cash first)
 6. Add any **Notes** if needed
-7. Click **"Open Till"**
+7. Click **"Open"**
 
-### 4.2 Ending Your Day
+The system records the opening balance and the counter session begins.
 
-**For Tellers:**
+### 4.3 Closing a Counter
 
-1. **Complete all pending transactions**
-2. **Close Your Till** (Stock & Cash → Close Till)
-3. **Enter Closing Balance** (count physical cash)
-4. **Review Variance** report
-5. **Sign off** if variance is acceptable
+**Who can close**: The user who opened, or any Manager/Admin
 
-**Step-by-Step: Closing a Till**
+**Steps**:
 
-1. Navigate to **Stock & Cash**
-2. Click **"Close Till"**
-3. Select your **Till ID**
-4. Select **Currency**
-5. Enter **Closing Balance** (physical count)
-6. Review **Expected vs Actual**
-7. System calculates **Variance**
-8. If variance ≠ 0, add **Variance Reason**
-9. Click **"Close Till"**
+1. Navigate to **Counters**
+2. Click **"Close Counter"**
+3. Select your **Counter ID**
+4. The system shows expected balance based on transactions
+5. Enter the **Closing Balance** (count physical cash)
+6. System calculates **Variance** (expected vs actual)
+7. If variance exists, enter a **Variance Reason**
+8. Click **"Close"**
 
-**Variance Explanation:**
-- **Positive Variance**: More cash than expected (more sales than recorded)
-- **Negative Variance**: Less cash than expected (more purchases than recorded)
-- **Acceptable Variance**: Within RM 5 (investigate if larger)
+**Variance Types**:
+- **Positive**: More cash than expected (rare, investigate immediately)
+- **Negative**: Less cash than expected (common causes: counting errors, unrecorded transactions)
+- Acceptable variance threshold is configurable (default RM 5)
+
+### 4.4 Counter Handover
+
+When transferring custody between users (e.g., shift change):
+
+**Initiating Handover (Outgoing User)**:
+
+1. Navigate to **Counters**
+2. Click **"Handover"**
+3. Select your **Counter ID**
+4. Confirm current balance
+5. Click **"Initiate Handover"**
+
+**Completing Handover (Incoming User)**:
+
+1. Navigate to **Counters**
+2. Click **"Handover"**
+3. Select the **Counter ID** being handed over
+4. Verify physical cash matches reported balance
+5. Click **"Accept Handover"**
+
+**Approval**: Handovers require Manager approval to complete.
+
+### 4.5 Counter Status
+
+Navigate to **Counters > Status** to view:
+
+- Currently open counters
+- Current session holders
+- Currency and balance information
+- Session start time
 
 ---
 
 ## 5. Transaction Management
 
-### 5.1 Creating a Transaction
+### 5.1 Transaction Types
 
-**Step-by-Step: New Transaction**
+| Type | Description | Journal Effect |
+|------|-------------|----------------|
+| **Buy** | Purchase foreign currency from customer (you give MYR, receive foreign currency) | Dr Foreign Currency Inventory, Cr Cash MYR |
+| **Sell** | Sell foreign currency to customer (you give foreign currency, receive MYR) | Dr Cash MYR, Cr Foreign Currency Inventory |
 
-1. Navigate to **Transactions → New Transaction**
-2. **Select Transaction Type**:
-   - **Buy**: Purchase foreign currency from customer (you give MYR, receive foreign currency)
-   - **Sell**: Sell foreign currency to customer (you give foreign currency, receive MYR)
+### 5.2 Creating a Transaction
 
-3. **Select Customer**:
-   - Search existing customer by name/IC/passport
-   - Or click **"+ New Customer"** to create
+**Who can create**: Teller, Manager, Admin
 
-4. **Select Currency** (e.g., USD, EUR, GBP)
+**Steps**:
 
+1. Navigate to **Transactions > New Transaction**
+2. Select **Transaction Type** (Buy or Sell)
+3. **Select or Create Customer**:
+   - Search existing customer by name, ID, or phone
+   - Click "+ New Customer" to create a new customer record
+4. **Select Currency** (e.g., USD, EUR, GBP, SGD)
 5. **Enter Amount**:
-   - Option A: Enter foreign amount → System calculates MYR
-   - Option B: Enter MYR amount → System calculates foreign
-
+   - Option A: Enter foreign amount -> System calculates MYR
+   - Option B: Enter MYR amount -> System calculates foreign
 6. **Review Exchange Rate** (auto-populated from current rates)
-
-7. **Select Purpose** (e.g., Travel, Business, Remittance)
-
-8. **Enter Source of Funds** (e.g., Salary, Savings, Business Income)
-
-9. **Check Compliance Indicators**:
-   - 🟢 Green: Standard processing
-   - 🟡 Yellow: Enhanced Due Diligence required
-   - 🔴 Red: Sanctions hit detected
-
+7. **Select Purpose** (e.g., Travel, Business, Remittance, Investment)
+8. **Enter Source of Funds** (e.g., Salary, Savings, Business Income, Inheritance)
+9. **Add Notes** (optional)
 10. Click **"Create Transaction"**
 
-### 5.2 Transaction Status
+The system automatically:
+- Calculates CDD level based on amount and customer risk
+- Applies compliance flags if triggered
+- Creates journal entries for double-entry accounting
 
-| Status | Description | Action Required |
-|--------|-------------|-----------------|
-| **Completed** | Transaction finished | None |
-| **Pending** | Awaiting manager approval | Manager to approve |
-| **OnHold** | Compliance hold | Compliance review |
-| **Cancelled** | Transaction cancelled | None |
+### 5.3 Transaction Workflow
 
-### 5.3 Large Transaction Approval (≥RM 50,000)
+```
+[Create] --> [Pending] --> [Completed]
+              |              |
+              v              v
+           [OnHold]    [Cancelled]
+              |
+              v
+        [Under Review] --> [Resolved]
+```
 
-**For Transactions ≥RM 50,000:**
+**Status Definitions**:
+
+| Status | Description | Next Actions |
+|--------|-------------|--------------|
+| **Pending** | Awaiting manager approval (>=RM 50k or Enhanced CDD) | Manager approves or rejects |
+| **OnHold** | Compliance flag applied, transaction blocked | Compliance review required |
+| **Completed** | Transaction finalized, funds exchanged | Can be refunded within 24h |
+| **Cancelled** | Transaction cancelled | No further action |
+
+### 5.4 Large Transaction Approval (>=RM 50,000)
+
+Transactions >= RM 50,000 require Manager approval:
 
 1. Teller creates transaction
 2. System sets status to **"Pending"**
-3. Manager receives notification
-4. Manager reviews:
-   - Customer information
-   - Transaction purpose
-   - Source of funds
-   - CDD/EDD level
-5. Manager clicks **"Approve"** or **"Reject"**
-6. If approved, transaction completes
-7. If rejected, status remains "Pending" or changes to "OnHold"
+3. Manager reviews:
+   - Customer information and risk rating
+   - Transaction purpose and source of funds
+   - CDD/EDD documentation
+4. Manager clicks **"Approve"** or **"Reject"**
+5. If approved, transaction proceeds to completion
+6. If rejected, transaction remains Pending with rejection reason
 
-### 5.4 Refunding a Transaction
+### 5.5 Compliance Flags and Holds
 
-**Requirements:**
-- Transaction must be **Completed**
-- Within **24 hours** of original transaction
-- Cannot refund a refund
+Transactions are automatically placed **OnHold** when:
 
-**Steps:**
+- Amount >= RM 50,000
+- Customer is PEP (Politically Exposed Person)
+- Customer is high risk
+- Customer matches sanctions list
+- Enhanced Due Diligence required
 
-1. Navigate to **Transactions**
-2. Find the transaction to refund
-3. Click **"Refund"** button (only appears if refundable)
-4. Confirm refund reason
-5. System creates reverse transaction
-6. Original transaction marked as refunded
+The transaction remains on hold until a Compliance Officer reviews and resolves the flag.
 
-### 5.5 Cancelling a Transaction
+### 5.6 Refunding a Transaction
 
-**Requirements:**
+**Requirements**:
+- Original transaction must be **Completed**
+- Within 24 hours of original transaction
+- Not already refunded
+- Not itself a refund
+
+**Steps**:
+
+1. Navigate to the original **Completed** transaction
+2. Click **"Refund"** button (appears if refundable)
+3. Enter **Refund Reason**
+4. Confirm refund
+
+The system:
+- Creates a reverse transaction (opposite type)
+- Marks original transaction as refunded
+- Creates reversing journal entries
+- Processes through compliance pipeline
+
+### 5.7 Cancelling a Transaction
+
+**Requirements**:
 - Transaction must be **Pending** or **OnHold**
 - Cannot cancel Completed transactions (use Refund instead)
 
-**Steps:**
+**Steps**:
 
-1. Navigate to **Transactions**
-2. Find the transaction
-3. Click **"Cancel"**
-4. Enter cancellation reason
-5. Confirm cancellation
+1. Navigate to the transaction
+2. Click **"Cancel"**
+3. Enter **Cancellation Reason**
+4. Confirm cancellation
+
+Manager approval is required for cancellations (segregation of duties).
+
+### 5.8 Rate Overrides
+
+If the displayed rate needs adjustment:
+
+1. Enter the **Override Rate**
+2. System shows deviation percentage
+3. If deviation exceeds role limit, approval is requested
+4. Manager/Admin approves override if needed
+5. Transaction proceeds with overridden rate
 
 ---
 
 ## 6. Customer Management
 
-### 6.1 Creating a New Customer
+### 6.1 Customer Data
 
-**Required Information:**
+**Required Information**:
 
-1. **Full Name** (as per ID)
-2. **Identification Type**:
-   - MyKad (Malaysian citizens)
-   - Passport (Foreigners)
-   - Other ( specify)
-3. **ID Number**
-4. **Nationality**
-5. **Date of Birth**
-6. **Contact Information**:
-   - Phone number
-   - Email (optional)
-   - Address
+| Field | Description |
+|-------|-------------|
+| Full Name | As per ID document |
+| ID Type | MyKad (Malaysian), Passport (Foreign), Others |
+| ID Number | Encrypted at rest |
+| Nationality | Country of citizenship |
+| Date of Birth | For age verification |
+| Phone | Contact number |
+| Address | Full address |
 
-**Optional Information:**
+**Optional Information**:
+- Email
 - Occupation
-- Employer
-- Estimated monthly volume
-- Purpose of transactions
+- Employer Name and Address
+- Estimated Annual Volume
 
 ### 6.2 Customer Risk Rating
 
 System automatically assigns risk levels:
 
-| Risk Level | Criteria | CDD Level |
-|------------|----------|-----------|
+| Risk Rating | Criteria | CDD Level Applied |
+|-------------|----------|-------------------|
 | **Low** | Regular customer, small transactions | Simplified |
 | **Medium** | Moderate volume, occasional large transactions | Standard |
-| **High** | Large volumes, PEP, complex structures | Enhanced |
+| **High** | Large volumes, PEP, sanctioned, or high-risk country | Enhanced |
 
-### 6.3 Customer Search
+### 6.3 CDD Levels (Customer Due Diligence)
 
-**Search Options:**
+| Level | Trigger Condition | Requirements |
+|-------|-------------------|--------------|
+| **Simplified** | Amount < RM 3,000 AND Low risk | Basic verification |
+| **Standard** | Amount RM 3,000 - RM 49,999 AND not PEP/High risk | Full verification, ID document |
+| **Enhanced** | Amount >= RM 50,000 OR PEP OR Sanction match OR High risk | Extended verification, additional docs, senior approval |
+
+### 6.4 PEP Status
+
+Politically Exposed Persons (PEP) are automatically flagged:
+
+- Customer can declare PEP status during onboarding
+- System checks against defined PEP lists
+- All PEP transactions require Enhanced CDD
+- Periodic rescreening occurs
+
+### 6.5 Customer Search
+
+Search customers by:
 - Name (partial match)
 - ID/Passport number
 - Phone number
-- Date range
+- Risk rating
 
-**View Customer Profile:**
+### 6.6 Customer Profile
+
+View customer details including:
 - Personal information
 - Transaction history
-- Risk rating
+- Risk rating and CDD level
 - Compliance flags
-- Notes
+- KYC documents
+- Notes and history
 
 ---
 
-## 7. Stock & Cash Management
+## 7. Compliance & AML
 
-### 7.1 Currency Positions
+### 7.1 Compliance Dashboard
 
-**Viewing Positions:**
+Access: Compliance Officers and Admins
 
-1. Navigate to **Stock & Cash → Positions**
-2. See real-time balances for all currencies:
+Displays:
+- Open compliance flags
+- Pending STR reports
+- Sanctions screening alerts
+- CDD/EDD queue
 
-```
-┌──────────┬──────────┬─────────────┬─────────────┐
-│ Currency │ Balance  │ Avg Cost    │ Unrealized  │
-│          │          │ Rate        │ P&L         │
-├──────────┼──────────┼─────────────┼─────────────┤
-│ USD      │ 15,250.00│ 4.6500      │ +RM 1,525   │
-│ EUR      │ 8,500.00 │ 5.1200      │ -RM 340     │
-│ GBP      │ 3,200.00 │ 6.0200      │ +RM 128     │
-└──────────┴──────────┴─────────────┴─────────────┘
-```
+### 7.2 Compliance Flags
 
-### 7.2 Till Balances
-
-**Till Report:**
+**Flag Lifecycle**:
 
 ```
-┌────────────────────────────────────────────────┐
-│ Till Report - TILL-001                         │
-├────────────────────────────────────────────────┤
-│ Date: 2026-04-04                              │
-│ Currency: USD                                  │
-├────────────────────────────────────────────────┤
-│ Opening Balance:    5,000.00 USD               │
-│ + Purchases (Buy):    +2,500.00 USD             │
-│ - Sales (Sell):       -1,200.00 USD             │
-│ Expected Balance:     6,300.00 USD              │
-│                                                  │
-│ Closing Balance:      6,300.00 USD              │
-│ Variance:              0.00 USD                 │
-│ Status: ✅ Balanced                              │
-└────────────────────────────────────────────────┘
+[Open] --> [Under Review] --> [Resolved]
+    |              |
+    v              v
+[Escalated]   [Escalated]
 ```
 
-### 7.3 Reconciliation
+**Flag Types**:
 
-**Daily Reconciliation:**
+| Flag Type | Description | Severity |
+|-----------|-------------|----------|
+| LargeAmount | Transaction >= RM 50,000 | Medium |
+| SanctionsHit | Potential match with sanctions list | Critical |
+| Velocity | 24-hour transaction count exceeded | Medium |
+| Structuring | Potential splitting of transactions | High |
+| EddRequired | Enhanced Due Diligence needed | Medium |
+| PepStatus | Customer is PEP | Medium |
+| SanctionMatch | Confirmed sanctions match | Critical |
+| HighRiskCustomer | Customer has High risk rating | Medium |
+| UnusualPattern | Transaction deviates from pattern | Low |
+| HighRiskCountry | Customer from high-risk country | Medium |
+| RoundAmount | Round number requiring review | Low |
+| ProfileDeviation | Volume exceeds customer profile | Low |
 
-1. Count physical cash for each currency
-2. Compare with system expected balance
-3. Investigate any variances
-4. Record variance reasons
-5. Sign off on reconciliation
+**Review Process**:
 
-**Common Variance Causes:**
-- Counting errors
-- Unrecorded transactions
-- Rate rounding differences
-- System errors (report immediately)
-
----
-
-## 8. Compliance & Reporting
-
-### 8.1 Compliance Dashboard
-
-**Access:** Compliance Officers & Admins
-
-**Features:**
-- Flagged transactions requiring review
-- Sanctions screening hits
-- Suspicious activity alerts
-- Regulatory report generation
-
-### 8.2 Flagged Transactions
-
-**Review Process:**
-
-1. Navigate to **Compliance → Flagged Transactions**
-2. Review flagged transaction
-3. Check:
-   - Customer profile
+1. Navigate to **Compliance > Flagged Transactions**
+2. Select a flagged transaction
+3. Review:
+   - Customer profile and risk rating
    - Transaction details
-   - Risk indicators
+   - Compliance indicators
    - Sanctions screening results
 4. Take action:
-   - **Clear**: Remove flag, approve transaction
+   - **Clear**: Remove flag, continue transaction
    - **Hold**: Keep on hold for investigation
-   - **Report**: Submit STR (Suspicious Transaction Report)
+   - **Escalate**: Escalate to senior compliance
+   - **Generate STR**: Create Suspicious Transaction Report
 
-### 8.3 Generating Reports
+### 7.3 STR Workflow (Suspicious Transaction Report)
 
-**Available Reports:**
+**STR Status Lifecycle**:
 
-1. **Transaction Report**
-   - Date range
-   - Currency filter
-   - Status filter
-   - Export to CSV/Excel/PDF
+```
+[Draft] --> [Pending Review] --> [Pending Approval] --> [Submitted] --> [Acknowledged]
+```
 
-2. **Compliance Report**
-   - Flagged transactions
-   - Large transactions (≥RM 50k)
-   - Customer risk summary
-   - Sanctions screening log
+**Creating an STR**:
 
-3. **Financial Report**
-   - Revenue summary
-   - Currency position
-   - P&L statement
-   - Cash flow
+1. Navigate to **STR** or from a flagged transaction
+2. Click **"Create STR"**
+3. Select the flagged transaction(s)
+4. Enter:
+   - Summary of suspicion
+   - Supporting evidence
+   - Recommended action
+5. Click **"Save as Draft"**
 
-**Report Generation Steps:**
+**STR Review Process**:
 
-1. Navigate to **Reports**
-2. Select report type
-3. Set date range
-4. Apply filters
-5. Click **"Generate"**
-6. Preview or export
+1. **Draft**: Compliance officer drafts the report
+2. **Pending Review**: Senior compliance reviews
+3. **Pending Approval**: Manager approves
+4. **Submitted**: Sent to regulator (BNM)
+5. **Acknowledged**: Regulator acknowledges receipt
 
-### 8.4 BNM Compliance Reports
+**Submitting for Review**:
 
-**Required Reports:**
-- Daily Transaction Summary
-- Large Cash Transaction Report (>RM 50k)
-- Suspicious Transaction Reports (STR)
-- Monthly Compliance Summary
+1. From Draft, click **"Submit for Review"**
+2. Status changes to **Pending Review**
+3. Reviewer clicks **"Approve"** or **"Request Changes"**
+4. If approved, status becomes **Pending Approval**
+5. Approver submits to regulator
 
-**Export Format:** BNM-specified formats
+### 7.4 Sanctions Screening
+
+- All new customers are screened against sanctions lists
+- Existing customers are rescreened monthly
+- Transactions with sanctions hits are immediately placed OnHold
+- Critical flags require immediate compliance review
+
+### 7.5 AML Rules Engine
+
+Configurable rules trigger flags based on:
+
+- Transaction amount thresholds
+- Velocity limits (transaction count in time window)
+- Structuring detection (multiple transactions near threshold)
+- Customer risk profile
+- Geographic risk factors
 
 ---
 
-## 9. Accounting Operations
+## 8. Accounting Operations
 
-### 9.1 Chart of Accounts
+### 8.1 Chart of Accounts
 
-**Account Structure:**
+**18 Default Accounts**:
+
+| Code | Account Name | Category |
+|------|-------------|----------|
+| 1000 | Cash (MYR) | Asset |
+| 2000 | Foreign Currency Inventory | Asset |
+| 2100 | Accounts Receivable | Asset |
+| 2200 | Other Current Assets | Asset |
+| 3000 | Accounts Payable | Liability |
+| 3100 | Accruals | Liability |
+| 4000 | Capital | Equity |
+| 4100 | Retained Earnings | Equity |
+| 4200 | Current Year Earnings | Equity |
+| 5000 | Forex Trading Revenue | Revenue |
+| 5100 | Revaluation Gains | Revenue |
+| 6000 | Forex Loss | Expense |
+| 6100 | Revaluation Loss | Expense |
+| 6200 | Operating Expenses | Expense |
+
+### 8.2 Double-Entry Accounting
+
+Every transaction creates journal entries:
+
+**Buy USD Example** (Rate: 4.75, Amount: USD 1,000):
 
 ```
-1000 - Cash - MYR
-1100 - Cash - USD
-1200 - Cash - EUR
-...
-2000 - Foreign Currency Inventory
-2100 - Unrealized Forex Gains/Losses
-4000 - Revenue - Forex Trading
-4100 - Revenue - Revaluation Gain
-5000 - Expense - Revaluation Loss
+Dr Foreign Currency Inventory (2000)    RM 4,750.00
+    Cr Cash - MYR (1000)                    RM 4,750.00
 ```
 
-### 9.2 Journal Entries
-
-**Viewing Entries:**
-
-1. Navigate to **Accounting → Journal Entries**
-2. View entries by date range
-3. Filter by account
-4. Export to Excel
-
-**Sample Entry:**
+**Sell USD Example** (Rate: 4.80, Amount: USD 1,000):
 
 ```
-Entry #: JE-2026-04-04-001
-Date: 2026-04-04 10:30:15
-Description: Buy USD 1,000 @ 4.75
-
-Dr Foreign Currency Inventory (1100)    4,750.00
-    Cr Cash - MYR (1000)                        4,750.00
-
-Created by: teller01
+Dr Cash - MYR (1000)                    RM 4,800.00
+    Cr Foreign Currency Inventory (2000)    RM 4,750.00
+    Cr Forex Trading Revenue (5000)            RM 50.00
 ```
 
-### 9.3 Month-End Revaluation
+### 8.3 Journal Entry Management
 
-**Purpose:** Calculate unrealized gains/losses on currency positions
+**Viewing Entries**:
 
-**Steps:**
+1. Navigate to **Accounting > Journal**
+2. Filter by date range and account
+3. View entry details and supporting documents
 
-1. Navigate to **Accounting → Revaluation**
+**Creating Manual Entries**:
+
+1. Navigate to **Accounting > Journal > Create**
+2. Select date and description
+3. Add line items (account, debit, credit)
+4. Click **"Create Entry"**
+
+**Reversing Entries**:
+
+1. Navigate to **Accounting > Journal > [Entry]**
+2. Click **"Reverse"**
+3. Enter reversal reason
+4. System creates reversing entry
+
+### 8.4 Ledger and Account View
+
+**Chart of Accounts**:
+
+1. Navigate to **Accounting > Ledger**
+2. View all accounts with current balances
+
+**Account Ledger Detail**:
+
+1. Navigate to **Accounting > Ledger > [Account Code]**
+2. View all transactions posting to this account
+3. Running balance shown for each entry
+
+### 8.5 Financial Statements
+
+**Trial Balance**:
+
+1. Navigate to **Accounting > Trial Balance**
+2. Select accounting period
+3. View all accounts with debit/credit columns
+
+**Profit & Loss Statement**:
+
+1. Navigate to **Accounting > Profit & Loss**
+2. Select period (month, quarter, year)
+3. View revenue, expenses, and net profit
+
+**Balance Sheet**:
+
+1. Navigate to **Accounting > Balance Sheet**
+2. Select as-of date
+3. View assets, liabilities, and equity
+
+### 8.6 Revaluation
+
+Monthly currency revaluation calculates unrealized gains/losses:
+
+1. Navigate to **Accounting > Revaluation**
 2. Select month to revalue
 3. System fetches current exchange rates
-4. Review calculated gains/losses
+4. Review calculated gains/losses per currency
 5. Click **"Process Revaluation"**
-6. System creates journal entries
+6. System creates journal entries:
+   - Unrealized gains -> Revaluation Gains (5100)
+   - Unrealized losses -> Revaluation Loss (6100)
 
-### 9.4 Financial Statements
+### 8.7 Period Management
 
-**Balance Sheet:**
-- Assets: Cash, Inventory, Receivables
-- Liabilities: Payables, Accruals
-- Equity: Capital, Retained Earnings
+**Accounting Periods** are monthly periods for reporting:
 
-**Income Statement:**
-- Revenue: Trading income
-- Expenses: Operating costs
-- Net Profit/Loss
+1. Navigate to **Accounting > Periods**
+2. View all periods and their status (Open/Closed)
+3. **Closing a Period**:
+   - Validates all entries are posted
+   - Prevents new entries in closed periods
+   - Requires Manager approval
 
-**Steps to Generate:**
+### 8.8 Budget vs Actual
 
-1. Navigate to **Accounting → Financial Statements**
-2. Select statement type
-3. Select period
-4. Click **"Generate"**
-5. Review and export
+**Budget Reports**:
+
+1. Navigate to **Accounting > Budget**
+2. View budget vs actual by account
+3. Variance shown as amount and percentage
+4. Filter by period and account
+
+### 8.9 Bank Reconciliation
+
+**Import Bank Statement**:
+
+1. Navigate to **Accounting > Reconciliation > Import**
+2. Upload bank statement file
+3. System matches transactions to entries
+
+**Reconciliation Process**:
+
+1. View imported transactions vs system entries
+2. Mark matched items
+3. Identify outstanding items (checks, deposits)
+4. Record exceptions
+5. Generate reconciliation report
+
+---
+
+## 9. Reports & Regulatory Filing
+
+### 9.1 Available Reports
+
+| Report | Description | Access |
+|--------|-------------|--------|
+| MSB2 | Daily transaction summary for BNM | Manager, Compliance, Admin |
+| LCTR | Large Cash Transaction Report (>=RM 50k) | Manager, Compliance, Admin |
+| LMCA | Monthly Large Cash Aggregate | Manager, Compliance, Admin |
+| QLVR | Quarterly Large Value Report | Manager, Compliance, Admin |
+| PLR | Position Limit Report | Manager, Compliance, Admin |
+| Compliance Summary | Flagged transactions, STR status | Compliance, Admin |
+| Customer Analysis | Customer transaction patterns | Manager, Compliance, Admin |
+| Profitability | Revenue and cost analysis | Manager, Admin |
+| Position Limit | Currency position vs limits | Manager, Compliance, Admin |
+
+### 9.2 BNM Report Generation
+
+**MSB2 (Daily Summary)**:
+
+1. Navigate to **Reports > MSB2**
+2. Select date
+3. Click **"Generate"**
+4. Preview and export
+
+**LCTR (Large Cash Transaction Report)**:
+
+1. Navigate to **Reports > LCTR**
+2. Select date range
+3. System filters transactions >= RM 50,000
+4. Preview and export
+
+**LMCA (Monthly Large Cash Aggregate)**:
+
+1. Navigate to **Reports > LMCA**
+2. Select month
+3. System aggregates large transactions
+4. Preview and export
+
+**QLVR (Quarterly Large Value)**:
+
+1. Navigate to **Reports > Quarterly LVR**
+2. Select quarter
+3. System generates report
+4. Preview and export
+
+**PLR (Position Limit)**:
+
+1. Navigate to **Reports > Position Limit**
+2. Select date
+3. System calculates currency positions vs limits
+4. Preview and export
+
+### 9.3 Report Export
+
+Reports can be exported in formats:
+- PDF (for filing)
+- Excel (for analysis)
+- CSV (for data processing)
 
 ---
 
@@ -522,49 +737,58 @@ Created by: teller01
 ### 10.1 Common Issues
 
 **Cannot Login**
-- ✓ Check email/password spelling
-- ✓ Verify account is active (contact admin)
-- ✓ Clear browser cache and cookies
-- ✓ Try incognito/private mode
+- Verify email and password spelling
+- Check if account is active (contact admin)
+- Ensure MFA code is correct and not expired
+- Clear browser cache and cookies
+
+**MFA Setup Failed**
+- Ensure authenticator app time is synchronized
+- Try scanning QR code again
+- Use recovery codes if available
+
+**Transaction Stuck on Pending**
+- Check if manager approval is required
+- Contact manager to approve
+- Verify user has approval permission
+
+**Counter Cannot Be Opened**
+- Check if counter is already open (view status)
+- Close existing session first
+- Contact manager if session is orphaned
 
 **Transaction Cannot Be Completed**
-- ✓ Check customer information is complete
-- ✓ Verify exchange rate is current
-- ✓ Ensure sufficient stock (for Sell transactions)
-- ✓ Check if approval is required (≥RM 50k)
+- Verify customer information is complete
+- Check exchange rate is current
+- Ensure sufficient stock (for Sell transactions)
+- Check if approval is required (>=RM 50k)
 
 **Till Won't Close**
-- ✓ Complete all pending transactions
-- ✓ Check for unbalanced variance
-- ✓ Verify closing balance entry
-- ✓ Contact manager if variance is significant
+- Complete all pending transactions
+- Investigate any variance beyond threshold
+- Verify closing balance entry
+- Contact manager for variance approval
 
 **Rate Not Updating**
-- ✓ Check internet connection
-- ✓ Verify API service status
-- ✓ Contact admin to check API configuration
+- Check exchange rate service is running
+- Contact admin to verify API configuration
 
 ### 10.2 Error Messages
 
-| Error | Solution |
-|-------|----------|
-| "Insufficient balance" | Check currency position, ensure sufficient stock |
-| "Transaction already processed" | Refresh page, transaction may have been approved |
-| "Unauthorized" | Contact admin for role upgrade |
-| "Rate expired" | Refresh rates before creating transaction |
-| "Customer not found" | Create new customer or check spelling |
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "Insufficient balance" | Not enough foreign currency | Check currency position, source additional stock |
+| "Transaction already processed" | Duplicate submission | Refresh page, check transaction status |
+| "Unauthorized" | Insufficient permissions | Contact admin for role upgrade |
+| "Rate expired" | Exchange rate too old | Refresh rates before creating transaction |
+| "Customer not found" | Customer doesn't exist | Create new customer or check spelling |
 
 ### 10.3 Getting Help
 
-**Internal Support:**
-- Contact your system administrator
+**Internal Support**:
+- Contact system administrator
 - Check with your manager
 - Review this manual
-
-**Technical Support:**
-- Email: support@cems-my.com
-- Phone: +60-XXX-XXXXXXX (9am-6pm MYT)
-- Ticket System: https://support.cems-my.com
 
 ---
 
@@ -584,45 +808,47 @@ Created by: teller01
 
 | Term | Definition |
 |------|------------|
-| **Buy** | Purchase foreign currency from customer (you give MYR) |
-| **Sell** | Sell foreign currency to customer (you receive MYR) |
-| **CDD** | Customer Due Diligence - verifying customer identity |
-| **EDD** | Enhanced Due Diligence - additional verification for high-risk |
+| **Buy** | Purchase foreign currency from customer (you give MYR, receive foreign) |
+| **Sell** | Sell foreign currency to customer (you give foreign currency, receive MYR) |
+| **CDD** | Customer Due Diligence - verifying customer identity and risk |
+| **EDD** | Enhanced Due Diligence - additional verification for high-risk customers |
 | **KYC** | Know Your Customer - customer identification process |
 | **AML** | Anti-Money Laundering - preventing money laundering |
 | **CFT** | Countering Financing of Terrorism - preventing terrorist financing |
-| **STR** | Suspicious Transaction Report - report to regulator |
+| **STR** | Suspicious Transaction Report - report to BNM |
 | **PEP** | Politically Exposed Person - high-risk customer type |
-| **Till** | Cash drawer/counter for conducting transactions |
-| **Variance** | Difference between expected and actual cash |
+| **Counter/Till** | Cash drawer/counter for conducting transactions |
+| **Variance** | Difference between expected and actual cash balance |
+| **MFAR** | Multi-Factor Authentication - required for all users |
 
-### 11.3 BNM Regulatory Requirements
+### 11.3 BNM Regulatory Thresholds
 
-**Transaction Thresholds:**
-- ≥RM 50,000: Manager approval required
-- ≥RM 100,000: Enhanced Due Diligence
-- Suspicious: Report to Compliance Officer
+| Threshold | Requirement |
+|-----------|-------------|
+| < RM 3,000 | Simplified CDD |
+| RM 3,000 - RM 49,999 | Standard CDD |
+| >= RM 50,000 | Manager approval required |
+| >= RM 50,000 | Large Transaction Report (LCTR) |
+| >= RM 10,000 (cash) | CTOS reporting (Buy and Sell) |
+| All cash transactions | CTOS reporting for >= RM 10,000 |
 
-**Record Keeping:**
-- Transaction records: 7 years
-- Customer records: 7 years from account closure
-- Compliance reports: Permanent
+### 11.4 Record Retention
 
-### 11.4 Contact Information
+| Record Type | Retention Period |
+|-------------|-------------------|
+| Transaction records | 7 years |
+| Customer records | 7 years from account closure |
+| Compliance reports | Permanent |
+| Audit logs | 7 years |
+| Accounting records | 7 years |
 
-**System Administrator:**
-- Name: [Your Admin Name]
-- Email: admin@your-company.com
-- Phone: +60-XXX-XXXXXXX
+### 11.5 Session Timeouts
 
-**Compliance Officer:**
-- Name: [Your Compliance Officer]
-- Email: compliance@your-company.com
-- Phone: +60-XXX-XXXXXXX
-
-**Emergency Support:**
-- Phone: +60-XXX-XXXXXXX (24/7)
-- Email: emergency@cems-my.com
+| Event | Timeout Action |
+|-------|----------------|
+| Idle for 15 minutes (default) | Automatic logout |
+| MFA verification | Required on each login |
+| Rate limit exceeded | Temporary block |
 
 ---
 
@@ -631,6 +857,7 @@ Created by: teller01
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0 | 2026-04-04 | Initial release | CEMS-MY Team |
+| 2.0 | 2026-04-06 | Updated to match actual implementation - session auth, MFA requirement, counter workflow, transaction states, compliance flags, STR workflow, accounting structure, BNM reports | CEMS-MY Team |
 
 ---
 
