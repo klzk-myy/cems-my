@@ -113,7 +113,12 @@ Routes use these middleware:
 | `Customer` | KYC data, risk ratings, CDD levels |
 | `CurrencyPosition` | Stock tracking with weighted avg cost |
 | `JournalEntry` | Double-entry accounting records |
-| `ChartOfAccount` | COA with 18 default accounts |
+| `JournalLine` | Individual debit/credit lines |
+| `AccountLedger` | Running balance ledger entries |
+| `ChartOfAccount` | COA with 18+ accounts, cost centers |
+| `Department` | Organizational departments |
+| `CostCenter` | Cost center tracking |
+| `FiscalYear` | Annual fiscal year management |
 | `AccountingPeriod` | Monthly periods for financial reporting |
 | `Budget` | Budget vs actual tracking |
 | `TillBalance` | Daily till opening/closing |
@@ -124,6 +129,7 @@ Routes use these middleware:
 | `CounterSession` | Till session with open/close lifecycle |
 | `AuditLog` | Tamper-evident audit trail with hash chaining |
 | `SystemLog` | Cryptographically chained system events |
+| `EnhancedDiligenceRecord` | EDD questionnaire records |
 
 ### Accounting Module
 
@@ -141,10 +147,24 @@ Routes use these middleware:
 - `PeriodCloseService` - Period closing with validation
 - `BudgetService` - Budget vs actual reporting
 - `ReconciliationService` - Bank reconciliation with outstanding checks
+- `JournalEntryWorkflowService` - Draft → Pending → Posted workflow
+- `CashFlowService` - Cash flow statement (operating/investing/financing)
+- `FinancialRatioService` - Liquidity, profitability, leverage, efficiency ratios
+- `FiscalYearService` - Fiscal year closing with income summary entries
+- `EddService` - Enhanced Due Diligence workflow management
+
+**Database Seeders**:
+- `ChartOfAccountsSeeder` - Creates 18 default accounts
+- `AccountingPeriodSeeder` - Creates current + 2 months
+- `BudgetSeeder` - Sample monthly budgets
+- `DepartmentSeeder` - Organizational departments
+- `CostCenterSeeder` - Cost center tracking
+- `EnhancedChartOfAccountsSeeder` - 50+ accounts for complete accounting
 
 **Routes** (`/accounting`):
 - `/accounting/journal` - Manual journal entries
-- `/accounting/journal/create` - Create journal entry
+- `/accounting/journal/create` - New journal entry
+- `/accounting/journal/workflow` - Journal entry approval workflow
 - `/accounting/journal/{entry}` - View journal entry
 - `/accounting/journal/{entry}/reverse` - Reverse journal entry
 - `/accounting/ledger` - Chart of accounts / account ledgers
@@ -152,10 +172,13 @@ Routes use these middleware:
 - `/accounting/trial-balance` - Trial balance report
 - `/accounting/profit-loss` - P&L statement
 - `/accounting/balance-sheet` - Balance sheet
+- `/accounting/cash-flow` - Cash flow statement
+- `/accounting/ratios` - Financial ratios analysis
 - `/accounting/revaluation` - Currency revaluation
 - `/accounting/revaluation/run` - Run revaluation
 - `/accounting/periods` - Period management
 - `/accounting/periods/{period}/close` - Close period
+- `/accounting/fiscal-years` - Fiscal year management
 - `/accounting/reconciliation` - Bank reconciliation
 - `/accounting/reconciliation/import` - Import bank statement
 - `/accounting/budget` - Budget vs actual
@@ -173,6 +196,13 @@ Routes use these middleware:
 **CTOS Reporting**: Applies to ALL cash transactions (Buy and Sell) ≥ RM 10,000
 
 **Structuring Detection**: 7-day lookback for aggregate transactions (configurable)
+
+**Compliance Routes** (`/compliance`):
+- `/compliance` - Compliance dashboard
+- `/compliance/flagged` - Flagged transactions review
+- `/compliance/edd` - Enhanced Due Diligence records
+- `/compliance/edd/create` - New EDD record
+- `/str` - Suspicious Transaction Reports
 
 ### Report Generation
 
@@ -192,6 +222,7 @@ Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`.
 - `tests/Feature/AccountingWorkflowTest.php` - Journal entries, periods, closing
 - `tests/Feature/StrWorkflowTest.php` - STR creation and workflow
 - `tests/Feature/CounterHandoverTest.php` - Till custody transfer
+- `tests/Feature/EddWorkflowTest.php` - EDD workflow tests
 - `tests/Unit/AmlRuleTest.php` - AML rule engine
 - `tests/Unit/MathServiceTest.php` - BCMath precision
 - `tests/Unit/CurrencyPositionServiceTest.php` - Stock/position calculations

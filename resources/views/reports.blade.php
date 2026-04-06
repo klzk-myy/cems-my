@@ -310,7 +310,7 @@
     </a>
 
     <!-- Customer Risk Report Card -->
-    <a href="/compliance/risk-report" class="report-card risk">
+    <a href="{{ route('compliance.flagged') }}" class="report-card risk">
         <div class="report-card-header">
             <span class="report-icon">⚠️</span>
             <h3 class="report-card-title">Customer Risk Report</h3>
@@ -319,7 +319,57 @@
         <div class="report-card-meta">Weekly</div>
     </a>
 
-<!-- Audit Trail Card -->
+    <!-- LMCA Report Card -->
+    <a href="{{ route('reports.lmca') }}" class="report-card regulatory">
+        <div class="report-card-header">
+            <span class="report-icon">📊</span>
+            <h3 class="report-card-title">LMCA Report</h3>
+        </div>
+        <p class="report-card-description">Large Money Changers Act compliance report. Monthly submission to BNM.</p>
+        <div class="report-card-meta">Due by 15th of each month</div>
+    </a>
+
+    <!-- Quarterly LVR Report Card -->
+    <a href="{{ route('reports.quarterly-lvr') }}" class="report-card regulatory">
+        <div class="report-card-header">
+            <span class="report-icon">📅</span>
+            <h3 class="report-card-title">Quarterly LVR</h3>
+        </div>
+        <p class="report-card-description">Quarterly Large Value Report for high-value transactions.</p>
+        <div class="report-card-meta">Due 30 days after quarter end</div>
+    </a>
+
+    <!-- Position Limit Report Card -->
+    <a href="{{ route('reports.position-limit') }}" class="report-card risk">
+        <div class="report-card-header">
+            <span class="report-icon">📏</span>
+            <h3 class="report-card-title">Position Limit</h3>
+        </div>
+        <p class="report-card-description">Currency position limits vs actual exposure monitoring.</p>
+        <div class="report-card-meta">Daily</div>
+    </a>
+
+    <!-- Report History Card -->
+    <a href="{{ route('reports.history') }}" class="report-card operational">
+        <div class="report-card-header">
+            <span class="report-icon">📜</span>
+            <h3 class="report-card-title">Report History</h3>
+        </div>
+        <p class="report-card-description">View all previously generated reports with version tracking.</p>
+        <div class="report-card-meta">On-demand</div>
+    </a>
+
+    <!-- Compare Reports Card -->
+    <a href="{{ route('reports.compare') }}" class="report-card operational">
+        <div class="report-card-header">
+            <span class="report-icon">🔄</span>
+            <h3 class="report-card-title">Compare Reports</h3>
+        </div>
+        <p class="report-card-description">Compare two versions of the same report side by side.</p>
+        <div class="report-card-meta">On-demand</div>
+    </a>
+
+    <!-- Audit Trail Card -->
                     <a href="{{ route('audit.index') }}" class="report-card operational">
  <div class="report-card-header">
  <span class="report-icon">🔍</span>
@@ -374,7 +424,7 @@
 <div class="recent-reports-section">
     <div class="section-header">
         <h2>Recently Generated Reports</h2>
-        <a href="#" class="view-all-link">View All History</a>
+        <a href="{{ route('reports.history') }}" class="view-all-link">View All History</a>
     </div>
 
     @if($recentReports->isEmpty())

@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('reference_type', 50)->nullable(false);
             $table->unsignedBigInteger('reference_id')->nullable();
             $table->text('description')->nullable(false);
-            $table->enum('status', ['Draft', 'Posted', 'Reversed'])->default('Posted');
+            $table->enum('status', ['Draft', 'Pending', 'Posted', 'Reversed'])->default('Posted');
             $table->foreignId('posted_by')->nullable(false)->constrained('users');
             $table->timestamp('posted_at')->useCurrent();
             $table->foreignId('reversed_by')->nullable()->constrained('users');

@@ -109,8 +109,8 @@ class RealWorldTransactionWorkflowTest extends TestCase
             'nationality' => 'Malaysian',
             'phone' => '012-345-6789',
             'email' => 'ahmad@example.com',
-            'risk_rating' => 'Low',
-        ]);
+'risk_rating' => 'Low', // Explicitly set to Low to avoid compliance hold
+            'pep_status' => false,
 
         $this->assertDatabaseHas('customers', [
             'id' => $customer->id,
@@ -118,88 +118,90 @@ class RealWorldTransactionWorkflowTest extends TestCase
         ]);
 
         // ============ STEP 3: Currency Purchase (Buy) ============
+        // Use unique amount_foreign (1337) and idempotency key to avoid collisions
+        $buyIdempotencyKey = 'wf_buy_' . uniqid();
         $response = $this->actingAs($teller)
             ->post(route('transactions.store'), [
                 'customer_id' => $customer->id,
                 'type' => 'Buy',
                 'currency_code' => 'USD',
-                'amount_foreign' => 1000,
+                'amount_foreign' => 1337,
                 'rate' => 4.72,
                 'purpose' => 'Business Travel',
                 'source_of_funds' => 'Salary',
                 'till_id' => 'TILL-001',
+                'idempotency_key' => $buyIdempotencyKey,
             ]);
 
         $response->assertRedirect();
 
-        // Get the transaction - order by id desc to get the most recently created
-        $buyTransaction = Transaction::where('customer_id', $customer->id)
-            ->where('type', 'Buy')
-            ->orderBy('id', 'desc')
-            ->first();
+        // Get the transaction by idempotency key
+        $buyTransaction = Transaction::where('idempotency_key', $buyIdempotencyKey)->first();
 
-        $this->assertNotNull($buyTransaction);
-        $this->assertTrue($buyTransaction->status->isCompleted());
-        $this->assertEquals(4720.00, $buyTransaction->amount_local); // 1000 * 4.72
+        $this->assertNotNull($buyTransaction, 'Buy transaction should exist with idempotency_key');
+        $this->assertTrue($buyTransaction->status->isCompleted(), 'Buy transaction should be Completed, got: ' . $buyTransaction->status->value);
+        $this->assertEquals(6310.64, $buyTransaction->amount_local); // 1337 * 4.72
 
-        // Check stock updated
+        // Check stock updated (Pending transactions don't update position until approved)
         $position = CurrencyPosition::where('currency_code', 'USD')
             ->where('till_id', 'TILL-001')
             ->first();
 
         $this->assertNotNull($position);
-        $this->assertEquals(1000, $position->balance); // Bought 1000 USD
+        $this->assertEquals(1337, $position->balance); // Bought 1337 USD
 
         // ============ STEP 4: Currency Sale (Sell) ============
+        // Use unique amount_foreign (751) and idempotency key to avoid collisions
+        $sellIdempotencyKey = 'wf_sell_' . uniqid();
         $response = $this->actingAs($teller)
             ->post(route('transactions.store'), [
                 'customer_id' => $customer->id,
                 'type' => 'Sell',
                 'currency_code' => 'USD',
-                'amount_foreign' => 500,
+                'amount_foreign' => 751,
                 'rate' => 4.75,
                 'purpose' => 'Personal Use',
                 'source_of_funds' => 'Savings',
                 'till_id' => 'TILL-001',
+                'idempotency_key' => $sellIdempotencyKey,
             ]);
 
         $response->assertRedirect();
 
-        $sellTransaction = Transaction::where('customer_id', $customer->id)
-            ->where('type', 'Sell')
-            ->first();
+        $sellTransaction = Transaction::where('idempotency_key', $sellIdempotencyKey)->first();
 
-        $this->assertNotNull($sellTransaction);
-        $this->assertTrue($sellTransaction->status->isCompleted());
-        $this->assertEquals(2375.00, $sellTransaction->amount_local); // 500 * 4.75
+        $this->assertNotNull($sellTransaction, 'Sell transaction should exist with idempotency_key');
+        $this->assertTrue($sellTransaction->status->isCompleted(), 'Sell transaction should be Completed, got: ' . $sellTransaction->status->value);
+        $this->assertEquals(3567.25, $sellTransaction->amount_local); // 751 * 4.75
 
         // Check stock reduced
         $position->refresh();
-        $this->assertEquals(500, $position->balance); // 1000 - 500 = 500 USD
+        $this->assertEquals(586, $position->balance); // 1337 - 751 = 586 USD
 
         // ============ STEP 5: Large Transaction (Requires Approval) ============
+        // Use unique amount_foreign (15000) and idempotency key to avoid collisions
+        $largeIdempotencyKey = 'wf_large_' . uniqid();
         $response = $this->actingAs($teller)
             ->post(route('transactions.store'), [
                 'customer_id' => $customer->id,
                 'type' => 'Buy',
                 'currency_code' => 'USD',
-                'amount_foreign' => 12000, // Large amount
+                'amount_foreign' => 15000, // Large amount (RM 70,800 which exceeds RM 50k threshold)
                 'rate' => 4.72,
                 'purpose' => 'Business Investment',
                 'source_of_funds' => 'Business Revenue',
                 'till_id' => 'TILL-001',
+                'idempotency_key' => $largeIdempotencyKey,
             ]);
 
         $response->assertRedirect();
         $response->assertSessionHas('warning'); // Should warn about pending approval
 
-        $largeTransaction = Transaction::where('customer_id', $customer->id)
-            ->where('amount_foreign', 12000)
-            ->first();
+        $largeTransaction = Transaction::where('idempotency_key', $largeIdempotencyKey)->first();
 
-        $this->assertNotNull($largeTransaction);
-        $this->assertTrue($largeTransaction->status->isPending()); // Pending approval
-        $this->assertEquals(56640.00, $largeTransaction->amount_local); // 12000 * 4.72
+        $this->assertNotNull($largeTransaction, 'Large transaction should exist with idempotency_key');
+        $this->assertTrue($largeTransaction->status->isPending(), 'Large transaction should be Pending, got: ' . $largeTransaction->status->value); // Pending approval
+        $this->assertEquals(70800.00, $largeTransaction->amount_local); // 15000 * 4.72
 
         // ============ STEP 6: Manager Approval ============
         $response = $this->actingAs($manager)
@@ -214,7 +216,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
 
         // Check stock updated after approval
         $position->refresh();
-        $this->assertEquals(12500, $position->balance); // 500 + 12000 = 12500 USD
+        $this->assertEquals(15586, $position->balance); // 586 + 15000 = 15586 USD
 
         // ============ STEP 7: Verify Compliance Monitoring ============
         // Large transaction should trigger compliance monitoring
@@ -228,30 +230,31 @@ class RealWorldTransactionWorkflowTest extends TestCase
             ->post(route('stock-cash.close'), [
                 'till_id' => 'TILL-001',
                 'currency_code' => 'USD',
-                'closing_balance' => 12500,
+                'closing_balance' => 15586,
             ]);
 
         $response->assertRedirect();
 
         $tillBalance->refresh();
-        $this->assertEquals(12500, $tillBalance->closing_balance);
+        $this->assertEquals(15586, $tillBalance->closing_balance);
         $this->assertNotNull($tillBalance->closed_at);
 
         // ============ STEP 9: Verify Daily Summary ============
         $dailyTransactions = Transaction::whereDate('created_at', today())->count();
         $this->assertEquals(3, $dailyTransactions);
 
-        // Total buy volume
-        $buyVolume = Transaction::where('type', 'Buy')
+        // Total buy volume (both buys are Completed by end of day after approval)
+        $completedBuyVolume = Transaction::where('type', 'Buy')
+            ->where('status', 'Completed')
             ->whereDate('created_at', today())
             ->sum('amount_local');
-        $this->assertEquals(61360.00, $buyVolume); // 4720 + 56640
+        $this->assertEquals(77110.64, $completedBuyVolume); // 6310.64 + 70800.00 (both buys completed after approval)
 
         // Total sell volume
         $sellVolume = Transaction::where('type', 'Sell')
             ->whereDate('created_at', today())
             ->sum('amount_local');
-        $this->assertEquals(2375.00, $sellVolume); // 2375
+        $this->assertEquals(3567.25, $sellVolume); // 751 * 4.75
 
         // ============ VERIFICATION ============
         // All assertions passed!

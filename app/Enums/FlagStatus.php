@@ -13,6 +13,7 @@ enum FlagStatus: string
     case UnderReview = 'Under_Review';
     case Resolved = 'Resolved';
     case Escalated = 'Escalated';
+    case Rejected = 'Rejected';
 
     /**
      * Check if the flag is open.
@@ -88,6 +89,7 @@ enum FlagStatus: string
             self::UnderReview => 'Under Review',
             self::Resolved => 'Resolved',
             self::Escalated => 'Escalated',
+            self::Rejected => 'Rejected',
         };
     }
 
@@ -101,6 +103,7 @@ enum FlagStatus: string
             self::UnderReview => 'warning',
             self::Resolved => 'success',
             self::Escalated => 'info',
+            self::Rejected => 'secondary',
         };
     }
 }

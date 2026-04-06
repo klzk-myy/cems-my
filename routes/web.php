@@ -4,7 +4,10 @@ use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AmlRuleController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EnhancedDiligenceController;
 use App\Http\Controllers\FinancialStatementController;
+use App\Http\Controllers\FiscalYearController;
+use App\Http\Controllers\JournalEntryWorkflowController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\ReportController;
@@ -151,8 +154,11 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/str/{str}/edit', [StrController::class, 'edit'])->name('str.edit');
         Route::put('/str/{str}', [StrController::class, 'update'])->name('str.update');
         Route::post('/str/{str}/submit-review', [StrController::class, 'submitForReview'])->name('str.submit-review');
+        Route::post('/str/{str}/submit-approval', [StrController::class, 'submitForApproval'])->name('str.submit-approval');
+        Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit');
+        Route::post('/str/{str}/track-acknowledgment', [StrController::class, 'trackAcknowledgment'])->name('str.track-acknowledgment');
 
-        // Generate STR from alert
+        // Generate STR from alert - compliance creates STRs
         Route::post('/compliance/flags/{flaggedTransaction}/generate-str', [StrController::class, 'generateFromAlert'])
             ->name('compliance.flags.generate-str');
 
@@ -173,6 +179,28 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
         Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit')->middleware(['mfa.verified', 'throttle:str-submission']);
         Route::post('/str/{str}/track-acknowledgment', [StrController::class, 'trackAcknowledgment'])->name('str.track-acknowledgment');
+    });
+
+    // STR Approval - Managers only (segregation of duties: compliance prepares, manager approves)
+    Route::middleware('role:manager')->group(function () {
+        Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
+    });
+
+    // Enhanced Due Diligence - Compliance officers create/manage, managers and compliance approve
+    Route::middleware('role:compliance')->group(function () {
+        Route::get('/compliance/edd', [EnhancedDiligenceController::class, 'index'])->name('compliance.edd.index');
+        Route::get('/compliance/edd/create', [EnhancedDiligenceController::class, 'create'])->name('compliance.edd.create');
+        Route::post('/compliance/edd', [EnhancedDiligenceController::class, 'store'])->name('compliance.edd.store');
+        Route::get('/compliance/edd/{record}', [EnhancedDiligenceController::class, 'show'])->name('compliance.edd.show');
+        Route::get('/compliance/edd/{record}/edit', [EnhancedDiligenceController::class, 'edit'])->name('compliance.edd.edit');
+        Route::put('/compliance/edd/{record}', [EnhancedDiligenceController::class, 'update'])->name('compliance.edd.update');
+        Route::post('/compliance/edd/{record}/submit', [EnhancedDiligenceController::class, 'submitReview'])->name('compliance.edd.submit');
+    });
+
+    // EDD Approval - Managers and Compliance officers can approve/reject
+    Route::middleware('role:manager,compliance')->group(function () {
+        Route::post('/compliance/edd/{record}/approve', [EnhancedDiligenceController::class, 'approve'])->name('compliance.edd.approve');
+        Route::post('/compliance/edd/{record}/reject', [EnhancedDiligenceController::class, 'reject'])->name('compliance.edd.reject');
     });
 
     // Task Management - All authenticated users
@@ -250,6 +278,23 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             ->name('accounting.budget.update');
         Route::patch('/accounting/budget/{budget}', [AccountingController::class, 'updateBudget'])
             ->name('accounting.budget.patch');
+
+        // Journal Entry Workflow
+        Route::get('/accounting/journal/workflow', [JournalEntryWorkflowController::class, 'workflow'])->name('accounting.journal.workflow');
+        Route::post('/accounting/journal/{entry}/approve', [JournalEntryWorkflowController::class, 'approve'])->name('accounting.journal.approve');
+        Route::post('/accounting/journal/{entry}/submit', [JournalEntryWorkflowController::class, 'submit'])->name('accounting.journal.submit');
+
+        // Cash Flow Statement
+        Route::get('/accounting/cash-flow', [FinancialStatementController::class, 'cashFlow'])->name('accounting.cash-flow');
+
+        // Financial Ratios
+        Route::get('/accounting/ratios', [FinancialStatementController::class, 'ratios'])->name('accounting.ratios');
+
+        // Fiscal Year Management
+        Route::get('/accounting/fiscal-years', [FiscalYearController::class, 'index'])->name('accounting.fiscal-years');
+        Route::post('/accounting/fiscal-years', [FiscalYearController::class, 'store'])->name('accounting.fiscal-years.store');
+        Route::post('/accounting/fiscal-years/{year}/close', [FiscalYearController::class, 'close'])->name('accounting.fiscal-years.close');
+        Route::get('/accounting/fiscal-years/{yearCode}/report', [FiscalYearController::class, 'report'])->name('accounting.fiscal-years.report');
     });
 
     // Reports - Managers and Admin only (compliance officers use dedicated compliance module)

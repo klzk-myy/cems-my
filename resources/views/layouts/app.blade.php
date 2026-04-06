@@ -76,6 +76,29 @@
             border-left-color: #48bb78;
         }
 
+        /* Dropdown */
+        .nav-group {
+            position: relative;
+        }
+        .nav-group > .nav-submenu {
+            display: none;
+            flex-direction: column;
+            background: rgba(0,0,0,0.15);
+            margin-left: 1rem;
+            border-radius: 4px;
+        }
+        .nav-group:hover > .nav-submenu,
+        .nav-group.open > .nav-submenu {
+            display: flex;
+        }
+        .nav-submenu a {
+            padding: 0.625rem 1rem 0.625rem 2.5rem;
+            font-size: 0.8rem;
+        }
+        .nav-submenu a:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
         .nav-icon {
             width: 20px;
             height: 20px;
@@ -292,14 +315,46 @@
                     <span class="nav-icon">💰</span>
                     <span class="nav-label">Stock/Cash</span>
                 </a>
-                <a href="/compliance" class="{{ request()->is('compliance*') ? 'active' : '' }}">
-                    <span class="nav-icon">🛡️</span>
-                    <span class="nav-label">Compliance</span>
-                </a>
-                <a href="/accounting" class="{{ request()->is('accounting*') ? 'active' : '' }}">
-                    <span class="nav-icon">📚</span>
-                    <span class="nav-label">Accounting</span>
-                </a>
+                <div class="nav-group">
+                    <a href="/compliance" class="{{ request()->is('compliance') || request()->is('compliance/flagged') ? 'active' : '' }}">
+                        <span class="nav-icon">🛡️</span>
+                        <span class="nav-label">Compliance</span>
+                        <span style="margin-left: auto; font-size: 0.6rem;">▼</span>
+                    </a>
+                    <div class="nav-submenu">
+                        <a href="/compliance/flagged" class="{{ request()->is('compliance/flagged*') ? 'active' : '' }}">
+                            <span class="nav-icon">🚩</span>
+                            <span class="nav-label">Flagged Transactions</span>
+                        </a>
+                        <a href="/compliance/edd" class="{{ request()->is('compliance/edd*') ? 'active' : '' }}">
+                            <span class="nav-icon">📋</span>
+                            <span class="nav-label">EDD Records</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="nav-group">
+                    <a href="/accounting" class="{{ request()->is('accounting') ? 'active' : '' }}">
+                        <span class="nav-icon">📚</span>
+                        <span class="nav-label">Accounting</span>
+                        <span style="margin-left: auto; font-size: 0.6rem;">▼</span>
+                    </a>
+                    <div class="nav-submenu">
+                        <a href="/accounting/journal">📝 Journal Entries</a>
+                        <a href="/accounting/journal/create">➕ New Entry</a>
+                        <a href="/accounting/journal/workflow">✅ Workflow</a>
+                        <a href="/accounting/ledger">📒 Ledger</a>
+                        <a href="/accounting/trial-balance">⚖️ Trial Balance</a>
+                        <a href="/accounting/profit-loss">📊 P&L</a>
+                        <a href="/accounting/balance-sheet">📈 Balance Sheet</a>
+                        <a href="/accounting/cash-flow">💵 Cash Flow</a>
+                        <a href="/accounting/ratios">📐 Ratios</a>
+                        <a href="/accounting/periods">📅 Periods</a>
+                        <a href="/accounting/fiscal-years">📆 Fiscal Years</a>
+                        <a href="/accounting/revaluation">💱 Revaluation</a>
+                        <a href="/accounting/reconciliation">🏦 Reconciliation</a>
+                        <a href="/accounting/budget">💰 Budget</a>
+                    </div>
+                </div>
                 <a href="/tasks" class="{{ request()->is('tasks*') ? 'active' : '' }}">
                     <span class="nav-icon">✅</span>
                     <span class="nav-label">Tasks</span>
@@ -356,6 +411,20 @@
             </footer>
         </div>
     </div>
+
+    <script>
+        // Mobile-friendly dropdown toggle
+        document.querySelectorAll('.nav-group > a').forEach(function(toggle) {
+            toggle.addEventListener('click', function(e) {
+                // Only toggle if the clicked element is the nav-group's direct child anchor
+                var navGroup = this.parentElement;
+                if (navGroup.classList.contains('nav-group')) {
+                    e.preventDefault();
+                    navGroup.classList.toggle('open');
+                }
+            });
+        });
+    </script>
 
     @yield('scripts')
 </body>

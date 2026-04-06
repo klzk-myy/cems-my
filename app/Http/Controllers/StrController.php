@@ -6,6 +6,7 @@ use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
 use App\Services\AuditService;
 use App\Services\StrReportService;
+use App\Enums\StrStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -120,8 +121,14 @@ class StrController extends Controller
 
     public function generateFromAlert(FlaggedTransaction $flaggedTransaction)
     {
+        \Illuminate\Support\Facades\Log::info('StrController generateFromAlert', [
+            'flaggedTransaction_id' => $flaggedTransaction->getKey(),
+            'flaggedTransaction_exists' => $flaggedTransaction->exists,
+            'alert_attributes' => $flaggedTransaction->getAttributes(),
+        ]);
+
         try {
-            // Explicitly find the flag to ensure it's loaded from DB
+// Explicitly find the flag to ensure it's loaded from DB
             $alert = FlaggedTransaction::with(['transaction.customer'])->findOrFail($flaggedTransaction->id);
 
             $strReport = $this->strService->generateFromAlert($alert);
@@ -187,6 +194,7 @@ class StrController extends Controller
 
         $oldStatus = $str->status->value;
         $str->update([
+            'status' => StrStatus::Submitted->value,
             'approved_by' => Auth::id(),
         ]);
 
@@ -194,6 +202,7 @@ class StrController extends Controller
         $this->auditService->logStrAction('str_approved', $str->id, [
             'old' => ['status' => $oldStatus],
             'new' => [
+                'status' => 'Submitted',
                 'approved_by' => Auth::id(),
                 'approved_by_name' => Auth::user()->username,
             ],

@@ -189,8 +189,8 @@
                 <td>{{ number_format($tx->amount_local, 2) }} MYR</td>
                 <td>{{ $tx->rate }}</td>
                 <td>
-                    <span class="status-badge status-{{ $tx->status === 'Completed' ? 'active' : ($tx->status === 'Pending' ? 'pending' : 'flagged') }}">
-                        {{ $tx->status }}
+                    <span class="status-badge status-{{ $tx->status->isCompleted() ? 'active' : ($tx->status->isPending() ? 'pending' : 'flagged') }}">
+                        {{ $tx->status->label() }}
                     </span>
                 </td>
                 <td style="color: #718096; font-size: 0.875rem;">{{ $tx->created_at->diffForHumans() }}</td>

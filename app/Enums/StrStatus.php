@@ -39,7 +39,7 @@ enum StrStatus: string
 
     public function canApprove(): bool
     {
-        return $this === self::PendingReview;
+        return $this === self::PendingApproval;
     }
 
     public function canReview(): bool
