@@ -55,7 +55,7 @@ class CounterSession extends Model
 
     public function scopeOpen($query)
     {
-        return $query->where('status', CounterSessionStatus::Open);
+        return $query->where('status', CounterSessionStatus::Open->value);
     }
 
     public function scopeForCounter($query, $counterId)

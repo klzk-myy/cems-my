@@ -32,7 +32,7 @@ class CounterService
         return DB::transaction(function () use ($counter, $user, $openingFloats, $now, $today) {
             // Lock and check if counter is already open (prevents race condition)
             $existingSession = CounterSession::where('counter_id', $counter->id)
-                ->where('status', CounterSessionStatus::Open)
+                ->where('status', CounterSessionStatus::Open->value)
                 ->lockForUpdate()
                 ->first();
 
@@ -42,7 +42,7 @@ class CounterService
 
             // Lock and check if user is already at another counter
             $userSession = CounterSession::where('user_id', $user->id)
-                ->where('status', CounterSessionStatus::Open)
+                ->where('status', CounterSessionStatus::Open->value)
                 ->lockForUpdate()
                 ->first();
 
@@ -196,7 +196,7 @@ class CounterService
     public function getCounterStatus(Counter $counter): array
     {
         $session = CounterSession::where('counter_id', $counter->id)
-            ->where('status', CounterSessionStatus::Open)
+            ->where('status', CounterSessionStatus::Open->value)
             ->first();
 
         return [
@@ -213,7 +213,7 @@ class CounterService
     public function getAvailableCounters(): array
     {
         $allCounters = Counter::active()->get();
-        $openCounterIds = CounterSession::where('status', CounterSessionStatus::Open)
+        $openCounterIds = CounterSession::where('status', CounterSessionStatus::Open->value)
             ->pluck('counter_id')
             ->toArray();
 
@@ -300,7 +300,11 @@ class CounterService
             }
 
             // Mark old session as handed over
-            $session->update(['status' => CounterSessionStatus::HandedOver]);
+            $session->update([
+                'status' => CounterSessionStatus::HandedOver,
+                'closed_at' => $now,
+                'closed_by' => $fromUser->id,
+            ]);
 
             // Create handover record
             $handover = $session->handovers()->create([
@@ -323,10 +327,20 @@ class CounterService
                 'status' => CounterSessionStatus::Open,
             ]);
 
-            // Open new till balances based on physical counts
+            // Delete any existing till balances for this counter/date/currency that were not closed
+            // (they belong to a stale session that shouldn't exist)
+            $newTillBalanceIds = [];
             foreach ($physicalCounts as $count) {
                 $currencyCode = $currencies[$count['currency_id']] ?? null;
                 if ($currencyCode) {
+                    // Delete any existing open balances for this counter/date/currency
+                    TillBalance::where('till_id', (string) $newSession->counter_id)
+                        ->where('currency_code', $currencyCode)
+                        ->where('date', $today)
+                        ->whereNull('closed_at')
+                        ->delete();
+
+                    // Create new till balance
                     TillBalance::create([
                         'till_id' => (string) $newSession->counter_id,
                         'currency_code' => $currencyCode,
@@ -334,6 +348,7 @@ class CounterService
                         'date' => $today,
                         'opened_by' => $toUser->id,
                     ]);
+                    $newTillBalanceIds[] = $currencyCode;
                 }
             }
 

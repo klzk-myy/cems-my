@@ -29,9 +29,10 @@ class CounterController extends Controller
      */
     public function index()
     {
-        $counters = Counter::with(['sessions' => function ($query) {
-            $query->where('session_date', now()->toDateString())
-                ->where('status', CounterSessionStatus::Open);
+        $today = now()->toDateString();
+        $counters = Counter::with(['sessions' => function ($query) use ($today) {
+            $query->whereDate('session_date', $today)
+                ->where('status', CounterSessionStatus::Open->value);
         }])->get();
 
         $stats = [
@@ -104,9 +105,10 @@ class CounterController extends Controller
      */
     public function showClose(Counter $counter)
     {
+        $today = now()->toDateString();
         $session = CounterSession::where('counter_id', $counter->id)
-            ->where('session_date', now()->toDateString())
-            ->where('status', CounterSessionStatus::Open)
+            ->whereDate('session_date', $today)
+            ->where('status', CounterSessionStatus::Open->value)
             ->firstOrFail();
 
         $currencies = \App\Models\Currency::where('is_active', true)->get();
@@ -131,10 +133,11 @@ class CounterController extends Controller
         $user = Auth::user();
         $closingFloats = $request->input('closing_floats');
         $notes = $request->input('notes');
+        $today = now()->toDateString();
 
         $session = CounterSession::where('counter_id', $counter->id)
-            ->where('session_date', now()->toDateString())
-            ->where('status', CounterSessionStatus::Open)
+            ->whereDate('session_date', $today)
+            ->where('status', CounterSessionStatus::Open->value)
             ->firstOrFail();
 
         try {
@@ -216,9 +219,10 @@ class CounterController extends Controller
      */
     public function showHandover(Counter $counter)
     {
+        $today = now()->toDateString();
         $session = CounterSession::where('counter_id', $counter->id)
-            ->where('session_date', now()->toDateString())
-            ->where('status', CounterSessionStatus::Open)
+            ->whereDate('session_date', $today)
+            ->where('status', CounterSessionStatus::Open->value)
             ->firstOrFail();
 
         $availableUsers = User::where('is_active', true)
@@ -242,6 +246,7 @@ class CounterController extends Controller
         $this->requireManagerOrAdmin();
 
         $request->validate([
+            'from_user_id' => 'required|exists:users,id',
             'to_user_id' => 'required|exists:users,id',
             'supervisor_id' => 'required|exists:users,id',
             'physical_counts' => 'required|array',
@@ -250,12 +255,15 @@ class CounterController extends Controller
             'variance_notes' => 'nullable|string',
         ]);
 
+        $fromUser = User::findOrFail($request->input('from_user_id'));
+        $today = now()->toDateString();
+
         $session = CounterSession::where('counter_id', $counter->id)
-            ->where('session_date', now()->toDateString())
-            ->where('status', CounterSessionStatus::Open)
+            ->whereDate('session_date', $today)
+            ->where('user_id', $fromUser->id)
+            ->where('status', CounterSessionStatus::Open->value)
             ->firstOrFail();
 
-        $fromUser = Auth::user();
         $toUser = User::findOrFail($request->input('to_user_id'));
         $supervisor = User::findOrFail($request->input('supervisor_id'));
         $physicalCounts = $request->input('physical_counts');
