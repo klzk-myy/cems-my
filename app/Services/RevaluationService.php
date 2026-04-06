@@ -62,6 +62,17 @@ class RevaluationService
         ];
     }
 
+    /**
+     * Revalue a single currency position.
+     *
+     * Calculates gain/loss by comparing current market rate with last valuation rate,
+     * creates a revaluation entry, and updates the position record.
+     *
+     * @param  CurrencyPosition  $position  The currency position to revalue
+     * @param  string  $date  Revaluation date (Y-m-d format)
+     * @param  int  $postedBy  User ID performing the revaluation
+     * @return array|null Revaluation result array or null if no rate available
+     */
     protected function revaluePosition(CurrencyPosition $position, string $date, int $postedBy): ?array
     {
         $newRate = $this->getCurrentRate($position->currency_code);
@@ -110,6 +121,14 @@ class RevaluationService
         });
     }
 
+    /**
+     * Get the current market rate for a currency.
+     *
+     * Retrieves the mid rate from the rate API service for revaluation purposes.
+     *
+     * @param  string  $currencyCode  The ISO currency code
+     * @return string|null The mid rate as a string, or null if rate unavailable
+     */
     protected function getCurrentRate(string $currencyCode): ?string
     {
         $rate = $this->rateApiService->getRateForCurrency($currencyCode);
@@ -427,6 +446,13 @@ class RevaluationService
         }
     }
 
+    /**
+     * Get list of users to notify about revaluation completion.
+     *
+     * Retrieves all active users in the system to receive revaluation notifications.
+     *
+     * @return array Array of user data arrays with email addresses
+     */
     protected function getNotificationRecipients(): array
     {
         return User::where('is_active', true)
@@ -435,8 +461,16 @@ class RevaluationService
     }
 
     /**
-     * Get validated account code from config.
-     * Throws exception if account doesn't exist or is inactive (when validation is enabled).
+     * Get validated account code from configuration.
+     *
+     * Retrieves account code from configuration and validates it exists
+     * and is active in the chart of accounts when validation is enabled.
+     *
+     * @param  string  $configKey  Configuration key for the account code
+     * @param  string  $defaultCode  Default account code to use if config not set
+     * @return string The validated account code
+     *
+     * @throws \InvalidArgumentException If account doesn't exist or is inactive (when validation enabled)
      */
     protected function getValidatedAccountCode(string $configKey, string $defaultCode): string
     {

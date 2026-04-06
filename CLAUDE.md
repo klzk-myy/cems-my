@@ -15,6 +15,9 @@ php artisan test
 # Run specific test suite
 php artisan test --filter=TransactionWorkflowTest
 
+# Run a single test class
+php artisan test --filter=MathServiceTest
+
 # Run via test runner script (includes category filtering)
 php test-runner.php
 
@@ -26,6 +29,9 @@ php artisan config:clear && php artisan route:clear && php artisan view:clear
 
 # List routes
 php artisan route:list
+
+# Run a specific Artisan command
+php artisan report:msb2 --date=2026-04-06
 ```
 
 ## Architecture
@@ -36,12 +42,12 @@ php artisan route:list
 app/
 ├── Console/Commands/     # Artisan CLI commands (scheduled reports, compliance tasks)
 ├── Enums/                # PHP 8.1 enums replacing magic strings
-├── Events/               # Event classes (TransactionCreated, etc.)
+├── Events/               # Event classes (TransactionCreated, CounterSessionOpened, etc.)
 ├── Http/
 │   ├── Controllers/      # Thin controllers, delegate to services
 │   └── Middleware/       # CheckRole, EnsureMfaVerified, SessionTimeout
 ├── Models/               # Eloquent models (35+)
-└── Services/             # Business logic (20+ services)
+└── Services/             # Business logic (23 services)
 ```
 
 ### Full Documentation
@@ -54,6 +60,7 @@ See `docs/` directory for detailed guides: USER_MANUAL.md, DEPLOYMENT.md, API.md
 All role checks use PHP enums in `App\Enums\`:
 - `UserRole::Teller`, `UserRole::Manager`, `UserRole::ComplianceOfficer`, `UserRole::Admin`
 - Permission methods on enums: `$role->canApproveLargeTransactions()`, `$role->canViewReports()`
+- All status/type enums: `TransactionStatus`, `TransactionType`, `CddLevel`, `CounterSessionStatus`, `FlagStatus`, `StrStatus`, `AmlRuleType`, `ComplianceFlagType`, `AccountCode`
 - Models return enum instances, not strings
 
 **2. Service Layer**
@@ -114,6 +121,9 @@ Routes use these middleware:
 | `StrReport` | Suspicious Transaction Reports |
 | `TransactionConfirmation` | Large transaction manager confirmation |
 | `BankReconciliation` | Bank reconciliation with check tracking |
+| `CounterSession` | Till session with open/close lifecycle |
+| `AuditLog` | Tamper-evident audit trail with hash chaining |
+| `SystemLog` | Cryptographically chained system events |
 
 ### Accounting Module
 
@@ -177,11 +187,14 @@ BNM compliance reports via Artisan commands:
 
 Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`. Key test files:
 - `tests/Feature/TransactionWorkflowTest.php` - Transaction creation, approval, cancellation
+- `tests/Feature/RealWorldTransactionWorkflowTest.php` - End-to-end transaction scenarios
 - `tests/Feature/RouteConsistencyTest.php` - Route/role access verification
 - `tests/Feature/AccountingWorkflowTest.php` - Journal entries, periods, closing
 - `tests/Feature/StrWorkflowTest.php` - STR creation and workflow
+- `tests/Feature/CounterHandoverTest.php` - Till custody transfer
 - `tests/Unit/AmlRuleTest.php` - AML rule engine
 - `tests/Unit/MathServiceTest.php` - BCMath precision
+- `tests/Unit/CurrencyPositionServiceTest.php` - Stock/position calculations
 
 ### Counter Management
 

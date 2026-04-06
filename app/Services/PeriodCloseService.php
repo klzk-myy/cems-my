@@ -11,10 +11,22 @@ use Illuminate\Support\Facades\DB;
 
 class PeriodCloseService
 {
+    /**
+     * Accounting service for journal entry operations.
+     */
     protected AccountingService $accountingService;
 
+    /**
+     * Math service for high-precision calculations.
+     */
     protected MathService $mathService;
 
+    /**
+     * Create a new PeriodCloseService instance.
+     *
+     * @param  AccountingService  $accountingService  Service for journal entry operations
+     * @param  MathService  $mathService  Service for high-precision calculations
+     */
     public function __construct(AccountingService $accountingService, MathService $mathService)
     {
         $this->accountingService = $accountingService;

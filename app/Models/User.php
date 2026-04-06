@@ -93,6 +93,8 @@ class User extends Authenticatable
 
     /**
      * Check if user has admin role.
+     *
+     * @return bool True if user has admin role
      */
     public function isAdmin(): bool
     {
@@ -101,6 +103,8 @@ class User extends Authenticatable
 
     /**
      * Check if user has manager or admin role.
+     *
+     * @return bool True if user has manager or admin role
      */
     public function isManager(): bool
     {
@@ -109,6 +113,8 @@ class User extends Authenticatable
 
     /**
      * Check if user has compliance officer or admin role.
+     *
+     * @return bool True if user has compliance officer or admin role
      */
     public function isComplianceOfficer(): bool
     {

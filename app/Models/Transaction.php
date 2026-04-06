@@ -150,6 +150,8 @@ class Transaction extends Model
      * - Not already cancelled
      * - Within 24 hours of creation
      * - Not a refund transaction itself
+     *
+     * @return bool True if the transaction can be refunded
      */
     public function isRefundable(): bool
     {
@@ -181,6 +183,8 @@ class Transaction extends Model
      * Determine if the transaction has been cancelled.
      *
      * Checks if the cancelled_at timestamp is set.
+     *
+     * @return bool True if the transaction has been cancelled
      */
     public function isCancelled(): bool
     {

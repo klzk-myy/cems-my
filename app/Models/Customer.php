@@ -115,6 +115,11 @@ class Customer extends Model
 
     /**
      * Determine if customer is high risk.
+     *
+     * A customer is high risk if their risk rating is 'High', they are a PEP,
+     * or they have a sanctions match.
+     *
+     * @return bool True if the customer is high risk
      */
     public function isHighRisk(): bool
     {
