@@ -8,7 +8,7 @@
 
 ## Overview
 
-CEMS-MY is a Laravel 11.x web application for Malaysian Money Services Businesses (MSB), compliant with Bank Negara Malaysia (BNM) AML/CFT requirements. All routes use session-based authentication via Laravel's built-in session handling. This is not a REST API - it is a traditional server-rendered web application.
+CEMS-MY is a Laravel 10.x web application for Malaysian Money Services Businesses (MSB), compliant with Bank Negara Malaysia (BNM) AML/CFT requirements. All routes use session-based authentication via Laravel's built-in session handling. This is not a REST API - it is a traditional server-rendered web application.
 
 **Key Differences from REST API:**
 - Authentication via session cookies, not Bearer tokens

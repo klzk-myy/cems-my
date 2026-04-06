@@ -59,24 +59,24 @@ OS                 Ubuntu 22.04   Ubuntu 22.04 LTS
 
 ### Software Requirements
 
-**PHP (8.3+)**
+**PHP (8.1+)**
 ```bash
 # Required PHP Extensions
-php8.3-cli
-php8.3-fpm
-php8.3-mysql
-php8.3-mbstring
-php8.3-xml
-php8.3-bcmath
-php8.3-json
-php8.3-ctype
-php8.3-openssl
-php8.3-tokenizer
-php8.3-pdo
-php8.3-curl
-php8.3-zip
-php8.3-gd
-php8.3-intl
+php8.1-cli     (or php8.2-cli or php8.3-cli)
+php8.1-fpm     (or php8.2-fpm or php8.3-fpm)
+php8.1-mysql
+php8.1-mbstring
+php8.1-xml
+php8.1-bcmath
+php8.1-json
+php8.1-ctype
+php8.1-openssl
+php8.1-tokenizer
+php8.1-pdo
+php8.1-curl
+php8.1-zip
+php8.1-gd
+php8.1-intl
 ```
 
 **Database**
@@ -114,7 +114,7 @@ sudo apt install -y \
     gnupg2
 ```
 
-### Step 2: Install PHP 8.3
+### Step 2: Install PHP 8.1+
 
 ```bash
 # Add PHP repository
@@ -394,7 +394,7 @@ server {
 
     # PHP-FPM
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;  # Update to 8.2 or 8.3 if needed
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
@@ -442,7 +442,7 @@ sudo systemctl restart nginx
 
 ### PHP-FPM Configuration
 
-Edit `/etc/php/8.3/fpm/pool.d/www.conf`:
+Edit `/etc/php/8.1/fpm/pool.d/www.conf`:
 
 ```ini
 [www]
@@ -761,7 +761,7 @@ sudo systemctl restart nginx
 ### Common Issues
 
 **502 Bad Gateway**
-- Check PHP-FPM: `sudo systemctl status php8.3-fpm`
+- Check PHP-FPM: `sudo systemctl status php8.1-fpm` (or php8.2-fpm / php8.3-fpm)
 - Check Nginx error logs: `sudo tail -f /var/log/nginx/error.log`
 - Verify socket path in Nginx config
 
@@ -834,7 +834,7 @@ php artisan schedule:run
 | `/var/log/nginx/` | Web server logs |
 | `/var/log/mysql/` | Database logs |
 | `/etc/nginx/sites-available/` | Web server configs |
-| `/etc/php/8.3/fpm/` | PHP-FPM configuration |
+| `/etc/php/8.1/fpm/` | PHP-FPM configuration (or 8.2/8.3) |
 | `/var/backups/cems-my/` | Backup location |
 
 ---

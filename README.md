@@ -2,14 +2,14 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-1.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/php-8.3%2B-purple" alt="PHP 8.3+">
-  <img src="https://img.shields.io/badge/laravel-11.x-red" alt="Laravel 11.x">
+  <img src="https://img.shields.io/badge/php-8.1%2B-purple" alt="PHP 8.1+">
+  <img src="https://img.shields.io/badge/laravel-10.x-red" alt="Laravel 10.x">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
 </p>
 
 ## Overview
 
-**CEMS-MY** is a comprehensive Currency Exchange Management System designed specifically for Malaysian Money Services Businesses (MSB). Built on Laravel 11.x, it provides enterprise-grade features for managing foreign currency trading operations while ensuring compliance with Bank Negara Malaysia (BNM) regulations and the Personal Data Protection Act (PDPA).
+**CEMS-MY** is a comprehensive Currency Exchange Management System designed specifically for Malaysian Money Services Businesses (MSB). Built on Laravel 10.x, it provides enterprise-grade features for managing foreign currency trading operations while ensuring compliance with Bank Negara Malaysia (BNM) regulations and the Personal Data Protection Act (PDPA).
 
 ## Key Features
 
@@ -47,7 +47,7 @@
 ## System Requirements
 
 ### Server Requirements
-- **PHP**: >= 8.3
+- **PHP**: >= 8.1
 - **Database**: MySQL 8.0+ or PostgreSQL 14+
 - **Web Server**: Apache 2.4+ with mod_rewrite or Nginx
 - **Extensions**: BCMath, OpenSSL, PDO, Mbstring, Tokenizer, XML, Ctype, JSON
