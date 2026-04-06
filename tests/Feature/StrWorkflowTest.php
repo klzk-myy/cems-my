@@ -265,7 +265,7 @@ class StrWorkflowTest extends TestCase
             ->post("/str/{$strReport->id}/approve");
 
         $strReport->refresh();
-        $this->assertEquals(StrStatus::PendingApproval, $strReport->status);
+        $this->assertEquals(StrStatus::Submitted, $strReport->status);
         $this->assertEquals($this->managerUser->id, $strReport->approved_by);
     }
 

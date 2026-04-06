@@ -111,6 +111,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
             'email' => 'ahmad@example.com',
 'risk_rating' => 'Low', // Explicitly set to Low to avoid compliance hold
             'pep_status' => false,
+        ]);
 
         $this->assertDatabaseHas('customers', [
             'id' => $customer->id,
