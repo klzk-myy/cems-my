@@ -19,6 +19,8 @@ class TillBalance extends Model
         'closed_by',
         'closed_at',
         'notes',
+        'foreign_total',
+        'transaction_total',
     ];
 
     protected $casts = [

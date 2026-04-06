@@ -107,8 +107,9 @@ class RealWorldTransactionWorkflowTest extends TestCase
             'id_type' => 'MyKad',
             'id_number_encrypted' => '850612-14-5289',
             'nationality' => 'Malaysian',
-            'phone' => '012-3456789',
+            'phone' => '012-345-6789',
             'email' => 'ahmad@example.com',
+            'risk_rating' => 'Low',
         ]);
 
         $this->assertDatabaseHas('customers', [

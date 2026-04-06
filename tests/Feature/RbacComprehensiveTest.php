@@ -152,9 +152,34 @@ class RbacComprehensiveTest extends TestCase
      */
     public function test_manager_can_approve_transactions(): void
     {
+        // Create customer first
+        $customer = \App\Models\Customer::create([
+            'full_name' => 'Test Customer',
+            'id_type' => 'MyKad',
+            'id_number_encrypted' => encrypt('123456789012'),
+            'date_of_birth' => '1990-01-01',
+            'nationality' => 'Malaysian',
+            'address_encrypted' => encrypt('123 Test Street'),
+            'contact_number_encrypted' => encrypt('0123456789'),
+            'email' => 'customer@test.com',
+            'pep_status' => false,
+            'sanction_hit' => false,
+            'is_active' => true,
+            'risk_rating' => 'Low',
+        ]);
+
+        // Create till balance
+        \App\Models\TillBalance::create([
+            'till_id' => 'TILL-001',
+            'currency_code' => 'USD',
+            'opening_balance' => '100000.00',
+            'date' => now()->toDateString(),
+            'opened_by' => $this->tellerUser->id,
+        ]);
+
         // Create pending transaction
         $transaction = \App\Models\Transaction::create([
-            'customer_id' => 1,
+            'customer_id' => $customer->id,
             'user_id' => $this->tellerUser->id,
             'till_id' => 'TILL-001',
             'type' => 'Buy',
@@ -319,8 +344,33 @@ class RbacComprehensiveTest extends TestCase
      */
     public function test_teller_cannot_approve_transactions(): void
     {
+        // Create customer first
+        $customer = \App\Models\Customer::create([
+            'full_name' => 'Test Customer',
+            'id_type' => 'MyKad',
+            'id_number_encrypted' => encrypt('123456789012'),
+            'date_of_birth' => '1990-01-01',
+            'nationality' => 'Malaysian',
+            'address_encrypted' => encrypt('123 Test Street'),
+            'contact_number_encrypted' => encrypt('0123456789'),
+            'email' => 'customer@test.com',
+            'pep_status' => false,
+            'sanction_hit' => false,
+            'is_active' => true,
+            'risk_rating' => 'Low',
+        ]);
+
+        // Create till balance
+        \App\Models\TillBalance::create([
+            'till_id' => 'TILL-001',
+            'currency_code' => 'USD',
+            'opening_balance' => '100000.00',
+            'date' => now()->toDateString(),
+            'opened_by' => $this->tellerUser->id,
+        ]);
+
         $transaction = \App\Models\Transaction::create([
-            'customer_id' => 1,
+            'customer_id' => $customer->id,
             'user_id' => $this->tellerUser->id,
             'till_id' => 'TILL-001',
             'type' => 'Buy',

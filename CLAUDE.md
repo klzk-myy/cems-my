@@ -44,6 +44,10 @@ app/
 └── Services/             # Business logic (20+ services)
 ```
 
+### Full Documentation
+
+See `docs/` directory for detailed guides: USER_MANUAL.md, DEPLOYMENT.md, API.md, DATABASE_SCHEMA.md.
+
 ### Key Architectural Patterns
 
 **1. Enum-Based RBAC**

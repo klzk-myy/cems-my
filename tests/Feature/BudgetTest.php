@@ -278,8 +278,8 @@ class BudgetTest extends TestCase
             ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
-        $response->assertSee('50000.00'); // Budget
-        $response->assertSee('15000.00'); // Actual
+        $response->assertSee('50,000.00'); // Budget
+        $response->assertSee('15,000.00'); // Actual
     }
 
     /**
@@ -317,7 +317,7 @@ class BudgetTest extends TestCase
             ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
-        $response->assertSee('30000.00'); // Actual
+        $response->assertSee('30,000.00'); // Actual
         $this->assertFalse($budget->isOverBudget());
     }
 
@@ -357,7 +357,7 @@ class BudgetTest extends TestCase
             ->get('/accounting/budget?period='.$this->currentPeriod->period_code);
 
         $response->assertStatus(200);
-        $response->assertSee('50000.00');
+        $response->assertSee('50,000.00');
     }
 
     /**

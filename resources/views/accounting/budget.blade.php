@@ -57,6 +57,15 @@
             @endforeach
         </tbody>
     </table>
+
+    @if(isset($report['total_budget']))
+    <div class="budget-totals" style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #ddd; display: flex; gap: 2rem; justify-content: flex-end;">
+        <div><strong>Total Budget:</strong> <span id="total_budget">{{ number_format((float) $report['total_budget'], 2) }}</span></div>
+        <div><strong>Total Actual:</strong> <span id="total_actual">{{ number_format((float) $report['total_actual'], 2) }}</span></div>
+        <div><strong>Total Variance:</strong> <span id="total_variance">{{ number_format((float) $report['total_variance'], 2) }}</span></div>
+        <div><strong>Over Budget:</strong> <span id="over_budget_count">{{ $report['over_budget_count'] }}</span></div>
+    </div>
+    @endif
 </div>
 @else
 <div class="card">
