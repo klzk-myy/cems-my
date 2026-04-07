@@ -76,11 +76,18 @@ class MonitoringEngine
     /**
      * Run a specific monitor by class.
      *
-     * @return array Array of ComplianceFinding models
+     * @return Collection Collection of ComplianceFinding models
      */
-    public function runMonitor(string $monitorClass): array
+    public function runMonitor(string $monitorClass): Collection
     {
         $monitor = $this->getMonitor($monitorClass);
-        return $monitor->execute();
+        try {
+            $findings = $monitor->execute();
+            Log::info("Monitor {$monitorClass} generated " . count($findings) . " findings");
+            return collect($findings);
+        } catch (\Throwable $e) {
+            Log::error("Monitor {$monitorClass} failed: " . $e->getMessage());
+            return collect();
+        }
     }
 }

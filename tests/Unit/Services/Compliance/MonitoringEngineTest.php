@@ -77,7 +77,7 @@ class MonitoringEngineTest extends TestCase
 
         $results = $this->engine->runMonitor(TestMonitor::class);
 
-        $this->assertIsArray($results);
+        $this->assertInstanceOf(\Illuminate\Support\Collection::class, $results);
     }
 }
 
