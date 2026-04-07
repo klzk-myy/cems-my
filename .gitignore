@@ -21,3 +21,4 @@ yarn-error.log
 /docker/mysql/data
 /docker/nginx/ssl/*.pem
 /docker/nginx/ssl/*.key
+.worktrees
