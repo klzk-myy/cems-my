@@ -1,4 +1,4 @@
-# CLAUDE.md
+analyx# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -128,6 +128,41 @@ Routes use these middleware:
 - `mfa.verified` - MFA verification required
 - `throttle:{name}` - Rate limiting
 - `session.timeout` - Idle session timeout
+
+### Navigation Structure
+
+The sidebar navigation is organized by function:
+
+**Operations** (All authenticated users):
+- Dashboard (`/dashboard`)
+- Transactions (`/transactions`)
+- Customers (`/customers`)
+- Counters (`/counters`)
+- Stock & Cash (`/stock-cash`)
+
+**Compliance & AML** (Compliance officers):
+- Compliance Portal (`/compliance`)
+  - Flagged Transactions, EDD Records, AML Rules
+- STR Reports (`/str`)
+
+**Accounting** (Managers/Admin):
+- Accounting Dashboard (`/accounting`)
+  - Journal Entries, Ledger, Trial Balance
+  - P&L, Balance Sheet, Cash Flow, Ratios
+  - Periods, Fiscal Years, Revaluation
+  - Reconciliation, Budget
+
+**Reports** (Managers/Admin):
+- Reports Dashboard (`/reports`)
+  - MSB2, LCTR, LMCA, Quarterly LVR
+  - Position Limits, Report History
+
+**System** (Role-based):
+- Tasks (`/tasks`)
+- Audit Log (`/audit`)
+- Users (`/users`) - Admin only
+
+Configuration: `app/Config/Navigation.php`
 
 ### Key Models
 
