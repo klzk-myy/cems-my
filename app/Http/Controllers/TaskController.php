@@ -49,7 +49,7 @@ class TaskController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:5000',
             'category' => 'required|in:Compliance,Customer,Operations,Admin,Approval',
             'priority' => 'required|in:Urgent,High,Medium,Low',
             'assigned_to' => 'nullable|exists:users,id',

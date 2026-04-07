@@ -56,7 +56,7 @@ class EnhancedDiligenceController extends Controller
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'flagged_transaction_id' => 'nullable|exists:flagged_transactions,id',
-            'risk_level' => 'required|in:Low,Medium,High,Critical',
+            'risk_level' => 'required|in:Low,Medium,High',
             'source_of_funds' => 'required|string',
             'source_of_funds_description' => 'nullable|string',
             'purpose_of_transaction' => 'required|string',

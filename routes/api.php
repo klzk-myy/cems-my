@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SanctionController;
+use App\Http\Controllers\StrController;
+use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -21,9 +24,33 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    // Transactions API
+    Route::get('/transactions', [TransactionController::class, 'index']);
+    Route::post('/transactions', [TransactionController::class, 'store']);
+    Route::get('/transactions/{transaction}', [TransactionController::class, 'show']);
+    Route::post('/transactions/{transaction}/approve', [TransactionController::class, 'approve']);
+    Route::post('/transactions/{transaction}/cancel', [TransactionController::class, 'cancel']);
+
+    // Customers API
+    Route::get('/customers', [CustomerController::class, 'index']);
+    Route::post('/customers', [CustomerController::class, 'store']);
+    Route::get('/customers/{customer}', [CustomerController::class, 'show']);
+    Route::put('/customers/{customer}', [CustomerController::class, 'update']);
+    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
+    Route::get('/customers/{customer}/history', [CustomerController::class, 'customerHistory']);
+    Route::post('/customers/{customer}/kyc', [CustomerController::class, 'uploadDocument']);
+
+    // STR API
+    Route::get('/str', [StrController::class, 'index']);
+    Route::post('/str', [StrController::class, 'store']);
+    Route::get('/str/{str}', [StrController::class, 'show']);
+    Route::post('/str/{str}/submit', [StrController::class, 'submit']);
+
+    // Sanctions API
     Route::post('/sanctions/search', [SanctionController::class, 'search']);
     Route::post('/sanctions/upload', [SanctionController::class, 'upload']);
 
+    // Reports API
     Route::post('/reports/lctr', [ReportController::class, 'generateLCTR'])
         ->name('api.reports.lctr');
     Route::post('/reports/lctr/status', [ReportController::class, 'updateLCTRStatus'])

@@ -145,13 +145,39 @@ class CustomerController extends Controller
                         if (! preg_match('/^\d{6}-\d{2}-\d{4}$/', $value)) {
                             $fail('MyKad ID must be in format XXXXXX-XX-XXXX (e.g., 900123-01-2345)');
                         }
+
+                        // Validate birthdate in first 6 digits (YYMMDD)
+                        $birthdatePart = substr($value, 0, 6);
+                        $year = (int) substr($birthdatePart, 0, 2);
+                        $month = (int) substr($birthdatePart, 2, 2);
+                        $day = (int) substr($birthdatePart, 4, 2);
+
+                        // Validate month (01-12)
+                        if ($month < 1 || $month > 12) {
+                            $fail('MyKad ID contains invalid month in birthdate.');
+                        }
+
+                        // Validate day (01-31)
+                        if ($day < 1 || $day > 31) {
+                            $fail('MyKad ID contains invalid day in birthdate.');
+                        }
+
+                        // Validate days per month
+                        $daysInMonth = [1 => 31, 3 => 31, 4 => 30, 5 => 31, 6 => 30, 7 => 31, 8 => 31, 9 => 30, 10 => 31, 11 => 30, 12 => 31];
+                        // February validation (simplified - doesn't account for leap years perfectly but catches most errors)
+                        if ($month === 2 && $day > 29) {
+                            $fail('MyKad ID contains invalid day for February.');
+                        }
+                        if (isset($daysInMonth[$month]) && $day > $daysInMonth[$month]) {
+                            $fail("MyKad ID contains invalid day for month {$month}.");
+                        }
                     }
                 },
             ],
             'date_of_birth' => 'required|date|before:today',
             'nationality' => 'required|string|max:100',
             'address' => 'nullable|string|max:500',
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^(\+?6?01)[0-9]{7,9}$/'],
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^(\+?6?01)[0-9]{8,9}$/'],
             'email' => ['nullable', 'email', 'max:255'],
             'pep_status' => 'sometimes|boolean',
             'risk_rating' => ['required', 'in:Low,Medium,High'],
@@ -355,13 +381,39 @@ class CustomerController extends Controller
                         if (! preg_match('/^\d{6}-\d{2}-\d{4}$/', $value)) {
                             $fail('MyKad ID must be in format XXXXXX-XX-XXXX (e.g., 900123-01-2345)');
                         }
+
+                        // Validate birthdate in first 6 digits (YYMMDD)
+                        $birthdatePart = substr($value, 0, 6);
+                        $year = (int) substr($birthdatePart, 0, 2);
+                        $month = (int) substr($birthdatePart, 2, 2);
+                        $day = (int) substr($birthdatePart, 4, 2);
+
+                        // Validate month (01-12)
+                        if ($month < 1 || $month > 12) {
+                            $fail('MyKad ID contains invalid month in birthdate.');
+                        }
+
+                        // Validate day (01-31)
+                        if ($day < 1 || $day > 31) {
+                            $fail('MyKad ID contains invalid day in birthdate.');
+                        }
+
+                        // Validate days per month
+                        $daysInMonth = [1 => 31, 3 => 31, 4 => 30, 5 => 31, 6 => 30, 7 => 31, 8 => 31, 9 => 30, 10 => 31, 11 => 30, 12 => 31];
+                        // February validation (simplified - doesn't account for leap years perfectly but catches most errors)
+                        if ($month === 2 && $day > 29) {
+                            $fail('MyKad ID contains invalid day for February.');
+                        }
+                        if (isset($daysInMonth[$month]) && $day > $daysInMonth[$month]) {
+                            $fail("MyKad ID contains invalid day for month {$month}.");
+                        }
                     }
                 },
             ],
             'date_of_birth' => 'required|date|before:today',
             'nationality' => 'required|string|max:100',
             'address' => 'nullable|string|max:500',
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^(\+?6?01)[0-9]{7,9}$/'],
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^(\+?6?01)[0-9]{8,9}$/'],
             'email' => ['nullable', 'email', 'max:255'],
             'pep_status' => 'sometimes|boolean',
             'risk_rating' => ['required', 'in:Low,Medium,High'],
