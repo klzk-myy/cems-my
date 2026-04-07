@@ -219,7 +219,7 @@
         ✓ {{ $import->success_count }} transactions imported successfully
     </p>
     <p style="color: #718096; font-size: 0.875rem;">
-        View all transactions in the <a href="{{ route('transactions') }}">Transaction History</a>
+        View all transactions in the <a href="{{ route('transactions.index') }}">Transaction History</a>
     </p>
 </div>
 @endif
@@ -288,7 +288,7 @@
     <a href="{{ route('transactions.batch-upload') }}" class="btn btn-secondary">
         ← Back to Upload
     </a>
-    <a href="{{ route('transactions') }}" class="btn">
+    <a href="{{ route('transactions.index') }}" class="btn">
         View All Transactions
     </a>
 </div>

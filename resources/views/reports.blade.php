@@ -300,7 +300,7 @@
     </a>
 
     <!-- Currency Position Card -->
-    <a href="{{ route('accounting') }}" class="report-card operational">
+    <a href="{{ route('accounting.index') }}" class="report-card operational">
         <div class="report-card-header">
             <span class="report-icon">💱</span>
             <h3 class="report-card-title">Currency Position</h3>
