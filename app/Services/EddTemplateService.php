@@ -5,9 +5,9 @@ namespace App\Services;
 use App\Enums\EddRiskLevel;
 use App\Enums\EddStatus;
 use App\Enums\EddTemplateType;
+use App\Models\Customer;
 use App\Models\EddTemplate;
 use App\Models\EnhancedDiligenceRecord;
-use App\Models\Customer;
 use Illuminate\Support\Collection;
 
 class EddTemplateService
@@ -71,7 +71,7 @@ class EddTemplateService
                 }
             }
 
-            if (!empty($filteredQuestions)) {
+            if (! empty($filteredQuestions)) {
                 $filtered['sections'][] = [
                     'title' => $section['title'],
                     'questions' => $filteredQuestions,
@@ -147,7 +147,7 @@ class EddTemplateService
                 $isRequired = $question['required'] ?? false;
 
                 if ($isRequired && empty($responses[$questionId])) {
-                    $errors[$questionId] = "This field is required";
+                    $errors[$questionId] = 'This field is required';
                 }
             }
         }
@@ -162,8 +162,8 @@ class EddTemplateService
     {
         $errors = $this->validateResponses($record, $responses);
 
-        if (!empty($errors)) {
-            throw new \InvalidArgumentException('Response validation failed: ' . implode(', ', $errors));
+        if (! empty($errors)) {
+            throw new \InvalidArgumentException('Response validation failed: '.implode(', ', $errors));
         }
 
         $record->update([

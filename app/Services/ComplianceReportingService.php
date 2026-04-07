@@ -6,7 +6,6 @@ use App\Enums\ReportStatus;
 use App\Events\ReportGenerated;
 use App\Models\ReportRun;
 use App\Models\ReportSchedule;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
 class ComplianceReportingService
@@ -58,7 +57,7 @@ class ComplianceReportingService
             'msb2' => $this->reportingService->generateMSB2($params['date'] ?? now()->toDateString()),
             'lctr' => $this->reportingService->generateFormLMCACsv($params['month'] ?? now()->format('Y-m')),
             'lmca' => $this->reportingService->generateFormLMCACsv($params['month'] ?? now()->format('Y-m')),
-            'qlvr' => $this->reportingService->generateQuarterlyLargeValueCsv($params['quarter'] ?? now()->format('Y') . '-Q' . ceil(now()->month / 3)),
+            'qlvr' => $this->reportingService->generateQuarterlyLargeValueCsv($params['quarter'] ?? now()->format('Y').'-Q'.ceil(now()->month / 3)),
             'position_limit' => $this->reportingService->generatePositionLimitCsv(),
             default => throw new \InvalidArgumentException("Unknown report type: $type"),
         };
@@ -72,23 +71,23 @@ class ComplianceReportingService
         $query = ReportRun::with(['generatedBy', 'schedule'])
             ->orderByDesc('created_at');
 
-        if (!empty($filters['report_type'])) {
+        if (! empty($filters['report_type'])) {
             $query->where('report_type', $filters['report_type']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['from_date'])) {
+        if (! empty($filters['from_date'])) {
             $query->whereDate('created_at', '>=', $filters['from_date']);
         }
 
-        if (!empty($filters['to_date'])) {
+        if (! empty($filters['to_date'])) {
             $query->whereDate('created_at', '<=', $filters['to_date']);
         }
 
-        if (!empty($filters['generated_by'])) {
+        if (! empty($filters['generated_by'])) {
             $query->where('generated_by', $filters['generated_by']);
         }
 
@@ -128,14 +127,14 @@ class ComplianceReportingService
             'scheduled_runs' => $scheduledRuns,
             'success_rate' => $totalRuns > 0 ? round(($successfulRuns / $totalRuns) * 100, 1) : 100,
             'average_duration_seconds' => round($avgDuration ?? 0, 1),
-            'recent_runs' => $recentRuns->map(fn($r) => [
+            'recent_runs' => $recentRuns->map(fn ($r) => [
                 'id' => $r->id,
                 'type' => $r->report_type,
                 'status' => $r->status->value,
                 'generated_by' => $r->generatedBy?->name,
                 'created_at' => $r->created_at->toIso8601String(),
             ]),
-            'upcoming_schedules' => $upcomingSchedules->map(fn($s) => [
+            'upcoming_schedules' => $upcomingSchedules->map(fn ($s) => [
                 'id' => $s->id,
                 'type' => $s->report_type,
                 'next_run' => $s->next_run_at?->toIso8601String(),
@@ -199,7 +198,7 @@ class ComplianceReportingService
             'msb2' => $this->reportingService->generateMSB2Data($params['date'] ?? now()->toDateString()),
             'lctr' => $this->reportingService->generateLCTRData($params['month'] ?? now()->format('Y-m')),
             'lmca' => $this->reportingService->generateFormLMCA($params['month'] ?? now()->format('Y-m')),
-            'qlvr' => $this->reportingService->generateQuarterlyLargeValueReport($params['quarter'] ?? now()->format('Y') . '-Q' . ceil(now()->month / 3)),
+            'qlvr' => $this->reportingService->generateQuarterlyLargeValueReport($params['quarter'] ?? now()->format('Y').'-Q'.ceil(now()->month / 3)),
             'position_limit' => $this->reportingService->generatePositionLimitReport(),
             default => throw new \InvalidArgumentException("Unknown report type: $type"),
         };
@@ -216,7 +215,7 @@ class ComplianceReportingService
         $strDeadlines = \App\Models\StrDraft::pending()
             ->whereNotNull('filing_deadline')
             ->get()
-            ->map(fn($draft) => [
+            ->map(fn ($draft) => [
                 'type' => 'str',
                 'reference' => $draft->id,
                 'deadline' => $draft->filing_deadline->toDateString(),
@@ -227,7 +226,7 @@ class ComplianceReportingService
         $scheduledReports = ReportSchedule::active()
             ->whereNotNull('next_run_at')
             ->get()
-            ->map(fn($schedule) => [
+            ->map(fn ($schedule) => [
                 'type' => 'scheduled_report',
                 'reference' => $schedule->id,
                 'deadline' => $schedule->next_run_at->toDateString(),
@@ -266,7 +265,7 @@ class ComplianceReportingService
 
     protected function getFileMeta(string $filePath): array
     {
-        if (!Storage::exists($filePath)) {
+        if (! Storage::exists($filePath)) {
             return ['row_count' => 0];
         }
 
@@ -320,7 +319,7 @@ class ComplianceReportingService
 
         $onTimeStrs = \App\Models\StrReport::where('created_at', '>=', now()->subDays(30))
             ->get()
-            ->filter(fn($str) => $str->filing_deadline && $str->created_at->lte($str->filing_deadline))
+            ->filter(fn ($str) => $str->filing_deadline && $str->created_at->lte($str->filing_deadline))
             ->count();
 
         return ($onTimeStrs / $totalStrs) * 100;
@@ -353,8 +352,7 @@ class ComplianceReportingService
             ->where('created_at', '>=', now()->subDays(7))
             ->get();
 
-        $successfulScheduled = $recentRuns->filter(fn($r) =>
-            $r->schedule_id && $r->status === ReportStatus::Completed
+        $successfulScheduled = $recentRuns->filter(fn ($r) => $r->schedule_id && $r->status === ReportStatus::Completed
         )->count();
 
         return ($successfulScheduled / $totalSchedules) * 100;

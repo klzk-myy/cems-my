@@ -126,11 +126,11 @@ class CustomerRiskScoringService
 
         return [
             'customer_id' => $customerId,
-            'period' => $months . ' months',
+            'period' => $months.' months',
             'data_points' => $snapshots->count(),
             'current_score' => $snapshots->last()?->overall_score,
             'trend' => $snapshots->last()?->trend,
-            'snapshots' => $snapshots->map(fn($s) => [
+            'snapshots' => $snapshots->map(fn ($s) => [
                 'date' => $s->snapshot_date->toDateString(),
                 'score' => $s->overall_score,
                 'trend' => $s->trend->value,
@@ -176,8 +176,8 @@ class CustomerRiskScoringService
     {
         $score = 0;
 
-        $dailyAmounts = $transactions->groupBy(fn($t) => $t->created_at->format('Y-m-d'))
-            ->map(fn($day) => $day->sum('amount_local'));
+        $dailyAmounts = $transactions->groupBy(fn ($t) => $t->created_at->format('Y-m-d'))
+            ->map(fn ($day) => $day->sum('amount_local'));
 
         foreach ($dailyAmounts as $date => $amount) {
             if ((float) $amount >= 50000) {
@@ -196,8 +196,8 @@ class CustomerRiskScoringService
     {
         $score = 0;
 
-        $subThreshold = $transactions->filter(fn($t) => (float) $t->amount_local < 50000);
-        $hourlyGroups = $subThreshold->groupBy(fn($t) => $t->created_at->format('Y-m-d H'));
+        $subThreshold = $transactions->filter(fn ($t) => (float) $t->amount_local < 50000);
+        $hourlyGroups = $subThreshold->groupBy(fn ($t) => $t->created_at->format('Y-m-d H'));
 
         foreach ($hourlyGroups as $hour => $txns) {
             if ($txns->count() >= 3) {

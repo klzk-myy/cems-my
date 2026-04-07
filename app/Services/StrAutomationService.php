@@ -5,9 +5,7 @@ namespace App\Services;
 use App\Enums\ComplianceFlagType;
 use App\Enums\StrStatus;
 use App\Events\StrDraftGenerated;
-use App\Models\Alert;
 use App\Models\ComplianceCase;
-use App\Models\Customer;
 use App\Models\StrDraft;
 use App\Models\StrReport;
 use App\Models\Transaction;
@@ -107,7 +105,7 @@ class StrAutomationService
      */
     public function convertToStrReport(StrDraft $strDraft): StrReport
     {
-        if (!$strDraft->canConvert()) {
+        if (! $strDraft->canConvert()) {
             throw new \RuntimeException('STR draft does not meet conversion criteria');
         }
 
@@ -153,9 +151,9 @@ class StrAutomationService
 
         return [
             'total_pending' => $pendingDrafts->count(),
-            'overdue' => $pendingDrafts->filter(fn($d) => $d->isOverdue())->count(),
-            'due_24h' => $pendingDrafts->filter(fn($d) => $d->filing_deadline && $d->filing_deadline->diffInHours(now()) <= 24)->count(),
-            'due_48h' => $pendingDrafts->filter(fn($d) => $d->filing_deadline && $d->filing_deadline->diffInHours(now()) <= 48)->count(),
+            'overdue' => $pendingDrafts->filter(fn ($d) => $d->isOverdue())->count(),
+            'due_24h' => $pendingDrafts->filter(fn ($d) => $d->filing_deadline && $d->filing_deadline->diffInHours(now()) <= 24)->count(),
+            'due_48h' => $pendingDrafts->filter(fn ($d) => $d->filing_deadline && $d->filing_deadline->diffInHours(now()) <= 48)->count(),
         ];
     }
 
@@ -167,6 +165,7 @@ class StrAutomationService
                 $ids[] = $alert->flaggedTransaction->transaction_id;
             }
         }
+
         return array_unique($ids);
     }
 
@@ -240,7 +239,7 @@ class StrAutomationService
             $score += 5;
         }
 
-        $hasSanction = $alerts->contains(fn($a) => $a->type === ComplianceFlagType::SanctionMatch);
+        $hasSanction = $alerts->contains(fn ($a) => $a->type === ComplianceFlagType::SanctionMatch);
         if ($hasSanction) {
             $score += 20;
         }
