@@ -22,7 +22,7 @@ class ReportsViewTest extends TestCase
         $user = User::factory()->create(['role' => 'manager']);
 
         $response = $this->actingAs($user)
-            ->get(route('reports'));
+            ->get(route('reports.index'));
 
         $response->assertStatus(200);
         $response->assertViewIs('reports');
@@ -34,7 +34,7 @@ class ReportsViewTest extends TestCase
         $user = User::factory()->create(['role' => 'compliance_officer']);
 
         $response = $this->actingAs($user)
-            ->get(route('reports'));
+            ->get(route('reports.index'));
 
         $response->assertStatus(403);
     }
@@ -44,7 +44,7 @@ class ReportsViewTest extends TestCase
         $user = User::factory()->create(['role' => 'admin']);
 
         $response = $this->actingAs($user)
-            ->get(route('reports'));
+            ->get(route('reports.index'));
 
         $response->assertStatus(200);
     }
@@ -54,7 +54,7 @@ class ReportsViewTest extends TestCase
         $user = User::factory()->create(['role' => 'teller']);
 
         $response = $this->actingAs($user)
-            ->get(route('reports'));
+            ->get(route('reports.index'));
 
         $response->assertStatus(403);
     }
@@ -68,7 +68,7 @@ class ReportsViewTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->get(route('reports'));
+            ->get(route('reports.index'));
 
         $response->assertStatus(200);
         $response->assertSee('Recently Generated Reports');
@@ -80,7 +80,7 @@ class ReportsViewTest extends TestCase
         $user = User::factory()->create(['role' => 'manager']);
 
         $response = $this->actingAs($user)
-            ->get(route('reports'));
+            ->get(route('reports.index'));
 
         $response->assertStatus(200);
         // Check that all 8 report cards are displayed

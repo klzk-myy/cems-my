@@ -151,22 +151,22 @@ class ComprehensiveViewsTest extends TestCase
 
         // Managers should have access
         $this->actingAs($manager)
-            ->get(route('reports'))
+            ->get(route('reports.index'))
             ->assertStatus(200);
 
         // Admins should have access
         $this->actingAs($admin)
-            ->get(route('reports'))
+            ->get(route('reports.index'))
             ->assertStatus(200);
 
         // Compliance officers should NOT have access
         $this->actingAs($complianceOfficer)
-            ->get(route('reports'))
+            ->get(route('reports.index'))
             ->assertStatus(403);
 
         // Tellers should NOT have access
         $this->actingAs($teller)
-            ->get(route('reports'))
+            ->get(route('reports.index'))
             ->assertStatus(403);
     }
 
@@ -179,7 +179,7 @@ class ComprehensiveViewsTest extends TestCase
         $manager = User::factory()->create(['role' => 'manager']);
 
         $response = $this->actingAs($manager)
-            ->get(route('reports'));
+            ->get(route('reports.index'));
 
         $response->assertStatus(200);
 
@@ -218,7 +218,7 @@ class ComprehensiveViewsTest extends TestCase
         ]);
 
         $response = $this->actingAs($manager)
-            ->get(route('reports'));
+            ->get(route('reports.index'));
 
         $response->assertStatus(200);
 

@@ -265,7 +265,7 @@
 @section('content')
 <!-- Breadcrumb -->
 <nav class="breadcrumb">
-    <a href="{{ route('reports') }}">Reports</a>
+    <a href="{{ route('reports.index') }}">Reports</a>
     <span>›</span>
     <span>Monthly Trends</span>
 </nav>

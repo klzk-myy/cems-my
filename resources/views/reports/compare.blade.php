@@ -4,7 +4,7 @@
 
 @section('content')
 <nav class="breadcrumb">
-    <a href="{{ route('reports') }}">Reports</a>
+    <a href="{{ route('reports.index') }}">Reports</a>
     <span>›</span>
     <a href="{{ route('reports.history') }}">History</a>
     <span>›</span>

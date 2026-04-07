@@ -367,7 +367,7 @@
 
 @section('content')
 <nav class="breadcrumb">
-    <a href="{{ route('reports') }}">Reports</a>
+    <a href="{{ route('reports.index') }}">Reports</a>
     <span>›</span>
     <span>BNM Form LMCA</span>
 </nav>
