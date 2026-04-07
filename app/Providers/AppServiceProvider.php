@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Customer;
+use App\Models\Transaction;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,7 +23,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerMorphMap();
         $this->registerCarbonMacros();
+    }
+
+    /**
+     * Register the polymorphic relationship morph map.
+     * This allows using short names like 'Customer' and 'Transaction'
+     * in polymorphic relationship type columns.
+     */
+    protected function registerMorphMap(): void
+    {
+        Relation::morphMap([
+            'Customer' => Customer::class,
+            'Transaction' => Transaction::class,
+        ]);
     }
 
     /**
