@@ -171,6 +171,71 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
 
         // Generate STR from alert
         Route::post('/compliance/flags/{flaggedTransaction}/generate-str', [StrController::class, 'generateFromAlert'])->name('compliance.flags.generate-str');
+
+        // Compliance Workspace
+        Route::get('/compliance/workspace', [Compliance\ComplianceWorkspaceController::class, 'index'])->name('compliance.workspace');
+
+        // Alert Triage
+        Route::prefix('compliance/alerts')->name('compliance.alerts.')->group(function () {
+            Route::get('/', [Compliance\AlertTriageController::class, 'index'])->name('index');
+            Route::get('/{alert}', [Compliance\AlertTriageController::class, 'show'])->name('show');
+            Route::patch('/{alert}/assign', [Compliance\AlertTriageController::class, 'assign'])->name('assign');
+            Route::patch('/{alert}/resolve', [Compliance\AlertTriageController::class, 'resolve'])->name('resolve');
+        });
+
+        // Case Management
+        Route::prefix('compliance/cases')->name('compliance.cases.')->group(function () {
+            Route::get('/', [Compliance\CaseManagementController::class, 'index'])->name('index');
+            Route::post('/', [Compliance\CaseManagementController::class, 'store'])->name('store');
+            Route::get('/{case}', [Compliance\CaseManagementController::class, 'show'])->name('show');
+            Route::patch('/{case}', [Compliance\CaseManagementController::class, 'update'])->name('update');
+            Route::post('/{case}/merge', [Compliance\CaseManagementController::class, 'merge'])->name('merge');
+            Route::post('/{case}/link-alert', [Compliance\CaseManagementController::class, 'linkAlert'])->name('link-alert');
+        });
+
+        // STR Studio
+        Route::prefix('compliance/str-studio')->name('compliance.str-studio.')->group(function () {
+            Route::get('/', [Compliance\StrStudioController::class, 'index'])->name('index');
+            Route::get('/create/{caseId}', [Compliance\StrStudioController::class, 'create'])->name('create');
+            Route::post('/draft', [Compliance\StrStudioController::class, 'store'])->name('store');
+            Route::get('/{draft}', [Compliance\StrStudioController::class, 'show'])->name('show');
+            Route::post('/{draft}/generate-narrative', [Compliance\StrStudioController::class, 'generateNarrative'])->name('generate-narrative');
+            Route::post('/{draft}/submit', [Compliance\StrStudioController::class, 'submit'])->name('submit');
+            Route::post('/{draft}/convert', [Compliance\StrStudioController::class, 'convert'])->name('convert');
+            Route::get('/deadlines', [Compliance\StrStudioController::class, 'deadlines'])->name('deadlines');
+        });
+
+        // Risk Dashboard
+        Route::prefix('compliance/risk-dashboard')->name('compliance.risk-dashboard.')->group(function () {
+            Route::get('/', [Compliance\RiskDashboardController::class, 'index'])->name('index');
+            Route::get('/customer/{customer}', [Compliance\RiskDashboardController::class, 'customer'])->name('customer');
+            Route::get('/trends', [Compliance\RiskDashboardController::class, 'trends'])->name('trends');
+            Route::post('/rescreen', [Compliance\RiskDashboardController::class, 'rescreen'])->name('rescreen');
+        });
+
+        // EDD Templates
+        Route::prefix('compliance/edd-templates')->name('compliance.edd-templates.')->group(function () {
+            Route::get('/', [Compliance\EddTemplateController::class, 'index'])->name('index');
+            Route::post('/', [Compliance\EddTemplateController::class, 'store'])->name('store');
+            Route::get('/{template}', [Compliance\EddTemplateController::class, 'show'])->name('show');
+            Route::put('/{template}', [Compliance\EddTemplateController::class, 'update'])->name('update');
+            Route::delete('/{template}', [Compliance\EddTemplateController::class, 'destroy'])->name('destroy');
+            Route::post('/{template}/duplicate', [Compliance\EddTemplateController::class, 'duplicate'])->name('duplicate');
+        });
+
+        // Compliance Reporting
+        Route::prefix('compliance/reporting')->name('compliance.reporting.')->group(function () {
+            Route::get('/', [Compliance\ComplianceReportingController::class, 'index'])->name('index');
+            Route::get('/generate', [Compliance\ComplianceReportingController::class, 'generate'])->name('generate');
+            Route::post('/run', [Compliance\ComplianceReportingController::class, 'run'])->name('run');
+            Route::get('/history', [Compliance\ComplianceReportingController::class, 'history'])->name('history');
+            Route::get('/history/{id}/download', [Compliance\ComplianceReportingController::class, 'download'])->name('history.download');
+            Route::get('/schedule', [Compliance\ComplianceReportingController::class, 'schedule'])->name('schedule');
+            Route::post('/schedule', [Compliance\ComplianceReportingController::class, 'createSchedule'])->name('schedule.create');
+            Route::patch('/schedule/{id}', [Compliance\ComplianceReportingController::class, 'updateSchedule'])->name('schedule.update');
+            Route::delete('/schedule/{id}', [Compliance\ComplianceReportingController::class, 'deleteSchedule'])->name('schedule.delete');
+            Route::get('/deadlines', [Compliance\ComplianceReportingController::class, 'deadlines'])->name('deadlines');
+        });
     });
 
     // AML Rules (Compliance Officers only)
