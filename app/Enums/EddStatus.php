@@ -2,6 +2,11 @@
 
 namespace App\Enums;
 
+/**
+ * EDD Status Enum
+ *
+ * Represents the lifecycle status of Enhanced Due Diligence records.
+ */
 enum EddStatus: string
 {
     case Incomplete = 'Incomplete';
@@ -12,9 +17,12 @@ enum EddStatus: string
     case Rejected = 'Rejected';
     case Expired = 'Expired';
 
+    /**
+     * Get a human-readable label for the EDD status.
+     */
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::Incomplete => 'Incomplete',
             self::PendingQuestionnaire => 'Pending Questionnaire',
             self::QuestionnaireSubmitted => 'Questionnaire Submitted',
@@ -25,9 +33,12 @@ enum EddStatus: string
         };
     }
 
+    /**
+     * Get the Bootstrap color class for UI display.
+     */
     public function color(): string
     {
-        return match($this) {
+        return match ($this) {
             self::Incomplete => 'secondary',
             self::PendingQuestionnaire => 'info',
             self::QuestionnaireSubmitted => 'primary',
@@ -38,6 +49,9 @@ enum EddStatus: string
         };
     }
 
+    /**
+     * Determine if the questionnaire can be submitted for this status.
+     */
     public function canSubmitQuestionnaire(): bool
     {
         return $this === self::PendingQuestionnaire;
