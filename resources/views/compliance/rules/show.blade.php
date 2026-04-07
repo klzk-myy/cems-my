@@ -232,8 +232,8 @@
     <div class="detail-row">
         <div class="detail-label">Rule Type</div>
         <div class="detail-value">
-            <span class="badge badge-{{ $rule->rule_type->value ?? 'unknown' }}">
-                {{ $rule->rule_type->label() ?? 'Unknown' }}
+            <span class="badge badge-{{ is_object($rule->rule_type) ? $rule->rule_type->value : $rule->rule_type }}">
+                {{ is_object($rule->rule_type) ? $rule->rule_type->label() : (AmlRuleType::tryFrom($rule->rule_type)?->label() ?? 'Unknown') }}
             </span>
         </div>
     </div>

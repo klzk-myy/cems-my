@@ -98,7 +98,7 @@ class AmlRuleService
             'new_values' => [
                 'rule_id' => $rule->id,
                 'rule_code' => $rule->rule_code,
-                'rule_type' => $rule->rule_type->value ?? $rule->rule_type,
+                'rule_type' => is_object($rule->rule_type) ? $rule->rule_type->value : $rule->rule_type,
                 'action' => $result['action'],
                 'risk_score' => $result['risk_score'],
             ],
@@ -124,7 +124,7 @@ class AmlRuleService
                 'rule_id' => $rule->id,
                 'rule_code' => $rule->rule_code,
                 'rule_name' => $rule->rule_name,
-                'rule_type' => $rule->rule_type->value ?? $rule->rule_type,
+                'rule_type' => is_object($rule->rule_type) ? $rule->rule_type->value : $rule->rule_type,
                 'triggered' => $result['triggered'],
                 'risk_score' => $result['risk_score'],
                 'action' => $result['action'],

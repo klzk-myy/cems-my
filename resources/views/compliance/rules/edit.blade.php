@@ -219,7 +219,7 @@
             @foreach($ruleTypeOptions as $value => $option)
             <label class="rule-type-option" data-value="{{ $value }}">
                 <input type="radio" name="rule_type" value="{{ $value }}"
-                    {{ old('rule_type', $rule->rule_type->value ?? '') == $value ? 'checked' : '' }}
+                    {{ old('rule_type', is_object($rule->rule_type) ? $rule->rule_type->value : $rule->rule_type) == $value ? 'checked' : '' }}
                     onchange="updateConditionSchema('{{ $value }}')">
                 <h4>{{ $option['label'] }}</h4>
                 <p>{{ $option['description'] }}</p>
@@ -476,7 +476,7 @@ function updateConditionsPreview() {
 
 // Initialize on page load with current rule type
 document.addEventListener('DOMContentLoaded', function() {
-    const currentType = '{{ $rule->rule_type->value ?? '' }}';
+    const currentType = '{{ is_object($rule->rule_type) ? $rule->rule_type->value : $rule->rule_type }}';
     if (currentType) {
         updateConditionSchema(currentType);
     }

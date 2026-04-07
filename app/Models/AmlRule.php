@@ -55,7 +55,6 @@ class AmlRule extends Model
      */
     protected $casts = [
         'conditions' => 'array',
-        'rule_type' => AmlRuleType::class,
         'risk_score' => 'integer',
         'is_active' => 'boolean',
         'created_at' => 'datetime',
@@ -118,8 +117,14 @@ class AmlRule extends Model
         $triggered = false;
         $reason = null;
 
+        // Convert string to enum for evaluation if needed
+        $ruleTypeValue = $this->rule_type;
+        if (is_string($ruleTypeValue)) {
+            $ruleTypeValue = AmlRuleType::tryFrom($ruleTypeValue);
+        }
+
         try {
-            $triggered = match ($this->rule_type) {
+            $triggered = match ($ruleTypeValue) {
                 AmlRuleType::Velocity => $this->evaluateVelocity($transaction, $conditions),
                 AmlRuleType::Structuring => $this->evaluateStructuring($transaction, $conditions),
                 AmlRuleType::AmountThreshold => $this->evaluateAmountThreshold($transaction, $conditions),
@@ -288,8 +293,11 @@ class AmlRule extends Model
 
         $conditions = $this->conditions ?? [];
 
+        // Get rule type value (handle both string and enum)
+        $ruleTypeValue = is_object($this->rule_type) ? $this->rule_type->value : $this->rule_type;
+
         // For geographic rules, check if customer's nationality matches
-        if ($this->rule_type === AmlRuleType::Geographic) {
+        if ($ruleTypeValue === AmlRuleType::Geographic->value) {
             $customer = $transaction->customer;
             if (! $customer || ! $customer->nationality) {
                 return false;
