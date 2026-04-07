@@ -121,23 +121,17 @@
             margin-top: 1mm;
         }
 
-        /* QR Code placeholder */
+        /* QR Code Section */
         .qr-section {
             text-align: center;
             padding: 3mm 0;
             margin: 2mm 0;
         }
 
-        .qr-placeholder {
+        .qr-code {
             width: 25mm;
             height: 25mm;
-            border: 1px solid #000;
             margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 6pt;
-            text-align: center;
         }
 
         .qr-text {
@@ -145,23 +139,15 @@
             margin-top: 1mm;
         }
 
-        /* Barcode placeholder */
+        /* Barcode Section */
         .barcode-section {
             text-align: center;
             padding: 2mm 0;
         }
 
-        .barcode-placeholder {
+        .barcode-code {
             height: 10mm;
-            background: repeating-linear-gradient(
-                90deg,
-                #000 0px,
-                #000 1px,
-                #fff 1px,
-                #fff 2px
-            );
             margin: 0 auto;
-            width: 60mm;
         }
 
         .barcode-text {
@@ -344,10 +330,26 @@
             @endif
         </div>
 
+        <!-- QR Code Section -->
+        <div class="qr-section">
+            @if($qrCodeImage)
+                <img src="{{ $qrCodeImage }}" alt="Transaction QR Code" class="qr-code">
+            @else
+                <div class="qr-placeholder" style="width: 25mm; height: 25mm; border: 1px solid #000; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 6pt; text-align: center;">
+                    QR Code unavailable
+                </div>
+            @endif
+            <div class="qr-text">Scan to verify transaction</div>
+        </div>
+
         <!-- Barcode Section -->
         <div class="barcode-section">
-            <div class="barcode-placeholder"></div>
-            <div class="barcode-text">{{ str_pad($transaction->id, 10, '0', STR_PAD_LEFT) }}</div>
+            @if($barcodeImage)
+                <img src="{{ $barcodeImage }}" alt="Transaction Barcode" class="barcode-code">
+            @else
+                <div class="barcode-placeholder" style="height: 10mm; background: repeating-linear-gradient(90deg, #000 0px, #000 1px, #fff 1px, #fff 2px); margin: 0 auto; width: 60mm;"></div>
+            @endif
+            <div class="barcode-text">{{ $barcodeText ?? str_pad($transaction->id, 10, '0', STR_PAD_LEFT) }}</div>
         </div>
 
         <!-- Footer -->

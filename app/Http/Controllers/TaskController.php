@@ -4,44 +4,22 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use App\Models\User;
+use App\Services\TaskService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
+    public function __construct(
+        protected TaskService $taskService
+    ) {}
+
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Task::with(['assignedTo', 'createdBy', 'relatedCustomer']);
+        $filters = $request->only(['status', 'priority', 'category', 'assigned_to']);
 
-        if ($user->role->isTeller()) {
-            $query->where('assigned_to', $user->id);
-        } elseif ($user->role->isManager()) {
-            $query->where(function ($q) use ($user) {
-                $q->where('assigned_to', $user->id)
-                    ->orWhere('assigned_role', $user->role->value);
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->filled('priority')) {
-            $query->where('priority', $request->priority);
-        }
-
-        if ($request->filled('category')) {
-            $query->where('category', $request->category);
-        }
-
-        if ($request->filled('assigned_to')) {
-            $query->where('assigned_to', $request->assigned_to);
-        }
-
-        $tasks = $query->orderByRaw("FIELD(priority, 'Urgent', 'High', 'Medium', 'Low')")
-            ->orderBy('due_at', 'asc')
-            ->paginate(20);
+        $tasks = $this->taskService->getAllTasks($filters, $user);
 
         $users = User::where('is_active', true)->get();
 
@@ -82,14 +60,7 @@ class TaskController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $validated['created_by'] = Auth::id();
-        $validated['status'] = Task::STATUS_PENDING;
-
-        if (! isset($validated['assigned_to']) && ! isset($validated['assigned_role'])) {
-            $validated['assigned_to'] = Auth::id();
-        }
-
-        $task = Task::create($validated);
+        $task = $this->taskService->createTask($validated, Auth::id());
 
         return redirect()->route('tasks.show', $task)
             ->with('success', 'Task created successfully');
@@ -101,7 +72,7 @@ class TaskController extends Controller
             return back()->with('error', 'Task already acknowledged');
         }
 
-        $task->acknowledge();
+        $this->taskService->acknowledgeTask($task, Auth::id());
 
         return back()->with('success', 'Task acknowledged');
     }
@@ -112,7 +83,7 @@ class TaskController extends Controller
             'completion_notes' => 'nullable|string',
         ]);
 
-        $task->complete($validated['completion_notes'] ?? null);
+        $this->taskService->completeTask($task, Auth::id(), $validated['completion_notes'] ?? null);
 
         return redirect()->route('tasks.index')
             ->with('success', 'Task completed successfully');
@@ -124,10 +95,7 @@ class TaskController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $task->update([
-            'status' => Task::STATUS_CANCELLED,
-            'notes' => $validated['notes'] ?? $task->notes,
-        ]);
+        $this->taskService->cancelTask($task, Auth::id(), $validated['notes'] ?? null);
 
         return redirect()->route('tasks.index')
             ->with('success', 'Task cancelled');
@@ -135,43 +103,28 @@ class TaskController extends Controller
 
     public function escalate(Task $task)
     {
-        $task->escalate();
+        $this->taskService->escalateTask($task, Auth::id());
 
-        return back()->with('success', 'Task escalated to '.$task->priority);
+        return back()->with('success', 'Task escalated to '.$task->fresh()->priority);
     }
 
     public function myTasks()
     {
-        $tasks = Task::with(['assignedTo', 'createdBy'])
-            ->assignedTo(Auth::id())
-            ->whereNotIn('status', [Task::STATUS_COMPLETED, Task::STATUS_CANCELLED])
-            ->orderByRaw("FIELD(priority, 'Urgent', 'High', 'Medium', 'Low')")
-            ->orderBy('due_at', 'asc')
-            ->paginate(20);
+        $tasks = $this->taskService->getUserTasks(Auth::id());
 
         return view('tasks.my-tasks', compact('tasks'));
     }
 
     public function overdue()
     {
-        $tasks = Task::with(['assignedTo', 'createdBy'])
-            ->overdue()
-            ->orderBy('due_at', 'asc')
-            ->paginate(20);
+        $tasks = $this->taskService->getOverdueTasks();
 
         return view('tasks.overdue', compact('tasks'));
     }
 
     public function stats()
     {
-        $stats = [
-            'total' => Task::count(),
-            'pending' => Task::pending()->count(),
-            'in_progress' => Task::inProgress()->count(),
-            'overdue' => Task::overdue()->count(),
-            'completed_today' => Task::where('status', Task::STATUS_COMPLETED)
-                ->whereDate('completed_at', today())->count(),
-        ];
+        $stats = $this->taskService->getTaskStats();
 
         return response()->json($stats);
     }

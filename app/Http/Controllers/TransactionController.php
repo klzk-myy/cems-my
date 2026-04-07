@@ -488,8 +488,41 @@ class TransactionController extends Controller
         }
 
         $transaction->load(['customer', 'user', 'approver']);
+
+        // Generate barcode (Code128) for transaction reference number
+        $barcodeImage = null;
+        $barcodeText = str_pad($transaction->id, 10, '0', STR_PAD_LEFT);
+        try {
+            $barcodeGenerator = new \Picqer\Barcode\BarcodeGeneratorPNG();
+            $barcodeData = $barcodeGenerator->getBarcode($barcodeText, $barcodeGenerator::TYPE_CODE_128);
+            $barcodeImage = 'data:image/png;base64,' . base64_encode($barcodeData);
+        } catch (\Exception $e) {
+            // Graceful fallback if barcode generation fails
+            $barcodeImage = null;
+        }
+
+        // Generate QR code with transaction verification data
+        $qrCodeImage = null;
+        try {
+            $qrCodeData = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')
+                ->size(150)
+                ->generate(json_encode([
+                    'id' => $transaction->id,
+                    'amount' => $transaction->amount_local,
+                    'currency' => $transaction->currency_code,
+                    'date' => $transaction->created_at->toIso8601String(),
+                    'customer_id' => $transaction->customer_id,
+                    'type' => $transaction->type->value,
+                    'verify' => url('/verify/transaction/' . $transaction->id),
+                ]));
+            $qrCodeImage = 'data:image/png;base64,' . base64_encode($qrCodeData);
+        } catch (\Exception $e) {
+            // Graceful fallback if QR code generation fails
+            $qrCodeImage = null;
+        }
+
         $pdf = app('dompdf.wrapper');
-        $pdf->loadView('transactions.receipt', compact('transaction'));
+        $pdf->loadView('transactions.receipt', compact('transaction', 'barcodeImage', 'qrCodeImage', 'barcodeText'));
         $pdf->setPaper([0, 0, 226.77, 841.89], 'portrait');
         $filename = 'receipt_'.str_pad($transaction->id, 8, '0', STR_PAD_LEFT).'.pdf';
 
