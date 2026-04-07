@@ -283,9 +283,7 @@ class TransactionController extends Controller
      */
     public function approve(Request $request, Transaction $transaction)
     {
-        if (! auth()->user()->isManager()) {
-            abort(403, 'Unauthorized. Manager approval required.');
-        }
+        $this->requireManagerOrAdmin();
 
         if (! $transaction->status->isPending()) {
             return back()->with('error', 'Transaction is not pending approval.');

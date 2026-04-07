@@ -13,14 +13,11 @@ use Illuminate\Http\Request;
 
 class StockCashController extends Controller
 {
-    /**
-     * Check if user can manage stock/cash
-     */
-    protected function requireManagerOrAdmin(): void
+    protected MathService $mathService;
+
+    public function __construct(MathService $mathService)
     {
-        if (! auth()->user()->isManager()) {
-            abort(403, 'Unauthorized. Manager or Admin access required.');
-        }
+        $this->mathService = $mathService;
     }
 
     /**
@@ -29,7 +26,7 @@ class StockCashController extends Controller
     public function index()
     {
         $this->requireManagerOrAdmin();
-        $service = new CurrencyPositionService(new MathService);
+        $service = new CurrencyPositionService($this->mathService);
 
         // Get current positions
         $positions = CurrencyPosition::with('currency')->get();
@@ -160,8 +157,14 @@ class StockCashController extends Controller
             ->selectRaw("SUM(CASE WHEN type='Buy' THEN amount_local ELSE -amount_local END) as net")
             ->value('net') ?? 0;
 
-        $expectedClosing = (float) $tillBalance->opening_balance + $netFlow;
-        $variance = $validated['closing_balance'] - $expectedClosing;
+        $expectedClosing = $this->mathService->add(
+            (string) $tillBalance->opening_balance,
+            (string) $netFlow
+        );
+        $variance = $this->mathService->subtract(
+            (string) $validated['closing_balance'],
+            $expectedClosing
+        );
 
         $tillBalance->update([
             'closing_balance' => $validated['closing_balance'],
@@ -187,7 +190,7 @@ class StockCashController extends Controller
             'ip_address' => $request->ip(),
         ]);
 
-        return back()->with('success', 'Till closed successfully. Variance: '.number_format($variance, 2));
+        return back()->with('success', 'Till closed successfully. Variance: '.number_format((float) $variance, 2));
     }
 
     /**
@@ -272,13 +275,19 @@ class StockCashController extends Controller
             'total_sell_count' => $transactions->where('type', TransactionType::Sell)->count(),
             'total_sell_amount' => $transactions->where('type', TransactionType::Sell)->sum('amount_local'),
             'total_transactions' => $transactions->count(),
-            'net_flow' => $transactions->where('type', TransactionType::Buy)->sum('amount_local') - $transactions->where('type', TransactionType::Sell)->sum('amount_local'),
+            'net_flow' => $this->mathService->subtract(
+                (string) $transactions->where('type', TransactionType::Buy)->sum('amount_local'),
+                (string) $transactions->where('type', TransactionType::Sell)->sum('amount_local')
+            ),
         ];
 
         // Calculate expected closing balance
         // For buy: + foreign currency (stock in), - MYR (cash out)
         // For sell: - foreign currency (stock out), + MYR (cash in)
-        $expectedClosing = (float) $tillBalance->opening_balance + $summary['net_flow'];
+        $expectedClosing = $this->mathService->add(
+            (string) $tillBalance->opening_balance,
+            (string) $summary['net_flow']
+        );
 
         // Get actual closing balance (if till is closed)
         $actualClosing = $tillBalance->closing_balance
@@ -287,7 +296,7 @@ class StockCashController extends Controller
 
         // Calculate variance
         $variance = $actualClosing !== null
-            ? $actualClosing - $expectedClosing
+            ? $this->mathService->subtract((string) $actualClosing, (string) $expectedClosing)
             : null;
 
         $reconciliation = [

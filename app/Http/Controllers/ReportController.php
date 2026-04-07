@@ -14,6 +14,7 @@ use App\Models\FlaggedTransaction;
 use App\Models\ReportGenerated;
 use App\Models\Transaction;
 use App\Services\ExportService;
+use App\Services\MathService;
 use App\Services\ReportingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -26,12 +27,16 @@ class ReportController extends Controller
 
     protected ExportService $exportService;
 
+    protected MathService $mathService;
+
     public function __construct(
         ReportingService $reportingService,
-        ExportService $exportService
+        ExportService $exportService,
+        MathService $mathService
     ) {
         $this->reportingService = $reportingService;
         $this->exportService = $exportService;
+        $this->mathService = $mathService;
     }
 
     protected function requireManagerOrAdmin(): void
@@ -369,12 +374,18 @@ class ReportController extends Controller
         foreach ($data as $row) {
             $trend = null;
             if ($previousVolume !== null && $previousVolume > 0) {
-                $trend = (($row->total_volume - $previousVolume) / $previousVolume) * 100;
+                $diff = $this->mathService->subtract((string) $row->total_volume, (string) $previousVolume);
+                $trend = $this->mathService->multiply(
+                    $this->mathService->divide($diff, (string) $previousVolume),
+                    '100'
+                );
             }
             $trends[$row->month] = [
                 'volume' => $row->total_volume,
                 'trend' => $trend,
-                'direction' => $trend > 0 ? 'up' : ($trend < 0 ? 'down' : 'neutral'),
+                'direction' => $this->mathService->compare($trend, '0') > 0
+                    ? 'up'
+                    : ($this->mathService->compare($trend, '0') < 0 ? 'down' : 'neutral'),
             ];
             $previousVolume = $row->total_volume;
         }
@@ -446,9 +457,12 @@ class ReportController extends Controller
         $currentRate = $this->getCurrentRate($currencyCode);
 
         // Unrealized P&L (on current balance)
-        $avgCost = (float) $position->avg_cost_rate;
-        $balance = (float) $position->balance;
-        $unrealizedPnl = ($currentRate - $avgCost) * $balance;
+        $avgCost = (string) $position->avg_cost_rate;
+        $balance = (string) $position->balance;
+        $unrealizedPnl = $this->mathService->multiply(
+            $this->mathService->subtract((string) $currentRate, $avgCost),
+            $balance
+        );
 
         // Realized P&L (from sell transactions in period)
         $sells = Transaction::where('currency_code', $currencyCode)
@@ -457,12 +471,16 @@ class ReportController extends Controller
             ->whereBetween('created_at', [$startDate, $endDate])
             ->get();
 
-        $realizedPnl = 0;
+        $realizedPnl = '0';
         foreach ($sells as $sell) {
-            $sellRate = (float) $sell->rate;
-            $sellAmount = (float) $sell->amount_foreign;
+            $sellRate = (string) $sell->rate;
+            $sellAmount = (string) $sell->amount_foreign;
             // Gain = (sell rate - avg cost) * amount
-            $realizedPnl += ($sellRate - $avgCost) * $sellAmount;
+            $gain = $this->mathService->multiply(
+                $this->mathService->subtract($sellRate, $avgCost),
+                $sellAmount
+            );
+            $realizedPnl = $this->mathService->add((string) $realizedPnl, $gain);
         }
 
         // Buy volume in period
@@ -518,7 +536,12 @@ class ReportController extends Controller
                     'customer' => $customer,
                     'transaction_count' => $customer->transactions_count,
                     'total_volume' => $customer->transactions_sum_amount_local,
-                    'avg_transaction' => $customer->transactions_count > 0 ? $customer->transactions_sum_amount_local / $customer->transactions_count : 0,
+                    'avg_transaction' => $customer->transactions_count > 0
+                        ? $this->mathService->divide(
+                            (string) $customer->transactions_sum_amount_local,
+                            (string) $customer->transactions_count
+                          )
+                        : '0',
                     'first_transaction' => $customer->transactions()->min('created_at'),
                     'last_transaction' => $customer->transactions()->max('created_at'),
                     'risk_rating' => $customer->risk_rating,
@@ -671,7 +694,7 @@ class ReportController extends Controller
             'quarter' => 'nullable|date_format:Y-q',
         ]);
 
-        $quarter = $validated['quarter'] ?? now()->format('Y').'-Q'.ceil(now()->format('n') / 3);
+        $quarter = $validated['quarter'] ?? now()->format('Y').'-Q'.(int) ceil((int) now()->format('n') / 3);
 
         $reportGenerated = ReportGenerated::where('report_type', 'QLVR')
             ->where('period_start', $this->getQuarterStart($quarter))
