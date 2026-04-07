@@ -43,6 +43,10 @@ class Transaction extends Model
      * The attributes that are mass assignable.
      *
      * @var array<string>
+     *
+     * SECURITY NOTE: These fields are protected by controller validation, not just
+     * model-level fillable guards. The controller validates all inputs before
+     * calling create()/update() with these fields.
      */
     protected $fillable = [
         'customer_id',

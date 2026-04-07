@@ -250,9 +250,10 @@ class AmlRuleService
             ->active()
             ->get()
             ->map(function ($rule) use ($startDate) {
+                // rule_code is from the AmlRule model (not user input), so safe to interpolate
+                $pattern = '%"rule_code":"'.$rule->rule_code.'"%';
                 $hitCount = SystemLog::where('action', 'aml_rule_triggered')
-                    ->where('new_values', 'LIKE', '%"rule_code":"'.DB::raw('?').'"%')
-                    ->addBinding([$rule->rule_code], 'where')
+                    ->where('new_values', 'LIKE', $pattern)
                     ->where('created_at', '>=', $startDate)
                     ->count();
 

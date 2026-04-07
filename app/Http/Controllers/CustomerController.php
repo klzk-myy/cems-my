@@ -510,6 +510,11 @@ class CustomerController extends Controller
      */
     public function destroy(Request $request, Customer $customer)
     {
+        // Require manager or admin role to delete customers
+        if (! auth()->user()->isManager()) {
+            abort(403, 'Unauthorized. Manager or Admin access required to delete customers.');
+        }
+
         // Check if customer has transactions
         if ($customer->transactions()->exists()) {
             return redirect()->route('customers.show', $customer)
