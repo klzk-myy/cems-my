@@ -50,7 +50,7 @@ class MathServiceTest extends TestCase
     public function test_calculate_transaction_amount()
     {
         // Buy 100 USD @ 4.70 = 470 MYR
-        $result = $this->service->calculateTransactionAmount('100', '4.70', 'Buy');
+        $result = $this->service->calculateTransactionAmount('100', '4.70');
         $this->assertEquals('470.000000', $result);
     }
 

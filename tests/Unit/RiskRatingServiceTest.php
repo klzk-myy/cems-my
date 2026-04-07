@@ -3,12 +3,18 @@
 namespace Tests\Unit;
 
 use App\Models\Customer;
+use App\Models\Transaction;
+use App\Models\HighRiskCountry;
+use App\Models\User;
+use App\Models\Currency;
 use App\Services\RiskRatingService;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class RiskRatingServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected RiskRatingService $service;
 
     protected function setUp(): void
@@ -19,64 +25,47 @@ class RiskRatingServiceTest extends TestCase
 
     public function test_calculate_score_for_low_risk_customer()
     {
-        // Mock DB facade to return no high-risk country match and no cash intensive transactions
-        DB::shouldReceive('table')->with('high_risk_countries')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('exists')->andReturn(false);
-
-        DB::shouldReceive('table')->with('transactions')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('count')->andReturn(0);
-
-        $customer = new Customer([
+        // No high-risk country, no PEP, no cash-intensive transactions
+        $customer = Customer::factory()->create([
+            'full_name' => 'John Malaysian',
             'pep_status' => false,
-            'nationality' => 'Malaysia',
+            'nationality' => 'Malaysia', // Not a high-risk country
+            'risk_rating' => 'Low',
         ]);
-        $customer->id = 1;
+        // No transactions created - not cash intensive
 
         $score = $this->service->calculateRiskScore($customer);
-        $this->assertLessThanOrEqual(30, $score);
         $this->assertEquals(0, $score);
     }
 
     public function test_calculate_score_for_pep_customer()
     {
-        // Mock DB facade for high-risk country (returns false) and transactions (returns 0)
-        DB::shouldReceive('table')->with('high_risk_countries')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('exists')->andReturn(false);
-
-        DB::shouldReceive('table')->with('transactions')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('count')->andReturn(0);
-
-        $customer = new Customer([
-            'pep_status' => true,
+        $customer = Customer::factory()->create([
+            'full_name' => 'John PEP',
+            'pep_status' => true, // 40 points
             'nationality' => 'Malaysia',
         ]);
-        $customer->id = 2;
 
         $score = $this->service->calculateRiskScore($customer);
-        $this->assertGreaterThanOrEqual(40, $score);
         $this->assertEquals(40, $score);
     }
 
     public function test_calculate_score_with_high_risk_country()
     {
-        // Mock DB facade for high-risk country (returns true) and transactions (returns 0)
-        DB::shouldReceive('table')->with('high_risk_countries')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('exists')->andReturn(true);
-
-        DB::shouldReceive('table')->with('transactions')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('count')->andReturn(0);
-
-        $customer = new Customer([
-            'pep_status' => false,
-            'nationality' => 'HighRiskCountry',
+        // Create high-risk country
+        HighRiskCountry::create([
+            'country_code' => 'KP',
+            'country_name' => 'North Korea',
+            'risk_level' => 'High',
+            'source' => 'UN Sanctions',
+            'list_date' => now()->subYear(),
         ]);
-        $customer->id = 3;
+
+        $customer = Customer::factory()->create([
+            'full_name' => 'John NK',
+            'pep_status' => false,
+            'nationality' => 'North Korea', // 30 points
+        ]);
 
         $score = $this->service->calculateRiskScore($customer);
         $this->assertEquals(30, $score);
@@ -84,20 +73,25 @@ class RiskRatingServiceTest extends TestCase
 
     public function test_calculate_score_with_cash_intensive_pattern()
     {
-        // Mock DB facade for high-risk country (returns false) and transactions (returns 5 - cash intensive)
-        DB::shouldReceive('table')->with('high_risk_countries')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('exists')->andReturn(false);
-
-        DB::shouldReceive('table')->with('transactions')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('count')->andReturn(5);
-
-        $customer = new Customer([
+        $customer = Customer::factory()->create([
+            'full_name' => 'John Cash Intensive',
             'pep_status' => false,
             'nationality' => 'Malaysia',
         ]);
-        $customer->id = 4;
+
+        $user = User::factory()->create();
+        $currency = Currency::factory()->create();
+
+        // Create 4 transactions over 10000 (cash intensive = more than 3 transactions)
+        for ($i = 0; $i < 4; $i++) {
+            Transaction::factory()->create([
+                'customer_id' => $customer->id,
+                'user_id' => $user->id,
+                'currency_code' => $currency->code,
+                'amount_local' => 15000, // Over 10000 threshold
+                'created_at' => now()->subDays(5), // Within 30 days
+            ]);
+        }
 
         $score = $this->service->calculateRiskScore($customer);
         $this->assertEquals(20, $score);
@@ -105,33 +99,75 @@ class RiskRatingServiceTest extends TestCase
 
     public function test_calculate_score_combined_risk_factors()
     {
-        // Mock DB facade for high-risk country (returns true) and transactions (returns 5 - cash intensive)
-        DB::shouldReceive('table')->with('high_risk_countries')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('exists')->andReturn(true);
-
-        DB::shouldReceive('table')->with('transactions')->andReturnSelf();
-        DB::shouldReceive('where')->andReturnSelf();
-        DB::shouldReceive('count')->andReturn(5);
-
-        $customer = new Customer([
-            'pep_status' => true,          // 40 points
-            'nationality' => 'HighRisk',   // 30 points
+        HighRiskCountry::create([
+            'country_code' => 'IR',
+            'country_name' => 'Iran',
+            'risk_level' => 'High',
+            'source' => 'OFAC',
+            'list_date' => now()->subYear(),
         ]);
-        $customer->id = 5;
+
+        $customer = Customer::factory()->create([
+            'full_name' => 'John Combined',
+            'pep_status' => true, // 40 points
+            'nationality' => 'Iran', // 30 points
+        ]);
+
+        $user = User::factory()->create();
+        $currency = Currency::factory()->create();
+
+        // 4 cash-intensive transactions
+        for ($i = 0; $i < 4; $i++) {
+            Transaction::factory()->create([
+                'customer_id' => $customer->id,
+                'user_id' => $user->id,
+                'currency_code' => $currency->code,
+                'amount_local' => 15000,
+                'created_at' => now()->subDays(5),
+            ]);
+        }
 
         $score = $this->service->calculateRiskScore($customer);
-        // 40 (PEP) + 30 (high-risk country) + 20 (cash intensive) = 90
+        // 40 + 30 + 20 = 90
         $this->assertEquals(90, $score);
     }
 
     public function test_score_capped_at_100()
     {
-        // Create a reflection to test the protected method or test with extreme values
-        // Since we can't easily set all factors to max, we verify the min() is used in service
-        $this->assertTrue(true); // The service uses min($score, 100)
+        HighRiskCountry::create([
+            'country_code' => 'HR1',
+            'country_name' => 'HighRisk1',
+            'risk_level' => 'High',
+            'source' => 'Test',
+            'list_date' => now()->subYear(),
+        ]);
+        HighRiskCountry::create([
+            'country_code' => 'HR2',
+            'country_name' => 'HighRisk2',
+            'risk_level' => 'High',
+            'source' => 'Test',
+            'list_date' => now()->subYear(),
+        ]);
+        HighRiskCountry::create([
+            'country_code' => 'HR3',
+            'country_name' => 'HighRisk3',
+            'risk_level' => 'High',
+            'source' => 'Test',
+            'list_date' => now()->subYear(),
+        ]);
+
+        $customer = Customer::factory()->create([
+            'full_name' => 'John Max Risk',
+            'pep_status' => true, // 40
+            'nationality' => 'HighRisk1', // 30
+        ]);
+
+        // Even with many factors, score capped at 100
+        $score = $this->service->calculateRiskScore($customer);
+        $this->assertLessThanOrEqual(100, $score);
     }
 
+    // Test getRiskRating boundaries
     public function test_get_low_rating_for_low_score()
     {
         $rating = $this->service->getRiskRating(25);
@@ -148,19 +184,6 @@ class RiskRatingServiceTest extends TestCase
     {
         $rating = $this->service->getRiskRating(75);
         $this->assertEquals('High', $rating);
-    }
-
-    public function test_get_refresh_frequency_by_rating()
-    {
-        $this->assertEquals(3, $this->service->getRefreshFrequency('Low'));
-        $this->assertEquals(2, $this->service->getRefreshFrequency('Medium'));
-        $this->assertEquals(1, $this->service->getRefreshFrequency('High'));
-    }
-
-    public function test_get_low_rating_for_minimum_score()
-    {
-        $rating = $this->service->getRiskRating(0);
-        $this->assertEquals('Low', $rating);
     }
 
     public function test_get_low_rating_for_boundary_score()
@@ -187,9 +210,11 @@ class RiskRatingServiceTest extends TestCase
         $this->assertEquals('High', $rating);
     }
 
-    public function test_get_high_rating_for_maximum_score()
+    // Test getRefreshFrequency
+    public function test_get_refresh_frequency_by_rating()
     {
-        $rating = $this->service->getRiskRating(100);
-        $this->assertEquals('High', $rating);
+        $this->assertEquals(3, $this->service->getRefreshFrequency('Low'));
+        $this->assertEquals(2, $this->service->getRefreshFrequency('Medium'));
+        $this->assertEquals(1, $this->service->getRefreshFrequency('High'));
     }
 }

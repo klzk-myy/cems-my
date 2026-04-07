@@ -232,9 +232,17 @@ Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`.
 - `tests/Feature/StrWorkflowTest.php` - STR creation and workflow
 - `tests/Feature/CounterHandoverTest.php` - Till custody transfer
 - `tests/Feature/EddWorkflowTest.php` - EDD workflow tests
+- `tests/Feature/FiscalYearControllerTest.php` - Fiscal year creation, closing, opening
+- `tests/Feature/FinancialStatementControllerTest.php` - Trial balance, P&L, balance sheet, cash flow, ratios
+- `tests/Feature/JournalEntryWorkflowTest.php` - Journal draft → pending → posted workflow
 - `tests/Unit/AmlRuleTest.php` - AML rule engine
 - `tests/Unit/MathServiceTest.php` - BCMath precision
 - `tests/Unit/CurrencyPositionServiceTest.php` - Stock/position calculations
+- `tests/Unit/AuditServiceTest.php` - Hash chaining verification (`verifyChainIntegrity`)
+- `tests/Unit/FinancialRatioServiceTest.php` - Liquidity, profitability, leverage, efficiency ratios
+- `tests/Unit/CashFlowServiceTest.php` - Cash flow statement generation
+- `tests/Unit/RiskRatingServiceTest.php` - Risk scoring (uses real DB, not facade mocks)
+- `tests/Unit/ComplianceServiceTest.php` - CDD levels, sanctions, velocity, structuring (uses real DB)
 
 ### Counter Management
 
