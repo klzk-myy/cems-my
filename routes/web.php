@@ -134,6 +134,12 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
     Route::post('/stock-cash/close', [StockCashController::class, 'closeTill'])
         ->name('stock-cash.close')
         ->middleware('role:manager');
+    Route::get('/stock-cash/position/{position}', [StockCashController::class, 'showPosition'])
+        ->name('stock-cash.position')
+        ->middleware('role:manager');
+    Route::get('/stock-cash/till-report', [StockCashController::class, 'tillReport'])
+        ->name('stock-cash.till-report')
+        ->middleware('role:manager');
 
     // Compliance - Compliance officers and Admin only
     Route::middleware('role:compliance')->group(function () {
@@ -173,17 +179,12 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::delete('/compliance/rules/{rule}', [AmlRuleController::class, 'destroy'])->name('compliance.rules.destroy');
     });
 
-    // STR Approval Routes - Manager or Compliance Officer can access
-    Route::middleware(['role.any:compliance,manager'])->group(function () {
-        Route::post('/str/{str}/submit-approval', [StrController::class, 'submitForApproval'])->name('str.submit-approval');
-        Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
-        Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit')->middleware(['mfa.verified', 'throttle:str-submission']);
-        Route::post('/str/{str}/track-acknowledgment', [StrController::class, 'trackAcknowledgment'])->name('str.track-acknowledgment');
-    });
-
     // STR Approval - Managers only (segregation of duties: compliance prepares, manager approves)
     Route::middleware('role:manager')->group(function () {
         Route::post('/str/{str}/approve', [StrController::class, 'approve'])->name('str.approve');
+        // Managers can also submit to goAML after approval (with MFA verification and rate limiting)
+        Route::post('/str/{str}/submit', [StrController::class, 'submit'])->name('str.submit')
+            ->middleware(['mfa.verified', 'throttle:str-submission']);
     });
 
     // Enhanced Due Diligence - Compliance officers create/manage, managers and compliance approve

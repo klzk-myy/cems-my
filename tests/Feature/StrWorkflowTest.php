@@ -213,15 +213,15 @@ class StrWorkflowTest extends TestCase
             'created_by' => $this->complianceOfficer->id,
         ]);
 
-        // Manager submits for approval
-        $response = $this->actingAs($this->managerUser)
+        // Compliance officer submits for approval (not manager)
+        $response = $this->actingAs($this->complianceOfficer)
             ->post("/str/{$strReport->id}/submit-approval");
 
         $response->assertRedirect();
 
         $strReport->refresh();
         $this->assertEquals(StrStatus::PendingApproval, $strReport->status);
-        $this->assertEquals($this->managerUser->id, $strReport->reviewed_by);
+        $this->assertEquals($this->complianceOfficer->id, $strReport->reviewed_by);
     }
 
     /**
@@ -252,8 +252,8 @@ class StrWorkflowTest extends TestCase
         $strReport->refresh();
         $this->assertTrue($strReport->isPendingReview());
 
-        // Manager reviews and submits for approval
-        $this->actingAs($this->managerUser)
+        // Compliance officer reviews and submits for approval
+        $this->actingAs($this->complianceOfficer)
             ->post("/str/{$strReport->id}/submit-approval");
 
         $strReport->refresh();

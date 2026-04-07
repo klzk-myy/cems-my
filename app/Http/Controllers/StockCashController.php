@@ -197,7 +197,13 @@ class StockCashController extends Controller
     {
         $this->requireManagerOrAdmin();
         $position->load('currency');
-        $transactions = []; // Would load related transactions
+
+        // Load recent transactions for this currency position
+        $transactions = \App\Models\Transaction::where('currency_code', $position->currency_code)
+            ->where('type', \App\Enums\TransactionType::Buy)
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get();
 
         return view('stock-cash.position', compact('position', 'transactions'));
     }
