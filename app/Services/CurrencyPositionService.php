@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\TransactionType;
 use App\Models\CurrencyPosition;
 use Illuminate\Support\Facades\DB;
 
@@ -74,7 +75,7 @@ class CurrencyPositionService
             $oldBalance = $position->balance;
             $oldAvgCost = $position->avg_cost_rate;
 
-            if ($type === 'Buy') {
+            if ($type === TransactionType::Buy->value) {
                 // Buying foreign currency - increase position
                 $newBalance = $this->mathService->add($oldBalance, $amount);
                 if ($this->mathService->compare($oldBalance, '0') > 0) {

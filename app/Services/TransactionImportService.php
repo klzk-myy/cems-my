@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\TillBalance;
@@ -115,8 +117,8 @@ class TransactionImportService
             }
 
             // Validate transaction type
-            if (! in_array($data['type'], ['Buy', 'Sell'])) {
-                throw new \Exception("Invalid transaction type: {$data['type']}. Must be 'Buy' or 'Sell'");
+            if (TransactionType::tryFrom($data['type']) === null) {
+                throw new \Exception("Invalid transaction type: {$data['type']}. Must be '".TransactionType::Buy->value."' or '".TransactionType::Sell->value."'");
             }
 
             // Validate numeric amounts
@@ -157,23 +159,23 @@ class TransactionImportService
             );
 
             // Determine initial status
-            $status = 'Completed';
+            $status = TransactionStatus::Completed->value;
             $holdReason = null;
             $approvedBy = null;
 
             if ($holdCheck['requires_hold']) {
                 if ($this->mathService->compare($amountLocal, '50000') >= 0) {
                     // Large transaction needs manager approval
-                    $status = 'Pending';
+                    $status = TransactionStatus::Pending->value;
                     $holdReason = 'EDD_Required: '.implode(', ', $holdCheck['reasons']);
                 } else {
-                    $status = 'OnHold';
+                    $status = TransactionStatus::OnHold->value;
                     $holdReason = implode(', ', $holdCheck['reasons']);
                 }
             }
 
             // For sell transactions, check stock availability
-            if ($data['type'] === 'Sell') {
+            if ($data['type'] === TransactionType::Sell->value) {
                 $position = $this->positionService->getPosition(
                     $data['currency_code'],
                     $data['till_id']
@@ -208,7 +210,7 @@ class TransactionImportService
                 ]);
 
                 // Update currency position (if not pending approval)
-                if ($status === 'Completed') {
+                if ($status === TransactionStatus::Completed->value) {
                     $this->positionService->updatePosition(
                         $data['currency_code'],
                         $amountForeign,
@@ -225,7 +227,7 @@ class TransactionImportService
                 }
 
                 // Run compliance monitoring
-                if ($status === 'Completed') {
+                if ($status === TransactionStatus::Completed->value) {
                     $this->monitoringService->monitorTransaction($transaction);
                 }
 
@@ -253,7 +255,7 @@ class TransactionImportService
         $currentTotal = $tillBalance->transaction_total ?? '0';
         $foreignTotal = $tillBalance->foreign_total ?? '0';
 
-        if ($type === 'Buy') {
+        if ($type === TransactionType::Buy->value) {
             // Buying foreign: stock increases
             $tillBalance->update([
                 'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
