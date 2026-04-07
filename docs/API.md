@@ -1,8 +1,10 @@
-# CEMS-MY Web Application Documentation
+# CEMS-MY Web Application Routes Documentation
 
-**Version**: 1.0
+**Version**: 1.1
 **Last Updated**: April 2026
 **Authentication**: Session-based (Laravel web routes)
+
+> **Important**: This is not a REST API. It is a traditional server-rendered web application using session-based authentication.
 
 ---
 
@@ -26,8 +28,9 @@ CEMS-MY is a Laravel 10.x web application for Malaysian Money Services Businesse
 4. [Counters (Tills)](#4-counters-tills)
 5. [Accounting](#5-accounting)
 6. [Compliance & AML](#6-compliance--aml)
-7. [Reports](#7-reports)
-8. [User Management](#8-user-management)
+7. [Tasks](#7-tasks)
+8. [Reports](#8-reports)
+9. [User Management](#9-user-management)
 
 ---
 
@@ -550,6 +553,58 @@ Export reconciliation data.
 
 ---
 
+### Journal Entry Workflow
+
+**Route**: `GET /accounting/journal/workflow`
+
+Display journal entry workflow status (Draft → Pending → Posted).
+
+**Route**: `POST /accounting/journal/{entry}/submit`
+
+Submit journal entry for approval.
+
+**Route**: `POST /accounting/journal/{entry}/approve`
+
+Approve journal entry (Manager required).
+
+---
+
+### Cash Flow Statement
+
+**Route**: `GET /accounting/cash-flow`
+
+Display cash flow statement (operating, investing, financing activities).
+
+---
+
+### Financial Ratios
+
+**Route**: `GET /accounting/ratios`
+
+Display financial ratios (liquidity, profitability, leverage, efficiency).
+
+---
+
+### Fiscal Year Management
+
+**Route**: `GET /accounting/fiscal-years`
+
+Display fiscal years list.
+
+**Route**: `POST /accounting/fiscal-years`
+
+Create fiscal year.
+
+**Route**: `POST /accounting/fiscal-years/{year}/close`
+
+Close fiscal year.
+
+**Route**: `GET /accounting/fiscal-years/{yearCode}/report`
+
+Display fiscal year report.
+
+---
+
 ## 6. Compliance & AML
 
 ### Compliance Dashboard
@@ -656,7 +711,113 @@ Track STR acknowledgment from BNM.
 
 ---
 
-## 7. Reports
+### Enhanced Due Diligence (EDD)
+
+**Route**: `GET /compliance/edd`
+
+Display EDD records list (Compliance Officer required).
+
+**Route**: `GET /compliance/edd/create`
+
+Display EDD creation form.
+
+**Route**: `POST /compliance/edd`
+
+Create new EDD record.
+
+**Route**: `GET /compliance/edd/{record}`
+
+Display EDD record details.
+
+**Route**: `GET /compliance/edd/{record}/edit`
+
+Edit EDD record.
+
+**Route**: `PUT /compliance/edd/{record}`
+
+Update EDD record.
+
+**Route**: `POST /compliance/edd/{record}/submit`
+
+Submit EDD for review.
+
+**Route**: `POST /compliance/edd/{record}/approve`
+
+Approve EDD (Manager or Compliance required).
+
+**Route**: `POST /compliance/edd/{record}/reject`
+
+Reject EDD (Manager or Compliance required).
+
+---
+
+## 7. Tasks
+
+### Tasks Dashboard
+
+**Route**: `GET /tasks`
+
+Display all tasks.
+
+**Route**: `GET /tasks/my`
+
+Display current user's tasks.
+
+**Route**: `GET /tasks/overdue`
+
+Display overdue tasks.
+
+---
+
+### Create Task
+
+**Route**: `GET /tasks/create`
+
+Display task creation form.
+
+**Route**: `POST /tasks`
+
+Create new task.
+
+---
+
+### View Task
+
+**Route**: `GET /tasks/{task}`
+
+Display task details.
+
+---
+
+### Task Actions
+
+**Route**: `POST /tasks/{task}/acknowledge`
+
+Acknowledge task.
+
+**Route**: `POST /tasks/{task}/complete`
+
+Mark task complete.
+
+**Route**: `POST /tasks/{task}/cancel`
+
+Cancel task.
+
+**Route**: `POST /tasks/{task}/escalate`
+
+Escalate task.
+
+---
+
+### Task Statistics API
+
+**Route**: `GET /api/tasks/stats`
+
+Get task statistics (JSON API).
+
+---
+
+## 8. Reports
 
 ### Reports Dashboard
 
@@ -790,7 +951,7 @@ Display monthly trend analysis.
 
 ---
 
-## 8. User Management
+## 9. User Management
 
 ### User List
 
@@ -887,6 +1048,50 @@ This is fundamentally different from REST API token-based auth:
 - No `X-RateLimit-*` response headers
 - Session cookie automatically included with each request
 - Logout invalidates session server-side
+
+---
+
+## Idempotency Keys
+
+Transaction creation supports idempotency keys to prevent duplicate submissions:
+- **Header**: `X-Idempotency-Key: <unique-key>` (UUID recommended)
+- If a transaction with the same idempotency key exists, returns the existing transaction
+- Key is stored in `transactions.idempotency_key` column
+- Valid for 24 hours after first submission
+
+---
+
+## Appendix: REST API (routes/api.php)
+
+The actual REST API with Bearer token authentication (Sanctum) has these endpoints:
+
+**Route**: `POST /api/sanctions/search`
+
+Search sanctions list.
+
+**Route**: `POST /api/sanctions/upload`
+
+Upload sanctions list.
+
+**Route**: `POST /api/reports/lctr`
+
+Generate LCTR report.
+
+**Route**: `POST /api/reports/lctr/status`
+
+Update LCTR status.
+
+**Route**: `POST /api/reports/msb2`
+
+Generate MSB2 report.
+
+**Route**: `POST /api/reports/msb2/status`
+
+Update MSB2 status.
+
+**Route**: `GET /api/reports/download/{filename}`
+
+Download report.
 
 ---
 

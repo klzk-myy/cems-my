@@ -47,12 +47,18 @@ app/
 │   ├── Controllers/      # Thin controllers, delegate to services
 │   └── Middleware/       # CheckRole, EnsureMfaVerified, SessionTimeout
 ├── Models/               # Eloquent models (35+)
-└── Services/             # Business logic (23 services)
+└── Services/             # Business logic (29 services)
 ```
 
 ### Full Documentation
 
-See `docs/` directory for detailed guides: USER_MANUAL.md, DEPLOYMENT.md, API.md, DATABASE_SCHEMA.md.
+See `docs/` directory:
+- `USER_MANUAL.md` - End-user guide
+- `DEPLOYMENT.md` - Production deployment
+- `API.md` - REST API reference
+- `DATABASE_SCHEMA.md` - Schema documentation
+- `trading-module-analysis.md` - System architecture
+- `logical-faults-analysis.md` - Security review
 
 ### Key Architectural Patterns
 
@@ -60,7 +66,12 @@ See `docs/` directory for detailed guides: USER_MANUAL.md, DEPLOYMENT.md, API.md
 All role checks use PHP enums in `App\Enums\`:
 - `UserRole::Teller`, `UserRole::Manager`, `UserRole::ComplianceOfficer`, `UserRole::Admin`
 - Permission methods on enums: `$role->canApproveLargeTransactions()`, `$role->canViewReports()`
-- All status/type enums: `TransactionStatus`, `TransactionType`, `CddLevel`, `CounterSessionStatus`, `FlagStatus`, `StrStatus`, `AmlRuleType`, `ComplianceFlagType`, `AccountCode`
+- All status/type enums organized by domain:
+  - **Transaction**: `TransactionStatus`, `TransactionType`
+  - **Customer**: `CddLevel`, `EddStatus`, `EddRiskLevel`
+  - **Session**: `CounterSessionStatus`
+  - **Compliance**: `FlagStatus`, `StrStatus`, `AmlRuleType`, `ComplianceFlagType`
+  - **Accounting**: `AccountCode`
 - Models return enum instances, not strings
 
 **2. Service Layer**
@@ -88,12 +99,25 @@ All monetary calculations use `App\Services\MathService` (BCMath), not floats. N
 - All cancellations require manager approval (segregation of duties)
 - **Refunds** are processed through compliance pipeline
 
-**6. Security Features**
+**6. Event-Driven Architecture**
+Events fire for critical operations (`TransactionCreated`, `CounterSessionOpened`, etc.) with listeners for audit logging, notifications, and compliance triggers.
+
+**7. Background Processing**
+Laravel queues handle async compliance screening, STR report submission, and sanctions rescreening via `App\Jobs\`.
+
+**8. Role Hierarchy**
+Permissions inherit upward: `Admin` > `ComplianceOfficer` > `Manager` > `Teller`.
+- Managers can approve large transactions but not configure system settings
+- Compliance Officers handle AML workflows, not daily operations
+
+**9. Security Features**
 - MFA required for ALL roles including Tellers (BNM compliance)
 - Rate limiting on sensitive endpoints (login: 5/min, transactions: 30/min, STR: 10/min)
 - Session timeout (configurable, default 15 minutes idle)
 - Audit log with cryptographic hash chaining (tampering protection)
 - Password complexity requirements (min 12 chars, mixed case, number, special char)
+
+**Note on MFA scope**: MFA is enforced on sensitive operations (transaction creation, approvals, admin functions). Non-sensitive read operations (viewing transactions, customers, counters) do not require MFA. This balances security with usability while meeting BNM requirements for MFA on high-risk activities.
 
 ### Middleware Stack
 
@@ -152,6 +176,11 @@ Routes use these middleware:
 - `FinancialRatioService` - Liquidity, profitability, leverage, efficiency ratios
 - `FiscalYearService` - Fiscal year closing with income summary entries
 - `EddService` - Enhanced Due Diligence workflow management
+- `StrReportService` - Suspicious Transaction Report generation and submission
+- `CounterService` - Till/counter lifecycle management (open, close, handover)
+- `AuditService` - Audit log and system event management
+- `SanctionScreeningService` - Customer/transaction sanctions screening
+- `RiskRatingService` - Customer risk rating calculation
 
 **Database Seeders**:
 - `ChartOfAccountsSeeder` - Creates 18 default accounts
@@ -161,27 +190,7 @@ Routes use these middleware:
 - `CostCenterSeeder` - Cost center tracking
 - `EnhancedChartOfAccountsSeeder` - 50+ accounts for complete accounting
 
-**Routes** (`/accounting`):
-- `/accounting/journal` - Manual journal entries
-- `/accounting/journal/create` - New journal entry
-- `/accounting/journal/workflow` - Journal entry approval workflow
-- `/accounting/journal/{entry}` - View journal entry
-- `/accounting/journal/{entry}/reverse` - Reverse journal entry
-- `/accounting/ledger` - Chart of accounts / account ledgers
-- `/accounting/ledger/{accountCode}` - Account ledger detail
-- `/accounting/trial-balance` - Trial balance report
-- `/accounting/profit-loss` - P&L statement
-- `/accounting/balance-sheet` - Balance sheet
-- `/accounting/cash-flow` - Cash flow statement
-- `/accounting/ratios` - Financial ratios analysis
-- `/accounting/revaluation` - Currency revaluation
-- `/accounting/revaluation/run` - Run revaluation
-- `/accounting/periods` - Period management
-- `/accounting/periods/{period}/close` - Close period
-- `/accounting/fiscal-years` - Fiscal year management
-- `/accounting/reconciliation` - Bank reconciliation
-- `/accounting/reconciliation/import` - Import bank statement
-- `/accounting/budget` - Budget vs actual
+**Routes** (`/accounting`): Journal entries, ledgers, trial balance, P&L, balance sheet, cash flow, ratios, revaluation, periods, fiscal years, bank reconciliation, and budget. See `php artisan route:list --path=accounting` for full list.
 
 ### Compliance & AML
 
@@ -208,7 +217,7 @@ Routes use these middleware:
 
 BNM compliance reports via Artisan commands:
 - `report:msb2` - Daily transaction summary
-- `report:lctr` - Large Cash Transaction Report (≥ RM 50k)
+- `report:lctr` - Large Cash Transaction Report (≥ RM 50k) - **Monthly**
 - `report:lmca` - Monthly LMCA
 - `report:qlvr` - Quarterly Large Value
 - `compliance:rescreen` - Monthly sanctions rescreening
@@ -241,6 +250,7 @@ Counters (tills) with full lifecycle:
 - **Money**: Always use `MathService` or BCMath functions. Never use PHP `float` for currency.
 - **Enums**: All magic strings (statuses, types, roles) should be converted to PHP enums.
 - **Audit**: Critical operations must create `SystemLog` entries with hash chaining.
+- **Hash Verification**: `AuditService::verifyChainIntegrity()` verifies the tamper-evident chain by recomputing each entry's SHA-256 hash and checking the `previous_hash` chain link. Returns `{valid: bool, broken_at: int|null, message: string}`. Call this method to detect any tampering with audit log entries.
 - **RBAC**: Check permissions via enum methods, not string comparison.
 - **Services over Controllers**: Business logic belongs in services, not controllers.
 - **Encryption**: Use `EncryptionService` with random IV per encryption (IV prepended to ciphertext).

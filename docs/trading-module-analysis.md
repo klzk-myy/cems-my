@@ -246,25 +246,36 @@ Example:
 
 ## 4. Accounting Integration
 
-### 4.1 Chart of Accounts (MIA Structure)
+### 4.1 Chart of Accounts
 
 ```sql
--- Chart of Accounts Structure
+-- Chart of Accounts Structure (AccountCode Enum)
+-- Asset accounts (1000-2200)
 1000 - Cash - MYR                    (Asset)
-1100 - Cash - USD                    (Asset)
-1200 - Cash - EUR                    (Asset)
-1300 - Cash - GBP                    (Asset)
-1400 - Cash - SGD                    (Asset)
-
 2000 - Foreign Currency Inventory    (Asset)
-2100 - Unrealized Forex Gains/Losses (Equity)
+2100 - Accounts Receivable            (Asset)
+2200 - Other Current Assets           (Asset)
 
-4000 - Revenue - Forex Trading       (Revenue)
-4100 - Revenue - Revaluation Gain    (Revenue)
+-- Liability accounts (3000-3100)
+3000 - Accounts Payable                (Liability)
+3100 - Accruals                       (Liability)
 
-5000 - Expense - Revaluation Loss    (Expense)
-5100 - Expense - Transaction Costs   (Expense)
+-- Equity accounts (4000-4200)
+4000 - Capital                        (Equity)
+4100 - Retained Earnings              (Equity)
+4200 - Current Year Earnings          (Equity)
+
+-- Revenue accounts (5000-5100)
+5000 - Forex Trading Revenue          (Revenue)
+5100 - Revaluation Gains              (Revenue)
+
+-- Expense accounts (6000-6200)
+6000 - Forex Loss                     (Expense)
+6100 - Revaluation Loss               (Expense)
+6200 - Operating Expenses             (Expense)
 ```
+
+**Note:** Individual currency cash accounts (e.g., Cash-USD, Cash-EUR) are NOT used. All MYR cash uses account 1000. Foreign currency positions are tracked separately via the `CurrencyPosition` model (which maintains weighted average cost per currency), not via separate chart of accounts entries.
 
 ### 4.2 Journal Entry Triggers
 

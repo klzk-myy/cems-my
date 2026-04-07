@@ -2,7 +2,7 @@
 
 **Currency Exchange Management System - Malaysia**
 
-**Version**: 1.0  
+**Version**: 1.1  
 **Last Updated**: April 2026  
 **Environment**: Production
 
@@ -839,7 +839,7 @@ php artisan schedule:run
 
 ---
 
-## 13. New Features (v1.1+)
+## 13. Implemented Features (v1.1)
 
 ### Enhanced Due Diligence (EDD)
 
@@ -905,7 +905,7 @@ New report cards on `/reports`:
 
 ## 14. Database Migrations
 
-When updating to v1.1+, run migrations:
+When updating to v1.1, run migrations:
 
 ```bash
 php artisan migrate

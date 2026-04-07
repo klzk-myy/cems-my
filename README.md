@@ -247,5 +247,5 @@ See [CHANGELOG.md](CHANGELOG.md) for a complete list of changes.
 
 <p align="center">
   <strong>CEMS-MY</strong> - Empowering Malaysian Money Services Businesses<br>
-  <em>Version 1.0 | Released April 2026</em>
+  <em>Version 1.1 | Released April 2026</em>
 </p>
