@@ -95,7 +95,7 @@
         </div>
         <div class="balance-row">
             <span class="balance-label">Total Liabilities + Equity</span>
-            <span class="balance-amount">RM {{ number_format($balanceSheet['total_liabilities'] + $balanceSheet['total_equity'], 2) }}</span>
+            <span class="balance-amount">RM {{ number_format($balanceSheet['liabilities_plus_equity'], 2) }}</span>
         </div>
         <div class="balance-row difference">
             <span class="balance-label">Difference</span>
@@ -103,7 +103,7 @@
                 @if($balanceSheet['is_balanced'])
                     ✓ Balanced
                 @else
-                    {{ number_format(abs($balanceSheet['total_assets'] - ($balanceSheet['total_liabilities'] + $balanceSheet['total_equity'])), 2) }}
+                    {{ number_format(abs((float) $balanceSheet['total_assets'] - (float) $balanceSheet['liabilities_plus_equity']), 2) }}
                 @endif
             </span>
         </div>

@@ -161,7 +161,14 @@ class JournalEntry extends Model
      */
     public function getTotalDebits(): string
     {
-        return (string) $this->lines()->sum('debit');
+        $mathService = new MathService;
+        $total = '0';
+
+        foreach ($this->lines()->get() as $line) {
+            $total = $mathService->add($total, (string) $line->debit);
+        }
+
+        return $total;
     }
 
     /**
@@ -169,7 +176,14 @@ class JournalEntry extends Model
      */
     public function getTotalCredits(): string
     {
-        return (string) $this->lines()->sum('credit');
+        $mathService = new MathService;
+        $total = '0';
+
+        foreach ($this->lines()->get() as $line) {
+            $total = $mathService->add($total, (string) $line->credit);
+        }
+
+        return $total;
     }
 
     /**

@@ -72,11 +72,11 @@
             </tr>
             <tr>
                 <th colspan="3" class="text-right">Difference:</th>
-                <th colspan="2" class="text-right {{ abs($trialBalance['total_debits'] - $trialBalance['total_credits']) < 0.01 ? 'balanced' : 'unbalanced' }}">
-                    @if(abs($trialBalance['total_debits'] - $trialBalance['total_credits']) < 0.01)
+                <th colspan="2" class="text-right {{ abs((float) $trialBalance['total_debits'] - (float) $trialBalance['total_credits']) < 0.01 ? 'balanced' : 'unbalanced' }}">
+                    @if(abs((float) $trialBalance['total_debits'] - (float) $trialBalance['total_credits']) < 0.01)
                         ✓ Balanced
                     @else
-                        ✗ {{ number_format(abs($trialBalance['total_debits'] - $trialBalance['total_credits']), 2) }}
+                        ✗ {{ number_format(abs((float) $trialBalance['total_debits'] - (float) $trialBalance['total_credits']), 2) }}
                     @endif
                 </th>
                 <th></th>

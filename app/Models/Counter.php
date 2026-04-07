@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CounterSessionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -33,7 +34,7 @@ class Counter extends Model
     {
         return $this->hasOne(CounterSession::class)
             ->where('session_date', now()->toDateString())
-            ->where('status', 'open')
+            ->where('status', CounterSessionStatus::Open->value)
             ->latest();
     }
 }

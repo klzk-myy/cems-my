@@ -107,11 +107,27 @@ class LedgerService
 
         $totalBalance = $this->mathService->subtract($totalDebits, $totalCredits);
 
+        // Calculate totals by account type for summary cards
+        $totalsByType = [
+            'Asset' => '0',
+            'Liability' => '0',
+            'Equity' => '0',
+            'Revenue' => '0',
+            'Expense' => '0',
+        ];
+        foreach ($trialBalance as $account) {
+            $type = $account['account_type'];
+            if (isset($totalsByType[$type])) {
+                $totalsByType[$type] = $this->mathService->add($totalsByType[$type], $account['balance']);
+            }
+        }
+
         return [
             'accounts' => $trialBalance,
             'total_debits' => $totalDebits,
             'total_credits' => $totalCredits,
             'total_balance' => $totalBalance,
+            'totals_by_type' => $totalsByType,
             'is_balanced' => $this->mathService->compare($totalDebits, $totalCredits) === 0,
             'as_of_date' => $asOfDate,
         ];

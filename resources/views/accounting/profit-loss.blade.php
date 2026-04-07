@@ -30,7 +30,7 @@
         @foreach($pl['revenues'] as $account)
             <div class="account-row">
                 <span class="account-name">{{ $account['account_name'] }}</span>
-                <span class="account-amount positive">RM {{ number_format($account['amount'], 2) }}</span>
+                <span class="account-amount positive">RM {{ number_format((float) $account['amount'], 2) }}</span>
             </div>
             @endforeach
         @else
@@ -52,7 +52,7 @@
             @foreach($pl['expenses'] as $account)
             <div class="account-row">
                 <span class="account-name">{{ $account['account_name'] }}</span>
-                <span class="account-amount negative">RM {{ number_format(abs($account['amount']), 2) }}</span>
+                <span class="account-amount negative">RM {{ number_format(abs((float) $account['amount']), 2) }}</span>
             </div>
             @endforeach
         @else
@@ -68,10 +68,10 @@
     </div>
     
     <!-- Net Profit/Loss -->
-    <div class="net-result {{ $pl['net_profit'] >= 0 ? 'profit' : 'loss' }}">
-        <span class="net-label">NET {{ $pl['net_profit'] >= 0 ? 'PROFIT' : 'LOSS' }}</span>
+    <div class="net-result {{ (float) $pl['net_profit'] >= 0 ? 'profit' : 'loss' }}">
+        <span class="net-label">NET {{ (float) $pl['net_profit'] >= 0 ? 'PROFIT' : 'LOSS' }}</span>
         <span class="net-amount">
-            RM {{ number_format(abs($pl['net_profit']), 2) }}
+            RM {{ number_format(abs((float) $pl['net_profit']), 2) }}
         </span>
     </div>
 </div>
@@ -80,15 +80,15 @@
 <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
     <div class="card summary-card">
         <h3>Total Revenue</h3>
-        <p class="amount positive">RM {{ number_format($pl['total_revenue'], 2) }}</p>
+        <p class="amount positive">RM {{ number_format((float) $pl['total_revenue'], 2) }}</p>
     </div>
     <div class="card summary-card">
         <h3>Total Expenses</h3>
-        <p class="amount negative">RM {{ number_format(abs($pl['total_expenses']), 2) }}</p>
+        <p class="amount negative">RM {{ number_format(abs((float) $pl['total_expenses']), 2) }}</p>
     </div>
-    <div class="card summary-card {{ $pl['net_profit'] >= 0 ? 'profit-card' : 'loss-card' }}">
-        <h3>Net {{ $pl['net_profit'] >= 0 ? 'Profit' : 'Loss' }}</h3>
-        <p class="amount">RM {{ number_format(abs($pl['net_profit']), 2) }}</p>
+    <div class="card summary-card {{ (float) $pl['net_profit'] >= 0 ? 'profit-card' : 'loss-card' }}">
+        <h3>Net {{ (float) $pl['net_profit'] >= 0 ? 'Profit' : 'Loss' }}</h3>
+        <p class="amount">RM {{ number_format(abs((float) $pl['net_profit']), 2) }}</p>
     </div>
 </div>
 
