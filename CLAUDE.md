@@ -180,6 +180,7 @@ Configuration: `app/Config/Navigation.php`
 
 | Model | Purpose |
 |-------|---------|
+| `Branch` | Multi-branch support (HQ, branches) with contact info |
 | `Transaction` | Buy/sell currency transactions with optimistic locking |
 | `Customer` | KYC data, risk ratings, CDD levels |
 | `CurrencyPosition` | Stock tracking with weighted avg cost |
