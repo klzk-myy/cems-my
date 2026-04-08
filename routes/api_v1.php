@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\BranchController;
 use App\Http\Controllers\Api\V1\Compliance\AlertController;
 use App\Http\Controllers\Api\V1\Compliance\CaseController;
 use App\Http\Controllers\Api\V1\Compliance\DashboardController;
@@ -135,4 +136,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/risk/{customerId}/recalculate', [RiskController::class, 'recalculate']);
     Route::post('/risk/{customerId}/lock', [RiskController::class, 'lock']);
     Route::post('/risk/{customerId}/unlock', [RiskController::class, 'unlock']);
+
+    // Branches API (Admin only for index, store, update, destroy)
+    // show, counters, users accessible to admin OR user's own branch
+    Route::middleware(['role:admin'])->group(function () {
+        Route::get('branches', [BranchController::class, 'index']);
+        Route::post('branches', [BranchController::class, 'store']);
+        Route::put('branches/{id}', [BranchController::class, 'update']);
+        Route::delete('branches/{id}', [BranchController::class, 'destroy']);
+    });
+
+    // Branch routes accessible to all authenticated users (with own branch check in controller)
+    Route::get('branches/{id}', [BranchController::class, 'show']);
+    Route::get('branches/{id}/counters', [BranchController::class, 'counters']);
+    Route::get('branches/{id}/users', [BranchController::class, 'users']);
 });
