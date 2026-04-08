@@ -216,7 +216,10 @@ class RiskScoringEngine
     protected function calculatePepRisk(Customer $customer): int
     {
         if ($customer->pep_status) {
-            return 20;
+            return 20;  // PEP
+        }
+        if ($customer->is_pep_associate ?? false) {
+            return 15;  // PEP Associate
         }
         return 0;
     }
@@ -334,9 +337,11 @@ class RiskScoringEngine
      */
     protected function calculateSanctionScore(Customer $customer): int
     {
-        // sanction_hit indicates a confirmed sanctions match
-        if ($customer->sanction_hit ?? false) {
+        if ($customer->sanction_confirmed ?? false) {
             return 50;
+        }
+        if ($customer->sanction_possible ?? false) {
+            return 30;
         }
         return 0;
     }
