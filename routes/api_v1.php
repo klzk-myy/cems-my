@@ -1,34 +1,30 @@
 <?php
 
-use App\Http\Controllers\Api\Compliance\AlertController;
-use App\Http\Controllers\Api\Compliance\CaseController;
-use App\Http\Controllers\Api\Compliance\DashboardController;
-use App\Http\Controllers\Api\Compliance\EddController;
-use App\Http\Controllers\Api\Compliance\FindingController;
-use App\Http\Controllers\Api\Compliance\RiskController;
-use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\Api\V1\Compliance\AlertController;
+use App\Http\Controllers\Api\V1\Compliance\CaseController;
+use App\Http\Controllers\Api\V1\Compliance\DashboardController;
+use App\Http\Controllers\Api\V1\Compliance\EddController;
+use App\Http\Controllers\Api\V1\Compliance\FindingController;
+use App\Http\Controllers\Api\V1\Compliance\RiskController;
+use App\Http\Controllers\Api\V1\CustomerController;
+use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\SanctionController;
+use App\Http\Controllers\Api\V1\StrController;
+use App\Http\Controllers\Api\V1\TransactionController;
+use App\Http\Controllers\Api\V1\TransactionApprovalController;
+use App\Http\Controllers\Api\V1\TransactionCancellationController;
 use App\Http\Controllers\Report\RegulatoryReportController;
-use App\Http\Controllers\ReportController;
-use App\Http\Controllers\SanctionController;
-use App\Http\Controllers\StrController;
-use App\Http\Controllers\TransactionController;
-use App\Http\Controllers\Transaction\TransactionApprovalController;
-use App\Http\Controllers\Transaction\TransactionCancellationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// DEPRECATED: Use api/v1 routes instead. This file will be removed in future versions.
-
 /*
 |--------------------------------------------------------------------------
-| API Routes (Legacy)
+| API v1 Routes
 |--------------------------------------------------------------------------
 |
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-| IMPORTANT: This file is deprecated. Please use routes/api_v1.php instead.
+| API version 1 routes for the CEMS-MY Currency Exchange Management System.
+| These routes are prefixed with 'api/v1' and use the same middleware
+| as the original API routes.
 |
 */
 
@@ -71,13 +67,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Reports API
     Route::post('/reports/lctr', [RegulatoryReportController::class, 'generateLCTR'])
-        ->name('api.reports.lctr');
+        ->name('api.v1.reports.lctr');
     Route::post('/reports/lctr/status', [RegulatoryReportController::class, 'updateLCTRStatus'])
-        ->name('api.reports.lctr.status');
+        ->name('api.v1.reports.lctr.status');
     Route::post('/reports/msb2', [RegulatoryReportController::class, 'generateMSB2'])
-        ->name('api.reports.msb2');
+        ->name('api.v1.reports.msb2');
     Route::post('/reports/msb2/status', [RegulatoryReportController::class, 'updateMSB2Status'])
-        ->name('api.reports.msb2.status');
+        ->name('api.v1.reports.msb2.status');
     Route::get('/reports/download/{filename}', [ReportController::class, 'download']);
 
     // Compliance Findings API
@@ -88,18 +84,27 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/findings/{id}/dismiss', [FindingController::class, 'dismiss']);
 
         // Alerts API
-        Route::get('/alerts', [AlertController::class, 'index']);
-        Route::get('/alerts/summary', [AlertController::class, 'summary']);
-        Route::get('/alerts/overdue', [AlertController::class, 'overdue']);
-        Route::post('/alerts/bulk-assign', [AlertController::class, 'bulkAssign']);
-        Route::post('/alerts/bulk-resolve', [AlertController::class, 'bulkResolve']);
-        Route::post('/alerts/auto-assign', [AlertController::class, 'autoAssign']);
-        Route::get('/alerts/{id}', [AlertController::class, 'show']);
+        Route::get('/alerts', [AlertController::class, 'index'])
+            ->middleware('role:compliance');
+        Route::get('/alerts/summary', [AlertController::class, 'summary'])
+            ->middleware('role:compliance');
+        Route::get('/alerts/overdue', [AlertController::class, 'overdue'])
+            ->middleware('role:compliance');
+        Route::post('/alerts/bulk-assign', [AlertController::class, 'bulkAssign'])
+            ->middleware('role:compliance');
+        Route::post('/alerts/bulk-resolve', [AlertController::class, 'bulkResolve'])
+            ->middleware('role:compliance');
+        Route::post('/alerts/auto-assign', [AlertController::class, 'autoAssign'])
+            ->middleware('role:compliance');
+        Route::get('/alerts/{id}', [AlertController::class, 'show'])
+            ->middleware('role:compliance');
 
         // Cases API
-        Route::get('/cases', [CaseController::class, 'index']);
+        Route::get('/cases', [CaseController::class, 'index'])
+            ->middleware('role:compliance');
         Route::post('/cases', [CaseController::class, 'store']);
-        Route::get('/cases/{id}', [CaseController::class, 'show']);
+        Route::get('/cases/{id}', [CaseController::class, 'show'])
+            ->middleware('role:compliance');
         Route::patch('/cases/{id}', [CaseController::class, 'update']);
         Route::post('/cases/{id}/notes', [CaseController::class, 'addNote']);
         Route::post('/cases/{id}/close', [CaseController::class, 'close']);
@@ -113,6 +118,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/edd/{id}/questionnaire', [EddController::class, 'submitQuestionnaire']);
         Route::post('/edd/{id}/approve', [EddController::class, 'approve']);
         Route::post('/edd/{id}/reject', [EddController::class, 'reject']);
+
+        // Dashboard API
+        Route::get('/dashboard', [DashboardController::class, 'kpis']);
+        Route::get('/calendar', [DashboardController::class, 'calendar']);
+        Route::get('/case-aging', [DashboardController::class, 'caseAging']);
+        Route::get('/audit-trail', [DashboardController::class, 'auditTrail']);
+        Route::get('/audit-trail/export', [DashboardController::class, 'auditTrailExport']);
+        Route::get('/reports/auto', [DashboardController::class, 'autoReports']);
     });
 
     // Risk API
@@ -122,14 +135,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/risk/{customerId}/recalculate', [RiskController::class, 'recalculate']);
     Route::post('/risk/{customerId}/lock', [RiskController::class, 'lock']);
     Route::post('/risk/{customerId}/unlock', [RiskController::class, 'unlock']);
-
-    // Dashboard API
-    Route::prefix('compliance')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'kpis']);
-        Route::get('/calendar', [DashboardController::class, 'calendar']);
-        Route::get('/case-aging', [DashboardController::class, 'caseAging']);
-        Route::get('/audit-trail', [DashboardController::class, 'auditTrail']);
-        Route::get('/audit-trail/export', [DashboardController::class, 'auditTrailExport']);
-        Route::get('/reports/auto', [DashboardController::class, 'autoReports']);
-    });
 });

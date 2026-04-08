@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
 use App\Services\AuditService;
+use App\Services\ComplianceService;
 use App\Services\StrReportService;
 use App\Enums\StrStatus;
 use Illuminate\Http\Request;
@@ -16,10 +17,16 @@ class StrController extends Controller
 
     protected AuditService $auditService;
 
-    public function __construct(StrReportService $strService, AuditService $auditService)
-    {
+    protected ComplianceService $complianceService;
+
+    public function __construct(
+        StrReportService $strService,
+        AuditService $auditService,
+        ComplianceService $complianceService
+    ) {
         $this->strService = $strService;
         $this->auditService = $auditService;
+        $this->complianceService = $complianceService;
     }
 
     public function index(Request $request)
@@ -87,8 +94,7 @@ class StrController extends Controller
             ]);
 
             // Calculate filing deadline
-            $complianceService = app(\App\Services\ComplianceService::class);
-            $deadlineInfo = $complianceService->calculateStrDeadline(now());
+            $deadlineInfo = $this->complianceService->calculateStrDeadline(now());
             $strReport->filing_deadline = $deadlineInfo['deadline'];
             $strReport->save();
 

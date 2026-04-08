@@ -12,6 +12,7 @@ use App\Http\Controllers\Compliance\RiskDashboardController;
 use App\Http\Controllers\Compliance\StrStudioController;
 use App\Http\Controllers\CounterController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\Customer\CustomerKycController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnhancedDiligenceController;
 use App\Http\Controllers\FinancialStatementController;
@@ -20,11 +21,17 @@ use App\Http\Controllers\JournalEntryWorkflowController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\Report\AnalyticsController;
+use App\Http\Controllers\Report\RegulatoryReportController;
 use App\Http\Controllers\RevaluationController;
 use App\Http\Controllers\StockCashController;
 use App\Http\Controllers\StrController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\Transaction\TransactionApprovalController;
+use App\Http\Controllers\Transaction\TransactionBatchController;
+use App\Http\Controllers\Transaction\TransactionCancellationController;
+use App\Http\Controllers\Transaction\TransactionReportController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -91,10 +98,10 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
 
         // Batch upload (Manager only) - must be before /{transaction} wildcard
         Route::middleware('role:manager')->group(function () {
-            Route::get('/batch-upload', [TransactionController::class, 'showBatchUpload'])->name('batch-upload');
-            Route::post('/batch-upload', [TransactionController::class, 'processBatchUpload']);
-            Route::get('/import/{import}', [TransactionController::class, 'showImportResults'])->name('batch-upload.show');
-            Route::get('/template', [TransactionController::class, 'downloadTemplate'])->name('template');
+            Route::get('/batch-upload', [TransactionBatchController::class, 'showBatchUpload'])->name('batch-upload');
+            Route::post('/batch-upload', [TransactionBatchController::class, 'processBatchUpload']);
+            Route::get('/import/{import}', [TransactionBatchController::class, 'showImportResults'])->name('batch-upload.show');
+            Route::get('/template', [TransactionBatchController::class, 'downloadTemplate'])->name('template');
         });
 
         // View
@@ -102,40 +109,47 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/{transaction}/receipt', [TransactionController::class, 'receipt'])->name('receipt');
 
         // Approval & Cancellation
-        Route::post('/{transaction}/approve', [TransactionController::class, 'approve'])->name('approve')
+        Route::post('/{transaction}/approve', [TransactionApprovalController::class, 'approve'])->name('approve')
             ->middleware(['role:manager', 'mfa.verified']);
-        Route::get('/{transaction}/cancel', [TransactionController::class, 'showCancel'])->name('cancel.show');
-        Route::post('/{transaction}/cancel', [TransactionController::class, 'cancel'])->name('cancel');
+        Route::get('/{transaction}/cancel', [TransactionCancellationController::class, 'showCancel'])->name('cancel.show')
+            ->middleware('mfa.verified');
+        Route::post('/{transaction}/cancel', [TransactionCancellationController::class, 'cancel'])->name('cancel')
+            ->middleware(['role:manager', 'mfa.verified']);
 
         // Large transaction confirmation
-        Route::get('/{transaction}/confirm', [TransactionController::class, 'showConfirm'])->name('confirm.show')
+        Route::get('/{transaction}/confirm', [TransactionApprovalController::class, 'showConfirm'])->name('confirm.show')
             ->middleware('role:manager');
-        Route::post('/{transaction}/confirm', [TransactionController::class, 'confirm'])->name('confirm')
+        Route::post('/{transaction}/confirm', [TransactionApprovalController::class, 'confirm'])->name('confirm')
             ->middleware('role:manager');
     });
 
     // Customer Transaction History (API)
-    Route::get('/customers/{customer}/history', [TransactionController::class, 'customerHistory'])
+    Route::get('/customers/{customer}/history', [TransactionReportController::class, 'customerHistory'])
         ->name('customers.history');
-    Route::get('/customers/{customer}/history/export', [TransactionController::class, 'exportCustomerHistory'])
+    Route::get('/customers/{customer}/history/export', [TransactionReportController::class, 'exportCustomerHistory'])
         ->name('customers.export');
 
     // Customers
     Route::prefix('customers')->name('customers.')->group(function () {
         Route::get('/', [CustomerController::class, 'index'])->name('index');
         Route::get('/create', [CustomerController::class, 'create'])->name('create');
-        Route::post('/', [CustomerController::class, 'store'])->name('store');
+        Route::post('/', [CustomerController::class, 'store'])->name('store')
+            ->middleware('throttle:30,1');
         Route::get('/{customer}', [CustomerController::class, 'show'])->name('show');
         Route::get('/{customer}/edit', [CustomerController::class, 'edit'])->name('edit');
-        Route::put('/{customer}', [CustomerController::class, 'update'])->name('update');
-        Route::delete('/{customer}', [CustomerController::class, 'destroy'])->name('destroy');
+        Route::put('/{customer}', [CustomerController::class, 'update'])->name('update')
+            ->middleware('throttle:30,1');
+        Route::delete('/{customer}', [CustomerController::class, 'destroy'])->name('destroy')
+            ->middleware('throttle:15,1');
 
         // KYC Document Management
-        Route::get('/{customer}/kyc', [CustomerController::class, 'kyc'])->name('kyc');
-        Route::post('/{customer}/kyc', [CustomerController::class, 'uploadDocument'])->name('kyc.upload');
-        Route::post('/{customer}/kyc/{document}/verify', [CustomerController::class, 'verifyDocument'])->name('kyc.verify')
+        Route::get('/{customer}/kyc', [CustomerKycController::class, 'kyc'])->name('kyc');
+        Route::post('/{customer}/kyc', [CustomerKycController::class, 'uploadDocument'])->name('kyc.upload')
+            ->middleware('throttle:30,1');
+        Route::post('/{customer}/kyc/{document}/verify', [CustomerKycController::class, 'verifyDocument'])->name('kyc.verify')
             ->middleware('role:compliance');
-        Route::delete('/{customer}/kyc/{document}', [CustomerController::class, 'deleteDocument'])->name('kyc.delete');
+        Route::delete('/{customer}/kyc/{document}', [CustomerKycController::class, 'deleteDocument'])->name('kyc.delete')
+            ->middleware('throttle:15,1');
     });
 
     // Counters
@@ -344,26 +358,30 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
 
     Route::middleware('role:manager,admin')->prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [DashboardController::class, 'reports'])->name('index');
-        Route::get('/msb2', [ReportController::class, 'msb2'])->name('msb2');
-        Route::get('/msb2/generate', [ReportController::class, 'msb2Generate'])->name('msb2.generate');
-        Route::get('/lctr', [ReportController::class, 'lctr'])->name('lctr');
-        Route::get('/lctr/generate', [ReportController::class, 'lctrGenerate'])->name('lctr.generate');
-        Route::get('/lmca', [ReportController::class, 'lmca'])->name('lmca');
-        Route::get('/lmca/generate', [ReportController::class, 'lmcaGenerate'])->name('lmca.generate');
-        Route::get('/quarterly-lvr', [ReportController::class, 'quarterlyLvr'])->name('quarterly-lvr');
-        Route::get('/quarterly-lvr/generate', [ReportController::class, 'quarterlyLvrGenerate'])->name('quarterly-lvr.generate');
-        Route::get('/position-limit', [ReportController::class, 'positionLimit'])->name('position-limit');
-        Route::get('/position-limit/generate', [ReportController::class, 'positionLimitGenerate'])->name('position-limit.generate');
+
+        // BNM Regulatory Reports
+        Route::get('/msb2', [RegulatoryReportController::class, 'msb2'])->name('msb2');
+        Route::get('/msb2/generate', [RegulatoryReportController::class, 'msb2Generate'])->name('msb2.generate');
+        Route::get('/lctr', [RegulatoryReportController::class, 'lctr'])->name('lctr');
+        Route::get('/lctr/generate', [RegulatoryReportController::class, 'lctrGenerate'])->name('lctr.generate');
+        Route::get('/lmca', [RegulatoryReportController::class, 'lmca'])->name('lmca');
+        Route::get('/lmca/generate', [RegulatoryReportController::class, 'lmcaGenerate'])->name('lmca.generate');
+        Route::get('/quarterly-lvr', [RegulatoryReportController::class, 'quarterlyLvr'])->name('quarterly-lvr');
+        Route::get('/quarterly-lvr/generate', [RegulatoryReportController::class, 'quarterlyLvrGenerate'])->name('quarterly-lvr.generate');
+        Route::get('/position-limit', [RegulatoryReportController::class, 'positionLimit'])->name('position-limit');
+        Route::get('/position-limit/generate', [RegulatoryReportController::class, 'positionLimitGenerate'])->name('position-limit.generate');
+
+        // Analytics
+        Route::get('/monthly-trends', [AnalyticsController::class, 'monthlyTrends'])->name('monthly-trends');
+        Route::get('/profitability', [AnalyticsController::class, 'profitability'])->name('profitability');
+        Route::get('/customer-analysis', [AnalyticsController::class, 'customerAnalysis'])->name('customer-analysis');
+        Route::get('/compliance-summary', [AnalyticsController::class, 'complianceSummary'])->name('compliance-summary');
+
+        // Report Management
         Route::get('/history', [ReportController::class, 'history'])->name('history');
         Route::get('/download/{filename}', [ReportController::class, 'download'])->name('download');
         Route::get('/compare', [ReportController::class, 'compare'])->name('compare');
         Route::get('/export', [ReportController::class, 'export'])->name('export');
-
-        // Advanced Reports
-        Route::get('/monthly-trends', [ReportController::class, 'monthlyTrends'])->name('monthly-trends');
-        Route::get('/profitability', [ReportController::class, 'profitability'])->name('profitability');
-        Route::get('/customer-analysis', [ReportController::class, 'customerAnalysis'])->name('customer-analysis');
-        Route::get('/compliance-summary', [ReportController::class, 'complianceSummary'])->name('compliance-summary');
     });
 
     // -------------------------------------------------------------------------

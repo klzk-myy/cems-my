@@ -3,16 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
-use App\Models\CustomerDocument;
 use App\Models\SystemLog;
 use App\Services\EncryptionService;
 use App\Services\RiskRatingService;
 use App\Services\SanctionScreeningService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 /**
  * CustomerController
@@ -140,37 +136,8 @@ class CustomerController extends Controller
                 'string',
                 'max:50',
                 function ($attribute, $value, $fail) use ($request) {
-                    // MyKad validation: 12 digits in format XXXXXX-XX-XXXX
                     if ($request->id_type === 'MyKad') {
-                        if (! preg_match('/^\d{6}-\d{2}-\d{4}$/', $value)) {
-                            $fail('MyKad ID must be in format XXXXXX-XX-XXXX (e.g., 900123-01-2345)');
-                        }
-
-                        // Validate birthdate in first 6 digits (YYMMDD)
-                        $birthdatePart = substr($value, 0, 6);
-                        $year = (int) substr($birthdatePart, 0, 2);
-                        $month = (int) substr($birthdatePart, 2, 2);
-                        $day = (int) substr($birthdatePart, 4, 2);
-
-                        // Validate month (01-12)
-                        if ($month < 1 || $month > 12) {
-                            $fail('MyKad ID contains invalid month in birthdate.');
-                        }
-
-                        // Validate day (01-31)
-                        if ($day < 1 || $day > 31) {
-                            $fail('MyKad ID contains invalid day in birthdate.');
-                        }
-
-                        // Validate days per month
-                        $daysInMonth = [1 => 31, 3 => 31, 4 => 30, 5 => 31, 6 => 30, 7 => 31, 8 => 31, 9 => 30, 10 => 31, 11 => 30, 12 => 31];
-                        // February validation (simplified - doesn't account for leap years perfectly but catches most errors)
-                        if ($month === 2 && $day > 29) {
-                            $fail('MyKad ID contains invalid day for February.');
-                        }
-                        if (isset($daysInMonth[$month]) && $day > $daysInMonth[$month]) {
-                            $fail("MyKad ID contains invalid day for month {$month}.");
-                        }
+                        $this->validateMyKadFormat($value, $fail);
                     }
                 },
             ],
@@ -209,7 +176,6 @@ class CustomerController extends Controller
                 'email' => $validated['email'] ?? null,
                 'pep_status' => $validated['pep_status'] ?? false,
                 'risk_rating' => $validated['risk_rating'],
-                'risk_score' => $this->calculateInitialRiskScore($validated),
                 'occupation' => $validated['occupation'] ?? null,
                 'employer_name' => $validated['employer_name'] ?? null,
                 'employer_address' => $encryptedAddress ?? null,
@@ -378,35 +344,7 @@ class CustomerController extends Controller
                 'max:50',
                 function ($attribute, $value, $fail) use ($request) {
                     if ($request->id_type === 'MyKad') {
-                        if (! preg_match('/^\d{6}-\d{2}-\d{4}$/', $value)) {
-                            $fail('MyKad ID must be in format XXXXXX-XX-XXXX (e.g., 900123-01-2345)');
-                        }
-
-                        // Validate birthdate in first 6 digits (YYMMDD)
-                        $birthdatePart = substr($value, 0, 6);
-                        $year = (int) substr($birthdatePart, 0, 2);
-                        $month = (int) substr($birthdatePart, 2, 2);
-                        $day = (int) substr($birthdatePart, 4, 2);
-
-                        // Validate month (01-12)
-                        if ($month < 1 || $month > 12) {
-                            $fail('MyKad ID contains invalid month in birthdate.');
-                        }
-
-                        // Validate day (01-31)
-                        if ($day < 1 || $day > 31) {
-                            $fail('MyKad ID contains invalid day in birthdate.');
-                        }
-
-                        // Validate days per month
-                        $daysInMonth = [1 => 31, 3 => 31, 4 => 30, 5 => 31, 6 => 30, 7 => 31, 8 => 31, 9 => 30, 10 => 31, 11 => 30, 12 => 31];
-                        // February validation (simplified - doesn't account for leap years perfectly but catches most errors)
-                        if ($month === 2 && $day > 29) {
-                            $fail('MyKad ID contains invalid day for February.');
-                        }
-                        if (isset($daysInMonth[$month]) && $day > $daysInMonth[$month]) {
-                            $fail("MyKad ID contains invalid day for month {$month}.");
-                        }
+                        $this->validateMyKadFormat($value, $fail);
                     }
                 },
             ],
@@ -442,6 +380,9 @@ class CustomerController extends Controller
             $encryptedPhone = ! empty($validated['phone'])
                 ? $this->encryptionService->encrypt($validated['phone'])
                 : null;
+            $encryptedEmployerAddress = ! empty($validated['employer_address'])
+                ? $this->encryptionService->encrypt($validated['employer_address'])
+                : null;
 
             // Update customer
             $customer->update([
@@ -457,7 +398,7 @@ class CustomerController extends Controller
                 'risk_rating' => $validated['risk_rating'],
                 'occupation' => $validated['occupation'] ?? null,
                 'employer_name' => $validated['employer_name'] ?? null,
-                'employer_address' => $encryptedAddress ?? null,
+                'employer_address' => $encryptedEmployerAddress,
                 'is_active' => $validated['is_active'] ?? true,
             ]);
 
@@ -549,165 +490,6 @@ class CustomerController extends Controller
     }
 
     /**
-     * Show the KYC document management form.
-     *
-     * @return \Illuminate\View\View
-     */
-    public function kyc(Customer $customer)
-    {
-        // Only compliance officers and admins can verify documents
-        $canVerify = auth()->user()->isComplianceOfficer() || auth()->user()->isAdmin();
-
-        $documentTypes = CustomerDocument::DOCUMENT_TYPES;
-
-        $documents = $customer->documents()->with(['uploader', 'verifier'])->get();
-
-        return view('customers.kyc', compact(
-            'customer',
-            'documents',
-            'documentTypes',
-            'canVerify'
-        ));
-    }
-
-    /**
-     * Handle KYC document upload.
-     *
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function uploadDocument(Request $request, Customer $customer)
-    {
-        $validated = $request->validate([
-            'document_type' => ['required', 'in:MyKad_Front,MyKad_Back,Passport,Proof_of_Address,Others'],
-            'document_file' => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240', // 10MB max
-            'expiry_date' => 'nullable|date|after:today',
-        ]);
-
-        $file = $request->file('document_file');
-
-        // Store file with encryption consideration
-        $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
-        $path = $file->storeAs('customer-documents/'.$customer->id, $filename, 'local');
-
-        // Calculate file hash for integrity
-        $fileHash = hash_file('sha256', $file->getRealPath());
-
-        // Create document record
-        $document = CustomerDocument::create([
-            'customer_id' => $customer->id,
-            'document_type' => $validated['document_type'],
-            'file_path' => $path,
-            'file_hash' => $fileHash,
-            'file_size' => $file->getSize(),
-            'encrypted' => true,
-            'uploaded_by' => auth()->id(),
-            'expiry_date' => $validated['expiry_date'] ?? null,
-        ]);
-
-        // Log document upload
-        SystemLog::create([
-            'user_id' => auth()->id(),
-            'action' => 'customer_document_uploaded',
-            'entity_type' => 'CustomerDocument',
-            'entity_id' => $document->id,
-            'new_values' => [
-                'customer_id' => $customer->id,
-                'document_type' => $document->document_type,
-                'file_size' => $document->file_size,
-            ],
-            'ip_address' => $request->ip(),
-        ]);
-
-        return redirect()->route('customers.kyc', $customer)
-            ->with('success', 'Document uploaded successfully.');
-    }
-
-    /**
-     * Verify a KYC document.
-     *
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function verifyDocument(Request $request, Customer $customer, CustomerDocument $document)
-    {
-        // Only compliance officers and admins can verify
-        if (! auth()->user()->isComplianceOfficer() && ! auth()->user()->isAdmin()) {
-            abort(403, 'Unauthorized. Compliance Officer or Admin access required.');
-        }
-
-        if ($document->customer_id !== $customer->id) {
-            abort(404, 'Document does not belong to this customer.');
-        }
-
-        $document->update([
-            'verified_by' => auth()->id(),
-            'verified_at' => now(),
-        ]);
-
-        // Log verification
-        SystemLog::create([
-            'user_id' => auth()->id(),
-            'action' => 'customer_document_verified',
-            'severity' => 'INFO',
-            'entity_type' => 'CustomerDocument',
-            'entity_id' => $document->id,
-            'new_values' => [
-                'customer_id' => $customer->id,
-                'document_type' => $document->document_type,
-                'verified_by' => auth()->id(),
-            ],
-            'ip_address' => $request->ip(),
-        ]);
-
-        return redirect()->route('customers.kyc', $customer)
-            ->with('success', 'Document verified successfully.');
-    }
-
-    /**
-     * Delete a KYC document.
-     *
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function deleteDocument(Request $request, Customer $customer, CustomerDocument $document)
-    {
-        if ($document->customer_id !== $customer->id) {
-            abort(404, 'Document does not belong to this customer.');
-        }
-
-        // Only uploader, manager, or admin can delete
-        $canDelete = auth()->id() === $document->uploaded_by
-            || auth()->user()->isManager()
-            || auth()->user()->isAdmin();
-
-        if (! $canDelete) {
-            abort(403, 'Unauthorized to delete this document.');
-        }
-
-        // Delete the file
-        if (Storage::exists($document->file_path)) {
-            Storage::delete($document->file_path);
-        }
-
-        $documentType = $document->document_type;
-        $document->delete();
-
-        // Log document deletion
-        SystemLog::create([
-            'user_id' => auth()->id(),
-            'action' => 'customer_document_deleted',
-            'entity_type' => 'CustomerDocument',
-            'entity_id' => $document->id,
-            'old_values' => [
-                'customer_id' => $customer->id,
-                'document_type' => $documentType,
-            ],
-            'ip_address' => $request->ip(),
-        ]);
-
-        return redirect()->route('customers.kyc', $customer)
-            ->with('success', 'Document deleted successfully.');
-    }
-
-    /**
      * Calculate initial risk score based on customer attributes.
      */
     protected function calculateInitialRiskScore(array $data): int
@@ -723,5 +505,46 @@ class CustomerController extends Controller
         // For now, we'll use the RiskRatingService
 
         return min($score, 100);
+    }
+
+    /**
+     * Validate MyKad ID format (12 digits in format XXXXXX-XX-XXXX).
+     * Validates birthdate encoded in first 6 digits (YYMMDD).
+     */
+    protected function validateMyKadFormat(string $value, \Closure $fail): void
+    {
+        if (! preg_match('/^\d{6}-\d{2}-\d{4}$/', $value)) {
+            $fail('MyKad ID must be in format XXXXXX-XX-XXXX (e.g., 900123-01-2345)');
+            return;
+        }
+
+        // Validate birthdate in first 6 digits (YYMMDD)
+        $birthdatePart = substr($value, 0, 6);
+        $year = (int) substr($birthdatePart, 0, 2);
+        $month = (int) substr($birthdatePart, 2, 2);
+        $day = (int) substr($birthdatePart, 4, 2);
+
+        // Validate month (01-12)
+        if ($month < 1 || $month > 12) {
+            $fail('MyKad ID contains invalid month in birthdate.');
+            return;
+        }
+
+        // Validate day (01-31)
+        if ($day < 1 || $day > 31) {
+            $fail('MyKad ID contains invalid day in birthdate.');
+            return;
+        }
+
+        // Validate days per month
+        $daysInMonth = [1 => 31, 3 => 31, 4 => 30, 5 => 31, 6 => 30, 7 => 31, 8 => 31, 9 => 30, 10 => 31, 11 => 30, 12 => 31];
+        // February validation (simplified - doesn't account for leap years perfectly but catches most errors)
+        if ($month === 2 && $day > 29) {
+            $fail('MyKad ID contains invalid day for February.');
+            return;
+        }
+        if (isset($daysInMonth[$month]) && $day > $daysInMonth[$month]) {
+            $fail("MyKad ID contains invalid day for month {$month}.");
+        }
     }
 }
