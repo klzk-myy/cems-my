@@ -1017,6 +1017,170 @@ Display audit log rotation controls.
 
 ---
 
+## Appendix: REST API Routes
+
+> **Note**: CEMS-MY primarily uses session-based web routes. The REST API uses Laravel Sanctum token authentication and is documented below.
+
+### Authentication
+
+**Route**: `POST /api/auth/login`
+
+Authenticate user and receive Sanctum token.
+
+**Route**: `POST /api/auth/logout`
+
+Invalidate current token.
+
+---
+
+### Compliance Findings
+
+**Route**: `GET /api/compliance/findings`
+
+List compliance findings with filtering.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| status | string | Filter by status (New, Reviewed, Dismissed, CaseCreated) |
+| severity | string | Filter by severity (Low, Medium, High, Critical) |
+| type | string | Filter by finding type |
+| date_from | date | Filter from date |
+| date_to | date | Filter to date |
+
+**Route**: `GET /api/compliance/findings/stats`
+
+Get finding statistics.
+
+**Route**: `GET /api/compliance/findings/{id}`
+
+Get specific finding details.
+
+**Route**: `POST /api/compliance/findings/{id}/dismiss`
+
+Dismiss a finding.
+
+---
+
+### Compliance Cases
+
+**Route**: `GET /api/compliance/cases`
+
+List compliance cases with filtering.
+
+**Route**: `POST /api/compliance/cases`
+
+Create new compliance case.
+
+**Route**: `GET /api/compliance/cases/{id}`
+
+Get case details.
+
+**Route**: `PATCH /api/compliance/cases/{id}`
+
+Update case.
+
+**Route**: `POST /api/compliance/cases/{id}/notes`
+
+Add note to case.
+
+**Route**: `POST /api/compliance/cases/{id}/close`
+
+Close case with resolution.
+
+**Route**: `POST /api/compliance/cases/{id}/escalate`
+
+Escalate case.
+
+**Route**: `GET /api/compliance/cases/{id}/timeline`
+
+Get case event timeline.
+
+---
+
+### EDD (Enhanced Due Diligence)
+
+**Route**: `GET /api/compliance/edd`
+
+List EDD records.
+
+**Route**: `GET /api/compliance/edd/templates`
+
+List EDD questionnaire templates.
+
+**Route**: `GET /api/compliance/edd/{id}`
+
+Get EDD record details.
+
+**Route**: `POST /api/compliance/edd/{id}/questionnaire`
+
+Submit EDD questionnaire.
+
+**Route**: `POST /api/compliance/edd/{id}/approve`
+
+Approve EDD record.
+
+**Route**: `POST /api/compliance/edd/{id}/reject`
+
+Reject EDD record.
+
+---
+
+### Risk Scoring
+
+**Route**: `GET /api/risk/portfolio`
+
+Get risk distribution across portfolio.
+
+**Route**: `GET /api/risk/{customerId}`
+
+Get customer's risk profile.
+
+**Route**: `GET /api/risk/{customerId}/history`
+
+Get customer's risk score history.
+
+**Route**: `POST /api/risk/{customerId}/recalculate`
+
+Recalculate customer risk score.
+
+**Route**: `POST /api/risk/{customerId}/lock`
+
+Lock customer's risk score.
+
+**Route**: `POST /api/risk/{customerId}/unlock`
+
+Unlock customer's risk score.
+
+---
+
+### Dashboard & Reporting
+
+**Route**: `GET /api/compliance/dashboard`
+
+Get dashboard KPIs (case summary, STR status, EDD status, findings, risk distribution).
+
+**Route**: `GET /api/compliance/calendar`
+
+Get BNM regulatory filing calendar.
+
+**Route**: `GET /api/compliance/case-aging`
+
+Get case aging and SLA metrics.
+
+**Route**: `GET /api/compliance/audit-trail`
+
+Get compliance audit trail (paginated).
+
+**Route**: `GET /api/compliance/audit-trail/export`
+
+Export audit trail as CSV.
+
+**Route**: `GET /api/compliance/reports/auto`
+
+Get auto-generated reports pending approval.
+
+---
+
 ## Appendix: Middleware Stack
 
 All routes are protected by authentication middleware. Additional middleware applied based on route:

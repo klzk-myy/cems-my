@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Factories\Compliance;
+namespace Database\Factories;
 
 use App\Models\Compliance\EddQuestionnaireTemplate;
 use Illuminate\Database\Eloquent\Factories\Factory;

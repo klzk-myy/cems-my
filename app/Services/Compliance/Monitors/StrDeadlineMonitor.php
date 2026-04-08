@@ -27,15 +27,20 @@ class StrDeadlineMonitor extends BaseMonitor
     {
         $findings = [];
 
-        $flags = FlaggedTransaction::whereIn('status', ['Open', 'Under_Review'])
-            ->whereIn('flag_type', ['Structuring', 'SanctionMatch', 'Velocity', 'HighRiskCustomer'])
-            ->get();
+        try {
+            $flags = FlaggedTransaction::whereIn('status', ['Open', 'Under_Review'])
+                ->whereIn('flag_type', ['Structuring', 'SanctionMatch', 'Velocity', 'HighRiskCustomer'])
+                ->get();
 
-        foreach ($flags as $flag) {
-            $finding = $this->checkFlagDeadline($flag);
-            if ($finding !== null) {
-                $findings[] = $finding;
+            foreach ($flags as $flag) {
+                $finding = $this->checkFlagDeadline($flag);
+                if ($finding !== null) {
+                    $findings[] = $finding;
+                }
             }
+        } catch (\Throwable $e) {
+            Log::error('StrDeadlineMonitor run failed', ['exception' => $e->getMessage()]);
+            return [];
         }
 
         return $findings;

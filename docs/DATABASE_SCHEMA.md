@@ -466,6 +466,185 @@ Transactions flagged for compliance review.
 - `High`: Immediate attention
 - `Critical`: Urgent action required
 
+### compliance_findings
+
+Automated compliance findings from the monitoring engine.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Finding ID |
+| `finding_type` | varchar(50) | not null | Type of finding |
+| `severity` | varchar(20) | not null | Severity level |
+| `subject_type` | varchar(50) | not null | Subject type (Customer, Transaction) |
+| `subject_id` | bigint unsigned | not null | Subject ID |
+| `details` | json | nullable | Finding details |
+| `status` | varchar(20) | default: 'New' | Status |
+| `generated_at` | timestamp | not null | When finding was generated |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+**Finding Types:** VelocityExceeded, StructuringPattern, AggregateTransaction, StrDeadline, SanctionMatch, LocationAnomaly, CurrencyFlowAnomaly, CounterfeitAlert, RiskScoreChange
+
+**Finding Statuses:** New, Reviewed, Dismissed, CaseCreated
+
+### compliance_cases
+
+Compliance investigation and case management.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Case ID |
+| `case_number` | varchar(20) | unique, not null | Auto-generated case number (CASE-YYYY-NNNNN) |
+| `case_type` | varchar(30) | not null | Case type |
+| `status` | varchar(20) | not null | Case status |
+| `severity` | varchar(20) | not null | Severity level |
+| `priority` | varchar(20) | not null | Priority level |
+| `customer_id` | bigint unsigned | FK, nullable | Customer ID |
+| `primary_flag_id` | bigint unsigned | FK, nullable | Primary flagged transaction |
+| `primary_finding_id` | bigint unsigned | FK, nullable | Primary compliance finding |
+| `assigned_to` | bigint unsigned | FK, not null | Assigned officer |
+| `case_summary` | text | nullable | Initial assessment |
+| `sla_deadline` | timestamp | nullable | SLA deadline |
+| `escalated_at` | timestamp | nullable | When case was escalated |
+| `resolved_at` | timestamp | nullable | When case was resolved |
+| `resolution` | varchar(30) | nullable | Resolution outcome |
+| `resolution_notes` | text | nullable | Resolution details |
+| `metadata` | json | nullable | Additional metadata |
+| `created_via` | varchar(20) | not null | Created via (Automated/Manual) |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+**Case Types:** Investigation, Edd, Str, SanctionReview, Counterfeit
+
+**Case Statuses:** Open, UnderReview, PendingApproval, Closed, Escalated
+
+**Case Resolutions:** NoConcern, WarningIssued, EddRequired, StrFiled, ClosedNoAction
+
+**SLA Deadlines:** Critical=24h, High=48h, Medium=5d, Low=10d
+
+### compliance_case_notes
+
+Notes added to compliance cases.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Note ID |
+| `case_id` | bigint unsigned | FK, not null | Case ID |
+| `author_id` | bigint unsigned | FK, not null | Author user ID |
+| `note_type` | varchar(20) | not null | Note type |
+| `content` | text | not null | Note content |
+| `is_internal` | tinyint(1) | default: 1 | Internal note flag |
+| `created_at` | timestamp | - | Record creation |
+
+**Note Types:** Investigation, Update, Decision, Escalation
+
+### compliance_case_documents
+
+Documents uploaded to compliance cases.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Document ID |
+| `case_id` | bigint unsigned | FK, not null | Case ID |
+| `file_name` | varchar(255) | not null | Original filename |
+| `file_path` | varchar(500) | not null | Storage path |
+| `file_type` | varchar(100) | nullable | MIME type |
+| `uploaded_by` | bigint unsigned | FK, not null | Uploader user ID |
+| `uploaded_at` | timestamp | nullable | Upload timestamp |
+| `verified_at` | timestamp | nullable | Verification timestamp |
+| `verified_by` | bigint unsigned | FK, nullable | Verifier user ID |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+### compliance_case_links
+
+Links between compliance cases and other entities.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Link ID |
+| `case_id` | bigint unsigned | FK, not null | Case ID |
+| `linked_type` | varchar(50) | not null | Linked entity type |
+| `linked_id` | bigint unsigned | not null | Linked entity ID |
+| `created_at` | timestamp | - | Record creation |
+
+### customer_risk_profiles
+
+Dynamic customer risk scoring profiles (0-100 score).
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Profile ID |
+| `customer_id` | bigint unsigned | FK, unique, not null | Customer ID |
+| `risk_score` | int | not null | Risk score (0-100) |
+| `risk_tier` | varchar(20) | not null | Risk tier |
+| `risk_factors` | json | nullable | Contributing factors with weights |
+| `previous_score` | int | nullable | Previous risk score |
+| `score_changed_at` | timestamp | nullable | Last score change |
+| `next_scheduled_recalculation` | timestamp | nullable | Next recalculation |
+| `recalculation_trigger` | varchar(20) | nullable | Trigger type |
+| `locked_until` | date | nullable | Lock expiry date |
+| `locked_by` | bigint unsigned | FK, nullable | Locker user ID |
+| `lock_reason` | varchar(255) | nullable | Lock reason |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+**Risk Tiers:** Low (0-25), Medium (26-50), High (51-75), Critical (76-100)
+
+**Risk Factors:** Geographic Risk, PEP Status, Transaction Deviation, Velocity Flags, Structuring, EDD History, Document Status, Sanctions
+
+### customer_behavioral_baselines
+
+Customer behavioral baseline for deviation detection.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Baseline ID |
+| `customer_id` | bigint unsigned | FK, unique, not null | Customer ID |
+| `currency_codes` | json | nullable | Commonly traded currencies |
+| `avg_transaction_size_myr` | decimal(18,4) | nullable | Average transaction size |
+| `avg_transaction_frequency` | decimal(10,2) | nullable | Transactions per month |
+| `preferred_counter_ids` | json | nullable | Common counter locations |
+| `registered_location` | varchar(255) | nullable | Registered address zone |
+| `last_calculated_at` | timestamp | nullable | Last calculation |
+| `baseline_version` | int | default: 1 | Baseline version |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+### edd_questionnaire_templates
+
+EDD questionnaire template definitions.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Template ID |
+| `name` | varchar(255) | not null | Template name |
+| `version` | varchar(20) | not null | Template version |
+| `is_active` | tinyint(1) | default: 1 | Active status |
+| `questions` | json | not null | Questionnaire questions |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+### edd_document_requests
+
+EDD document request tracking.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Request ID |
+| `edd_record_id` | bigint unsigned | FK, not null | EDD record ID |
+| `document_type` | varchar(100) | not null | Document type requested |
+| `status` | varchar(20) | not null | Request status |
+| `file_path` | varchar(500) | nullable | Uploaded file path |
+| `rejection_reason` | text | nullable | Rejection reason |
+| `uploaded_at` | timestamp | nullable | Upload timestamp |
+| `verified_at` | timestamp | nullable | Verification timestamp |
+| `verified_by` | bigint unsigned | FK, nullable | Verifier user ID |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+**Document Statuses:** Pending, Received, Verified, Rejected
+
 ---
 
 ## 9. Reports & Audit

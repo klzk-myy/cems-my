@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Compliance\CaseController;
+use App\Http\Controllers\Api\Compliance\DashboardController;
 use App\Http\Controllers\Api\Compliance\EddController;
 use App\Http\Controllers\Api\Compliance\FindingController;
 use App\Http\Controllers\Api\Compliance\RiskController;
@@ -98,4 +99,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/risk/{customerId}/recalculate', [RiskController::class, 'recalculate']);
     Route::post('/risk/{customerId}/lock', [RiskController::class, 'lock']);
     Route::post('/risk/{customerId}/unlock', [RiskController::class, 'unlock']);
+
+    // Dashboard API
+    Route::prefix('compliance')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'kpis']);
+        Route::get('/calendar', [DashboardController::class, 'calendar']);
+        Route::get('/case-aging', [DashboardController::class, 'caseAging']);
+        Route::get('/audit-trail', [DashboardController::class, 'auditTrail']);
+        Route::get('/audit-trail/export', [DashboardController::class, 'auditTrailExport']);
+        Route::get('/reports/auto', [DashboardController::class, 'autoReports']);
+    });
 });
