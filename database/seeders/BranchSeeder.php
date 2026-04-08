@@ -32,11 +32,41 @@ class BranchSeeder extends Seeder
             ]
         );
 
-        // Create some default branches
+        // Create default branches
         $branches = [
-            ['code' => 'BR001', 'name' => 'Kuala Lumpur Branch', 'city' => 'Kuala Lumpur', 'type' => 'branch'],
-            ['code' => 'BR002', 'name' => 'Petaling Jaya Branch', 'city' => 'Petaling Jaya', 'type' => 'branch'],
-            ['code' => 'BR003', 'name' => 'Penang Branch', 'city' => 'George Town', 'type' => 'branch'],
+            [
+                'code' => 'BR001',
+                'name' => 'Kuala Lumpur Branch',
+                'city' => 'Kuala Lumpur',
+                'state' => 'Wilayah Persekutuan',
+                'postal_code' => '50100',
+                'address' => 'Ground Floor, Wisma Conlay',
+                'phone' => '+60 3-2345 6789',
+                'email' => 'kl@cems.my',
+                'type' => 'branch',
+            ],
+            [
+                'code' => 'BR002',
+                'name' => 'Petaling Jaya Branch',
+                'city' => 'Petaling Jaya',
+                'state' => 'Selangor',
+                'postal_code' => '46200',
+                'address' => 'Lot 5, Jalan SS21/1',
+                'phone' => '+60 3-3456 7890',
+                'email' => 'pj@cems.my',
+                'type' => 'branch',
+            ],
+            [
+                'code' => 'BR003',
+                'name' => 'Penang Branch',
+                'city' => 'George Town',
+                'state' => 'Pulau Pinang',
+                'postal_code' => '10200',
+                'address' => '56 Jalan Masjid Kapitan Keling',
+                'phone' => '+60 4-4567 8901',
+                'email' => 'penang@cems.my',
+                'type' => 'branch',
+            ],
         ];
 
         foreach ($branches as $branch) {
@@ -45,8 +75,13 @@ class BranchSeeder extends Seeder
                 [
                     'name' => $branch['name'],
                     'type' => $branch['type'],
+                    'address' => $branch['address'] ?? null,
                     'city' => $branch['city'],
+                    'state' => $branch['state'],
+                    'postal_code' => $branch['postal_code'] ?? null,
                     'country' => 'Malaysia',
+                    'phone' => $branch['phone'] ?? null,
+                    'email' => $branch['email'] ?? null,
                     'is_active' => true,
                     'is_main' => false,
                     'created_at' => now(),

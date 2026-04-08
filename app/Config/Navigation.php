@@ -342,6 +342,12 @@ class Navigation
                         'icon' => 'user',
                         'uri' => '/users',
                     ],
+                    [
+                        'label' => 'Branches',
+                        'route' => 'branches.index',
+                        'icon' => 'branch',
+                        'uri' => '/branches',
+                    ],
                 ],
             ],
         ];
