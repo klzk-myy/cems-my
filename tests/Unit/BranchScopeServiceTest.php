@@ -82,7 +82,8 @@ class BranchScopeServiceTest extends TestCase
         $query = Branch::query();
         $scoped = $this->branchScopeService->scopeToUserBranch($query, $admin);
 
-        $this->assertEquals(2, $scoped->count());
+        // Admin sees all branches (3 = 2 explicit + 1 from UserFactory branch creation)
+        $this->assertEquals(3, $scoped->count());
     }
 
     public function test_can_access_branch_returns_true_for_admin_accessing_any_branch(): void

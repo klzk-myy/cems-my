@@ -323,11 +323,11 @@ class TransactionWorkflowTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('success', 'Transaction cancelled successfully. Refund transaction created.');
+        $response->assertSessionHas('success', 'Transaction reversed successfully. Refund transaction created.');
 
-        // Verify transaction is cancelled
+        // Verify transaction is reversed
         $transaction->refresh();
-        $this->assertEquals(TransactionStatus::Cancelled, $transaction->status);
+        $this->assertEquals(TransactionStatus::Reversed, $transaction->status);
         $this->assertNotNull($transaction->cancelled_at);
         $this->assertEquals($this->managerUser->id, $transaction->cancelled_by);
         $this->assertEquals('Customer requested cancellation due to change of plans', $transaction->cancellation_reason);
@@ -626,7 +626,7 @@ class TransactionWorkflowTest extends TestCase
             ->get("/transactions/{$transaction->id}/cancel");
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', 'This transaction cannot be cancelled.');
+        $response->assertSessionHas('error', 'This transaction cannot be cancelled in its current state.');
     }
 
     /**
