@@ -97,7 +97,17 @@ All monetary calculations use `App\Services\MathService` (BCMath), not floats. N
 **5. Compliance Workflow**
 - Transactions ≥ RM 50,000 require manager approval
 - `ComplianceService` runs CDD determination and CTOS reporting (both Buy and Sell)
-- `TransactionMonitoringService` detects velocity/structuring patterns (7-day lookback)
+- `MonitoringEngine` runs automated compliance monitors via background jobs:
+  - `VelocityMonitor` - Detects velocity/structuring patterns (7-day lookback)
+  - `StructuringMonitor` - Transaction aggregation detection
+  - `SanctionsRescreeningMonitor` - Monthly rescreening of all customers
+  - `StrDeadlineMonitor` - STR submission deadline tracking
+  - `CustomerLocationAnomalyMonitor` - Geographic anomaly detection
+  - `CurrencyFlowMonitor` - Currency flow pattern analysis
+  - `CounterfeitAlertMonitor` - Counterfeit currency detection
+- `ComplianceReportingService` provides dashboard KPIs, calendar, case aging, audit trail
+- `CaseManagementService` manages compliance cases with notes, documents, links
+- `RiskScoringEngine` calculates customer risk scores with lock/unlock capability
 - All cancellations require manager approval (segregation of duties)
 - **Refunds** are processed through compliance pipeline
 
@@ -185,6 +195,12 @@ Configuration: `app/Config/Navigation.php`
 | `TillBalance` | Daily till opening/closing |
 | `FlaggedTransaction` | AML alerts requiring review |
 | `StrReport` | Suspicious Transaction Reports |
+| `ComplianceCase` | Compliance investigation case management |
+| `ComplianceFinding` | Automated findings from monitoring engine |
+| `CustomerRiskProfile` | Customer risk scoring and history |
+| `CustomerBehavioralBaseline` | Customer behavioral patterns for anomaly detection |
+| `EddQuestionnaireTemplate` | EDD questionnaire templates |
+| `EddDocumentRequest` | EDD document requests |
 | `TransactionConfirmation` | Large transaction manager confirmation |
 | `BankReconciliation` | Bank reconciliation with check tracking |
 | `CounterSession` | Till session with open/close lifecycle |
@@ -239,6 +255,8 @@ Configuration: `app/Config/Navigation.php`
 **Compliance Flags** (`ComplianceFlagType` enum):
 - LargeAmount, SanctionMatch, Velocity, Structuring, EddRequired, PepStatus, HighRiskCustomer, etc.
 
+**Finding Types** (from MonitoringEngine): VelocityExceeded, StructuringPattern, AggregateTransaction, StrDeadline, SanctionMatch, LocationAnomaly, CurrencyFlowAnomaly, CounterfeitAlert, RiskScoreChange
+
 **CTOS Reporting**: Applies to ALL cash transactions (Buy and Sell) ≥ RM 10,000
 
 **Structuring Detection**: 7-day lookback for aggregate transactions (configurable)
@@ -249,6 +267,17 @@ Configuration: `app/Config/Navigation.php`
 - `/compliance/edd` - Enhanced Due Diligence records
 - `/compliance/edd/create` - New EDD record
 - `/str` - Suspicious Transaction Reports
+
+**Compliance API Routes** (`/api/compliance`):
+
+- `/api/compliance/dashboard` - Dashboard KPIs
+- `/api/compliance/calendar` - BNM regulatory filing calendar
+- `/api/compliance/case-aging` - Case aging summary
+- `/api/compliance/audit-trail` - Audit trail with export
+- `/api/compliance/findings` - List/filter compliance findings
+- `/api/compliance/cases` - Case management CRUD
+- `/api/compliance/edd` - EDD records and questionnaires
+- `/api/risk/portfolio` - Risk portfolio overview
 
 ### Report Generation
 
