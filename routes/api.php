@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Compliance\FindingController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SanctionController;
@@ -60,4 +61,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/reports/msb2/status', [ReportController::class, 'updateMSB2Status'])
         ->name('api.reports.msb2.status');
     Route::get('/reports/download/{filename}', [ReportController::class, 'download']);
+
+    // Compliance Findings API
+    Route::prefix('compliance')->group(function () {
+        Route::get('/findings', [FindingController::class, 'index']);
+        Route::get('/findings/stats', [FindingController::class, 'stats']);
+        Route::get('/findings/{id}', [FindingController::class, 'show']);
+        Route::post('/findings/{id}/dismiss', [FindingController::class, 'dismiss']);
+    });
 });
