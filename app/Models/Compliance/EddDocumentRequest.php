@@ -2,6 +2,7 @@
 
 namespace App\Models\Compliance;
 
+use App\Enums\EddDocumentStatus;
 use App\Models\EnhancedDiligenceRecord;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +25,7 @@ class EddDocumentRequest extends Model
     ];
 
     protected $casts = [
+        'status' => EddDocumentStatus::class,
         'uploaded_at' => 'datetime',
         'verified_at' => 'datetime',
     ];
@@ -41,7 +43,7 @@ class EddDocumentRequest extends Model
     public function markReceived(string $filePath): void
     {
         $this->update([
-            'status' => 'Received',
+            'status' => EddDocumentStatus::Received->value,
             'file_path' => $filePath,
             'uploaded_at' => now(),
         ]);
@@ -50,7 +52,7 @@ class EddDocumentRequest extends Model
     public function verify(int $verifiedBy): void
     {
         $this->update([
-            'status' => 'Verified',
+            'status' => EddDocumentStatus::Verified->value,
             'verified_at' => now(),
             'verified_by' => $verifiedBy,
         ]);
@@ -59,7 +61,7 @@ class EddDocumentRequest extends Model
     public function reject(string $reason, int $verifiedBy): void
     {
         $this->update([
-            'status' => 'Rejected',
+            'status' => EddDocumentStatus::Rejected->value,
             'rejection_reason' => $reason,
             'verified_at' => now(),
             'verified_by' => $verifiedBy,
