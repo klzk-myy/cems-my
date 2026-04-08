@@ -15,6 +15,7 @@ use Illuminate\Notifications\Notifiable;
  * Supports multi-factor authentication and activity tracking.
  *
  * @property int $id
+ * @property int|null $branch_id
  * @property string $username
  * @property string $email
  * @property string $password_hash
@@ -37,6 +38,7 @@ class User extends Authenticatable
      * @var array<string>
      */
     protected $fillable = [
+        'branch_id',
         'username',
         'email',
         'password_hash',
