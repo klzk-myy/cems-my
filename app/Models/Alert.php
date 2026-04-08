@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AlertPriority;
 use App\Enums\ComplianceFlagType;
+use App\Enums\FlagStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,11 +24,13 @@ class Alert extends Model
         'source',
         'assigned_to',
         'case_id',
+        'status',
     ];
 
     protected $casts = [
         'type' => ComplianceFlagType::class,
         'priority' => AlertPriority::class,
+        'status' => FlagStatus::class,
         'risk_score' => 'integer',
     ];
 
@@ -66,6 +69,11 @@ class Alert extends Model
         return $query->whereNull('case_id');
     }
 
+    public function scopeResolved($query)
+    {
+        return $query->where('status', FlagStatus::Resolved);
+    }
+
     public function calculateSlaDeadline(): \DateTime
     {
         return now()->addHours($this->priority->slaHours());
@@ -77,5 +85,10 @@ class Alert extends Model
             return false;
         }
         return now()->isAfter($this->calculateSlaDeadline());
+    }
+
+    public function isResolved(): bool
+    {
+        return $this->status === FlagStatus::Resolved;
     }
 }

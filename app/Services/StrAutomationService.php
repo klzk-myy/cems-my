@@ -121,7 +121,7 @@ class StrAutomationService
             'status' => StrStatus::Draft,
             'transaction_ids' => $strDraft->transaction_ids,
             'amount_range' => $this->calculateAmountRange($transactions),
-            ' narrative' => $strDraft->narrative,
+            'narrative' => $strDraft->narrative,
             'suspected_activity' => $strDraft->suspected_activity,
             'prepared_by' => $strDraft->created_by,
         ]);
