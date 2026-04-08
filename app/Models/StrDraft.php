@@ -36,7 +36,7 @@ class StrDraft extends Model
 
     public function case(): BelongsTo
     {
-        return $this->belongsTo(ComplianceCase::class, 'case_id');
+        return $this->belongsTo(\App\Models\Compliance\ComplianceCase::class, 'case_id');
     }
 
     public function customer(): BelongsTo

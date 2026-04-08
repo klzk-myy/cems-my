@@ -9,6 +9,7 @@ use App\Models\Compliance\ComplianceCase;
 use App\Models\StrDraft;
 use App\Models\StrReport;
 use App\Models\Transaction;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -113,17 +114,14 @@ class StrAutomationService
         $transactions = $this->getTransactions($strDraft->transaction_ids ?? []);
 
         $strReport = StrReport::create([
+            'str_no' => 'STR-' . now()->format('Ymd') . '-' . substr(uniqid(), -6),
             'customer_id' => $customer->id,
-            'case_reference' => $strDraft->case?->case_number,
-            'report_date' => now(),
+            'status' => StrStatus::Draft,
+            'transaction_ids' => $strDraft->transaction_ids ?? [],
             'suspicion_date' => $strDraft->created_at,
             'filing_deadline' => $strDraft->filing_deadline,
-            'status' => StrStatus::Draft,
-            'transaction_ids' => $strDraft->transaction_ids,
-            'amount_range' => $this->calculateAmountRange($transactions),
-            'narrative' => $strDraft->narrative,
-            'suspected_activity' => $strDraft->suspected_activity,
-            'prepared_by' => $strDraft->created_by,
+            'reason' => $strDraft->narrative,
+            'created_by' => $strDraft->created_by ?? User::first()?->id ?? 1,
         ]);
 
         $strDraft->update([
