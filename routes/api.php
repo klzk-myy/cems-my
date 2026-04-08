@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Compliance\AlertController;
 use App\Http\Controllers\Api\Compliance\CaseController;
 use App\Http\Controllers\Api\Compliance\DashboardController;
 use App\Http\Controllers\Api\Compliance\EddController;
@@ -72,6 +73,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/findings/stats', [FindingController::class, 'stats']);
         Route::get('/findings/{id}', [FindingController::class, 'show']);
         Route::post('/findings/{id}/dismiss', [FindingController::class, 'dismiss']);
+
+        // Alerts API
+        Route::get('/alerts', [AlertController::class, 'index']);
+        Route::get('/alerts/summary', [AlertController::class, 'summary']);
+        Route::get('/alerts/overdue', [AlertController::class, 'overdue']);
+        Route::post('/alerts/bulk-assign', [AlertController::class, 'bulkAssign']);
+        Route::post('/alerts/bulk-resolve', [AlertController::class, 'bulkResolve']);
+        Route::post('/alerts/auto-assign', [AlertController::class, 'autoAssign']);
+        Route::get('/alerts/{id}', [AlertController::class, 'show']);
 
         // Cases API
         Route::get('/cases', [CaseController::class, 'index']);

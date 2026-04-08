@@ -222,4 +222,120 @@ class AlertTriageService
             ->filter(fn($alert) => $alert->isOverdue())
             ->count();
     }
+
+    /**
+     * Bulk assign alerts to a compliance officer.
+     *
+     * @param array $alertIds Array of alert IDs
+     * @param int $userId User ID to assign to
+     * @return array Results with success and failure counts
+     */
+    public function bulkAssign(array $alertIds, int $userId): array
+    {
+        $results = ['success' => 0, 'failed' => 0, 'errors' => []];
+
+        foreach ($alertIds as $alertId) {
+            try {
+                $alert = Alert::find($alertId);
+                if (!$alert) {
+                    $results['failed']++;
+                    $results['errors'][] = "Alert {$alertId} not found";
+                    continue;
+                }
+
+                if ($alert->case_id !== null) {
+                    $results['failed']++;
+                    $results['errors'][] = "Alert {$alertId} is already linked to a case";
+                    continue;
+                }
+
+                $this->assignToOfficer($alert, $userId);
+                $results['success']++;
+            } catch (\Exception $e) {
+                $results['failed']++;
+                $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Bulk resolve multiple alerts.
+     *
+     * @param array $alertIds Array of alert IDs
+     * @param int $resolvedBy User ID who is resolving
+     * @param string|null $notes Optional notes for all resolved alerts
+     * @return array Results with success and failure counts
+     */
+    public function bulkResolve(array $alertIds, int $resolvedBy, ?string $notes = null): array
+    {
+        $results = ['success' => 0, 'failed' => 0, 'errors' => []];
+
+        foreach ($alertIds as $alertId) {
+            try {
+                $alert = Alert::find($alertId);
+                if (!$alert) {
+                    $results['failed']++;
+                    $results['errors'][] = "Alert {$alertId} not found";
+                    continue;
+                }
+
+                if ($alert->status === \App\Enums\FlagStatus::Resolved) {
+                    $results['failed']++;
+                    $results['errors'][] = "Alert {$alertId} is already resolved";
+                    continue;
+                }
+
+                $this->resolveAlert($alert, $resolvedBy, $notes);
+                $results['success']++;
+            } catch (\Exception $e) {
+                $results['failed']++;
+                $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Bulk link alerts to a case.
+     *
+     * @param array $alertIds Array of alert IDs
+     * @param ComplianceCase $case The case to link alerts to
+     * @return array Results with success and failure counts
+     */
+    public function bulkLinkToCase(array $alertIds, ComplianceCase $case): array
+    {
+        $results = ['success' => 0, 'failed' => 0, 'errors' => []];
+
+        foreach ($alertIds as $alertId) {
+            try {
+                $alert = Alert::find($alertId);
+                if (!$alert) {
+                    $results['failed']++;
+                    $results['errors'][] = "Alert {$alertId} not found";
+                    continue;
+                }
+
+                $alert->update(['case_id' => $case->id]);
+                $results['success']++;
+            } catch (\Exception $e) {
+                $results['failed']++;
+                $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Get alerts by IDs for bulk operations.
+     */
+    public function getByIds(array $alertIds): \Illuminate\Database\Eloquent\Collection
+    {
+        return Alert::with(['customer', 'flaggedTransaction', 'assignedTo'])
+            ->whereIn('id', $alertIds)
+            ->get();
+    }
 }
