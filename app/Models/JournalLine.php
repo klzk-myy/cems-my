@@ -31,6 +31,7 @@ class JournalLine extends Model
 
     protected $fillable = [
         'journal_entry_id',
+        'branch_id',
         'account_code',
         'debit',
         'credit',
@@ -50,6 +51,16 @@ class JournalLine extends Model
     public function journalEntry(): BelongsTo
     {
         return $this->belongsTo(JournalEntry::class);
+    }
+
+    /**
+     * Get the branch associated with this journal line.
+     *
+     * @return BelongsTo
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     /**

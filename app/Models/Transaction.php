@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Transaction Model
@@ -51,6 +52,7 @@ class Transaction extends Model
     protected $fillable = [
         'customer_id',
         'user_id',
+        'branch_id',
         'till_id',
         'type',
         'currency_code',
@@ -114,6 +116,16 @@ class Transaction extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the branch associated with this transaction.
+     *
+     * @return BelongsTo
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     /**

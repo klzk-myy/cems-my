@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CounterSessionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Counter extends Model
 {
@@ -14,11 +15,17 @@ class Counter extends Model
         'code',
         'name',
         'status',
+        'branch_id',
     ];
 
     protected $casts = [
         'status' => 'string',
     ];
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     public function scopeActive($query)
     {

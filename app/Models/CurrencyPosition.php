@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CurrencyPosition extends Model
 {
     protected $fillable = [
         'currency_code',
+        'branch_id',
         'till_id',
         'balance',
         'avg_cost_rate',
@@ -27,5 +29,15 @@ class CurrencyPosition extends Model
     public function currency()
     {
         return $this->belongsTo(Currency::class, 'currency_code');
+    }
+
+    /**
+     * Get the branch associated with this currency position.
+     *
+     * @return BelongsTo
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 }
