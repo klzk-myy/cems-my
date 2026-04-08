@@ -426,6 +426,17 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::post('/{user}/toggle', [UserController::class, 'toggleActive'])->name('toggle');
     });
 
+    // Branch Management (Admin only)
+    Route::middleware(['auth', 'role:admin'])->prefix('branches')->name('branches.')->group(function () {
+        Route::get('/', [BranchController::class, 'index'])->name('index');
+        Route::get('/create', [BranchController::class, 'create'])->name('create');
+        Route::post('/', [BranchController::class, 'store'])->name('store');
+        Route::get('/{branch}', [BranchController::class, 'show'])->name('show');
+        Route::get('/{branch}/edit', [BranchController::class, 'edit'])->name('edit');
+        Route::put('/{branch}', [BranchController::class, 'update'])->name('update');
+        Route::delete('/{branch}', [BranchController::class, 'destroy'])->name('destroy');
+    });
+
     // -------------------------------------------------------------------------
     // API ROUTES
     // -------------------------------------------------------------------------
