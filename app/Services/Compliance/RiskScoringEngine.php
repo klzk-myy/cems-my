@@ -3,6 +3,10 @@
 namespace App\Services\Compliance;
 
 use App\Enums\RecalculationTrigger;
+use App\Enums\TransactionStatus;
+use App\Enums\ComplianceFlagType;
+use App\Enums\EddStatus;
+use App\Enums\FindingType;
 use App\Models\Compliance\CustomerBehavioralBaseline;
 use App\Models\Compliance\CustomerRiskProfile;
 use App\Models\Customer;
@@ -238,7 +242,7 @@ class RiskScoringEngine
         // Calculate recent avg
         $recentAvg = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', now()->subDays(30))
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->avg('amount_local');
 
         if (!$recentAvg || $baseline->avg_transaction_size_myr == 0) {
@@ -268,7 +272,7 @@ class RiskScoringEngine
         $ninetyDaysAgo = now()->subDays(90);
         $flagCount = FlaggedTransaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $ninetyDaysAgo)
-            ->whereIn('flag_type', ['Velocity', 'VelocityExceeded'])
+            ->whereIn('flag_type', [ComplianceFlagType::Velocity->value])
             ->count();
 
         if ($flagCount >= 3) {
@@ -288,7 +292,7 @@ class RiskScoringEngine
         $ninetyDaysAgo = now()->subDays(90);
         $structuringCount = FlaggedTransaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $ninetyDaysAgo)
-            ->where('flag_type', 'Structuring')
+            ->where('flag_type', ComplianceFlagType::Structuring->value)
             ->count();
 
         if ($structuringCount >= 2) {
@@ -313,10 +317,10 @@ class RiskScoringEngine
         if (!$edd) {
             return 0;
         }
-        if ($edd->status === 'Rejected') {
+        if ($edd->status === EddStatus::Rejected->value) {
             return 15;
         }
-        if ($edd->status === 'Approved') {
+        if ($edd->status === EddStatus::Approved->value) {
             return 5;
         }
         return 0;
