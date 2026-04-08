@@ -197,4 +197,13 @@ enum UserRole: string
     {
         return ! $this->canOverrideRate($overridePercentage);
     }
+
+    /**
+     * Check if the user can manage all branches.
+     * Only Admin role has cross-branch management privileges.
+     */
+    public function canManageAllBranches(): bool
+    {
+        return $this === self::Admin;
+    }
 }
