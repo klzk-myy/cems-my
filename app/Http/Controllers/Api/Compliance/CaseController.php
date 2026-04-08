@@ -29,16 +29,16 @@ class CaseController extends Controller
     {
         $query = ComplianceCase::with(['customer', 'assignee']);
 
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
         }
-        if ($request->has('type')) {
+        if ($request->filled('type')) {
             $query->where('case_type', $request->input('type'));
         }
-        if ($request->has('severity')) {
+        if ($request->filled('severity')) {
             $query->where('severity', $request->input('severity'));
         }
-        if ($request->has('assigned_to')) {
+        if ($request->filled('assigned_to')) {
             $query->where('assigned_to', $request->input('assigned_to'));
         }
 
@@ -109,6 +109,10 @@ class CaseController extends Controller
 
         if (! empty($validated['case_summary'])) {
             $case->update(['case_summary' => $validated['case_summary']]);
+        }
+
+        if (! empty($validated['priority'])) {
+            $case->update(['priority' => $validated['priority']]);
         }
 
         return response()->json(['data' => $case->fresh()]);
