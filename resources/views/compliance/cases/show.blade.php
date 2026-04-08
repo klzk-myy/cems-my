@@ -149,6 +149,34 @@
                 <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Escalate</button>
             </form>
             @endif
+
+            @if($case->status->value !== 'Closed')
+            <button type="button" onclick="document.getElementById('mergeModal').classList.remove('hidden')" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                Merge Case
+            </button>
+            @endif
+        </div>
+    </div>
+
+    <!-- Merge Modal -->
+    <div id="mergeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-semibold mb-4">Merge Case {{ $case->case_number }} Into Another Case</h3>
+            <form action="{{ route('compliance.cases.merge', $case->id) }}" method="POST">
+                @csrf
+                <div class="mb-4">
+                    <label for="target_case_id" class="block text-sm font-medium text-gray-700 mb-2">Target Case Number</label>
+                    <input type="number" name="target_case_id" id="target_case_id" required
+                           class="w-full border rounded px-3 py-2"
+                           placeholder="Enter target case ID">
+                    <p class="text-sm text-gray-500 mt-1">All alerts from this case will be moved to the target case, and this case will be closed.</p>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="document.getElementById('mergeModal').classList.add('hidden')"
+                            class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">Merge Cases</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
