@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\AmlRuleController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\BranchController;
 use App\Http\Controllers\Compliance\AlertTriageController;
 use App\Http\Controllers\Compliance\CaseManagementController;
 use App\Http\Controllers\Compliance\ComplianceReportingController;
