@@ -1,0 +1,292 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\ComplianceFlagType;
+use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
+use App\Events\TransactionCreated;
+use App\Models\Customer;
+use App\Models\SystemLog;
+use App\Models\TillBalance;
+use App\Models\Transaction;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+
+/**
+ * Transaction Service
+ *
+ * Handles core transaction creation logic for both web and API controllers.
+ * Ensures BCMath precision for all monetary calculations and compliance checks.
+ */
+class TransactionService
+{
+    public function __construct(
+        protected MathService $mathService,
+        protected ComplianceService $complianceService,
+        protected CurrencyPositionService $positionService,
+        protected AccountingService $accountingService,
+    ) {}
+
+    /**
+     * Create a new transaction with full validation and compliance checks.
+     *
+     * @param  array  $data  Validated transaction data
+     * @param  int|null  $userId  User creating the transaction (null for API context)
+     * @param  string|null  $ipAddress  IP address for audit logging
+     * @return Transaction
+     *
+     * @throws \Exception If transaction creation fails
+     */
+    public function createTransaction(array $data, ?int $userId = null, ?string $ipAddress = null): Transaction
+    {
+        $userId = $userId ?? auth()->id();
+        $ipAddress = $ipAddress ?? request()->ip();
+
+        // Check for duplicate transaction via idempotency key
+        if (! empty($data['idempotency_key'])) {
+            $existingByKey = Transaction::where('idempotency_key', $data['idempotency_key'])->first();
+            if ($existingByKey) {
+                return $existingByKey;
+            }
+        }
+
+        // Check for recent similar transaction (potential double-submit)
+        $recentWindow = now()->subSeconds(30);
+        $recentAmount = Transaction::where('user_id', $userId)
+            ->where('created_at', '>=', $recentWindow)
+            ->where('amount_foreign', $data['amount_foreign'])
+            ->where('currency_code', $data['currency_code'])
+            ->first();
+
+        if ($recentAmount) {
+            SystemLog::create([
+                'user_id' => $userId,
+                'action' => 'potential_duplicate_detected',
+                'entity_type' => 'Transaction',
+                'description' => "Similar transaction {$recentAmount->id} found within 30 seconds",
+                'ip_address' => $ipAddress,
+            ]);
+        }
+
+        // Verify till is open for this currency
+        $tillBalance = TillBalance::where('till_id', $data['till_id'])
+            ->where('currency_code', $data['currency_code'])
+            ->whereDate('date', today())
+            ->whereNull('closed_at')
+            ->first();
+
+        if (! $tillBalance) {
+            throw new \InvalidArgumentException('Till is not open for this currency. Please open the till first.');
+        }
+
+        // Get customer and calculate amounts
+        $customer = Customer::find($data['customer_id']);
+        $amountForeign = (string) $data['amount_foreign'];
+        $rate = (string) $data['rate'];
+        $amountLocal = $this->mathService->multiply($amountForeign, $rate);
+
+        // Determine CDD level
+        $cddLevel = $this->complianceService->determineCDDLevel($amountLocal, $customer);
+        $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
+
+        // Log CDD decision
+        $cddTriggers = [];
+        if ($customer->pep_status) {
+            $cddTriggers[] = 'PEP customer';
+        }
+        if ($this->mathService->compare($amountLocal, '50000') >= 0) {
+            $cddTriggers[] = 'Large amount >= RM 50,000';
+        } elseif ($this->mathService->compare($amountLocal, '3000') >= 0) {
+            $cddTriggers[] = 'Standard amount >= RM 3,000';
+        }
+        if ($customer->risk_rating === 'High') {
+            $cddTriggers[] = 'High risk customer';
+        }
+
+        SystemLog::create([
+            'user_id' => $userId,
+            'action' => 'cdd_decision',
+            'entity_type' => 'Transaction',
+            'entity_id' => null, // Will be updated after creation
+            'new_values' => [
+                'customer_id' => $customer->id,
+                'customer_name' => $customer->full_name,
+                'cdd_level' => $cddLevel->value,
+                'triggers' => $cddTriggers,
+                'amount_local' => $amountLocal,
+            ],
+            'ip_address' => $ipAddress,
+        ]);
+
+        // Determine initial status
+        $status = TransactionStatus::Completed;
+        $holdReason = null;
+        $approvedBy = null;
+
+        if ($holdCheck['requires_hold']) {
+            if ($this->mathService->compare($amountLocal, '50000') >= 0) {
+                $status = TransactionStatus::PendingApproval;
+                $holdReason = ComplianceFlagType::EddRequired->label().': '.implode(', ', $holdCheck['reasons']);
+            } else {
+                $status = TransactionStatus::OnHold;
+                $holdReason = implode(', ', $holdCheck['reasons']);
+            }
+        }
+
+        // For Sell transactions, verify sufficient stock
+        if ($data['type'] === TransactionType::Sell->value) {
+            $position = $this->positionService->getPosition($data['currency_code'], $data['till_id']);
+            if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
+                $availableBalance = $position ? $position->balance : '0';
+                throw new \InvalidArgumentException("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
+            }
+        }
+
+        return DB::transaction(function () use ($data, $userId, $ipAddress, $tillBalance, $customer, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy) {
+            $transaction = Transaction::create([
+                'customer_id' => $data['customer_id'],
+                'user_id' => $userId,
+                'branch_id' => $tillBalance->branch_id,
+                'till_id' => $data['till_id'],
+                'type' => $data['type'],
+                'currency_code' => $data['currency_code'],
+                'amount_foreign' => $amountForeign,
+                'amount_local' => $amountLocal,
+                'rate' => $rate,
+                'purpose' => $data['purpose'],
+                'source_of_funds' => $data['source_of_funds'],
+                'status' => $status,
+                'hold_reason' => $holdReason,
+                'approved_by' => $approvedBy,
+                'cdd_level' => $cddLevel,
+                'idempotency_key' => $data['idempotency_key'] ?? null,
+                'version' => 0,
+            ]);
+
+            // If completed, update positions, till balance, and create accounting entries
+            if ($status === TransactionStatus::Completed) {
+                $this->positionService->updatePosition(
+                    $data['currency_code'],
+                    $amountForeign,
+                    $rate,
+                    $data['type'],
+                    $data['till_id']
+                );
+                $this->updateTillBalance($tillBalance, $data['type'], $amountLocal, $amountForeign);
+                $this->createAccountingEntries($transaction);
+            }
+
+            SystemLog::create([
+                'user_id' => $userId,
+                'action' => 'transaction_created',
+                'entity_type' => 'Transaction',
+                'entity_id' => $transaction->id,
+                'new_values' => [
+                    'type' => $transaction->type,
+                    'amount_local' => $transaction->amount_local,
+                    'amount_foreign' => $transaction->amount_foreign,
+                    'currency' => $transaction->currency_code,
+                    'status' => $transaction->status,
+                    'cdd_level' => $cddLevel,
+                ],
+                'ip_address' => $ipAddress,
+            ]);
+
+            // Dispatch event for async processing
+            Event::dispatch(new TransactionCreated($transaction));
+
+            return $transaction;
+        });
+    }
+
+    /**
+     * Update till balance after transaction.
+     */
+    protected function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
+    {
+        $currentTotal = $tillBalance->transaction_total ?? '0';
+        $foreignTotal = $tillBalance->foreign_total ?? '0';
+
+        if ($type === TransactionType::Buy->value) {
+            $tillBalance->update([
+                'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
+                'foreign_total' => $this->mathService->add($foreignTotal, $amountForeign),
+            ]);
+        } else {
+            $tillBalance->update([
+                'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
+                'foreign_total' => $this->mathService->subtract($foreignTotal, $amountForeign),
+            ]);
+        }
+    }
+
+    /**
+     * Create accounting journal entries for transaction.
+     */
+    protected function createAccountingEntries(Transaction $transaction): void
+    {
+        $entries = [];
+
+        if ($transaction->type->isBuy()) {
+            $entries = [
+                [
+                    'account_code' => \App\Enums\AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
+                    'debit' => $transaction->amount_local,
+                    'credit' => '0',
+                    'description' => "Buy {$transaction->amount_foreign} {$transaction->currency_code} @ {$transaction->rate}",
+                ],
+                [
+                    'account_code' => \App\Enums\AccountCode::CASH_MYR->value,
+                    'debit' => '0',
+                    'credit' => $transaction->amount_local,
+                    'description' => "Payment for {$transaction->currency_code} purchase",
+                ],
+            ];
+        } else {
+            $position = $this->positionService->getPosition($transaction->currency_code);
+            $avgCost = $position ? $position->avg_cost_rate : $transaction->rate;
+            $costBasis = $this->mathService->multiply((string) $transaction->amount_foreign, $avgCost);
+            $revenue = $this->mathService->subtract((string) $transaction->amount_local, $costBasis);
+            $isGain = $this->mathService->compare($revenue, '0') >= 0;
+
+            $entries = [
+                [
+                    'account_code' => \App\Enums\AccountCode::CASH_MYR->value,
+                    'debit' => $transaction->amount_local,
+                    'credit' => '0',
+                    'description' => "Sale of {$transaction->amount_foreign} {$transaction->currency_code}",
+                ],
+                [
+                    'account_code' => \App\Enums\AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
+                    'debit' => '0',
+                    'credit' => $costBasis,
+                    'description' => "Cost of {$transaction->currency_code} sold",
+                ],
+            ];
+
+            if ($isGain) {
+                $entries[] = [
+                    'account_code' => \App\Enums\AccountCode::FOREX_TRADING_REVENUE->value,
+                    'debit' => '0',
+                    'credit' => $revenue,
+                    'description' => "Gain on {$transaction->currency_code} sale",
+                ];
+            } else {
+                $entries[] = [
+                    'account_code' => \App\Enums\AccountCode::FOREX_LOSS->value,
+                    'debit' => $this->mathService->multiply($revenue, '-1'),
+                    'credit' => '0',
+                    'description' => "Loss on {$transaction->currency_code} sale",
+                ];
+            }
+        }
+
+        $this->accountingService->createJournalEntry(
+            $entries,
+            'Transaction',
+            $transaction->id,
+            "Transaction #{$transaction->id} - {$transaction->type->value} {$transaction->currency_code}"
+        );
+    }
+}

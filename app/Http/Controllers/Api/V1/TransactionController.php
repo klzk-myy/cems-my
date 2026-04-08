@@ -2,21 +2,17 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\TransactionType;
 use App\Http\Controllers\Controller;
-use App\Services\ComplianceService;
-use App\Services\CurrencyPositionService;
-use App\Services\MathService;
-use App\Services\TransactionMonitoringService;
+use App\Services\TransactionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class TransactionController extends Controller
 {
     public function __construct(
-        protected CurrencyPositionService $positionService,
-        protected ComplianceService $complianceService,
-        protected TransactionMonitoringService $monitoringService,
-        protected MathService $mathService
+        protected TransactionService $transactionService
     ) {}
 
     /**
@@ -31,7 +27,13 @@ class TransactionController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $transactions,
+            'data' => $transactions->items(),
+            'meta' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'per_page' => $transactions->perPage(),
+                'total' => $transactions->total(),
+            ],
         ]);
     }
 
@@ -42,7 +44,7 @@ class TransactionController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,id',
-            'type' => 'required|in:Buy,Sell',
+            'type' => ['required', 'in:'.TransactionType::Buy->value.','.TransactionType::Sell->value],
             'currency_code' => 'required|exists:currencies,code',
             'amount_foreign' => 'required|numeric|min:0.01|max:9999999999.9999',
             'rate' => 'required|numeric|min:0.0001|max:999999',
@@ -52,13 +54,34 @@ class TransactionController extends Controller
             'idempotency_key' => 'nullable|string|max:100',
         ]);
 
-        // Delegate to the main TransactionController via web route
-        // For API, we return the validation and let the web handler process
-        return response()->json([
-            'success' => true,
-            'message' => 'Transaction creation delegated to web handler',
-            'data' => $validated,
-        ], 201);
+        try {
+            $transaction = $this->transactionService->createTransaction(
+                $validated,
+                auth()->id(),
+                $request->ip()
+            );
+
+            // Reload with relationships
+            $transaction->load(['customer', 'user', 'approver']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaction created successfully.',
+                'data' => $transaction,
+            ], 201);
+
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaction failed: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
