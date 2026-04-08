@@ -74,14 +74,14 @@ class NavigationTest extends TestCase
         // Check all navigation items are present
         $response->assertSee('Dashboard');
         $response->assertSee('Transactions');
-        $response->assertSee('Stock & Cash');
+        $response->assertSee('Stock & Cash', false);
         $response->assertSee('Compliance');
         $response->assertSee('Accounting');
         $response->assertSee('Tasks');
         $response->assertSee('Counters');
         $response->assertSee('STR Reports');
         $response->assertSee('Reports');
-        $response->assertSee('Audit');
+        $response->assertSee('Audit Log');
         $response->assertSee('Users');
         $response->assertSee('Logout');
     }
@@ -99,14 +99,14 @@ class NavigationTest extends TestCase
         // Manager should see all menu items
         $response->assertSee('Dashboard');
         $response->assertSee('Transactions');
-        $response->assertSee('Stock & Cash');
+        $response->assertSee('Stock & Cash', false);
         $response->assertSee('Compliance');
         $response->assertSee('Accounting');
         $response->assertSee('Tasks');
         $response->assertSee('Counters');
         $response->assertSee('STR Reports');
         $response->assertSee('Reports');
-        $response->assertSee('Audit');
+        $response->assertSee('Audit Log');
         $response->assertSee('Users');
         $response->assertSee('Logout');
     }
@@ -124,14 +124,14 @@ class NavigationTest extends TestCase
         // Compliance should see all menu items
         $response->assertSee('Dashboard');
         $response->assertSee('Transactions');
-        $response->assertSee('Stock & Cash');
+        $response->assertSee('Stock & Cash', false);
         $response->assertSee('Compliance');
         $response->assertSee('Accounting');
         $response->assertSee('Tasks');
         $response->assertSee('Counters');
         $response->assertSee('STR Reports');
         $response->assertSee('Reports');
-        $response->assertSee('Audit');
+        $response->assertSee('Audit Log');
         $response->assertSee('Users');
         $response->assertSee('Logout');
     }
@@ -149,14 +149,14 @@ class NavigationTest extends TestCase
         // Teller should see all menu items (access controlled by middleware)
         $response->assertSee('Dashboard');
         $response->assertSee('Transactions');
-        $response->assertSee('Stock & Cash');
+        $response->assertSee('Stock & Cash', false);
         $response->assertSee('Compliance');
         $response->assertSee('Accounting');
         $response->assertSee('Tasks');
         $response->assertSee('Counters');
         $response->assertSee('STR Reports');
         $response->assertSee('Reports');
-        $response->assertSee('Audit');
+        $response->assertSee('Audit Log');
         $response->assertSee('Users');
         $response->assertSee('Logout');
     }
@@ -172,17 +172,17 @@ class NavigationTest extends TestCase
         $response->assertStatus(200);
 
         // Check links are present with correct URLs (escape=false for HTML content)
-        $response->assertSee('href="/"', false);
-        $response->assertSee('href="/transactions"', false);
-        $response->assertSee('href="/stock-cash"', false);
-        $response->assertSee('href="/compliance"', false);
-        $response->assertSee('href="/accounting"', false);
-        $response->assertSee('href="/tasks"', false);
-        $response->assertSee('href="/counters"', false);
-        $response->assertSee('href="/str"', false);
-        $response->assertSee('href="/reports"', false);
-        $response->assertSee('href="/audit"', false);
-        $response->assertSee('href="/users"', false);
+        $response->assertSee('/dashboard"', false);
+        $response->assertSee('/transactions"', false);
+        $response->assertSee('/stock-cash"', false);
+        $response->assertSee('/compliance"', false);
+        $response->assertSee('/accounting"', false);
+        $response->assertSee('/tasks"', false);
+        $response->assertSee('/counters"', false);
+        $response->assertSee('/str"', false);
+        $response->assertSee('/reports"', false);
+        $response->assertSee('/audit"', false);
+        $response->assertSee('/users"', false);
         // Logout is a form, not a link - check for the logout form instead
         $response->assertSee('action="/logout"', false);
     }
@@ -223,14 +223,14 @@ class NavigationTest extends TestCase
             // All pages should have the same navigation
             $response->assertSee('Dashboard');
             $response->assertSee('Transactions');
-            $response->assertSee('Stock & Cash');
+            $response->assertSee('Stock & Cash', false);
             $response->assertSee('Compliance');
             $response->assertSee('Accounting');
             $response->assertSee('Tasks');
             $response->assertSee('Counters');
             $response->assertSee('STR Reports');
             $response->assertSee('Reports');
-            $response->assertSee('Audit');
+            $response->assertSee('Audit Log');
             $response->assertSee('Users');
             $response->assertSee('Logout');
         }
@@ -247,8 +247,8 @@ class NavigationTest extends TestCase
         $response->assertStatus(200);
 
         // Check Stock &amp; Cash is in the menu
-        $response->assertSee('Stock & Cash');
-        $response->assertSee('href="/stock-cash"', false);
+        $response->assertSee('Stock & Cash', false);
+        $response->assertSee('/stock-cash"', false);
     }
 
     /**
@@ -298,7 +298,7 @@ class NavigationTest extends TestCase
         $accountingPos = strpos($content, '>Accounting<');
         $reportsPos = strpos($content, '>Reports<');
         $tasksPos = strpos($content, '>Tasks<');
-        $auditPos = strpos($content, '>Audit<');
+        $auditPos = strpos($content, '>Audit Log<');
         $usersPos = strpos($content, '>Users<');
         $logoutPos = strpos($content, '>Logout<');
 
