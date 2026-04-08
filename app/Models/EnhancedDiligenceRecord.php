@@ -69,16 +69,16 @@ class EnhancedDiligenceRecord extends Model
 
     public function isComplete(): bool
     {
-        return $this->status !== 'Incomplete';
+        return $this->status !== EddStatus::Incomplete;
     }
 
     public function isPendingReview(): bool
     {
-        return $this->status === 'Pending_Review';
+        return $this->status === EddStatus::PendingReview;
     }
 
     public function isApproved(): bool
     {
-        return $this->status === 'Approved';
+        return $this->status === EddStatus::Approved;
     }
 }

@@ -89,6 +89,14 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::post('/', [TransactionController::class, 'store'])->name('store')
             ->middleware(['mfa.verified', 'throttle:transactions']);
 
+        // Batch upload (Manager only) - must be before /{transaction} wildcard
+        Route::middleware('role:manager')->group(function () {
+            Route::get('/batch-upload', [TransactionController::class, 'showBatchUpload'])->name('batch-upload');
+            Route::post('/batch-upload', [TransactionController::class, 'processBatchUpload']);
+            Route::get('/import/{import}', [TransactionController::class, 'showImportResults'])->name('batch-upload.show');
+            Route::get('/template', [TransactionController::class, 'downloadTemplate'])->name('template');
+        });
+
         // View
         Route::get('/{transaction}', [TransactionController::class, 'show'])->name('show');
         Route::get('/{transaction}/receipt', [TransactionController::class, 'receipt'])->name('receipt');
@@ -104,14 +112,6 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             ->middleware('role:manager');
         Route::post('/{transaction}/confirm', [TransactionController::class, 'confirm'])->name('confirm')
             ->middleware('role:manager');
-
-        // Batch upload (Manager only)
-        Route::middleware('role:manager')->group(function () {
-            Route::get('/batch-upload', [TransactionController::class, 'showBatchUpload'])->name('batch-upload');
-            Route::post('/batch-upload', [TransactionController::class, 'processBatchUpload']);
-            Route::get('/import/{import}', [TransactionController::class, 'showImportResults'])->name('batch-upload.show');
-            Route::get('/template', [TransactionController::class, 'downloadTemplate'])->name('template');
-        });
     });
 
     // Customer Transaction History (API)

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\EddStatus;
 use App\Models\Customer;
 use App\Models\EnhancedDiligenceRecord;
 use App\Models\FlaggedTransaction;
@@ -25,7 +26,7 @@ class EddService
             $recordData = [
                 'customer_id' => $flag->customer_id ?? $flag->getAttribute('customer_id'),
                 'edd_reference' => $eddReference,
-                'status' => 'Incomplete',
+                'status' => EddStatus::Incomplete,
                 'risk_level' => $data['risk_level'] ?? 'Medium',
             ];
 
@@ -45,7 +46,7 @@ class EddService
         $record->update($data);
 
         if ($this->isRecordComplete($record)) {
-            $record->update(['status' => 'Pending_Review']);
+            $record->update(['status' => EddStatus::PendingReview]);
         }
 
         return $record->fresh();
@@ -57,7 +58,7 @@ class EddService
             throw new \InvalidArgumentException('EDD record must be complete before submission');
         }
 
-        $record->update(['status' => 'Pending_Review']);
+        $record->update(['status' => EddStatus::PendingReview]);
 
         return $record;
     }
@@ -65,7 +66,7 @@ class EddService
     public function approve(EnhancedDiligenceRecord $record, User $reviewer, ?string $notes = null): EnhancedDiligenceRecord
     {
         $record->update([
-            'status' => 'Approved',
+            'status' => EddStatus::Approved,
             'reviewed_by' => $reviewer->id,
             'reviewed_at' => now(),
             'review_notes' => $notes,
@@ -77,7 +78,7 @@ class EddService
     public function reject(EnhancedDiligenceRecord $record, User $reviewer, string $reason): EnhancedDiligenceRecord
     {
         $record->update([
-            'status' => 'Rejected',
+            'status' => EddStatus::Rejected,
             'reviewed_by' => $reviewer->id,
             'reviewed_at' => now(),
             'review_notes' => $reason,

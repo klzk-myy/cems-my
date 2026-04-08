@@ -36,8 +36,8 @@
                         </span>
                     </td>
                     <td>
-                        <span class="badge bg-{{ $record->status === 'Approved' ? 'success' : ($record->status === 'Pending_Review' ? 'warning' : 'secondary') }}">
-                            {{ str_replace('_', ' ', $record->status) }}
+                        <span class="badge bg-{{ $record->status->color() }}">
+                            {{ $record->status->label() }}
                         </span>
                     </td>
                     <td>{{ $record->created_at->format('Y-m-d') }}</td>

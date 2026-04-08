@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\EddStatus;
 use App\Models\User;
 use App\Models\Customer;
 use App\Models\EnhancedDiligenceRecord;
@@ -78,7 +79,7 @@ class EddWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('enhanced_diligence_records', [
             'customer_id' => $this->customer->id,
-            'status' => 'Pending_Review', // Auto-transitions when complete
+            'status' => 'Pending_Review',
         ]);
     }
 
@@ -114,7 +115,7 @@ class EddWorkflowTest extends TestCase
         $record = EnhancedDiligenceRecord::create([
             'customer_id' => $this->customer->id,
             'edd_reference' => 'EDD-202604-0002',
-            'status' => 'Incomplete',
+            'status' => EddStatus::Incomplete,
             'risk_level' => 'High',
             'source_of_funds' => 'Salary',
             'purpose_of_transaction' => 'Personal Transaction',
@@ -129,7 +130,7 @@ class EddWorkflowTest extends TestCase
         $response->assertRedirect();
 
         $record->refresh();
-        $this->assertEquals('Pending_Review', $record->status);
+        $this->assertEquals(EddStatus::PendingReview, $record->status);
     }
 
     public function test_can_approve_edd_record(): void
@@ -137,7 +138,7 @@ class EddWorkflowTest extends TestCase
         $record = EnhancedDiligenceRecord::create([
             'customer_id' => $this->customer->id,
             'edd_reference' => 'EDD-202604-0003',
-            'status' => 'Pending_Review',
+            'status' => EddStatus::PendingReview,
             'risk_level' => 'High',
             'source_of_funds' => 'Salary',
             'purpose_of_transaction' => 'Personal Transaction',
@@ -150,7 +151,7 @@ class EddWorkflowTest extends TestCase
         $response->assertRedirect();
 
         $record->refresh();
-        $this->assertEquals('Approved', $record->status);
+        $this->assertEquals(EddStatus::Approved, $record->status);
         $this->assertNotNull($record->reviewed_at);
     }
 
@@ -159,7 +160,7 @@ class EddWorkflowTest extends TestCase
         $record = EnhancedDiligenceRecord::create([
             'customer_id' => $this->customer->id,
             'edd_reference' => 'EDD-202604-0004',
-            'status' => 'Pending_Review',
+            'status' => EddStatus::PendingReview,
             'risk_level' => 'High',
             'source_of_funds' => 'Salary',
             'purpose_of_transaction' => 'Personal Transaction',
@@ -172,7 +173,7 @@ class EddWorkflowTest extends TestCase
         $response->assertRedirect();
 
         $record->refresh();
-        $this->assertEquals('Rejected', $record->status);
+        $this->assertEquals(EddStatus::Rejected, $record->status);
         $this->assertEquals('Insufficient documentation provided', $record->review_notes);
     }
 

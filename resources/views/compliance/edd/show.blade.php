@@ -27,7 +27,7 @@
                 <p><strong>Risk Level:</strong> <span class="badge bg-{{ $record->risk_level === 'Critical' ? 'danger' : 'info' }}">{{ $record->risk_level }}</span></p>
             </div>
             <div class="col-md-6">
-                <p><strong>Status:</strong> <span class="badge bg-{{ $record->status === 'Approved' ? 'success' : ($record->status === 'Pending_Review' ? 'warning' : 'secondary') }}">{{ str_replace('_', ' ', $record->status) }}</span></p>
+                <p><strong>Status:</strong> <span class="badge bg-{{ $record->status->color() }}">{{ $record->status->label() }}</span></p>
                 <p><strong>Created:</strong> {{ $record->created_at->format('Y-m-d H:i') }}</p>
             </div>
         </div>
@@ -119,9 +119,9 @@
 
 <div class="card">
     <div class="card-body">
-        @if($record->status === 'Incomplete')
+        @if($record->status === App\Enums\EddStatus::Incomplete)
             <a href="{{ route('compliance.edd.edit', $record) }}" class="btn btn-primary">Complete EDD</a>
-        @elseif($record->status === 'Pending_Review')
+        @elseif($record->status === App\Enums\EddStatus::PendingReview)
             <form action="{{ route('compliance.edd.approve', $record) }}" method="POST" style="display: inline;">
                 @csrf
                 <button type="submit" class="btn btn-success">Approve</button>
