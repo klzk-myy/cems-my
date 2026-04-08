@@ -25,7 +25,7 @@ class CustomerHistoryTest extends TestCase
         parent::setUp();
 
         CurrencyFactory::resetCounter();
-        $this->user = User::factory()->create(['role' => 'teller']);
+        $this->user = User::factory()->create(['role' => 'manager']);
         $this->customer = Customer::factory()->create();
         // Use a test currency code to avoid conflicts
         $this->currency = Currency::firstOrCreate(
