@@ -815,6 +815,8 @@ Escalate task.
 
 Get task statistics (JSON API).
 
+**Note**: This route is defined in `routes/web.php`, not `routes/api.php`, and uses session-based authentication.
+
 ---
 
 ## 8. Reports
@@ -1020,16 +1022,58 @@ Display audit log rotation controls.
 ## Appendix: REST API Routes
 
 > **Note**: CEMS-MY primarily uses session-based web routes. The REST API uses Laravel Sanctum token authentication and is documented below.
+>
+> **API Versioning**: The current REST API version is `api_v1.php`. The legacy `api.php` file is deprecated and should not be used for new integrations.
 
-### Authentication
+---
 
-**Route**: `POST /api/auth/login`
+### Compliance Alerts
 
-Authenticate user and receive Sanctum token.
+**Route**: `GET /api/compliance/alerts`
 
-**Route**: `POST /api/auth/logout`
+List compliance alerts with filtering.
 
-Invalidate current token.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| status | string | Filter by status (Open, Assigned, Resolved, Closed) |
+| severity | string | Filter by severity (Low, Medium, High, Critical) |
+| type | string | Filter by alert type |
+| date_from | date | Filter from date |
+| date_to | date | Filter to date |
+
+**Route**: `GET /api/compliance/alerts/summary`
+
+Get alert summary statistics (counts by status, severity, type).
+
+**Route**: `GET /api/compliance/alerts/overdue`
+
+Get overdue alerts past their SLA deadline.
+
+**Route**: `GET /api/compliance/alerts/{id}`
+
+Get specific alert details.
+
+**Route**: `POST /api/compliance/alerts/bulk-assign`
+
+Bulk assign alerts to a reviewer.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| alert_ids | array | Yes | Array of alert IDs to assign |
+| assigned_to | integer | Yes | User ID of reviewer |
+
+**Route**: `POST /api/compliance/alerts/bulk-resolve`
+
+Bulk resolve multiple alerts.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| alert_ids | array | Yes | Array of alert IDs to resolve |
+| resolution | string | Yes | Resolution notes |
+
+**Route**: `POST /api/compliance/alerts/auto-assign`
+
+Auto-assign alerts based on workload distribution.
 
 ---
 
@@ -1150,6 +1194,20 @@ Lock customer's risk score.
 **Route**: `POST /api/risk/{customerId}/unlock`
 
 Unlock customer's risk score.
+
+---
+
+### Exchange Rates
+
+**Route**: `GET /api/rates/history/{currency}`
+
+Get historical exchange rates for a currency.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| currency | string | ISO currency code (USD, EUR, GBP, etc.) |
+| date_from | date | Start date (YYYY-MM-DD) |
+| date_to | date | End date (YYYY-MM-DD) |
 
 ---
 

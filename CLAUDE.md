@@ -48,8 +48,8 @@ app/
 ├── Http/
 │   ├── Controllers/      # Thin controllers, delegate to services
 │   └── Middleware/       # CheckRole, EnsureMfaVerified, SessionTimeout
-├── Models/               # Eloquent models (35+)
-└── Services/             # Business logic (29 services)
+├── Models/               # Eloquent models (48 models)
+└── Services/             # Business logic (35 services)
 ```
 
 ### Full Documentation
@@ -70,9 +70,9 @@ All role checks use PHP enums in `App\Enums\`:
 - Permission methods on enums: `$role->canApproveLargeTransactions()`, `$role->canViewReports()`
 - All status/type enums organized by domain:
   - **Transaction**: `TransactionStatus`, `TransactionType`
-  - **Customer**: `CddLevel`, `EddStatus`, `EddRiskLevel`
+  - **Customer**: `CddLevel`, `EddStatus`, `EddRiskLevel`, `EddDocumentStatus`, `EddTemplateType`, `RiskTrend`
   - **Session**: `CounterSessionStatus`
-  - **Compliance**: `FlagStatus`, `StrStatus`, `AmlRuleType`, `ComplianceFlagType`
+  - **Compliance**: `FlagStatus`, `StrStatus`, `AmlRuleType`, `ComplianceFlagType`, `FindingSeverity`, `FindingType`, `FindingStatus`, `ComplianceCaseType`, `ComplianceCaseStatus`, `ComplianceCasePriority`, `CaseResolution`, `CaseStatus`, `CaseNoteType`, `AlertPriority`, `ReportStatus`, `RecalculationTrigger`
   - **Accounting**: `AccountCode`
 - Models return enum instances, not strings
 
@@ -97,7 +97,7 @@ All monetary calculations use `App\Services\MathService` (BCMath), not floats. N
 **5. Compliance Workflow**
 - Transactions ≥ RM 50,000 require manager approval
 - `ComplianceService` runs CDD determination and CTOS reporting (both Buy and Sell)
-- `MonitoringEngine` runs automated compliance monitors via background jobs:
+- `TransactionMonitoringService` runs automated compliance monitors via background jobs:
   - `VelocityMonitor` - Detects velocity/structuring patterns (7-day lookback)
   - `StructuringMonitor` - Transaction aggregation detection
   - `SanctionsRescreeningMonitor` - Monthly rescreening of all customers
@@ -105,9 +105,10 @@ All monetary calculations use `App\Services\MathService` (BCMath), not floats. N
   - `CustomerLocationAnomalyMonitor` - Geographic anomaly detection
   - `CurrencyFlowMonitor` - Currency flow pattern analysis
   - `CounterfeitAlertMonitor` - Counterfeit currency detection
+- `AlertTriageService` triages and assigns compliance alerts
+- `CustomerRiskScoringService` calculates customer risk scores with lock/unlock capability
 - `ComplianceReportingService` provides dashboard KPIs, calendar, case aging, audit trail
 - `CaseManagementService` manages compliance cases with notes, documents, links
-- `RiskScoringEngine` calculates customer risk scores with lock/unlock capability
 - All cancellations require manager approval (segregation of duties)
 - **Refunds** are processed through compliance pipeline
 
@@ -135,8 +136,11 @@ Permissions inherit upward: `Admin` > `ComplianceOfficer` > `Manager` > `Teller`
 
 Routes use these middleware:
 - `auth` - All authenticated users
-- `role:manager` - Manager or admin only
+- `role:manager` - Manager or admin only (CheckRole)
 - `role:compliance` - Compliance officer or admin only
+- `CheckRoleAny` - Multiple role support
+- `EnsureMfaEnabled` - MFA enforcement
+- `DataBreachDetection` - Data breach monitoring
 - `mfa.verified` - MFA verification required
 - `throttle:{name}` - Rate limiting
 - `session.timeout` - Idle session timeout
@@ -154,12 +158,15 @@ The sidebar navigation is organized by function:
 
 **Compliance & AML** (Compliance officers):
 - Compliance Portal (`/compliance`)
-  - Flagged Transactions, EDD Records, AML Rules
+  - Workspace, Alerts, Cases, Flagged Transactions
+  - EDD Records, EDD Templates, AML Rules
+  - Risk Dashboard, STR Studio, Reporting
 - STR Reports (`/str`)
 
 **Accounting** (Managers/Admin):
 - Accounting Dashboard (`/accounting`)
-  - Journal Entries, Ledger, Trial Balance
+  - Journal Entries, Workflow (Draft/Pending/Posted)
+  - Ledger, Trial Balance
   - P&L, Balance Sheet, Cash Flow, Ratios
   - Periods, Fiscal Years, Revaluation
   - Reconciliation, Budget
@@ -208,6 +215,29 @@ Configuration: `app/Config/Navigation.php`
 | `AuditLog` | Tamper-evident audit trail with hash chaining |
 | `SystemLog` | Cryptographically chained system events |
 | `EnhancedDiligenceRecord` | EDD questionnaire records |
+| `Alert` | System alerts requiring attention |
+| `AlertPriority` | Alert priority levels (Critical, High, Medium, Low) |
+| `AmlRule` | AML rule engine configuration |
+| `Counter` | Till/counter master record with currency inventory |
+| `CounterHandover` | Till custody transfer between users |
+| `CustomerDocument` | Customer KYC document storage |
+| `CustomerRiskHistory` | Customer risk score change history |
+| `DataBreachAlert` | Data breach alerts and notifications |
+| `DeviceComputations` | Device trust score computations |
+| `EddTemplate` | EDD questionnaire templates |
+| `ExchangeRateHistory` | Historical exchange rate tracking |
+| `MfaRecoveryCode` | MFA recovery codes for account recovery |
+| `ReportGenerated` | Generated compliance reports |
+| `ReportRun` | Report generation execution logs |
+| `ReportSchedule` | Scheduled report configurations |
+| `ReportTemplate` | Report template definitions |
+| `RevaluationEntry` | Currency revaluation journal entries |
+| `RiskScoreSnapshot` | Periodic risk score snapshots |
+| `SanctionEntry` | Individual sanctions screening entries |
+| `SanctionList` | Sanctions list master data |
+| `StockTransfer` | Inter-branch stock transfers |
+| `StockTransferItem` | Stock transfer line items |
+| `StrDraft` | STR draft before submission |
 
 ### Accounting Module
 
@@ -235,6 +265,14 @@ Configuration: `app/Config/Navigation.php`
 - `AuditService` - Audit log and system event management
 - `SanctionScreeningService` - Customer/transaction sanctions screening
 - `RiskRatingService` - Customer risk rating calculation
+- `AlertTriageService` - Alert triage and assignment workflow
+- `CaseManagementService` - Compliance case management with notes and documents
+- `ComplianceReportingService` - Dashboard KPIs, calendar, case aging, audit trail
+- `CustomerRiskScoringService` - Customer risk scoring with lock/unlock
+- `EddTemplateService` - EDD questionnaire template management
+- `StrAutomationService` - STR automated preparation and submission
+- `TransactionImportService` - Bulk transaction import handling
+- `TransactionMonitoringService` - Automated compliance monitoring (velocity, structuring, sanctions rescreening)
 
 **Database Seeders**:
 - `ChartOfAccountsSeeder` - Creates 18 default accounts
@@ -256,7 +294,7 @@ Configuration: `app/Config/Navigation.php`
 **Compliance Flags** (`ComplianceFlagType` enum):
 - LargeAmount, SanctionMatch, Velocity, Structuring, EddRequired, PepStatus, HighRiskCustomer, etc.
 
-**Finding Types** (from MonitoringEngine): VelocityExceeded, StructuringPattern, AggregateTransaction, StrDeadline, SanctionMatch, LocationAnomaly, CurrencyFlowAnomaly, CounterfeitAlert, RiskScoreChange
+**Finding Types** (from monitoring services): VelocityExceeded, StructuringPattern, AggregateTransaction, StrDeadline, SanctionMatch, LocationAnomaly, CurrencyFlowAnomaly, CounterfeitAlert, RiskScoreChange
 
 **CTOS Reporting**: Applies to ALL cash transactions (Buy and Sell) ≥ RM 10,000
 

@@ -154,8 +154,8 @@ A **Counter** (also called till) is a dedicated cash drawer for conducting curre
 1. Navigate to **Counters** or **Stock & Cash**
 2. Click **"Open Counter"**
 3. Select your **Counter ID**
-4. Select the **Currency** for this session
-5. Enter the **Opening Balance** (count physical cash first)
+4. Select the **Currencies** for this session (can add multiple currencies)
+5. Enter the **Opening Balance** for each currency (count physical cash first)
 6. Add any **Notes** if needed
 7. Click **"Open"**
 
@@ -179,29 +179,29 @@ The system records the opening balance and the counter session begins.
 **Variance Types**:
 - **Positive**: More cash than expected (rare, investigate immediately)
 - **Negative**: Less cash than expected (common causes: counting errors, unrecorded transactions)
-- Acceptable variance threshold is configurable (default RM 5)
+
+**Variance Thresholds**:
+- **Yellow**: > RM 100 (requires explanation notes)
+- **Red**: > RM 500 (requires supervisor approval)
 
 ### 4.4 Counter Handover
 
-When transferring custody between users (e.g., shift change):
+When transferring custody between users (e.g., shift change), a Manager or Admin initiates the handover:
 
-**Initiating Handover (Outgoing User)**:
-
-1. Navigate to **Counters**
-2. Click **"Handover"**
-3. Select your **Counter ID**
-4. Confirm current balance
-5. Click **"Initiate Handover"**
-
-**Completing Handover (Incoming User)**:
+**Handover Process**:
 
 1. Navigate to **Counters**
 2. Click **"Handover"**
 3. Select the **Counter ID** being handed over
-4. Verify physical cash matches reported balance
-5. Click **"Accept Handover"**
+4. Select the **Outgoing User** (current session holder)
+5. Select the **Incoming User** (receiving the counter)
+6. Enter **Physical Cash Counts** for each currency (required)
+7. Add **Variance Notes** if needed (required if variance > RM 100)
+8. Click **"Complete Handover"**
 
-**Approval**: Handovers require Manager approval to complete.
+**Who can perform handover**: Manager or Admin only
+
+**Note**: The system validates the physical count against expected balance and applies variance thresholds.
 
 ### 4.5 Counter Status
 
