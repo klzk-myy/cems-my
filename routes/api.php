@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Compliance\CaseController;
+use App\Http\Controllers\Api\Compliance\EddController;
 use App\Http\Controllers\Api\Compliance\FindingController;
 use App\Http\Controllers\Api\Compliance\RiskController;
 use App\Http\Controllers\CustomerController;
@@ -80,6 +81,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/cases/{id}/close', [CaseController::class, 'close']);
         Route::post('/cases/{id}/escalate', [CaseController::class, 'escalate']);
         Route::get('/cases/{id}/timeline', [CaseController::class, 'timeline']);
+
+        // EDD API
+        Route::get('/edd', [EddController::class, 'index']);
+        Route::get('/edd/templates', [EddController::class, 'templates']);
+        Route::get('/edd/{id}', [EddController::class, 'show']);
+        Route::post('/edd/{id}/questionnaire', [EddController::class, 'submitQuestionnaire']);
+        Route::post('/edd/{id}/approve', [EddController::class, 'approve']);
+        Route::post('/edd/{id}/reject', [EddController::class, 'reject']);
     });
 
     // Risk API

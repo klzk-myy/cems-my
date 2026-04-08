@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->foreignId('flagged_transaction_id')->nullable()->constrained('flagged_transactions');
             $table->foreignId('customer_id')->constrained('customers');
             $table->string('edd_reference', 30)->unique(); // EDD-YYYYMM-XXXX
-            $table->enum('status', ['Incomplete', 'Pending_Review', 'Approved', 'Rejected'])->default('Incomplete');
+            $table->enum('status', ['Incomplete', 'Pending_Questionnaire', 'Questionnaire_Submitted', 'Pending_Review', 'Approved', 'Rejected', 'Expired'])->default('Incomplete');
             $table->enum('risk_level', ['Low', 'Medium', 'High', 'Critical'])->default('Medium');
 
             // Source of Funds
@@ -42,6 +42,15 @@ return new class extends Migration {
             $table->foreignId('reviewed_by')->nullable()->constrained('users');
             $table->timestamp('reviewed_at')->nullable();
             $table->text('review_notes')->nullable();
+
+            // Questionnaire
+            $table->json('questionnaire_responses')->nullable();
+            $table->timestamp('questionnaire_completed_at')->nullable();
+            $table->foreignId('questionnaire_completed_by')->nullable()->constrained('users');
+
+            // Approval
+            $table->foreignId('approved_by')->nullable()->constrained('users');
+            $table->timestamp('approved_at')->nullable();
 
             $table->timestamps();
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EddStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,12 +34,22 @@ class EnhancedDiligenceRecord extends Model
         'reviewed_by',
         'reviewed_at',
         'review_notes',
+        'questionnaire_responses',
+        'questionnaire_completed_at',
+        'questionnaire_completed_by',
+        'approved_by',
+        'approved_at',
     ];
 
     protected $casts = [
         'source_of_funds_documents' => 'array',
         'supporting_documents' => 'array',
+        'questionnaire_responses' => 'array',
         'reviewed_at' => 'datetime',
+        'questionnaire_completed_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'status' => EddStatus::class,
+        'risk_level' => 'string',
     ];
 
     public function flaggedTransaction(): BelongsTo
