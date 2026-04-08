@@ -163,7 +163,10 @@ class CaseManagementService
         $year = now()->year;
         $prefix = "CASE-{$year}-";
 
-        $lastCase = ComplianceCase::where('case_number', 'like', $prefix.'%')
+        // Use lock to prevent race conditions
+        $lastCase = DB::table('compliance_cases')
+            ->where('case_number', 'like', $prefix.'%')
+            ->lockForUpdate()
             ->orderBy('case_number', 'desc')
             ->first();
 
