@@ -101,6 +101,16 @@ class BranchServiceTest extends TestCase
         ]);
     }
 
+    public function test_deactivate_branch_fails_for_main_branch(): void
+    {
+        $mainBranch = Branch::factory()->create(['is_main' => true, 'is_active' => true]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Cannot deactivate the main branch (HQ).');
+
+        $this->branchService->deactivateBranch($mainBranch);
+    }
+
     public function test_get_branch_summary(): void
     {
         $branch = Branch::factory()->create();

@@ -39,9 +39,15 @@ class BranchService
 
     /**
      * Deactivate a branch (sets is_active = false)
+     *
+     * @throws \InvalidArgumentException if attempting to deactivate the main (HQ) branch
      */
     public function deactivateBranch(Branch $branch): Branch
     {
+        if ($branch->is_main) {
+            throw new \InvalidArgumentException('Cannot deactivate the main branch (HQ).');
+        }
+
         $branch->update(['is_active' => false]);
 
         return $branch->fresh();
