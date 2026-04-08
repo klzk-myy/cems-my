@@ -440,17 +440,59 @@
                             <span class="nav-arrow">▼</span>
                         </a>
                         <div class="nav-submenu">
+                            <a href="{{ route('compliance.workspace') }}" class="nav-link {{ request()->is('compliance/workspace*') ? 'active' : '' }}">
+                                <span class="nav-icon">
+                                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                                </span>
+                                <span>Compliance Workspace</span>
+                            </a>
+                            <a href="{{ route('compliance.alerts.index') }}" class="nav-link {{ request()->is('compliance/alerts*') ? 'active' : '' }}">
+                                <span class="nav-icon">
+                                    <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                                </span>
+                                <span>Alert Triage</span>
+                            </a>
+                            <a href="{{ route('compliance.cases.index') }}" class="nav-link {{ request()->is('compliance/cases*') ? 'active' : '' }}">
+                                <span class="nav-icon">
+                                    <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                </span>
+                                <span>Cases</span>
+                            </a>
                             <a href="{{ route('compliance.flagged') }}" class="nav-link {{ request()->is('compliance/flagged*') ? 'active' : '' }}">
                                 <span class="nav-icon">
                                     <svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></svg>
                                 </span>
                                 <span>Flagged Transactions</span>
                             </a>
-                            <a href="{{ route('compliance.edd.index') }}" class="nav-link {{ request()->is('compliance/edd*') ? 'active' : '' }}">
+                            <a href="{{ route('compliance.edd.index') }}" class="nav-link {{ request()->is('compliance/edd*') && !request()->is('compliance/edd-templates*') ? 'active' : '' }}">
+                                <span class="nav-icon">
+                                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                </span>
+                                <span>EDD Records</span>
+                            </a>
+                            <a href="{{ route('compliance.edd-templates.index') }}" class="nav-link {{ request()->is('compliance/edd-templates*') ? 'active' : '' }}">
+                                <span class="nav-icon">
+                                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                                </span>
+                                <span>EDD Templates</span>
+                            </a>
+                            <a href="{{ route('compliance.risk-dashboard.index') }}" class="nav-link {{ request()->is('compliance/risk-dashboard*') ? 'active' : '' }}">
+                                <span class="nav-icon">
+                                    <svg viewBox="0 0 24 24"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
+                                </span>
+                                <span>Risk Dashboard</span>
+                            </a>
+                            <a href="{{ route('compliance.str-studio.index') }}" class="nav-link {{ request()->is('compliance/str-studio*') ? 'active' : '' }}">
                                 <span class="nav-icon">
                                     <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                                 </span>
-                                <span>EDD Records</span>
+                                <span>STR Studio</span>
+                            </a>
+                            <a href="{{ route('compliance.reporting.index') }}" class="nav-link {{ request()->is('compliance/reporting*') ? 'active' : '' }}">
+                                <span class="nav-icon">
+                                    <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                                </span>
+                                <span>Compliance Reporting</span>
                             </a>
                             <a href="{{ route('compliance.rules.index') }}" class="nav-link {{ request()->is('compliance/rules*') ? 'active' : '' }}">
                                 <span class="nav-icon">
