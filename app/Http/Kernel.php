@@ -67,6 +67,7 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'role' => \App\Http\Middleware\CheckRole::class,
         'role.any' => \App\Http\Middleware\CheckRoleAny::class,
+        'branch.access' => \App\Http\Middleware\CheckBranchAccess::class,
         'mfa.enabled' => \App\Http\Middleware\EnsureMfaEnabled::class,
         'mfa.verified' => \App\Http\Middleware\EnsureMfaVerified::class,
         'session.timeout' => \App\Http\Middleware\SessionTimeout::class,
