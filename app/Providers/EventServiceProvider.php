@@ -4,6 +4,12 @@ namespace App\Providers;
 
 use App\Events\TransactionCreated;
 use App\Listeners\TransactionCreatedListener;
+use App\Events\AlertCreated;
+use App\Events\CaseOpened;
+use App\Events\StrDraftGenerated;
+use App\Events\RiskScoreUpdated;
+use App\Events\ReportGenerated;
+use App\Listeners\ComplianceEventListener;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
@@ -22,6 +28,15 @@ class EventServiceProvider extends ServiceProvider
         ],
         TransactionCreated::class => [
             TransactionCreatedListener::class,
+        ],
+        AlertCreated::class => [
+            ComplianceEventListener::class,
+        ],
+        CaseOpened::class => [
+            ComplianceEventListener::class,
+        ],
+        StrDraftGenerated::class => [
+            ComplianceEventListener::class,
         ],
     ];
 

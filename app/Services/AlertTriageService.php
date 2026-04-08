@@ -1,0 +1,225 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\AlertPriority;
+use App\Enums\ComplianceFlagType;
+use App\Events\AlertCreated;
+use App\Models\Alert;
+use App\Models\ComplianceCase;
+use App\Models\Customer;
+use App\Models\FlaggedTransaction;
+use App\Models\Transaction;
+use Illuminate\Support\Facades\DB;
+
+class AlertTriageService
+{
+    public function __construct(
+        protected ComplianceService $complianceService,
+        protected TransactionMonitoringService $monitoringService,
+    ) {}
+
+    /**
+     * Create an alert from a flagged transaction.
+     */
+    public function createFromFlaggedTransaction(FlaggedTransaction $flaggedTransaction): Alert
+    {
+        $customer = $flaggedTransaction->customer;
+        $transaction = $flaggedTransaction->transaction;
+
+        $riskScore = $this->calculateRiskScore($flaggedTransaction, $customer, $transaction);
+        $priority = AlertPriority::fromRiskScore($riskScore);
+
+        $alert = Alert::create([
+            'flagged_transaction_id' => $flaggedTransaction->id,
+            'customer_id' => $flaggedTransaction->customer_id,
+            'type' => $flaggedTransaction->flag_type,
+            'priority' => $priority,
+            'risk_score' => $riskScore,
+            'reason' => $flaggedTransaction->flag_reason,
+            'source' => 'System',
+            'case_id' => null,
+        ]);
+
+        event(new AlertCreated($alert));
+
+        return $alert;
+    }
+
+    /**
+     * Calculate risk score for an alert.
+     */
+    public function calculateRiskScore(
+        FlaggedTransaction $flaggedTransaction,
+        ?Customer $customer = null,
+        ?Transaction $transaction = null
+    ): int {
+        $score = 0;
+
+        $customer = $customer ?? $flaggedTransaction->customer;
+        $transaction = $transaction ?? $flaggedTransaction->transaction;
+
+        if ($transaction) {
+            $amount = (float) $transaction->amount_local;
+            if ($amount >= 50000) {
+                $score += 30;
+            } elseif ($amount >= 30000) {
+                $score += 20;
+            } elseif ($amount >= 10000) {
+                $score += 10;
+            }
+        }
+
+        if ($customer) {
+            $riskRating = $customer->risk_rating ?? 'low';
+            if (in_array($riskRating, ['high', 'critical'])) {
+                $score += 20;
+            } elseif ($riskRating === 'medium') {
+                $score += 10;
+            }
+
+            if ($customer->is_pep) {
+                $score += 10;
+            }
+
+            if ($customer->is_sanctioned) {
+                $score += 30;
+            }
+        }
+
+        $flagType = $flaggedTransaction->flag_type;
+        if ($flagType === ComplianceFlagType::Velocity) {
+            $score += 5;
+        } elseif ($flagType === ComplianceFlagType::Structuring) {
+            $score += 10;
+        }
+
+        $recentAlerts = Alert::where('customer_id', $flaggedTransaction->customer_id)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->count();
+
+        if ($recentAlerts >= 3) {
+            $score += 15;
+        } elseif ($recentAlerts >= 1) {
+            $score += 5;
+        }
+
+        if ($flaggedTransaction->flag_type === ComplianceFlagType::HighRiskCountry) {
+            $score += 10;
+        }
+
+        return min($score, 100);
+    }
+
+    /**
+     * Get unassigned alerts ordered by priority.
+     */
+    public function getUnassignedAlerts(): \Illuminate\Database\Eloquent\Collection
+    {
+        return Alert::with(['customer', 'flaggedTransaction'])
+            ->whereNull('case_id')
+            ->orderByRaw("FIELD(priority, 'critical', 'high', 'medium', 'low')")
+            ->orderByDesc('risk_score')
+            ->get();
+    }
+
+    /**
+     * Assign alert to a compliance officer.
+     */
+    public function assignToOfficer(Alert $alert, int $userId): Alert
+    {
+        $alert->update(['assigned_to' => $userId]);
+        return $alert->fresh();
+    }
+
+    /**
+     * Auto-assign alerts based on workload balance.
+     */
+    public function autoAssignAlerts(): array
+    {
+        $unassignedAlerts = $this->getUnassignedAlerts();
+        $assigned = [];
+
+        $officers = $this->getAvailableOfficers();
+
+        if ($officers->isEmpty()) {
+            return $assigned;
+        }
+
+        $workloads = $officers->mapWithKeys(fn($o) => [$o->id => 0]);
+
+        foreach ($unassignedAlerts as $alert) {
+            $minWorkloadOfficer = $workloads->sort()->keys()->first();
+            $this->assignToOfficer($alert, $minWorkloadOfficer);
+            $workloads[$minWorkloadOfficer]++;
+            $assigned[] = $alert;
+        }
+
+        return $assigned;
+    }
+
+    /**
+     * Resolve an alert.
+     */
+    public function resolveAlert(Alert $alert, int $resolvedBy, ?string $notes = null): Alert
+    {
+        $alert->update([
+            'case_id' => null,
+        ]);
+
+        if ($alert->flaggedTransaction) {
+            $alert->flaggedTransaction->update([
+                'status' => \App\Enums\FlagStatus::Resolved,
+                'reviewed_by' => $resolvedBy,
+                'resolved_at' => now(),
+                'notes' => $notes,
+            ]);
+        }
+
+        return $alert->fresh();
+    }
+
+    /**
+     * Get available compliance officers.
+     */
+    protected function getAvailableOfficers(): \Illuminate\Database\Eloquent\Collection
+    {
+        return \App\Models\User::whereHas('roles', function ($query) {
+            $query->whereIn('name', ['compliance', 'manager']);
+        })
+            ->where('is_active', true)
+            ->get();
+    }
+
+    /**
+     * Get alert queue summary.
+     */
+    public function getQueueSummary(): array
+    {
+        return [
+            'total' => Alert::whereNull('case_id')->count(),
+            'critical' => Alert::whereNull('case_id')
+                ->where('priority', AlertPriority::Critical)->count(),
+            'high' => Alert::whereNull('case_id')
+                ->where('priority', AlertPriority::High)->count(),
+            'medium' => Alert::whereNull('case_id')
+                ->where('priority', AlertPriority::Medium)->count(),
+            'low' => Alert::whereNull('case_id')
+                ->where('priority', AlertPriority::Low)->count(),
+            'unassigned' => Alert::whereNull('case_id')
+                ->whereNull('assigned_to')->count(),
+            'overdue' => $this->getOverdueCount(),
+        ];
+    }
+
+    /**
+     * Get count of overdue alerts.
+     */
+    protected function getOverdueCount(): int
+    {
+        return Alert::whereNull('case_id')
+            ->get()
+            ->filter(fn($alert) => $alert->isOverdue())
+            ->count();
+    }
+}

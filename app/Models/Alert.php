@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\AlertPriority;
+use App\Enums\ComplianceFlagType;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Alert extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'flagged_transaction_id',
+        'customer_id',
+        'type',
+        'priority',
+        'risk_score',
+        'reason',
+        'source',
+        'assigned_to',
+        'case_id',
+    ];
+
+    protected $casts = [
+        'type' => ComplianceFlagType::class,
+        'priority' => AlertPriority::class,
+        'risk_score' => 'integer',
+    ];
+
+    public function flaggedTransaction(): BelongsTo
+    {
+        return $this->belongsTo(FlaggedTransaction::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function case(): BelongsTo
+    {
+        return $this->belongsTo(ComplianceCase::class, 'case_id');
+    }
+
+    public function scopeUnassigned($query)
+    {
+        return $query->whereNull('assigned_to');
+    }
+
+    public function scopeByPriority($query, AlertPriority $priority)
+    {
+        return $query->where('priority', $priority);
+    }
+
+    public function scopeOpen($query)
+    {
+        return $query->whereNull('case_id');
+    }
+
+    public function calculateSlaDeadline(): \DateTime
+    {
+        return now()->addHours($this->priority->slaHours());
+    }
+
+    public function isOverdue(): bool
+    {
+        if ($this->case_id) {
+            return false;
+        }
+        return now()->isAfter($this->calculateSlaDeadline());
+    }
+}
