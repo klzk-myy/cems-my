@@ -26,24 +26,6 @@ return new class extends Migration
             $table->index(['assigned_to']);
         });
 
-        Schema::create('compliance_cases', function (Blueprint $table) {
-            $table->id();
-            $table->string('case_number', 20)->unique();
-            $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
-            $table->string('status')->default('open');
-            $table->string('priority');
-            $table->foreignId('assigned_to')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('opened_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('sla_deadline')->nullable();
-            $table->timestamp('resolved_at')->nullable();
-            $table->text('notes')->nullable();
-            $table->timestamps();
-
-            $table->index(['status', 'priority']);
-            $table->index(['customer_id']);
-            $table->index(['sla_deadline']);
-        });
-
         Schema::create('str_drafts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('case_id')->nullable()->constrained('compliance_cases')->nullOnDelete();
@@ -138,7 +120,6 @@ return new class extends Migration
         Schema::dropIfExists('edd_templates');
         Schema::dropIfExists('risk_score_snapshots');
         Schema::dropIfExists('str_drafts');
-        Schema::dropIfExists('compliance_cases');
         Schema::dropIfExists('alerts');
     }
 };
