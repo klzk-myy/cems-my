@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TillBalance extends Model
 {
@@ -11,6 +12,7 @@ class TillBalance extends Model
     protected $fillable = [
         'till_id',
         'currency_code',
+        'branch_id',
         'opening_balance',
         'closing_balance',
         'variance',
@@ -34,6 +36,16 @@ class TillBalance extends Model
     public function currency()
     {
         return $this->belongsTo(Currency::class, 'currency_code');
+    }
+
+    /**
+     * Get the branch associated with this till balance.
+     *
+     * @return BelongsTo
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function opener()
