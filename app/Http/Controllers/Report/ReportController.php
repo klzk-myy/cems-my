@@ -10,7 +10,7 @@ abstract class ReportController extends Controller
     protected function requireManagerOrAdmin(): void
     {
         $user = auth()->user();
-        $role = UserRole::from($user->role);
+        $role = $user->role;
 
         if (! $role->canViewReports()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
