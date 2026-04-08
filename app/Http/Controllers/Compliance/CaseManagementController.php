@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Compliance;
 
 use App\Http\Controllers\Controller;
 use App\Models\Alert;
-use App\Models\ComplianceCase;
+use App\Models\Compliance\ComplianceCase;
 use App\Services\CaseManagementService;
 use Illuminate\Http\Request;
 
