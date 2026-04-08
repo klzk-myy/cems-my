@@ -213,9 +213,11 @@
 
         <div class="form-group">
             <div class="checkbox-group">
+                <input type="hidden" name="is_active" value="0">
                 <input type="checkbox" id="is_active" name="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}>
                 <label for="is_active">Active</label>
 
+                <input type="hidden" name="is_main" value="0">
                 <input type="checkbox" id="is_main" name="is_main" value="1" {{ old('is_main') ? 'checked' : '' }}>
                 <label for="is_main">Main Branch (Head Office)</label>
             </div>
