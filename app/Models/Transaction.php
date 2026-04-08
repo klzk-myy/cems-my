@@ -35,6 +35,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $is_refund
  * @property string|null $idempotency_key Duplicate prevention
  * @property int $version Optimistic locking
+ * @property array|null $transition_history State machine transition history
+ * @property string|null $failure_reason Reason for failed status
+ * @property string|null $rejection_reason Reason for rejected status
+ * @property string|null $reversal_reason Reason for reversed status
  */
 class Transaction extends Model
 {
@@ -77,6 +81,10 @@ class Transaction extends Model
         'is_refund',
         'idempotency_key',
         'version',
+        'transition_history',
+        'failure_reason',
+        'rejection_reason',
+        'reversal_reason',
     ];
 
     /**
@@ -96,6 +104,7 @@ class Transaction extends Model
         'approved_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'rate_override_approved_at' => 'datetime',
+        'transition_history' => 'array',
     ];
 
     /**

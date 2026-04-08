@@ -34,8 +34,8 @@ class TransactionCancellationController extends Controller
             abort(403, 'Unauthorized to cancel this transaction.');
         }
 
-        if (! $transaction->isRefundable()) {
-            return back()->with('error', 'This transaction cannot be cancelled.');
+        if (! $this->canBeCancelled($transaction)) {
+            return back()->with('error', 'This transaction cannot be cancelled in its current state.');
         }
 
         return view('transactions.cancel', compact('transaction'));
@@ -43,6 +43,10 @@ class TransactionCancellationController extends Controller
 
     /**
      * Process transaction cancellation
+     *
+     * State transitions:
+     * - draft, pending_approval, approved, processing, failed, rejected -> cancelled
+     * - completed -> reversed (not cancelled; creates refund transaction)
      */
     public function cancel(Request $request, Transaction $transaction)
     {
@@ -55,34 +59,51 @@ class TransactionCancellationController extends Controller
             'confirm_understanding' => 'required|accepted',
         ]);
 
-        if (! $transaction->isRefundable()) {
-            return back()->with('error', 'This transaction cannot be cancelled.');
+        if (! $this->canBeCancelled($transaction)) {
+            return back()->with('error', 'This transaction cannot be cancelled in its current state.');
         }
 
         DB::beginTransaction();
         try {
             $originalTillId = $transaction->till_id ?? 'MAIN';
-            $refundTransaction = $this->createRefundTransaction($transaction);
+            $originalStatus = $transaction->status;
 
-            $transaction->update([
-                'status' => TransactionStatus::Cancelled,
-                'cancelled_at' => now(),
-                'cancelled_by' => auth()->id(),
-                'cancellation_reason' => $validated['cancellation_reason'],
-            ]);
+            // Completed transactions are reversed (not cancelled) and require a refund
+            $isCompleted = $transaction->status->isCompleted();
+            $refundTransaction = null;
 
-            $this->reverseStockPosition($transaction, $originalTillId);
-            $this->createReversingJournalEntries($transaction);
+            if ($isCompleted) {
+                // Completed transactions get reversed with a refund
+                $refundTransaction = $this->createRefundTransaction($transaction);
+                $newStatus = TransactionStatus::Reversed;
+            } else {
+                // Non-completed transactions are simply cancelled
+                $newStatus = TransactionStatus::Cancelled;
+            }
+
+            // Update status and increment version to prevent race conditions
+            $transaction->status = $newStatus;
+            $transaction->cancelled_at = now();
+            $transaction->cancelled_by = auth()->id();
+            $transaction->cancellation_reason = $validated['cancellation_reason'];
+            $transaction->version = ($transaction->version ?? 0) + 1;
+            $transaction->save();
+
+            // Reverse stock position only for completed transactions (they have positions to reverse)
+            if ($isCompleted) {
+                $this->reverseStockPosition($transaction, $originalTillId);
+                $this->createReversingJournalEntries($transaction);
+            }
 
             SystemLog::create([
                 'user_id' => auth()->id(),
-                'action' => 'transaction_cancelled',
+                'action' => $isCompleted ? 'transaction_reversed' : 'transaction_cancelled',
                 'entity_type' => 'Transaction',
                 'entity_id' => $transaction->id,
-                'old_values' => ['status' => TransactionStatus::Completed->value],
+                'old_values' => ['status' => $originalStatus->value],
                 'new_values' => [
-                    'status' => TransactionStatus::Cancelled->value,
-                    'refund_transaction_id' => $refundTransaction->id,
+                    'status' => $newStatus->value,
+                    'refund_transaction_id' => $refundTransaction?->id,
                     'reason' => $validated['cancellation_reason'],
                 ],
                 'ip_address' => $request->ip(),
@@ -90,8 +111,12 @@ class TransactionCancellationController extends Controller
 
             DB::commit();
 
+            $message = $isCompleted
+                ? 'Transaction reversed successfully. Refund transaction created.'
+                : 'Transaction cancelled successfully.';
+
             return redirect()->route('transactions.show', $transaction)
-                ->with('success', 'Transaction cancelled successfully. Refund transaction created.');
+                ->with('success', $message);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -117,6 +142,57 @@ class TransactionCancellationController extends Controller
         // Tellers cannot cancel any transactions - requires manager approval
         // This enforces segregation of duties
         return false;
+    }
+
+    /**
+     * Check if transaction can be cancelled (or reversed if completed)
+     *
+     * State transitions:
+     * - draft, pending_approval, approved, processing, failed, rejected -> can be cancelled
+     * - completed -> can be reversed (different from cancelled)
+     * - finalized, already cancelled/reversed/rejected -> cannot be changed
+     */
+    protected function canBeCancelled(Transaction $transaction): bool
+    {
+        $status = $transaction->status;
+
+        // Already in a final state that cannot be changed
+        if ($status->isFinalized()) {
+            return false;
+        }
+
+        // Already cancelled or reversed cannot be cancelled again
+        if ($status->isCancelled() || $status->isReversed()) {
+            return false;
+        }
+
+        // Already cancelled (indicated by cancelled_at being set even if status hasn't updated)
+        if ($transaction->cancelled_at !== null) {
+            return false;
+        }
+
+        // Cannot cancel a refund transaction
+        if ($transaction->is_refund) {
+            return false;
+        }
+
+        // Completed transactions can be reversed (within time window)
+        if ($status->isCompleted()) {
+            return $this->isWithinCancellationWindow($transaction);
+        }
+
+        // All other non-final states can be cancelled
+        return true;
+    }
+
+    /**
+     * Check if transaction is within the cancellation window
+     */
+    protected function isWithinCancellationWindow(Transaction $transaction): bool
+    {
+        $cancellationWindowHours = config('cems.transaction_cancellation_window_hours', 24);
+
+        return $transaction->created_at->diffInHours(now()) <= $cancellationWindowHours;
     }
 
     /**
@@ -165,6 +241,7 @@ class TransactionCancellationController extends Controller
         return Transaction::create([
             'customer_id' => $original->customer_id,
             'user_id' => auth()->id(),
+            'branch_id' => $original->branch_id,
             'till_id' => $original->till_id,
             'type' => $refundType,
             'currency_code' => $original->currency_code,

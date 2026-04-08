@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Branch;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\Customer;
@@ -29,9 +30,22 @@ class TransactionCancellationFlowTest extends TestCase
 
     protected Currency $currency;
 
+    protected Branch $branch;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Create a branch first (required for transactions)
+        $this->branch = \App\Models\Branch::create([
+            'code' => 'HQ',
+            'name' => 'Headquarters',
+            'address_encrypted' => encrypt('123 Main Street'),
+            'contact_number_encrypted' => encrypt('0123456789'),
+            'email' => 'hq@test.com',
+            'type' => 'HQ',
+            'is_active' => true,
+        ]);
 
         // Create users with different roles (similar to TransactionTest.php)
         $this->adminUser = User::create([
@@ -41,6 +55,7 @@ class TransactionCancellationFlowTest extends TestCase
             'role' => 'admin',
             'mfa_enabled' => false,
             'is_active' => true,
+            'branch_id' => $this->branch->id,
         ]);
 
         $this->managerUser = User::create([
@@ -50,6 +65,7 @@ class TransactionCancellationFlowTest extends TestCase
             'role' => 'manager',
             'mfa_enabled' => false,
             'is_active' => true,
+            'branch_id' => $this->branch->id,
         ]);
 
         $this->tellerUser1 = User::create([
@@ -59,6 +75,7 @@ class TransactionCancellationFlowTest extends TestCase
             'role' => 'teller',
             'mfa_enabled' => false,
             'is_active' => true,
+            'branch_id' => $this->branch->id,
         ]);
 
         $this->tellerUser2 = User::create([
@@ -68,6 +85,7 @@ class TransactionCancellationFlowTest extends TestCase
             'role' => 'teller',
             'mfa_enabled' => false,
             'is_active' => true,
+            'branch_id' => $this->branch->id,
         ]);
 
         // Create customer
@@ -158,6 +176,7 @@ class TransactionCancellationFlowTest extends TestCase
         $data = array_merge([
             'customer_id' => $this->customer->id,
             'user_id' => $user->id,
+            'branch_id' => $this->branch->id,
             'till_id' => 'MAIN',
             'type' => 'Buy',
             'currency_code' => 'USD',
@@ -182,9 +201,9 @@ class TransactionCancellationFlowTest extends TestCase
     }
 
     /**
-     * Test that a transaction can be cancelled within 24 hours by manager
+     * Test that a completed transaction is reversed within 24 hours by manager
      */
-    public function test_transaction_can_be_cancelled_within_24_hours_by_manager(): void
+    public function test_completed_transaction_is_reversed_within_24_hours_by_manager(): void
     {
         // Create completed transaction
         $transaction = $this->createCompletedTransaction($this->tellerUser1);
@@ -197,18 +216,19 @@ class TransactionCancellationFlowTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Cancel Transaction');
 
-        // Post to cancel
+        // Post to cancel/reverse
         $response = $this->post(route('transactions.cancel', $transaction), [
             'cancellation_reason' => 'Customer requested cancellation due to change of plans',
             'confirm_understanding' => '1',
         ]);
 
         $response->assertRedirect(route('transactions.show', $transaction));
-        $response->assertSessionHas('success', 'Transaction cancelled successfully. Refund transaction created.');
+        $response->assertSessionHas('success', 'Transaction reversed successfully. Refund transaction created.');
 
-        // Assert transaction status is Cancelled
+        // Assert transaction status is Reversed (not Cancelled)
         $transaction->refresh();
-        $this->assertTrue($transaction->status->isCancelled());
+        $this->assertTrue($transaction->status->isReversed());
+        $this->assertFalse($transaction->status->isCancelled());
         $this->assertNotNull($transaction->cancelled_at);
         $this->assertEquals($this->managerUser->id, $transaction->cancelled_by);
         $this->assertEquals('Customer requested cancellation due to change of plans', $transaction->cancellation_reason);
@@ -221,17 +241,17 @@ class TransactionCancellationFlowTest extends TestCase
         $this->assertEquals($transaction->amount_foreign, $refundTransaction->amount_foreign);
         $this->assertEquals($transaction->amount_local, $refundTransaction->amount_local);
 
-        // Assert system log created
-        $log = SystemLog::where('action', 'transaction_cancelled')
+        // Assert system log created with correct action
+        $log = SystemLog::where('action', 'transaction_reversed')
             ->where('entity_id', $transaction->id)
             ->first();
         $this->assertNotNull($log);
     }
 
     /**
-     * Test that a transaction can be cancelled by admin
+     * Test that a completed transaction is reversed by admin
      */
-    public function test_transaction_can_be_cancelled_by_admin(): void
+    public function test_completed_transaction_is_reversed_by_admin(): void
     {
         $transaction = $this->createCompletedTransaction($this->tellerUser1);
 
@@ -244,7 +264,9 @@ class TransactionCancellationFlowTest extends TestCase
 
         $response->assertRedirect();
         $transaction->refresh();
-        $this->assertTrue($transaction->status->isCancelled());
+        // Completed transactions are reversed, not cancelled
+        $this->assertTrue($transaction->status->isReversed());
+        $this->assertFalse($transaction->status->isCancelled());
     }
 
     /**
@@ -300,7 +322,7 @@ class TransactionCancellationFlowTest extends TestCase
         // Try to access cancel form
         $response = $this->get(route('transactions.cancel.show', $transaction));
         $response->assertRedirect();
-        $response->assertSessionHas('error', 'This transaction cannot be cancelled.');
+        $response->assertSessionHas('error', 'This transaction cannot be cancelled in its current state.');
 
         // Try to post cancel
         $response = $this->post(route('transactions.cancel', $transaction), [
@@ -309,20 +331,38 @@ class TransactionCancellationFlowTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', 'This transaction cannot be cancelled.');
+        $response->assertSessionHas('error', 'This transaction cannot be cancelled in its current state.');
 
         $transaction->refresh();
         $this->assertEquals('Completed', $transaction->status->value);
     }
 
     /**
-     * Test that only completed transactions can be cancelled
+     * Test that only completed transactions are reversed (not cancelled)
+     * Non-completed transactions can be cancelled by managers
      */
-    public function test_only_completed_transactions_can_be_cancelled(): void
+    public function test_completed_transactions_are_reversed_not_cancelled(): void
     {
-        // Create pending transaction
+        // Create completed transaction
+        $completedTransaction = $this->createCompletedTransaction($this->tellerUser1);
+        $completedTransaction->created_at = now()->subHour();
+        $completedTransaction->save();
+
+        $this->actingAs($this->managerUser);
+
+        $response = $this->get(route('transactions.cancel.show', $completedTransaction));
+        // Completed transactions within window can be reversed
+        $response->assertStatus(200);
+    }
+
+    /**
+     * Test that pending_approval transactions can be cancelled by manager
+     */
+    public function test_pending_approval_transactions_can_be_cancelled(): void
+    {
+        // Create pending_approval transaction
         $pendingTransaction = $this->createCompletedTransaction($this->tellerUser1, [
-            'status' => 'Pending',
+            'status' => 'PendingApproval',
         ]);
         $pendingTransaction->created_at = now()->subHour();
         $pendingTransaction->save();
@@ -330,8 +370,7 @@ class TransactionCancellationFlowTest extends TestCase
         $this->actingAs($this->managerUser);
 
         $response = $this->get(route('transactions.cancel.show', $pendingTransaction));
-        $response->assertRedirect();
-        $response->assertSessionHas('error', 'This transaction cannot be cancelled.');
+        $response->assertStatus(200);
     }
 
     /**
@@ -347,7 +386,7 @@ class TransactionCancellationFlowTest extends TestCase
 
         $response = $this->get(route('transactions.cancel.show', $transaction));
         $response->assertRedirect();
-        $response->assertSessionHas('error', 'This transaction cannot be cancelled.');
+        $response->assertSessionHas('error', 'This transaction cannot be cancelled in its current state.');
     }
 
     /**
@@ -365,7 +404,7 @@ class TransactionCancellationFlowTest extends TestCase
 
         $response = $this->get(route('transactions.cancel.show', $transaction));
         $response->assertRedirect();
-        $response->assertSessionHas('error', 'This transaction cannot be cancelled.');
+        $response->assertSessionHas('error', 'This transaction cannot be cancelled in its current state.');
     }
 
     /**

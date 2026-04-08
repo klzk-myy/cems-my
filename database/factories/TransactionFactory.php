@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Branch;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Transaction;
@@ -21,6 +22,7 @@ class TransactionFactory extends Factory
         return [
             'customer_id' => Customer::factory(),
             'user_id' => User::factory(),
+            'branch_id' => Branch::factory(),
             'till_id' => 'MAIN',
             'type' => fake()->randomElement(['Buy', 'Sell']),
             'currency_code' => fn () => Currency::inRandomOrder()->first()?->code ?? Currency::factory()->create()->code,
