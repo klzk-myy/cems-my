@@ -1,0 +1,457 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
+use App\Models\JournalEntry;
+use App\Models\Transaction;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Transaction Cancellation Service
+ *
+ * Handles transaction cancellation and reversal workflows using the state machine.
+ * Manages the complete lifecycle of cancelling transactions including:
+ * - Cancellation requests (manager approval required)
+ * - Reversal of completed transactions (within 24-hour window)
+ * - Position reversal (stock/cash)
+ * - Reversing journal entries
+ * - Refund transaction creation
+ */
+class TransactionCancellationService
+{
+    /**
+     * Math service for high-precision calculations.
+     */
+    protected MathService $mathService;
+
+    /**
+     * Create a new TransactionCancellationService instance.
+     *
+     * @param  MathService  $mathService  Math service for precise calculations
+     */
+    public function __construct(MathService $mathService)
+    {
+        $this->mathService = $mathService;
+    }
+
+    /**
+     * Request cancellation of a transaction.
+     *
+     * Requires manager or admin role. Cancellations can be requested from any
+     * non-final state (Draft, PendingApproval, Approved, Processing, Completed, Failed).
+     *
+     * @param  Transaction  $transaction  The transaction to cancel
+     * @param  User  $requester  The user requesting cancellation
+     * @param  string  $reason  Reason for cancellation
+     * @return bool True if cancellation was successful
+     *
+     * @throws \InvalidArgumentException If user is not authorized or transaction cannot be cancelled
+     */
+    public function requestCancellation(Transaction $transaction, User $requester, string $reason): bool
+    {
+        // Authorization check: must be manager or admin
+        if (! $requester->role->isManager()) {
+            Log::warning('Non-manager attempted transaction cancellation', [
+                'transaction_id' => $transaction->id,
+                'user_id' => $requester->id,
+                'user_role' => $requester->role->value,
+            ]);
+
+            return false;
+        }
+
+        // Check if transaction can be cancelled
+        if (! $this->canCancel($transaction)) {
+            Log::warning('Transaction cannot be cancelled', [
+                'transaction_id' => $transaction->id,
+                'current_status' => $transaction->status->value,
+            ]);
+
+            return false;
+        }
+
+        return DB::transaction(function () use ($transaction, $requester, $reason) {
+            $stateMachine = new TransactionStateMachine($transaction);
+
+            $result = $stateMachine->transitionTo(TransactionStatus::Cancelled, [
+                'reason' => $reason,
+                'user_id' => $requester->id,
+            ]);
+
+            if ($result) {
+                Log::info('Transaction cancellation processed', [
+                    'transaction_id' => $transaction->id,
+                    'cancelled_by' => $requester->id,
+                    'reason' => $reason,
+                ]);
+            }
+
+            return $result;
+        });
+    }
+
+    /**
+     * Request reversal of a completed transaction.
+     *
+     * Reversals are only allowed for completed transactions within the 24-hour
+     * cancellation window. Creates a refund transaction and reverses positions.
+     *
+     * @param  Transaction  $transaction  The transaction to reverse
+     * @param  User  $requester  The user requesting reversal
+     * @param  string  $reason  Reason for reversal
+     * @return bool True if reversal was successful
+     *
+     * @throws \InvalidArgumentException If transaction cannot be reversed
+     */
+    public function requestReversal(Transaction $transaction, User $requester, string $reason): bool
+    {
+        // Check user permissions
+        if (! $this->canUserReverse($requester, $transaction)) {
+            Log::warning('User not authorized to reverse transaction', [
+                'transaction_id' => $transaction->id,
+                'user_id' => $requester->id,
+                'user_role' => $requester->role->value,
+            ]);
+
+            return false;
+        }
+
+        // Check if transaction can be reversed
+        if (! $this->canReverse($transaction)) {
+            Log::warning('Transaction cannot be reversed', [
+                'transaction_id' => $transaction->id,
+                'current_status' => $transaction->status->value,
+                'within_window' => $this->isWithinCancellationWindow($transaction),
+            ]);
+
+            return false;
+        }
+
+        // Verify 24-hour window
+        if (! $this->isWithinCancellationWindow($transaction)) {
+            Log::warning('Transaction reversal window has expired', [
+                'transaction_id' => $transaction->id,
+                'transaction_created_at' => $transaction->created_at->toIso8601String(),
+                'window_hours' => config('cems.transaction_cancellation_window_hours', 24),
+            ]);
+
+            return false;
+        }
+
+        return DB::transaction(function () use ($transaction, $requester, $reason) {
+            // Create refund transaction first
+            $refundTransaction = $this->createRefundTransaction($transaction);
+
+            // Reverse positions
+            $this->reversePositions($transaction);
+
+            // Create reversing journal entries
+            $this->createReversingJournalEntries($transaction, $requester->id);
+
+            // Transition to reversed status
+            $stateMachine = new TransactionStateMachine($transaction);
+            $result = $stateMachine->transitionTo(TransactionStatus::Reversed, [
+                'reason' => $reason,
+                'user_id' => $requester->id,
+            ]);
+
+            if ($result) {
+                Log::info('Transaction reversal processed', [
+                    'transaction_id' => $transaction->id,
+                    'refund_transaction_id' => $refundTransaction->id,
+                    'reversed_by' => $requester->id,
+                    'reason' => $reason,
+                ]);
+            }
+
+            return $result;
+        });
+    }
+
+    /**
+     * Check if a transaction can be cancelled.
+     *
+     * A transaction can be cancelled if it's in a state that allows cancellation
+     * (Draft, PendingApproval, Approved, Processing, Completed, Failed).
+     * Finalized transactions cannot be cancelled.
+     *
+     * @param  Transaction  $transaction  The transaction to check
+     * @return bool True if the transaction can be cancelled
+     */
+    public function canCancel(Transaction $transaction): bool
+    {
+        $cancellableStatuses = [
+            TransactionStatus::Draft,
+            TransactionStatus::PendingApproval,
+            TransactionStatus::Approved,
+            TransactionStatus::Processing,
+            TransactionStatus::Completed,
+            TransactionStatus::Failed,
+        ];
+
+        return in_array($transaction->status, $cancellableStatuses, true);
+    }
+
+    /**
+     * Check if a transaction can be reversed.
+     *
+     * A transaction can be reversed if it's completed and within the
+     * 24-hour cancellation window. Reversed transactions cannot be reversed again.
+     *
+     * @param  Transaction  $transaction  The transaction to check
+     * @return bool True if the transaction can be reversed
+     */
+    public function canReverse(Transaction $transaction): bool
+    {
+        // Must be completed
+        if (! $transaction->status->isCompleted()) {
+            return false;
+        }
+
+        // Cannot be already reversed
+        if ($transaction->status->isReversed()) {
+            return false;
+        }
+
+        // Cannot be a refund transaction itself
+        if ($transaction->is_refund) {
+            return false;
+        }
+
+        // Must be within cancellation window
+        return $this->isWithinCancellationWindow($transaction);
+    }
+
+    /**
+     * Check if a transaction is within the cancellation window.
+     *
+     * Default window is 24 hours from transaction creation, configurable
+     * via cems.transaction_cancellation_window_hours.
+     *
+     * @param  Transaction  $transaction  The transaction to check
+     * @return bool True if within the cancellation window
+     */
+    public function isWithinCancellationWindow(Transaction $transaction): bool
+    {
+        $windowHours = config('cems.transaction_cancellation_window_hours', 24);
+
+        return $transaction->created_at->diffInHours(now()) <= $windowHours;
+    }
+
+    /**
+     * Create a refund transaction for a reversed original transaction.
+     *
+     * The refund transaction has opposite type (Buy becomes Sell, Sell becomes Buy),
+     * same amounts, and links back to the original transaction.
+     *
+     * @param  Transaction  $original  The original transaction being reversed
+     * @return Transaction The created refund transaction
+     */
+    public function createRefundTransaction(Transaction $original): Transaction
+    {
+        $oppositeType = $original->type === TransactionType::Buy
+            ? TransactionType::Sell
+            : TransactionType::Buy;
+
+        return Transaction::create([
+            'customer_id' => $original->customer_id,
+            'user_id' => $original->user_id,
+            'branch_id' => $original->branch_id,
+            'till_id' => $original->till_id,
+            'type' => $oppositeType,
+            'currency_code' => $original->currency_code,
+            'amount_local' => $original->amount_local,
+            'amount_foreign' => $original->amount_foreign,
+            'rate' => $original->rate,
+            'purpose' => 'Reversal: '.($original->purpose ?? 'Transaction reversal'),
+            'source_of_funds' => $original->source_of_funds,
+            'status' => TransactionStatus::Completed,
+            'cdd_level' => $original->cdd_level,
+            'original_transaction_id' => $original->id,
+            'is_refund' => true,
+            'approved_by' => $original->approved_by,
+            'approved_at' => $original->approved_at,
+        ]);
+    }
+
+    /**
+     * Reverse stock/cash positions for a transaction.
+     *
+     * For a Buy transaction, decreases the currency position.
+     * For a Sell transaction, increases the currency position.
+     *
+     * @param  Transaction  $transaction  The transaction to reverse positions for
+     *
+     * @throws \InvalidArgumentException If position update fails
+     */
+    public function reversePositions(Transaction $transaction): void
+    {
+        $positionService = app(CurrencyPositionService::class);
+
+        // Get the position first to check balance
+        $position = $positionService->getPosition(
+            $transaction->currency_code,
+            $transaction->till_id
+        );
+
+        if (! $position) {
+            Log::warning('No position found for reversal', [
+                'transaction_id' => $transaction->id,
+                'currency_code' => $transaction->currency_code,
+                'till_id' => $transaction->till_id,
+            ]);
+
+            return;
+        }
+
+        // For reversal, we use opposite type
+        // If original was Buy (bought foreign currency), reversal Sell (sell foreign currency back)
+        // If original was Sell (sold foreign currency), reversal Buy (buy foreign currency back)
+        $reversalType = $transaction->type === TransactionType::Buy
+            ? TransactionType::Sell
+            : TransactionType::Buy;
+
+        $positionService->updatePosition(
+            $transaction->currency_code,
+            $transaction->amount_foreign,
+            $transaction->rate,
+            $reversalType->value,
+            $transaction->till_id
+        );
+
+        Log::info('Positions reversed for transaction', [
+            'transaction_id' => $transaction->id,
+            'currency_code' => $transaction->currency_code,
+            'amount_foreign' => $transaction->amount_foreign,
+            'reversal_type' => $reversalType->value,
+        ]);
+    }
+
+    /**
+     * Create reversing journal entries for a transaction.
+     *
+     * Creates a reversal journal entry that swaps debits and credits from the
+     * original transaction's journal entries.
+     *
+     * @param  Transaction  $transaction  The transaction to create reversing entries for
+     * @param  int|null  $reversedBy  User ID performing the reversal
+     */
+    public function createReversingJournalEntries(Transaction $transaction, ?int $reversedBy = null): void
+    {
+        $accountingService = app(AccountingService::class);
+        $reversedBy = $reversedBy ?? auth()->id();
+
+        // Find original journal entries for this transaction
+        $originalEntries = JournalEntry::where('reference_type', 'Transaction')
+            ->where('reference_id', $transaction->id)
+            ->where('status', 'Posted')
+            ->get();
+
+        foreach ($originalEntries as $originalEntry) {
+            try {
+                $accountingService->reverseJournalEntry(
+                    $originalEntry,
+                    "Reversal of transaction {$transaction->id}",
+                    $reversedBy
+                );
+
+                Log::info('Reversed journal entry', [
+                    'original_entry_id' => $originalEntry->id,
+                    'transaction_id' => $transaction->id,
+                ]);
+            } catch (\InvalidArgumentException $e) {
+                Log::warning('Failed to reverse journal entry', [
+                    'original_entry_id' => $originalEntry->id,
+                    'transaction_id' => $transaction->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Record state history for a transaction.
+     *
+     * Stores the state transition in the transaction's transition_history array
+     * for audit and tracking purposes.
+     *
+     * @param  Transaction  $transaction  The transaction
+     * @param  string  $fromStatus  Previous status
+     * @param  string  $toStatus  New status
+     * @param  array  $context  Additional context data
+     */
+    public function recordStateHistory(
+        Transaction $transaction,
+        string $fromStatus,
+        string $toStatus,
+        array $context
+    ): void {
+        $history = $transaction->transition_history ?? [];
+
+        $history[] = [
+            'from' => $fromStatus,
+            'to' => $toStatus,
+            'reason' => $context['reason'] ?? null,
+            'user_id' => $context['user_id'] ?? auth()->id(),
+            'timestamp' => now()->toIso8601String(),
+            'metadata' => $context,
+        ];
+
+        $transaction->transition_history = $history;
+        $transaction->save();
+
+        Log::debug('Recorded state history', [
+            'transaction_id' => $transaction->id,
+            'from' => $fromStatus,
+            'to' => $toStatus,
+        ]);
+    }
+
+    /**
+     * Get the cancellation window hours from configuration.
+     *
+     * @return int Number of hours in the cancellation window
+     */
+    public function getCancellationWindowHours(): int
+    {
+        return (int) config('cems.transaction_cancellation_window_hours', 24);
+    }
+
+    /**
+     * Check if a user can cancel transactions.
+     *
+     * Only managers and admins can cancel transactions.
+     *
+     * @param  User  $user  The user to check
+     * @return bool True if the user can cancel transactions
+     */
+    public function canUserCancel(User $user): bool
+    {
+        return $user->role->isManager();
+    }
+
+    /**
+     * Check if a user can reverse transactions.
+     *
+     * Any authenticated user can request reversal of their own transactions,
+     * but managers can reverse any transaction.
+     *
+     * @param  User  $user  The user to check
+     * @param  Transaction  $transaction  The transaction to potentially reverse
+     * @return bool True if the user can reverse the transaction
+     */
+    public function canUserReverse(User $user, Transaction $transaction): bool
+    {
+        // Managers can reverse any transaction
+        if ($user->role->isManager()) {
+            return true;
+        }
+
+        // Regular users can only reverse their own transactions
+        return $transaction->user_id === $user->id;
+    }
+}

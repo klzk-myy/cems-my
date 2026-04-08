@@ -245,4 +245,14 @@ class Transaction extends Model
     {
         return $this->belongsTo(User::class, 'cancelled_by');
     }
+
+    /**
+     * Get all transaction errors for this transaction.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function transactionErrors()
+    {
+        return $this->hasMany(TransactionError::class);
+    }
 }
