@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Compliance\CaseController;
 use App\Http\Controllers\Api\Compliance\FindingController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ReportController;
@@ -68,5 +69,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/findings/stats', [FindingController::class, 'stats']);
         Route::get('/findings/{id}', [FindingController::class, 'show']);
         Route::post('/findings/{id}/dismiss', [FindingController::class, 'dismiss']);
+
+        // Cases API
+        Route::get('/cases', [CaseController::class, 'index']);
+        Route::post('/cases', [CaseController::class, 'store']);
+        Route::get('/cases/{id}', [CaseController::class, 'show']);
+        Route::patch('/cases/{id}', [CaseController::class, 'update']);
+        Route::post('/cases/{id}/notes', [CaseController::class, 'addNote']);
+        Route::post('/cases/{id}/close', [CaseController::class, 'close']);
+        Route::post('/cases/{id}/escalate', [CaseController::class, 'escalate']);
+        Route::get('/cases/{id}/timeline', [CaseController::class, 'timeline']);
     });
 });
