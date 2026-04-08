@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Compliance;
 
 use App\Http\Controllers\Controller;
-use App\Models\ComplianceCase;
+use App\Models\Compliance\ComplianceCase;
 use App\Models\StrDraft;
 use App\Services\StrAutomationService;
 use Illuminate\Http\Request;

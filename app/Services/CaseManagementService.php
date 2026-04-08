@@ -6,7 +6,7 @@ use App\Enums\AlertPriority;
 use App\Enums\CaseStatus;
 use App\Events\CaseOpened;
 use App\Models\Alert;
-use App\Models\ComplianceCase;
+use App\Models\Compliance\ComplianceCase;
 use Illuminate\Support\Facades\DB;
 
 class CaseManagementService

@@ -198,6 +198,7 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::patch('/{case}', [CaseManagementController::class, 'update'])->name('update');
             Route::post('/{case}/merge', [CaseManagementController::class, 'merge'])->name('merge');
             Route::post('/{case}/link-alert', [CaseManagementController::class, 'linkAlert'])->name('link-alert');
+            Route::post('/{case}/escalate', [CaseManagementController::class, 'escalate'])->name('escalate');
         });
 
         // STR Studio
@@ -354,6 +355,7 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/position-limit', [ReportController::class, 'positionLimit'])->name('position-limit');
         Route::get('/position-limit/generate', [ReportController::class, 'positionLimitGenerate'])->name('position-limit.generate');
         Route::get('/history', [ReportController::class, 'history'])->name('history');
+        Route::get('/download/{filename}', [ReportController::class, 'download'])->name('download');
         Route::get('/compare', [ReportController::class, 'compare'])->name('compare');
         Route::get('/export', [ReportController::class, 'export'])->name('export');
 

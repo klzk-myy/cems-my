@@ -59,7 +59,7 @@
         <div class="bg-white rounded-lg shadow">
             <div class="p-4 border-b flex justify-between items-center">
                 <h2 class="text-lg font-semibold">Alert Queue</h2>
-                <a href="{{ route('compliance.alerts') }}" class="text-blue-600 text-sm hover:underline">View All</a>
+                <a href="{{ route('compliance.alerts.index') }}" class="text-blue-600 text-sm hover:underline">View All</a>
             </div>
             <div class="p-4">
                 <p class="text-gray-500 text-sm">Unassigned alerts requiring review</p>
@@ -72,7 +72,7 @@
         <div class="bg-white rounded-lg shadow">
             <div class="p-4 border-b flex justify-between items-center">
                 <h2 class="text-lg font-semibold">Case Management</h2>
-                <a href="{{ route('compliance.cases') }}" class="text-blue-600 text-sm hover:underline">View All</a>
+                <a href="{{ route('compliance.cases.index') }}" class="text-blue-600 text-sm hover:underline">View All</a>
             </div>
             <div class="p-4">
                 <p class="text-gray-500 text-sm">Active cases by status</p>
@@ -96,7 +96,7 @@
         <div class="bg-white rounded-lg shadow">
             <div class="p-4 border-b flex justify-between items-center">
                 <h2 class="text-lg font-semibold">Risk Dashboard</h2>
-                <a href="{{ route('compliance.risk-dashboard') }}" class="text-blue-600 text-sm hover:underline">View All</a>
+                <a href="{{ route('compliance.risk-dashboard.index') }}" class="text-blue-600 text-sm hover:underline">View All</a>
             </div>
             <div class="p-4">
                 <p class="text-gray-500 text-sm">Customer risk overview</p>
@@ -121,7 +121,7 @@
         <div class="bg-white rounded-lg shadow">
             <div class="p-4 border-b flex justify-between items-center">
                 <h2 class="text-lg font-semibold">Reporting</h2>
-                <a href="{{ route('compliance.reporting') }}" class="text-blue-600 text-sm hover:underline">View All</a>
+                <a href="{{ route('compliance.reporting.index') }}" class="text-blue-600 text-sm hover:underline">View All</a>
             </div>
             <div class="p-4">
                 <p class="text-gray-500 text-sm">Report generation and schedules</p>

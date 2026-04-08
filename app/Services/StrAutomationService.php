@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Enums\ComplianceFlagType;
 use App\Enums\StrStatus;
 use App\Events\StrDraftGenerated;
-use App\Models\ComplianceCase;
+use App\Models\Compliance\ComplianceCase;
 use App\Models\StrDraft;
 use App\Models\StrReport;
 use App\Models\Transaction;

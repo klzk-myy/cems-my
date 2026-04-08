@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Alert;
 use App\Models\Compliance\ComplianceCase;
 use App\Services\CaseManagementService;
+use App\Services\Compliance\CaseManagementService as ComplianceCaseManagementService;
 use Illuminate\Http\Request;
 
 class CaseManagementController extends Controller
 {
     public function __construct(
-        protected CaseManagementService $caseManagementService
+        protected CaseManagementService $caseManagementService,
+        protected ComplianceCaseManagementService $complianceCaseManagementService
     ) {}
 
     public function index(Request $request)
@@ -102,5 +104,12 @@ class CaseManagementController extends Controller
         $this->caseManagementService->linkAlertToCase($alert, $case);
 
         return redirect()->back()->with('success', 'Alert linked to case');
+    }
+
+    public function escalate(Request $request, ComplianceCase $case)
+    {
+        $this->complianceCaseManagementService->escalateCase($case);
+
+        return redirect()->back()->with('success', 'Case escalated successfully');
     }
 }

@@ -6,7 +6,7 @@ use App\Enums\AlertPriority;
 use App\Enums\ComplianceFlagType;
 use App\Events\AlertCreated;
 use App\Models\Alert;
-use App\Models\ComplianceCase;
+use App\Models\Compliance\ComplianceCase;
 use App\Models\Customer;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;

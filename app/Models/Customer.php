@@ -114,6 +114,16 @@ class Customer extends Model
     }
 
     /**
+     * Get risk score snapshots for this customer.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function riskScoreSnapshots()
+    {
+        return $this->hasMany(RiskScoreSnapshot::class);
+    }
+
+    /**
      * Determine if customer is high risk.
      *
      * A customer is high risk if their risk rating is 'High', they are a PEP,

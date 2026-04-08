@@ -156,7 +156,7 @@ class Navigation
                 'items' => [
                     [
                         'label' => 'Accounting',
-                        'route' => 'accounting',
+                        'route' => 'accounting.index',
                         'icon' => 'calculator',
                         'uri' => '/accounting',
                     ],
@@ -269,7 +269,7 @@ class Navigation
                 'items' => [
                     [
                         'label' => 'Reports',
-                        'route' => 'reports',
+                        'route' => 'reports.index',
                         'icon' => 'report',
                         'uri' => '/reports',
                     ],
