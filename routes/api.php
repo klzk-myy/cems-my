@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Compliance\CaseController;
 use App\Http\Controllers\Api\Compliance\FindingController;
+use App\Http\Controllers\Api\Compliance\RiskController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SanctionController;
@@ -80,4 +81,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/cases/{id}/escalate', [CaseController::class, 'escalate']);
         Route::get('/cases/{id}/timeline', [CaseController::class, 'timeline']);
     });
+
+    // Risk API
+    Route::get('/risk/portfolio', [RiskController::class, 'portfolio']);
+    Route::get('/risk/{customerId}', [RiskController::class, 'show']);
+    Route::get('/risk/{customerId}/history', [RiskController::class, 'history']);
+    Route::post('/risk/{customerId}/recalculate', [RiskController::class, 'recalculate']);
+    Route::post('/risk/{customerId}/lock', [RiskController::class, 'lock']);
+    Route::post('/risk/{customerId}/unlock', [RiskController::class, 'unlock']);
 });
