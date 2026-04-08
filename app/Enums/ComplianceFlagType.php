@@ -24,6 +24,7 @@ enum ComplianceFlagType: string
     case RoundAmount = 'Round_Amount';
     case ProfileDeviation = 'Profile_Deviation';
     case AmlRuleTriggered = 'Aml_Rule_Triggered';
+    case CounterfeitCurrency = 'Counterfeit_Currency';
 
     /**
      * Check if this flag type indicates a sanctions issue.
@@ -109,6 +110,7 @@ enum ComplianceFlagType: string
             self::HighRiskCountry => 'High Risk Country',
             self::RoundAmount => 'Round Amount',
             self::ProfileDeviation => 'Profile Deviation',
+            self::CounterfeitCurrency => 'Counterfeit Currency',
         };
     }
 
@@ -131,6 +133,7 @@ enum ComplianceFlagType: string
             self::HighRiskCountry => 'Customer nationality from high-risk country',
             self::RoundAmount => 'Transaction amount is round number requiring review',
             self::ProfileDeviation => 'Transaction volume exceeds customer profile estimate',
+            self::CounterfeitCurrency => 'Counterfeit currency detected in transaction',
         };
     }
 
@@ -140,7 +143,7 @@ enum ComplianceFlagType: string
     public function severity(): string
     {
         return match ($this) {
-            self::SanctionsHit, self::SanctionMatch => 'critical',
+            self::SanctionsHit, self::SanctionMatch, self::CounterfeitCurrency => 'critical',
             self::Structuring => 'high',
             self::HighRiskCustomer, self::EddRequired, self::LargeAmount => 'medium',
             default => 'low',
@@ -153,7 +156,7 @@ enum ComplianceFlagType: string
     public function color(): string
     {
         return match ($this) {
-            self::SanctionsHit, self::SanctionMatch => 'danger',
+            self::SanctionsHit, self::SanctionMatch, self::CounterfeitCurrency => 'danger',
             self::Structuring => 'warning',
             self::HighRiskCustomer, self::EddRequired, self::LargeAmount => 'info',
             default => 'secondary',
@@ -170,6 +173,7 @@ enum ComplianceFlagType: string
             self::EddRequired,
             self::PepStatus,
             self::SanctionMatch,
+            self::CounterfeitCurrency,
             self::HighRiskCustomer,
         ];
     }
@@ -183,6 +187,7 @@ enum ComplianceFlagType: string
             self::SanctionsHit,
             self::Structuring,
             self::SanctionMatch,
+            self::CounterfeitCurrency,
         ];
     }
 }

@@ -2,6 +2,10 @@
 
 namespace App\Console;
 
+use App\Jobs\Compliance\CounterfeitAlertJob;
+use App\Jobs\Compliance\CurrencyFlowJob;
+use App\Jobs\Compliance\CustomerLocationAnomalyJob;
+use App\Jobs\Compliance\SanctionsRescreeningJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -70,6 +74,28 @@ class Kernel extends ConsoleKernel
         $schedule->command('revaluation:run')
             ->cron('59 23 L * *')
             ->appendOutputTo(storage_path('logs/revaluation.log'));
+
+        // ============ COMPLIANCE MONITORS ============
+
+        // Sanctions Rescreening Monitor - Weekly on Sunday at 02:00
+        $schedule->job(new SanctionsRescreeningJob())
+            ->weeklyOn(0, '02:00')
+            ->appendOutputTo(storage_path('logs/monitor-sanctions-rescreen.log'));
+
+        // Customer Location Anomaly Monitor - Daily at 03:00
+        $schedule->job(new CustomerLocationAnomalyJob())
+            ->dailyAt('03:00')
+            ->appendOutputTo(storage_path('logs/monitor-location-anomaly.log'));
+
+        // Currency Flow Monitor - Daily at 03:30
+        $schedule->job(new CurrencyFlowJob())
+            ->dailyAt('03:30')
+            ->appendOutputTo(storage_path('logs/monitor-currency-flow.log'));
+
+        // Counterfeit Alert Monitor - Daily at 04:00
+        $schedule->job(new CounterfeitAlertJob())
+            ->dailyAt('04:00')
+            ->appendOutputTo(storage_path('logs/monitor-counterfeit-alert.log'));
     }
 
     protected function commands(): void

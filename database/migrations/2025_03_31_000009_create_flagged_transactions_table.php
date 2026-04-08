@@ -26,6 +26,8 @@ return new class extends Migration
                 'High_Risk_Country',
                 'Round_Amount',
                 'Profile_Deviation',
+                'Aml_Rule_Triggered',
+                'Counterfeit_Currency',
             ]);
             $table->text('flag_reason');
             $table->enum('status', ['Open', 'Under_Review', 'Resolved', 'Rejected'])->default('Open');

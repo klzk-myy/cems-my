@@ -17,11 +17,33 @@ class MonitoringEngine
     /** @var array<string> */
     protected array $monitors = [];
 
+    /** @var array<string> */
+    protected array $defaultMonitors = [
+        \App\Services\Compliance\Monitors\VelocityMonitor::class,
+        \App\Services\Compliance\Monitors\StructuringMonitor::class,
+        \App\Services\Compliance\Monitors\StrDeadlineMonitor::class,
+        \App\Services\Compliance\Monitors\SanctionsRescreeningMonitor::class,
+        \App\Services\Compliance\Monitors\CustomerLocationAnomalyMonitor::class,
+        \App\Services\Compliance\Monitors\CurrencyFlowMonitor::class,
+        \App\Services\Compliance\Monitors\CounterfeitAlertMonitor::class,
+    ];
+
     protected MathService $mathService;
 
     public function __construct(MathService $mathService)
     {
         $this->mathService = $mathService;
+        $this->registerDefaultMonitors();
+    }
+
+    /**
+     * Register all default monitors.
+     */
+    protected function registerDefaultMonitors(): void
+    {
+        foreach ($this->defaultMonitors as $monitorClass) {
+            $this->registerMonitor($monitorClass);
+        }
     }
 
     /**

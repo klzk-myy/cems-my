@@ -14,7 +14,7 @@ class FlaggedTransactionFactory extends Factory
     {
         return [
             'transaction_id' => Transaction::factory(),
-            'flag_type' => fake()->randomElement(['Velocity', 'Structuring', 'EDD_Required', 'Sanction_Match', 'Manual_Review']),
+            'flag_type' => fake()->randomElement(['Velocity', 'Structuring', 'EDD_Required', 'Sanction_Match', 'Manual_Review', 'Counterfeit_Currency']),
             'flag_reason' => fake()->sentence(),
             'status' => fake()->randomElement(['Open', 'Under_Review', 'Resolved']),
             'assigned_to' => null,
@@ -46,6 +46,13 @@ class FlaggedTransactionFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'status' => 'Resolved',
             'resolved_at' => now(),
+        ]);
+    }
+
+    public function counterfeit(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'flag_type' => 'Counterfeit_Currency',
         ]);
     }
 }
