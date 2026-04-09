@@ -126,9 +126,11 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
 
     // Customer Transaction History (API)
     Route::get('/customers/{customer}/history', [TransactionReportController::class, 'customerHistory'])
-        ->name('customers.history');
+        ->name('customers.history')
+        ->middleware('data.breach');
     Route::get('/customers/{customer}/history/export', [TransactionReportController::class, 'exportCustomerHistory'])
-        ->name('customers.export');
+        ->name('customers.export')
+        ->middleware('data.breach');
 
     // Customers
     Route::prefix('customers')->name('customers.')->group(function () {
@@ -136,7 +138,8 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/create', [CustomerController::class, 'create'])->name('create');
         Route::post('/', [CustomerController::class, 'store'])->name('store')
             ->middleware('throttle:30,1');
-        Route::get('/{customer}', [CustomerController::class, 'show'])->name('show');
+        Route::get('/{customer}', [CustomerController::class, 'show'])->name('show')
+            ->middleware('data.breach');
         Route::get('/{customer}/edit', [CustomerController::class, 'edit'])->name('edit');
         Route::put('/{customer}', [CustomerController::class, 'update'])->name('update')
             ->middleware('throttle:30,1');
@@ -407,7 +410,7 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
     Route::get('/api/tasks/stats', [TaskController::class, 'stats'])->name('api.tasks.stats');
 
     // Audit Log (Managers only)
-    Route::middleware('role:manager')->prefix('audit')->name('audit.')->group(function () {
+    Route::middleware(['role:manager', 'data.breach'])->prefix('audit')->name('audit.')->group(function () {
         Route::get('/', [AuditController::class, 'index'])->name('index');
         Route::get('/dashboard', [AuditController::class, 'dashboard'])->name('dashboard');
         Route::get('/rotate', [AuditController::class, 'rotate'])->name('rotate');
