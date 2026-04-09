@@ -134,11 +134,11 @@
     <!-- Quick Actions -->
     <div class="card">
         <h2>Quick Actions</h2>
-        <div class="quick-actions">
-            <a href="/transactions/create" class="btn btn-success">New Transaction</a>
-            <a href="/customers/create" class="btn btn-primary">Register Customer</a>
-            <a href="/compliance/flagged" class="btn btn-warning">View Flagged ({{ $stats['flagged'] ?? 0 }})</a>
-        </div>
+<div class="quick-actions">
+<a href="{{ route('transactions.create') }}" class="btn btn-success">New Transaction</a>
+<a href="{{ route('customers.create') }}" class="btn btn-primary">Register Customer</a>
+<a href="{{ route('compliance.flagged') }}" class="btn btn-warning">View Flagged ({{ $stats['flagged'] ?? 0 }})</a>
+</div>
     </div>
 
     <!-- System Status -->

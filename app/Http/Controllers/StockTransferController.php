@@ -12,7 +12,16 @@ class StockTransferController extends Controller
 
     public function __construct()
     {
-        $this->stockTransferService = new StockTransferService(auth()->user());
+        // Service will be instantiated on first use to avoid auth issues during construction
+    }
+
+    protected function getService(): StockTransferService
+    {
+        if (! isset($this->stockTransferService)) {
+            $this->stockTransferService = new StockTransferService(auth()->user());
+        }
+
+        return $this->stockTransferService;
     }
 
     public function index(Request $request)
@@ -55,7 +64,7 @@ class StockTransferController extends Controller
             'items.*.value_myr' => 'required|numeric|min:0',
         ]);
 
-        $transfer = $this->stockTransferService->createRequest($validated);
+        $transfer = $this->getService()->createRequest($validated);
 
         return redirect()->route('stock-transfers.show', $transfer->id)
             ->with('success', 'Transfer request created');
@@ -70,21 +79,21 @@ class StockTransferController extends Controller
 
     public function approveBm(StockTransfer $stockTransfer)
     {
-        $this->stockTransferService->approveByBranchManager($stockTransfer);
+        $this->getService()->approveByBranchManager($stockTransfer);
 
         return redirect()->back()->with('success', 'Transfer approved by branch manager');
     }
 
     public function approveHq(StockTransfer $stockTransfer)
     {
-        $this->stockTransferService->approveByHQ($stockTransfer);
+        $this->getService()->approveByHQ($stockTransfer);
 
         return redirect()->back()->with('success', 'Transfer approved by HQ');
     }
 
     public function dispatch(StockTransfer $stockTransfer)
     {
-        $this->stockTransferService->dispatch($stockTransfer);
+        $this->getService()->dispatch($stockTransfer);
 
         return redirect()->back()->with('success', 'Transfer dispatched');
     }
@@ -97,14 +106,14 @@ class StockTransferController extends Controller
             'items.*.quantity_received' => 'required|numeric|min:0',
         ]);
 
-        $this->stockTransferService->receiveItems($stockTransfer, $request->items);
+        $this->getService()->receiveItems($stockTransfer, $request->items);
 
         return redirect()->back()->with('success', 'Items received');
     }
 
     public function complete(StockTransfer $stockTransfer)
     {
-        $this->stockTransferService->complete($stockTransfer);
+        $this->getService()->complete($stockTransfer);
 
         return redirect()->back()->with('success', 'Transfer completed');
     }
@@ -115,7 +124,7 @@ class StockTransferController extends Controller
             'reason' => 'required|string|max:500',
         ]);
 
-        $this->stockTransferService->cancel($stockTransfer, $request->reason);
+        $this->getService()->cancel($stockTransfer, $request->reason);
 
         return redirect()->back()->with('success', 'Transfer cancelled');
     }

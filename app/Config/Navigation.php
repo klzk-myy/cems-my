@@ -43,11 +43,42 @@ class Navigation
                         'uri' => '/customers',
                     ],
                     [
+                        'label' => 'Transaction Imports',
+                        'route' => 'transactions.batch-upload',
+                        'icon' => 'arrow-up-tray',
+                        'uri' => '/transactions/batch-upload',
+                    ],
+                ],
+            ],
+
+            // ============================================================
+            // COUNTER MANAGEMENT - Till/counter operations
+            // ============================================================
+            'counter_management' => [
+                'label' => 'Counter Management',
+                'items' => [
+                    [
                         'label' => 'Counters',
                         'route' => 'counters.index',
                         'icon' => 'counter',
                         'uri' => '/counters',
                     ],
+                    [
+                        'label' => 'Branches',
+                        'route' => 'branches.index',
+                        'icon' => 'branch',
+                        'uri' => '/branches',
+                        'role' => UserRole::Admin,
+                    ],
+                ],
+            ],
+
+            // ============================================================
+            // STOCK MANAGEMENT - Currency inventory operations
+            // ============================================================
+            'stock_management' => [
+                'label' => 'Stock Management',
+                'items' => [
                     [
                         'label' => 'Stock & Cash',
                         'route' => 'stock-cash.index',
@@ -59,12 +90,6 @@ class Navigation
                         'route' => 'stock-transfers.index',
                         'icon' => 'arrows-right-left',
                         'uri' => '/stock-transfers',
-                    ],
-                    [
-                        'label' => 'Transaction Imports',
-                        'route' => 'transactions.batch-upload',
-                        'icon' => 'arrow-up-tray',
-                        'uri' => '/transactions/batch-upload',
                     ],
                 ],
             ],
@@ -378,7 +403,7 @@ class Navigation
     {
         $navigation = self::get();
 
-        if (!$role) {
+        if (! $role) {
             // Return only operations for unauthenticated
             return [
                 'operations' => $navigation['operations'],
@@ -399,7 +424,7 @@ class Navigation
         $topLevel = [];
 
         foreach ($navigation as $key => $group) {
-            $topLevelItems = array_filter($group['items'], fn($item) => !isset($item['parent']));
+            $topLevelItems = array_filter($group['items'], fn ($item) => ! isset($item['parent']));
             $topLevel[$key] = [
                 'label' => $group['label'],
                 'items' => array_values($topLevelItems),

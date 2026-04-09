@@ -159,12 +159,17 @@ Routes use these middleware:
 
 The sidebar navigation is organized by function:
 
-**Operations** (All authenticated users):
+**Operations** (All authenticated users) - 7 items:
 - Dashboard (`/dashboard`)
 - Transactions (`/transactions`)
 - Customers (`/customers`)
-- Counters (`/counters`)
-- Stock & Cash (`/stock-cash`)
+- **Counter Management** (group):
+  - Counters (`/counters`)
+  - Branches (`/branches`)
+- **Stock Management** (group):
+  - Stock & Cash (`/stock-cash`)
+  - Stock Transfers (`/stock-transfers`)
+- Transaction Imports (`/transactions/batch-upload`)
 
 **Compliance & AML** (Compliance officers) - 12 items:
 - Compliance Dashboard (`/compliance`)
@@ -206,12 +211,13 @@ The sidebar navigation is organized by function:
 - Position Limits (`/reports/position-limit`)
 - Report History (`/reports/history`)
 
-**System** (Role-based) - 5 items:
+**System** (Role-based) - 4 items:
 - Tasks (`/tasks`)
 - Audit Log (`/audit`)
 - Users (`/users`) - Admin only
-- Branches (`/branches`) - Admin only
 - Data Breach Alerts (`/data-breach-alerts`) - Admin only
+
+Note: Branches has been moved to Counter Management under Operations.
 
 Configuration: `app/Config/Navigation.php`
 

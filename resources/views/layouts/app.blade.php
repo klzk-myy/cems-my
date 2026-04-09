@@ -406,24 +406,63 @@
                         </a>
                     </div>
 
-                    <div class="nav-item">
-                        <a href="{{ route('counters.index') }}" class="nav-link {{ request()->is('counters*') ? 'active' : '' }}">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M6 12h.01M6 16h.01M10 8h8M10 12h8M10 16h8"/></svg>
-                            </span>
-                            <span>Counters</span>
-                        </a>
-                    </div>
+<div class="nav-group">
+<a href="{{ route('counters.index') }}" class="nav-link {{ request()->is('counters*') || request()->is('branches*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M6 12h.01M6 16h.01M10 8h8M10 12h8M10 16h8"/></svg>
+</span>
+<span>Counter Management</span>
+<span class="nav-arrow">▼</span>
+</a>
+<div class="nav-submenu">
+<a href="{{ route('counters.index') }}" class="nav-link {{ request()->is('counters*') && !request()->is('counters/create*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M6 12h.01M6 16h.01M10 8h8M10 12h8M10 16h8"/></svg>
+</span>
+<span>Counters</span>
+</a>
+<a href="{{ route('branches.index') }}" class="nav-link {{ request()->is('branches*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+</span>
+<span>Branches</span>
+</a>
+</div>
+</div>
 
-                    <div class="nav-item">
-                        <a href="{{ route('stock-cash.index') }}" class="nav-link {{ request()->is('stock-cash*') ? 'active' : '' }}">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                            </span>
-                            <span>Stock & Cash</span>
-                        </a>
-                    </div>
-                </div>
+<div class="nav-group">
+<a href="{{ route('stock-cash.index') }}" class="nav-link {{ request()->is('stock-cash*') || request()->is('stock-transfers*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+</span>
+<span>Stock Management</span>
+<span class="nav-arrow">▼</span>
+</a>
+<div class="nav-submenu">
+<a href="{{ route('stock-cash.index') }}" class="nav-link {{ request()->is('stock-cash*') && !request()->is('stock-cash/create*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+</span>
+<span>Stock & Cash</span>
+</a>
+<a href="{{ route('stock-transfers.index') }}" class="nav-link {{ request()->is('stock-transfers*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+</span>
+<span>Stock Transfers</span>
+</a>
+</div>
+</div>
+
+<div class="nav-item">
+<a href="{{ route('transactions.batch-upload') }}" class="nav-link {{ request()->is('transactions/batch-upload*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+</span>
+<span>Transaction Imports</span>
+</a>
+</div>
+</div>
 
                 {{-- ============================================================
                     COMPLIANCE & AML - BNM regulatory compliance
@@ -695,15 +734,24 @@
                         </a>
                     </div>
 
-                    <div class="nav-item">
-                        <a href="{{ route('users.index') }}" class="nav-link {{ request()->is('users*') ? 'active' : '' }}">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                            </span>
-                            <span>Users</span>
-                        </a>
-                    </div>
-                </div>
+<div class="nav-item">
+<a href="{{ route('users.index') }}" class="nav-link {{ request()->is('users*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+</span>
+<span>Users</span>
+</a>
+</div>
+
+<div class="nav-item">
+<a href="{{ route('data-breach-alerts.index') }}" class="nav-link {{ request()->is('data-breach-alerts*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+</span>
+<span>Data Breach Alerts</span>
+</a>
+</div>
+</div>
             </nav>
 
             <div class="sidebar-footer">
