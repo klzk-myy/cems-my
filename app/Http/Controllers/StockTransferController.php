@@ -8,9 +8,12 @@ use Illuminate\Http\Request;
 
 class StockTransferController extends Controller
 {
-    public function __construct(
-        protected StockTransferService $stockTransferService,
-    ) {}
+    protected StockTransferService $stockTransferService;
+
+    public function __construct()
+    {
+        $this->stockTransferService = new StockTransferService(auth()->user());
+    }
 
     public function index(Request $request)
     {
@@ -40,7 +43,7 @@ class StockTransferController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'source_branch_name' => 'required|string',
             'destination_branch_name' => 'required|string|different:source_branch_name',
             'type' => 'required|in:Standard,Emergency,Scheduled,Return',
@@ -52,7 +55,7 @@ class StockTransferController extends Controller
             'items.*.value_myr' => 'required|numeric|min:0',
         ]);
 
-        $transfer = $this->stockTransferService->createRequest($request->validated());
+        $transfer = $this->stockTransferService->createRequest($validated);
 
         return redirect()->route('stock-transfers.show', $transfer->id)
             ->with('success', 'Transfer request created');

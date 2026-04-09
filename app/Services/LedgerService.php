@@ -61,16 +61,17 @@ class LedgerService
      * ```
      *
      * @param  string|null  $asOfDate  Date for balance calculation (YYYY-MM-DD format). Defaults to current date if null.
+     * @param  int|null  $branchId  Optional branch ID to filter by. Null means all branches (consolidated view).
      * @return array{
-     *     accounts: array<int, array{account_code: string, account_name: string, account_type: string, debit: string, credit: string, balance: string}>,
-     *     total_debits: string,
-     *     total_credits: string,
-     *     total_balance: string,
-     *     is_balanced: bool,
-     *     as_of_date: string
+     * accounts: array<int, array{account_code: string, account_name: string, account_type: string, debit: string, credit: string, balance: string}>,
+     * total_debits: string,
+     * total_credits: string,
+     * total_balance: string,
+     * is_balanced: bool,
+     * as_of_date: string
      * } Trial balance data with accounts list, totals, and balance status
      */
-    public function getTrialBalance(?string $asOfDate = null): array
+    public function getTrialBalance(?string $asOfDate = null, ?int $branchId = null): array
     {
         $asOfDate = $asOfDate ?? now()->toDateString();
         $accounts = ChartOfAccount::where('is_active', true)->orderBy('account_code')->get();
@@ -80,7 +81,7 @@ class LedgerService
         $totalCredits = '0';
 
         foreach ($accounts as $account) {
-            $balance = $this->accountingService->getAccountBalance($account->account_code, $asOfDate);
+            $balance = $this->getAccountBalance($account->account_code, $asOfDate, $branchId);
 
             if (in_array($account->account_type, ['Liability', 'Equity', 'Revenue'])) {
                 // Credit-normal accounts: positive balance = credit, negative balance = debit
@@ -159,32 +160,39 @@ class LedgerService
      * @param  string  $accountCode  Unique code of the account to retrieve ledger for
      * @param  string  $fromDate  Start date for the ledger period (YYYY-MM-DD format)
      * @param  string  $toDate  End date for the ledger period (YYYY-MM-DD format)
+     * @param  int|null  $branchId  Optional branch ID to filter by. Null means all branches.
      * @return array{
-     *     account: ChartOfAccount,
-     *     entries: \Illuminate\Database\Eloquent\Collection<int, AccountLedger>,
-     *     opening_balance: string,
-     *     closing_balance: string,
-     *     total_debits: float,
-     *     total_credits: float,
-     *     period: array{from: string, to: string}
+     * account: ChartOfAccount,
+     * entries: \Illuminate\Database\Eloquent\Collection<int, AccountLedger>,
+     * opening_balance: string,
+     * closing_balance: string,
+     * total_debits: float,
+     * total_credits: float,
+     * period: array{from: string, to: string}
      * } Account ledger data with entries and balance information
      */
-    public function getAccountLedger(string $accountCode, string $fromDate, string $toDate): array
+    public function getAccountLedger(string $accountCode, string $fromDate, string $toDate, ?int $branchId = null): array
     {
         $account = ChartOfAccount::findOrFail($accountCode);
 
-        $entries = AccountLedger::with('journalEntry')
+        $query = AccountLedger::with('journalEntry')
             ->where('account_code', $accountCode)
-            ->whereBetween('entry_date', [$fromDate, $toDate])
-            ->orderBy('entry_date')
+            ->whereBetween('entry_date', [$fromDate, $toDate]);
+
+        // Apply branch filter if specified
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $entries = $query->orderBy('entry_date')
             ->orderBy('id')
             ->get();
 
         return [
             'account' => $account,
             'entries' => $entries,
-            'opening_balance' => $this->getOpeningBalance($accountCode, $fromDate),
-            'closing_balance' => $this->getClosingBalance($accountCode, $toDate),
+            'opening_balance' => $this->getOpeningBalance($accountCode, $fromDate, $branchId),
+            'closing_balance' => $this->getClosingBalance($accountCode, $toDate, $branchId),
             'total_debits' => $entries->sum('debit'),
             'total_credits' => $entries->sum('credit'),
             'period' => ['from' => $fromDate, 'to' => $toDate],
@@ -230,23 +238,24 @@ class LedgerService
      *
      * @param  string  $fromDate  Start date for the P&L period (YYYY-MM-DD format)
      * @param  string  $toDate  End date for the P&L period (YYYY-MM-DD format)
+     * @param  int|null  $branchId  Optional branch ID to filter by. Null means all branches.
      * @return array{
-     *     revenues: array<int, array{account_code: string, account_name: string, amount: string}>,
-     *     total_revenue: string,
-     *     expenses: array<int, array{account_code: string, account_name: string, amount: string}>,
-     *     total_expenses: string,
-     *     net_profit: string,
-     *     period: array{from: string, to: string}
+     * revenues: array<int, array{account_code: string, account_name: string, amount: string}>,
+     * total_revenue: string,
+     * expenses: array<int, array{account_code: string, account_name: string, amount: string}>,
+     * total_expenses: string,
+     * net_profit: string,
+     * period: array{from: string, to: string}
      * } Profit and Loss statement with revenues, expenses, and net profit
      */
-    public function getProfitAndLoss(string $fromDate, string $toDate): array
+    public function getProfitAndLoss(string $fromDate, string $toDate, ?int $branchId = null): array
     {
         $revenues = ChartOfAccount::where('account_type', 'Revenue')->get();
         $revenueData = [];
         $totalRevenue = '0';
 
         foreach ($revenues as $revenue) {
-            $balance = $this->getAccountActivity($revenue->account_code, $fromDate, $toDate);
+            $balance = $this->getAccountActivity($revenue->account_code, $fromDate, $toDate, $branchId);
             $revenueData[] = [
                 'account_code' => $revenue->account_code,
                 'account_name' => $revenue->account_name,
@@ -260,7 +269,7 @@ class LedgerService
         $totalExpenses = '0';
 
         foreach ($expenses as $expense) {
-            $balance = $this->getAccountActivity($expense->account_code, $fromDate, $toDate);
+            $balance = $this->getAccountActivity($expense->account_code, $fromDate, $toDate, $branchId);
             $expenseData[] = [
                 'account_code' => $expense->account_code,
                 'account_name' => $expense->account_name,
@@ -326,26 +335,27 @@ class LedgerService
      * ```
      *
      * @param  string  $asOfDate  Date for balance sheet snapshot (YYYY-MM-DD format)
+     * @param  int|null  $branchId  Optional branch ID to filter by. Null means all branches.
      * @return array{
-     *     assets: array<int, array{account_code: string, account_name: string, balance: string}>,
-     *     total_assets: string,
-     *     liabilities: array<int, array{account_code: string, account_name: string, balance: string}>,
-     *     total_liabilities: string,
-     *     equity: array<int, array{account_code: string, account_name: string, balance: string}>,
-     *     total_equity: string,
-     *     liabilities_plus_equity: string,
-     *     is_balanced: bool,
-     *     as_of_date: string
+     * assets: array<int, array{account_code: string, account_name: string, balance: string}>,
+     * total_assets: string,
+     * liabilities: array<int, array{account_code: string, account_name: string, balance: string}>,
+     * total_liabilities: string,
+     * equity: array<int, array{account_code: string, account_name: string, balance: string}>,
+     * total_equity: string,
+     * liabilities_plus_equity: string,
+     * is_balanced: bool,
+     * as_of_date: string
      * } Balance sheet data with assets, liabilities, equity, and verification status
      */
-    public function getBalanceSheet(string $asOfDate): array
+    public function getBalanceSheet(string $asOfDate, ?int $branchId = null): array
     {
         $assets = ChartOfAccount::where('account_type', 'Asset')->get();
         $assetData = [];
         $totalAssets = '0';
 
         foreach ($assets as $asset) {
-            $balance = $this->accountingService->getAccountBalance($asset->account_code, $asOfDate);
+            $balance = $this->getAccountBalance($asset->account_code, $asOfDate, $branchId);
             $assetData[] = [
                 'account_code' => $asset->account_code,
                 'account_name' => $asset->account_name,
@@ -359,7 +369,7 @@ class LedgerService
         $totalLiabilities = '0';
 
         foreach ($liabilities as $liability) {
-            $balance = $this->accountingService->getAccountBalance($liability->account_code, $asOfDate);
+            $balance = $this->getAccountBalance($liability->account_code, $asOfDate, $branchId);
             $liabilityData[] = [
                 'account_code' => $liability->account_code,
                 'account_name' => $liability->account_name,
@@ -373,7 +383,7 @@ class LedgerService
         $totalEquity = '0';
 
         foreach ($equities as $equity) {
-            $balance = $this->accountingService->getAccountBalance($equity->account_code, $asOfDate);
+            $balance = $this->getAccountBalance($equity->account_code, $asOfDate, $branchId);
             $equityData[] = [
                 'account_code' => $equity->account_code,
                 'account_name' => $equity->account_name,
@@ -405,13 +415,19 @@ class LedgerService
      *
      * @param  string  $accountCode  Unique code of the account
      * @param  string  $fromDate  Date from which to calculate opening balance (YYYY-MM-DD format)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      * @return string Opening balance amount as a string
      */
-    protected function getOpeningBalance(string $accountCode, string $fromDate): string
+    protected function getOpeningBalance(string $accountCode, string $fromDate, ?int $branchId = null): string
     {
-        $entry = AccountLedger::where('account_code', $accountCode)
-            ->where('entry_date', '<', $fromDate)
-            ->orderBy('entry_date', 'desc')
+        $query = AccountLedger::where('account_code', $accountCode)
+            ->where('entry_date', '<', $fromDate);
+
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $entry = $query->orderBy('entry_date', 'desc')
             ->orderBy('id', 'desc')
             ->first();
 
@@ -419,18 +435,45 @@ class LedgerService
     }
 
     /**
-     * Calculate the closing balance for an account as of a specific date.
+     * Get account balance as of a specific date.
      *
-     * Delegates to the AccountingService to retrieve the account balance
-     * at the specified date.
+     * Retrieves the running balance from the most recent ledger entry.
+     *
+     * @param  string  $accountCode  Unique code of the account
+     * @param  string  $asOfDate  Date for balance calculation (YYYY-MM-DD format)
+     * @param  int|null  $branchId  Optional branch ID to filter by
+     * @return string Account balance as a string
+     */
+    protected function getAccountBalance(string $accountCode, string $asOfDate, ?int $branchId = null): string
+    {
+        $query = AccountLedger::where('account_code', $accountCode);
+
+        if ($asOfDate) {
+            $query->whereRaw('DATE(entry_date) <= ?', [$asOfDate]);
+        }
+
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $lastEntry = $query->orderBy('entry_date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        return $lastEntry ? (string) $lastEntry->running_balance : '0';
+    }
+
+    /**
+     * Calculate the closing balance for an account as of a specific date.
      *
      * @param  string  $accountCode  Unique code of the account
      * @param  string  $toDate  Date for which to calculate closing balance (YYYY-MM-DD format)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      * @return string Closing balance amount as a string
      */
-    protected function getClosingBalance(string $accountCode, string $toDate): string
+    protected function getClosingBalance(string $accountCode, string $toDate, ?int $branchId = null): string
     {
-        return $this->accountingService->getAccountBalance($accountCode, $toDate);
+        return $this->getAccountBalance($accountCode, $toDate, $branchId);
     }
 
     /**
@@ -443,13 +486,19 @@ class LedgerService
      * @param  string  $accountCode  Unique code of the account
      * @param  string  $fromDate  Start date for activity calculation (YYYY-MM-DD format)
      * @param  string  $toDate  End date for activity calculation (YYYY-MM-DD format)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      * @return string Net activity amount as a string
      */
-    protected function getAccountActivity(string $accountCode, string $fromDate, string $toDate): string
+    protected function getAccountActivity(string $accountCode, string $fromDate, string $toDate, ?int $branchId = null): string
     {
-        $entries = AccountLedger::where('account_code', $accountCode)
-            ->whereBetween('entry_date', [$fromDate, $toDate])
-            ->get();
+        $query = AccountLedger::where('account_code', $accountCode)
+            ->whereBetween('entry_date', [$fromDate, $toDate]);
+
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $entries = $query->get();
 
         // Get account type to determine proper activity calculation
         $account = ChartOfAccount::find($accountCode);

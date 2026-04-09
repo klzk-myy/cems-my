@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Models\AccountLedger;
-use App\Models\ChartOfAccount;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Cash Flow Service
@@ -66,19 +64,21 @@ class CashFlowService
      *
      * @param  string  $fromDate  Start date (YYYY-MM-DD)
      * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by. Null means all branches.
      * @return array Cash flow statement data
      */
-    public function getCashFlowStatement(string $fromDate, string $toDate): array
+    public function getCashFlowStatement(string $fromDate, string $toDate, ?int $branchId = null): array
     {
         return [
             'from_date' => $fromDate,
             'to_date' => $toDate,
-            'operating' => $this->getOperatingCashFlow($fromDate, $toDate),
-            'investing' => $this->getInvestingCashFlow($fromDate, $toDate),
-            'financing' => $this->getFinancingCashFlow($fromDate, $toDate),
-            'net_change' => $this->getNetCashChange($fromDate, $toDate),
-            'opening_balance' => $this->getOpeningCashBalance($fromDate),
-            'closing_balance' => $this->getClosingCashBalance($toDate),
+            'branch_id' => $branchId,
+            'operating' => $this->getOperatingCashFlow($fromDate, $toDate, $branchId),
+            'investing' => $this->getInvestingCashFlow($fromDate, $toDate, $branchId),
+            'financing' => $this->getFinancingCashFlow($fromDate, $toDate, $branchId),
+            'net_change' => $this->getNetCashChange($fromDate, $toDate, $branchId),
+            'opening_balance' => $this->getOpeningCashBalance($fromDate, $branchId),
+            'closing_balance' => $this->getClosingCashBalance($toDate, $branchId),
         ];
     }
 
@@ -86,13 +86,17 @@ class CashFlowService
      * Get operating cash flow.
      *
      * Cash from customers - Cash paid to suppliers/employees/other
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    public function getOperatingCashFlow(string $fromDate, string $toDate): array
+    public function getOperatingCashFlow(string $fromDate, string $toDate, ?int $branchId = null): array
     {
-        $cashReceived = $this->getCashReceivedFromCustomers($fromDate, $toDate);
-        $cashPaidToSuppliers = $this->getCashPaidToSuppliers($fromDate, $toDate);
-        $cashPaidForSalaries = $this->getCashPaidForSalaries($fromDate, $toDate);
-        $cashPaidForExpenses = $this->getCashPaidForOtherExpenses($fromDate, $toDate);
+        $cashReceived = $this->getCashReceivedFromCustomers($fromDate, $toDate, $branchId);
+        $cashPaidToSuppliers = $this->getCashPaidToSuppliers($fromDate, $toDate, $branchId);
+        $cashPaidForSalaries = $this->getCashPaidForSalaries($fromDate, $toDate, $branchId);
+        $cashPaidForExpenses = $this->getCashPaidForOtherExpenses($fromDate, $toDate, $branchId);
 
         $netOperating = $this->mathService->subtract(
             $this->mathService->add($cashReceived, $cashPaidToSuppliers),
@@ -112,12 +116,16 @@ class CashFlowService
      * Get investing cash flow.
      *
      * Purchase/sale of assets, investment income
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    public function getInvestingCashFlow(string $fromDate, string $toDate): array
+    public function getInvestingCashFlow(string $fromDate, string $toDate, ?int $branchId = null): array
     {
-        $assetPurchases = $this->getAssetPurchases($fromDate, $toDate);
-        $assetSales = $this->getAssetSales($fromDate, $toDate);
-        $investmentIncome = $this->getInvestmentIncome($fromDate, $toDate);
+        $assetPurchases = $this->getAssetPurchases($fromDate, $toDate, $branchId);
+        $assetSales = $this->getAssetSales($fromDate, $toDate, $branchId);
+        $investmentIncome = $this->getInvestmentIncome($fromDate, $toDate, $branchId);
 
         $netInvesting = $this->mathService->add(
             $this->mathService->subtract($assetSales, $assetPurchases),
@@ -136,12 +144,16 @@ class CashFlowService
      * Get financing cash flow.
      *
      * Proceeds/repayment of loans, dividends
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    public function getFinancingCashFlow(string $fromDate, string $toDate): array
+    public function getFinancingCashFlow(string $fromDate, string $toDate, ?int $branchId = null): array
     {
-        $loansReceived = $this->getLoansReceived($fromDate, $toDate);
-        $loanRepayments = $this->getLoanRepayments($fromDate, $toDate);
-        $dividendsPaid = $this->getDividendsPaid($fromDate, $toDate);
+        $loansReceived = $this->getLoansReceived($fromDate, $toDate, $branchId);
+        $loanRepayments = $this->getLoanRepayments($fromDate, $toDate, $branchId);
+        $dividendsPaid = $this->getDividendsPaid($fromDate, $toDate, $branchId);
 
         $netFinancing = $this->mathService->subtract(
             $this->mathService->subtract($loansReceived, $loanRepayments),
@@ -158,12 +170,16 @@ class CashFlowService
 
     /**
      * Get net cash change for period.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    public function getNetCashChange(string $fromDate, string $toDate): string
+    public function getNetCashChange(string $fromDate, string $toDate, ?int $branchId = null): string
     {
-        $operating = $this->getOperatingCashFlow($fromDate, $toDate);
-        $investing = $this->getInvestingCashFlow($fromDate, $toDate);
-        $financing = $this->getFinancingCashFlow($fromDate, $toDate);
+        $operating = $this->getOperatingCashFlow($fromDate, $toDate, $branchId);
+        $investing = $this->getInvestingCashFlow($fromDate, $toDate, $branchId);
+        $financing = $this->getFinancingCashFlow($fromDate, $toDate, $branchId);
 
         return $this->mathService->add(
             $this->mathService->add($operating['net_operating'], $investing['net_investing']),
@@ -173,13 +189,16 @@ class CashFlowService
 
     /**
      * Get opening cash balance as of a date.
+     *
+     * @param  string  $asOfDate  Date for balance calculation
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    public function getOpeningCashBalance(string $asOfDate): string
+    public function getOpeningCashBalance(string $asOfDate, ?int $branchId = null): string
     {
         $total = '0';
 
         foreach ($this->cashAccounts as $accountCode) {
-            $balance = $this->getAccountBalance($accountCode, $asOfDate);
+            $balance = $this->getAccountBalance($accountCode, $asOfDate, $branchId);
             $total = $this->mathService->add($total, $balance);
         }
 
@@ -188,40 +207,28 @@ class CashFlowService
 
     /**
      * Get closing cash balance as of a date.
+     *
+     * @param  string  $asOfDate  Date for balance calculation
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    public function getClosingCashBalance(string $asOfDate): string
+    public function getClosingCashBalance(string $asOfDate, ?int $branchId = null): string
     {
-        return $this->getOpeningCashBalance($asOfDate);
+        return $this->getOpeningCashBalance($asOfDate, $branchId);
     }
 
     /**
      * Get cash received from customers.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getCashReceivedFromCustomers(string $fromDate, string $toDate): string
+    protected function getCashReceivedFromCustomers(string $fromDate, string $toDate, ?int $branchId = null): string
     {
-        // Cash received = Credits to AR + Debits to Cash accounts from revenue
-        $total = '0';
-
-        // Look at cash/bank accounts for inflows from revenue accounts
-        foreach ($this->cashAccounts as $cashAccount) {
-            $entries = AccountLedger::where('account_code', $cashAccount)
-                ->whereBetween('entry_date', [$fromDate, $toDate])
-                ->where('debit', '>', 0)
-                ->get();
-
-            foreach ($entries as $entry) {
-                // Check if this debit came from a revenue account (customer payment)
-                $journalEntry = $entry->journal_entry;
-                if ($journalEntry && $journalEntry->reference_type === 'CustomerPayment') {
-                    $total = $this->mathService->add($total, (string) $entry->debit);
-                }
-            }
-        }
-
         // Simplified: Total revenue * estimated cash collection ratio
         // In a real system, you'd track this more precisely via AR
-        $totalRevenue = $this->getTotalForAccounts($this->operatingAccounts['revenue'], $fromDate, $toDate, 'credit');
-        $totalExpense = $this->getTotalForAccounts($this->operatingAccounts['expense'], $fromDate, $toDate, 'debit');
+        $totalRevenue = $this->getTotalForAccounts($this->operatingAccounts['revenue'], $fromDate, $toDate, 'credit', $branchId);
+        $totalExpense = $this->getTotalForAccounts($this->operatingAccounts['expense'], $fromDate, $toDate, 'debit', $branchId);
 
         // Net operating cash flow approximation
         return $this->mathService->subtract($totalRevenue, $totalExpense);
@@ -229,94 +236,137 @@ class CashFlowService
 
     /**
      * Get cash paid to suppliers.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getCashPaidToSuppliers(string $fromDate, string $toDate): string
+    protected function getCashPaidToSuppliers(string $fromDate, string $toDate, ?int $branchId = null): string
     {
         // Cash paid = Debits to AP - Credits from AP
-        $totalApPaid = '0';
-
         // Simplified: COGS amount as proxy
-        $cogs = $this->getTotalForAccounts(['6000', '6010'], $fromDate, $toDate, 'debit');
-
-        return $cogs;
+        return $this->getTotalForAccounts(['6000', '6010'], $fromDate, $toDate, 'debit', $branchId);
     }
 
     /**
      * Get cash paid for salaries.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getCashPaidForSalaries(string $fromDate, string $toDate): string
+    protected function getCashPaidForSalaries(string $fromDate, string $toDate, ?int $branchId = null): string
     {
         $salaryAccounts = ['6200', '6210', '6220', '6230']; // Salaries, EPF, EIS, SOCSO
-        return $this->getTotalForAccounts($salaryAccounts, $fromDate, $toDate, 'debit');
+
+        return $this->getTotalForAccounts($salaryAccounts, $fromDate, $toDate, 'debit', $branchId);
     }
 
     /**
      * Get cash paid for other operating expenses.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getCashPaidForOtherExpenses(string $fromDate, string $toDate): string
+    protected function getCashPaidForOtherExpenses(string $fromDate, string $toDate, ?int $branchId = null): string
     {
         $expenseAccounts = array_diff($this->operatingAccounts['expense'], ['6200', '6210', '6220', '6230']);
-        return $this->getTotalForAccounts(array_values($expenseAccounts), $fromDate, $toDate, 'debit');
+
+        return $this->getTotalForAccounts(array_values($expenseAccounts), $fromDate, $toDate, 'debit', $branchId);
     }
 
     /**
      * Get asset purchases.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getAssetPurchases(string $fromDate, string $toDate): string
+    protected function getAssetPurchases(string $fromDate, string $toDate, ?int $branchId = null): string
     {
-        return $this->getTotalForAccounts($this->investingAccounts['asset_purchase'], $fromDate, $toDate, 'debit');
+        return $this->getTotalForAccounts($this->investingAccounts['asset_purchase'], $fromDate, $toDate, 'debit', $branchId);
     }
 
     /**
      * Get asset sales proceeds.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getAssetSales(string $fromDate, string $toDate): string
+    protected function getAssetSales(string $fromDate, string $toDate, ?int $branchId = null): string
     {
-        return $this->getTotalForAccounts($this->investingAccounts['asset_purchase'], $fromDate, $toDate, 'credit');
+        return $this->getTotalForAccounts($this->investingAccounts['asset_purchase'], $fromDate, $toDate, 'credit', $branchId);
     }
 
     /**
      * Get investment income received.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getInvestmentIncome(string $fromDate, string $toDate): string
+    protected function getInvestmentIncome(string $fromDate, string $toDate, ?int $branchId = null): string
     {
-        return $this->getTotalForAccounts(['5300'], $fromDate, $toDate, 'debit');
+        return $this->getTotalForAccounts(['5300'], $fromDate, $toDate, 'debit', $branchId);
     }
 
     /**
      * Get loans received.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getLoansReceived(string $fromDate, string $toDate): string
+    protected function getLoansReceived(string $fromDate, string $toDate, ?int $branchId = null): string
     {
         return '0'; // No loan accounts currently
     }
 
     /**
      * Get loan repayments.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getLoanRepayments(string $fromDate, string $toDate): string
+    protected function getLoanRepayments(string $fromDate, string $toDate, ?int $branchId = null): string
     {
         return '0'; // No loan accounts currently
     }
 
     /**
      * Get dividends paid.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getDividendsPaid(string $fromDate, string $toDate): string
+    protected function getDividendsPaid(string $fromDate, string $toDate, ?int $branchId = null): string
     {
         return '0'; // No dividend accounts currently
     }
 
     /**
      * Get total debits or credits for a set of accounts.
+     *
+     * @param  string  $fromDate  Start date (YYYY-MM-DD)
+     * @param  string  $toDate  End date (YYYY-MM-DD)
+     * @param  string  $type  'debit' or 'credit'
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getTotalForAccounts(array $accountCodes, string $fromDate, string $toDate, string $type): string
+    protected function getTotalForAccounts(array $accountCodes, string $fromDate, string $toDate, string $type, ?int $branchId = null): string
     {
         $total = '0';
 
         foreach ($accountCodes as $accountCode) {
             $query = AccountLedger::where('account_code', $accountCode)
                 ->whereBetween('entry_date', [$fromDate, $toDate]);
+
+            if ($branchId !== null) {
+                $query->where('branch_id', $branchId);
+            }
 
             if ($type === 'debit') {
                 $amount = $query->sum('debit');
@@ -332,12 +382,21 @@ class CashFlowService
 
     /**
      * Get account balance as of a date.
+     *
+     * @param  string  $accountCode  Account code
+     * @param  string  $asOfDate  Date for balance calculation
+     * @param  int|null  $branchId  Optional branch ID to filter by
      */
-    protected function getAccountBalance(string $accountCode, string $asOfDate): string
+    protected function getAccountBalance(string $accountCode, string $asOfDate, ?int $branchId = null): string
     {
-        $lastEntry = AccountLedger::where('account_code', $accountCode)
-            ->whereRaw('DATE(entry_date) <= ?', [$asOfDate])
-            ->orderBy('entry_date', 'desc')
+        $query = AccountLedger::where('account_code', $accountCode)
+            ->whereRaw('DATE(entry_date) <= ?', [$asOfDate]);
+
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $lastEntry = $query->orderBy('entry_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->first();
 

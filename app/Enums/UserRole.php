@@ -206,4 +206,17 @@ enum UserRole: string
     {
         return $this === self::Admin;
     }
+
+    /**
+     * Check if the user can access a specific branch.
+     * Admin can access any branch; others can only access their own branch.
+     */
+    public function canAccessBranch(\App\Models\Branch $branch, \App\Models\User $user): bool
+    {
+        if ($this->canManageAllBranches()) {
+            return true;
+        }
+
+        return $user->branch_id === $branch->id;
+    }
 }

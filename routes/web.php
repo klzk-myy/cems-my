@@ -12,28 +12,29 @@ use App\Http\Controllers\Compliance\EddTemplateController;
 use App\Http\Controllers\Compliance\RiskDashboardController;
 use App\Http\Controllers\Compliance\StrStudioController;
 use App\Http\Controllers\CounterController;
-use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\Customer\CustomerKycController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DataBreachAlertController;
 use App\Http\Controllers\EnhancedDiligenceController;
 use App\Http\Controllers\FinancialStatementController;
 use App\Http\Controllers\FiscalYearController;
 use App\Http\Controllers\JournalEntryWorkflowController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MfaController;
-use App\Http\Controllers\ReportController;
 use App\Http\Controllers\Report\AnalyticsController;
 use App\Http\Controllers\Report\RegulatoryReportController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RevaluationController;
 use App\Http\Controllers\StockCashController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\StrController;
 use App\Http\Controllers\TaskController;
-use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\Transaction\TransactionApprovalController;
 use App\Http\Controllers\Transaction\TransactionBatchController;
 use App\Http\Controllers\Transaction\TransactionCancellationController;
 use App\Http\Controllers\Transaction\TransactionReportController;
+use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -59,6 +60,7 @@ Route::get('/', function () {
     if (auth()->check()) {
         return redirect('/dashboard');
     }
+
     return redirect('/login');
 })->name('home');
 

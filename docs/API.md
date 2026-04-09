@@ -1248,8 +1248,12 @@ All routes are protected by authentication middleware. Additional middleware app
 | auth | All authenticated users |
 | role:manager | Manager or Admin role required |
 | role:compliance | Compliance Officer or Admin required |
-| mfa.verified | MFA verification required |
+| CheckRoleAny | Multiple role support (e.g., `role.manager,compliance`) |
+| EnsureMfaEnabled | MFA enforcement (redirects to MFA setup if not enabled) |
+| EnsureMfaVerified | MFA verification required (`mfa.verified`) |
+| DataBreachDetection | Data breach monitoring and alerting |
 | session.timeout | Idle session timeout (configurable, default 15 min) |
+| CheckBranchAccess | Branch-based access control |
 | throttle | Rate limiting (varies by endpoint) |
 
 ---

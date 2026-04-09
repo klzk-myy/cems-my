@@ -42,14 +42,14 @@ php artisan report:msb2 --date=2026-04-06
 
 ```
 app/
-├── Console/Commands/     # Artisan CLI commands (scheduled reports, compliance tasks)
-├── Enums/                # PHP 8.1 enums replacing magic strings
-├── Events/               # Event classes (TransactionCreated, CounterSessionOpened, etc.)
+├── Console/Commands/  # Artisan CLI commands (scheduled reports, compliance tasks)
+├── Enums/  # PHP 8.1 enums replacing magic strings (27 enums)
+├── Events/  # Event classes (TransactionCreated, CounterSessionOpened, etc.)
 ├── Http/
-│   ├── Controllers/      # Thin controllers, delegate to services
-│   └── Middleware/       # CheckRole, EnsureMfaVerified, SessionTimeout
-├── Models/               # Eloquent models (48 models)
-└── Services/             # Business logic (35 services)
+│   ├── Controllers/  # Thin controllers, delegate to services
+│   └── Middleware/  # CheckRole, CheckRoleAny, EnsureMfaEnabled, EnsureMfaVerified, DataBreachDetection, SessionTimeout
+├── Models/  # Eloquent models (51 models)
+└── Services/  # Business logic (44 services)
 ```
 
 ### Full Documentation
@@ -74,6 +74,7 @@ All role checks use PHP enums in `App\Enums\`:
   - **Session**: `CounterSessionStatus`
   - **Compliance**: `FlagStatus`, `StrStatus`, `AmlRuleType`, `ComplianceFlagType`, `FindingSeverity`, `FindingType`, `FindingStatus`, `ComplianceCaseType`, `ComplianceCaseStatus`, `ComplianceCasePriority`, `CaseResolution`, `CaseStatus`, `CaseNoteType`, `AlertPriority`, `ReportStatus`, `RecalculationTrigger`
   - **Accounting**: `AccountCode`
+  - **Alert**: `AlertPriority`
 - Models return enum instances, not strings
 
 **2. Service Layer**
@@ -138,12 +139,21 @@ Routes use these middleware:
 - `auth` - All authenticated users
 - `role:manager` - Manager or admin only (CheckRole)
 - `role:compliance` - Compliance officer or admin only
-- `CheckRoleAny` - Multiple role support
-- `EnsureMfaEnabled` - MFA enforcement
-- `DataBreachDetection` - Data breach monitoring
-- `mfa.verified` - MFA verification required
+- `CheckRoleAny` - Multiple role support (e.g., `role.manager,compliance`)
+- `EnsureMfaEnabled` - MFA enforcement (redirects to MFA setup if not enabled)
+- `EnsureMfaVerified` - MFA verification required (`mfa.verified`)
+- `DataBreachDetection` - Data breach monitoring and alerting
 - `throttle:{name}` - Rate limiting
 - `session.timeout` - Idle session timeout
+- `CheckBranchAccess` - Branch-based access control
+- `EncryptCookies` - Cookie encryption
+- `PreventRequestsDuringMaintenance` - Maintenance mode check
+- `RedirectIfAuthenticated` - Redirect authenticated users from auth pages
+- `TrimStrings` - Input string trimming
+- `TrustHosts` - Trusted host validation
+- `TrustProxies` - Trusted proxy configuration
+- `ValidateSignature` - Signed URL validation
+- `VerifyCsrfToken` - CSRF token verification
 
 ### Navigation Structure
 
@@ -156,30 +166,52 @@ The sidebar navigation is organized by function:
 - Counters (`/counters`)
 - Stock & Cash (`/stock-cash`)
 
-**Compliance & AML** (Compliance officers):
-- Compliance Portal (`/compliance`)
-  - Workspace, Alerts, Cases, Flagged Transactions
-  - EDD Records, EDD Templates, AML Rules
-  - Risk Dashboard, STR Studio, Reporting
+**Compliance & AML** (Compliance officers) - 12 items:
+- Compliance Dashboard (`/compliance`)
+- Compliance Workspace (`/compliance/workspace`)
+- Alert Triage (`/compliance/alerts`)
+- Cases (`/compliance/cases`)
+- Flagged Transactions (`/compliance/flagged`)
+- EDD Records (`/compliance/edd`)
+- EDD Templates (`/compliance/edd-templates`)
+- AML Rules (`/compliance/rules`)
+- Risk Dashboard (`/compliance/risk-dashboard`)
+- STR Studio (`/compliance/str-studio`)
+- Compliance Reporting (`/compliance/reporting`)
 - STR Reports (`/str`)
 
-**Accounting** (Managers/Admin):
+**Accounting** (Managers/Admin) - 15 items:
 - Accounting Dashboard (`/accounting`)
-  - Journal Entries, Workflow (Draft/Pending/Posted)
-  - Ledger, Trial Balance
-  - P&L, Balance Sheet, Cash Flow, Ratios
-  - Periods, Fiscal Years, Revaluation
-  - Reconciliation, Budget
+- Journal Entries (`/accounting/journal`)
+- New Entry (`/accounting/journal/create`)
+- Workflow (`/accounting/journal/workflow`)
+- Ledger (`/accounting/ledger`)
+- Trial Balance (`/accounting/trial-balance`)
+- Profit & Loss (`/accounting/profit-loss`)
+- Balance Sheet (`/accounting/balance-sheet`)
+- Cash Flow (`/accounting/cash-flow`)
+- Financial Ratios (`/accounting/ratios`)
+- Periods (`/accounting/periods`)
+- Fiscal Years (`/accounting/fiscal-years`)
+- Revaluation (`/accounting/revaluation`)
+- Reconciliation (`/accounting/reconciliation`)
+- Budget (`/accounting/budget`)
 
-**Reports** (Managers/Admin):
+**Reports** (Managers/Admin) - 7 items:
 - Reports Dashboard (`/reports`)
-  - MSB2, LCTR, LMCA, Quarterly LVR
-  - Position Limits, Report History
+- MSB2 Report (`/reports/msb2`)
+- LCTR (`/reports/lctr`)
+- LMCA (`/reports/lmca`)
+- Quarterly LVR (`/reports/quarterly-lvr`)
+- Position Limits (`/reports/position-limit`)
+- Report History (`/reports/history`)
 
-**System** (Role-based):
+**System** (Role-based) - 5 items:
 - Tasks (`/tasks`)
 - Audit Log (`/audit`)
 - Users (`/users`) - Admin only
+- Branches (`/branches`) - Admin only
+- Data Breach Alerts (`/data-breach-alerts`) - Admin only
 
 Configuration: `app/Config/Navigation.php`
 
@@ -205,10 +237,6 @@ Configuration: `app/Config/Navigation.php`
 | `StrReport` | Suspicious Transaction Reports |
 | `ComplianceCase` | Compliance investigation case management |
 | `ComplianceFinding` | Automated findings from monitoring engine |
-| `CustomerRiskProfile` | Customer risk scoring and history |
-| `CustomerBehavioralBaseline` | Customer behavioral patterns for anomaly detection |
-| `EddQuestionnaireTemplate` | EDD questionnaire templates |
-| `EddDocumentRequest` | EDD document requests |
 | `TransactionConfirmation` | Large transaction manager confirmation |
 | `BankReconciliation` | Bank reconciliation with check tracking |
 | `CounterSession` | Till session with open/close lifecycle |
@@ -216,7 +244,6 @@ Configuration: `app/Config/Navigation.php`
 | `SystemLog` | Cryptographically chained system events |
 | `EnhancedDiligenceRecord` | EDD questionnaire records |
 | `Alert` | System alerts requiring attention |
-| `AlertPriority` | Alert priority levels (Critical, High, Medium, Low) |
 | `AmlRule` | AML rule engine configuration |
 | `Counter` | Till/counter master record with currency inventory |
 | `CounterHandover` | Till custody transfer between users |
@@ -273,6 +300,29 @@ Configuration: `app/Config/Navigation.php`
 - `StrAutomationService` - STR automated preparation and submission
 - `TransactionImportService` - Bulk transaction import handling
 - `TransactionMonitoringService` - Automated compliance monitoring (velocity, structuring, sanctions rescreening)
+- `AmlRuleService` - AML rule engine configuration
+- `ApprovalWorkflowService` - Multi-stage approval workflow
+- `BranchScopeService` - Branch-based data scoping
+- `BranchService` - Branch management
+- `CounterService` - Till/counter lifecycle management (open, close, handover)
+- `CurrencyPositionService` - Stock/position tracking
+- `EncryptionService` - Data encryption with random IV
+- `ExportService` - Data export utilities
+- `LogRotationService` - Audit log rotation
+- `MathService` - BCMath precision calculations
+- `MfaService` - MFA management
+- `RateApiService` - Exchange rate API integration
+- `ReportingService` - Report generation
+- `RiskRatingService` - Customer risk rating
+- `SanctionScreeningService` - Sanctions list screening
+- `StockTransferService` - Inter-branch transfers
+- `StrReportService` - STR report management
+- `TaskService` - Task management
+- `TransactionCancellationService` - Transaction cancellation
+- `TransactionErrorHandler` - Error logging
+- `TransactionRecoveryService` - Recovery workflows
+- `TransactionService` - Core transaction operations
+- `TransactionStateMachine` - Transaction state management
 
 **Database Seeders**:
 - `ChartOfAccountsSeeder` - Creates 18 default accounts

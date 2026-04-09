@@ -156,10 +156,12 @@ A **Counter** (also called till) is a dedicated cash drawer for conducting curre
 3. Select your **Counter ID**
 4. Select the **Currencies** for this session (can add multiple currencies)
 5. Enter the **Opening Balance** for each currency (count physical cash first)
+   - The system uses `opening_floats` array to store balances per currency
+   - Example: `[{"currency": "USD", "amount": "1000.00"}, {"currency": "EUR", "amount": "500.00"}]`
 6. Add any **Notes** if needed
 7. Click **"Open"**
 
-The system records the opening balance and the counter session begins.
+The system records the opening balance and the counter session begins. Multi-currency support allows tracking separate balances for each currency in a single session.
 
 ### 4.3 Closing a Counter
 
@@ -184,6 +186,8 @@ The system records the opening balance and the counter session begins.
 - **Yellow**: > RM 100 (requires explanation notes)
 - **Red**: > RM 500 (requires supervisor approval)
 
+*Note: Earlier documentation incorrectly stated thresholds of RM 5. The actual thresholds are RM 100 (Yellow) and RM 500 (Red).*
+
 ### 4.4 Counter Handover
 
 When transferring custody between users (e.g., shift change), a Manager or Admin initiates the handover:
@@ -197,11 +201,11 @@ When transferring custody between users (e.g., shift change), a Manager or Admin
 5. Select the **Incoming User** (receiving the counter)
 6. Enter **Physical Cash Counts** for each currency (required)
 7. Add **Variance Notes** if needed (required if variance > RM 100)
-8. Click **"Complete Handover"**
+8. **Manager or Admin approval is required** on the route itself - the handover cannot be completed without appropriate role authorization
 
 **Who can perform handover**: Manager or Admin only
 
-**Note**: The system validates the physical count against expected balance and applies variance thresholds.
+**Note**: The system validates the physical count against expected balance and applies variance thresholds. The handover route enforces role-based access control (Manager or Admin) directly.
 
 ### 4.5 Counter Status
 
