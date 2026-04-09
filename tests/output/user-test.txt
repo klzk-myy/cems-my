@@ -1,0 +1,122 @@
+
+   PASS  Tests\Unit\BranchModelTest
+  ✓ branch has users relationship                                        1.00s  
+  ✓ branch can have users                                                0.20s  
+
+   PASS  Tests\Unit\BranchScopeServiceTest
+  ✓ admin user returns null for accessible branches                      0.16s  
+  ✓ scope to user branch applies filter for non admin                    0.14s  
+  ✓ scope to user branch applies no filter for admin                     0.14s  
+  ✓ can access branch returns true for user accessing own branch         0.14s  
+  ✓ can access branch returns false for user accessing other branch      0.15s  
+
+   PASS  Tests\Unit\CounterServiceTest
+  ✓ cannot open if user at another counter                               0.16s  
+
+   PASS  Tests\Unit\TransactionCancellationServiceTest
+  ✓ refund transaction preserves customer and user                       0.17s  
+  ✓ can user reverse returns false for others transaction                0.14s  
+
+   PASS  Tests\Unit\UserModelTest
+  ✓ user can be created                                                  0.15s  
+  ✓ user has correct fillable attributes                                 0.14s  
+  ✓ user has correct hidden attributes                                   0.14s  
+  ✓ user has correct casts                                               0.14s  
+  ✓ is admin method                                                      0.14s  
+  ✓ is manager method                                                    0.14s  
+  ✓ is compliance officer method                                         0.14s  
+  ✓ get auth password method                                             0.14s  
+  ✓ transactions relationship exists                                     0.14s  
+  ✓ valid roles                                                          0.14s  
+  ✓ email must be unique                                                 0.14s  
+  ✓ username must be unique                                              0.14s  
+  ✓ user can update last login                                           0.15s  
+  ✓ inactive user status                                                 0.14s  
+  ✓ mfa enabled status                                                   0.14s  
+
+   PASS  Tests\Unit\UserRoleBranchTest
+  ✓ admin can manage all branches                                        0.14s  
+  ✓ manager cannot manage all branches                                   0.14s  
+  ✓ compliance officer cannot manage all branches                        0.14s  
+  ✓ teller cannot manage all branches                                    0.14s  
+
+   PASS  Tests\Feature\Api\V1\BranchControllerTest
+  ✓ admin can get branch users                                           0.25s  
+
+   PASS  Tests\Feature\AuditLogTest
+  ✓ audit log index is not accessible by regular user                    0.21s  
+  ✓ get audit trail returns filtered results by user                     0.15s  
+
+   PASS  Tests\Feature\AuthenticationTest
+  ✓ inactive user cannot login                                           0.21s  
+  ✓ authenticated user can logout                                        0.15s  
+  ✓ unauthenticated user is redirected to login                          0.15s  
+  ✓ dashboard is accessible to authenticated users                       0.15s  
+  ✓ teller cannot access user management                                 0.15s  
+  ✓ manager cannot access user management                                0.14s  
+  ✓ compliance officer cannot access user management                     0.15s  
+  ✓ admin can access user management                                     0.16s  
+  ✓ failed login log does not reveal user status                         0.15s  
+
+   PASS  Tests\Feature\BranchAccessMiddlewareTest
+  ✓ unauthenticated user gets 401 or redirect                            0.15s  
+
+   PASS  Tests\Feature\CounterControllerTest
+  ✓ user can view counters list                                          0.15s  
+  ✓ user can open counter form                                           0.15s  
+  ✓ user can open counter                                                0.15s  
+  ✓ user can view counter history                                        0.15s  
+
+   PASS  Tests\Feature\NavigationTest
+  ✓ unauthenticated user redirected to login                             0.15s  
+
+   PASS  Tests\Feature\RbacComprehensiveTest
+  ✓ teller cannot access user management                                 0.15s  
+  ✓ manager cannot access user management                                0.15s  
+  ✓ manager cannot delete users                                          0.15s  
+  ✓ compliance officer cannot access users                               0.15s  
+  ✓ admin can create users                                               0.15s  
+  ✓ admin can delete users                                               0.15s  
+  ✓ user role enum works                                                 0.14s  
+
+   PASS  Tests\Feature\RouteConsistencyTest
+  ✓ unauthenticated users redirected to login                            0.16s  
+  ✓ authenticated users can access customer routes                       0.16s  
+  ✓ authenticated users can access counter routes                        0.15s  
+  ✓ authenticated users can access task routes                           0.17s  
+  ✓ authenticated users root route redirects to dashboard                0.15s  
+
+   PASS  Tests\Feature\TransactionBatchUploadTest
+  ✓ user can only view own import results                                0.19s  
+
+   PASS  Tests\Feature\TransactionCancellationFlowTest
+  ✓ guest users cannot access cancellation                               0.15s  
+
+   PASS  Tests\Feature\UserManagementTest
+  ✓ admin can view user list                                             0.15s  
+  ✓ non admin cannot access user management                              0.14s  
+  ✓ admin can create new user                                            0.15s  
+  ✓ cannot create user with duplicate email                              0.15s  
+  ✓ cannot create user with weak password                                0.14s  
+  ✓ admin can update user role                                           0.15s  
+  ✓ admin can deactivate user                                            0.15s  
+  ✓ admin can activate user                                              0.15s  
+  ✓ admin cannot delete themselves                                       0.14s  
+  ✓ admin can delete other users                                         0.14s  
+  ✓ cannot delete last admin                                             0.15s  
+  ✓ create user page is accessible                                       0.15s  
+  ✓ edit user page is accessible                                         0.15s  
+  ✓ user list paginates                                                  0.17s  
+  ✓ user creation validates required fields                              0.14s  
+  ✓ user creation validates email format                                 0.15s  
+  ✓ user creation validates password confirmation                        0.14s  
+  ✓ user creation validates role options                                 0.15s  
+  ✓ user creation creates audit log                                      0.15s  
+  ✓ user update creates audit log                                        0.14s  
+  ✓ user deletion creates audit log                                      0.15s  
+  ✓ user status toggle creates audit log                                 0.14s  
+  ✓ user update logs role changes                                        0.15s  
+
+  Tests:    84 passed (203 assertions)
+  Duration: 13.96s
+

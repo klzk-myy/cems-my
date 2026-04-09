@@ -1,0 +1,294 @@
+
+   PASS  Tests\Unit\AmlRuleTest
+  ✓ velocity rule triggers when transaction count exceeds threshold      1.09s  
+  ✓ amount threshold rule triggers on large transaction                  0.16s  
+  ✓ amount threshold rule does not trigger on small transaction          0.15s  
+  ✓ structuring rule detects multiple small transactions                 0.14s  
+  ✓ frequency rule triggers on rapid transactions                        0.17s  
+  ✓ evaluate transaction runs all active rules                           0.17s  
+  ✓ get rules for transaction filters applicable rules                   0.15s  
+
+   PASS  Tests\Unit\ApprovalWorkflowServiceTest
+  ✓ get transaction approval status no approval needed                   0.15s  
+  ✓ get transaction approval status with pending task                    0.14s  
+  ✓ get transaction approval status with approved task                   0.15s  
+
+   PASS  Tests\Unit\AuditServiceTest
+  ✓ log transaction creates entry with proper hash                       0.15s  
+
+   PASS  Tests\Unit\BranchModelTest
+  ✓ branch has transactions relationship                                 0.15s  
+
+   PASS  Tests\Unit\ComplianceServiceTest
+  ✓ check velocity tracks 24h transactions                               0.16s  
+  ✓ check structuring detects multiple small transactions                0.14s  
+  ✓ check structuring no issue with normal transactions                  0.14s  
+  ✓ requires ctos for large cash transaction                             0.15s  
+
+   PASS  Tests\Unit\MathServiceTest
+  ✓ calculate transaction amount                                         0.01s  
+
+   PASS  Tests\Unit\Services\Compliance\CurrencyFlowMonitorTest
+  ✓ no findings with single transaction                                  0.16s  
+
+   PASS  Tests\Unit\Services\Compliance\CustomerLocationAnomalyMonitorTest
+  ✓ no findings for foreign customers with no transactions               0.15s  
+  ✓ no findings for foreign customers with low value transactions        0.14s  
+  ✓ generates finding for high transaction frequency                     0.15s  
+
+   PASS  Tests\Unit\StrAutomationServiceTest
+  ✓ extract transaction patterns                                         0.16s  
+
+   PASS  Tests\Unit\TransactionCancellationServiceTest
+  ✓ manager can cancel draft transaction                                 0.18s  
+  ✓ manager can cancel pending approval transaction                      0.15s  
+  ✓ manager can cancel approved transaction                              0.15s  
+  ✓ manager can cancel processing transaction                            0.15s  
+  ✓ manager can cancel completed transaction                             0.15s  
+  ✓ teller cannot cancel transaction                                     0.15s  
+  ✓ cannot cancel finalized transaction                                  0.15s  
+  ✓ cannot cancel already cancelled transaction                          0.16s  
+  ✓ can cancel returns true for cancellable states                       0.16s  
+  ✓ can cancel returns false for final states                            0.15s  
+  ✓ manager can reverse completed transaction within window              0.17s  
+  ✓ cannot reverse transaction outside window                            0.15s  
+  ✓ cannot reverse non completed transaction                             0.15s  
+  ✓ cannot reverse refund transaction                                    0.15s  
+  ✓ teller can reverse own transaction within window                     0.15s  
+  ✓ teller cannot reverse others transaction                             0.15s  
+  ✓ can reverse returns true for completed within window                 0.15s  
+  ✓ can reverse returns false for completed outside window               0.15s  
+  ✓ can reverse returns false for non completed                          0.14s  
+  ✓ can reverse returns false for already reversed                       0.15s  
+  ✓ is within cancellation window returns true within 24 hours           0.15s  
+  ✓ is within cancellation window returns false after 24 hours           0.15s  
+  ✓ is within cancellation window boundary                               0.15s  
+  ✓ cancellation window uses config value                                0.15s  
+  ✓ create refund transaction creates opposite type                      0.15s  
+  ✓ create refund transaction for sell creates buy                       0.15s  
+  ✓ refund transaction is completed                                      0.15s  
+  ✓ refund transaction preserves customer and user                       0.15s  
+  ✓ reverse positions for buy transaction                                0.16s  
+  ✓ reverse positions for sell transaction                               0.17s  
+  ✓ record state history updates transaction                             0.15s  
+  ✓ manager can cancel returns true                                      0.15s  
+  ✓ teller can cancel returns false                                      0.14s  
+  ✓ manager can reverse any transaction                                  0.15s  
+  ✓ teller can reverse own transaction                                   0.16s  
+  ✓ can user reverse returns false for others transaction                0.15s  
+  ✓ full cancellation workflow                                           0.15s  
+  ✓ full reversal workflow                                               0.16s  
+  ✓ get cancellation window hours returns default                        0.15s  
+  ✓ get cancellation window hours returns config value                   0.15s  
+
+   PASS  Tests\Unit\TransactionErrorHandlerTest
+  ✓ handle processing error creates error record                         0.18s  
+  ✓ handle processing error records error context                        0.15s  
+  ✓ handle processing error returns false when max retries exceeded      0.15s  
+  ✓ should retry returns false when no errors                            0.16s  
+  ✓ should retry returns true when ready                                 0.15s  
+  ✓ should retry returns false when not yet time                         0.15s  
+  ✓ should retry returns false when max retries reached                  0.15s  
+  ✓ exponential backoff delays                                           0.15s  
+  ✓ get next retry delay returns zero when no errors                     0.16s  
+  ✓ should move to dlq returns false when not failed                     0.15s  
+  ✓ should move to dlq returns true when max retries exceeded            0.15s  
+  ✓ should move to dlq returns true for non retryable error types        0.16s  
+  ✓ should move to dlq returns true for compliance errors                0.15s  
+  ✓ should move to dlq returns false when retry available                0.15s  
+  ✓ should move to dlq returns false when no unresolved errors           0.16s  
+  ✓ mark error resolved updates error record                             0.15s  
+  ✓ mark error resolved returns false when no errors                     0.15s  
+  ✓ get transaction errors returns all errors                            0.16s  
+  ✓ get transaction errors returns empty collection when no errors       0.15s  
+  ✓ get retry count returns current count                                0.15s  
+  ✓ get retry count returns zero when no errors                          0.15s  
+  ✓ record successful retry marks error resolved                         0.15s  
+  ✓ record successful retry returns false when no errors                 0.15s  
+
+   PASS  Tests\Unit\TransactionStateMachineTest
+  ✓ submit transitions draft to pending approval                         0.16s  
+  ✓ approve transitions pending approval to approved                     0.15s  
+  ✓ reject transitions pending approval to rejected                      0.15s  
+  ✓ start processing transitions approved to processing                  0.14s  
+  ✓ complete transitions processing to completed                         0.14s  
+  ✓ fail transitions processing to failed                                0.15s  
+  ✓ retry transitions failed to pending approval                         0.15s  
+  ✓ reverse transitions completed to reversed                            0.14s  
+  ✓ finalize transitions completed to finalized                          0.15s  
+  ✓ cancel from draft                                                    0.15s  
+  ✓ cancel from pending approval                                         0.15s  
+  ✓ cancel from approved                                                 0.15s  
+  ✓ cancel from processing                                               0.15s  
+  ✓ cancel from completed                                                0.15s  
+  ✓ cancel from failed                                                   0.15s  
+  ✓ cancel from rejected                                                 0.15s  
+  ✓ rejected to cancelled                                                0.15s  
+  ✓ force status admin override                                          0.15s  
+  ✓ cannot approve from draft                                            0.15s  
+  ✓ cannot process from draft                                            0.15s  
+  ✓ cannot complete from approved                                        0.16s  
+  ✓ cannot complete from pending approval                                0.15s  
+  ✓ cannot retry from draft                                              0.15s  
+  ✓ cannot finalize from processing                                      0.16s  
+  ✓ cannot revert from finalized                                         0.15s  
+  ✓ cannot revert from cancelled                                         0.15s  
+  ✓ cannot revert from reversed                                          0.15s  
+  ✓ is final returns true for final states                               0.15s  
+  ✓ is final returns false for non final states                          0.15s  
+  ✓ is pending returns true for pending states                           0.15s  
+  ✓ is pending returns false for non pending states                      0.14s  
+  ✓ get available transitions from draft                                 0.14s  
+  ✓ get available transitions from processing                            0.15s  
+  ✓ get available transitions from completed                             0.15s  
+  ✓ get available transitions from finalized is empty                    0.14s  
+  ✓ get transition history records changes                               0.15s  
+  ✓ labels and colors exist for all states                               0.15s  
+  ✓ successful full lifecycle                                            0.15s  
+  ✓ failure and retry lifecycle                                          0.15s  
+  ✓ rejection lifecycle                                                  0.15s  
+
+   PASS  Tests\Unit\UserModelTest
+  ✓ transactions relationship exists                                     0.16s  
+
+   PASS  Tests\Feature\Api\V1\TransactionControllerTest
+  ✓ index returns proper json structure                                  0.25s  
+  ✓ create buy transaction succeeds                                      0.21s  
+  ✓ create sell transaction succeeds                                     0.16s  
+  ✓ idempotency key prevents duplicate                                   0.17s  
+  ✓ create transaction without open till fails                           0.16s  
+  ✓ create sell without sufficient stock fails                           0.15s  
+  ✓ validation errors return proper structure                            0.15s  
+  ✓ show returns proper json structure                                   0.16s  
+  ✓ show non existent transaction returns 404                            0.15s  
+  ✓ unauthenticated access returns 401                                   0.15s  
+  ✓ cdd level calculated for large amount                                0.16s  
+  ✓ monetary values precision                                            0.16s  
+
+   PASS  Tests\Feature\ComplianceFlaggingTest
+  ✓ large transaction requires approval and creates flag                 0.19s  
+  ✓ manager approval completes transaction and creates journals          0.16s  
+  ✓ compliance officer can view flagged transactions                     0.20s  
+  ✓ manager can approve large transaction                                0.16s  
+  ✓ regular transaction completes immediately                            0.16s  
+
+   PASS  Tests\Feature\ComplianceViewTest
+  ✓ compliance page displays flagged transactions                        0.17s  
+
+   PASS  Tests\Feature\ComprehensiveViewsTest
+  ✓ lctr only includes qualifying completed transactions                 0.17s  
+  ✓ lctr shows warning for pending qualifying transactions               0.16s  
+
+   PASS  Tests\Feature\CustomerHistoryTest
+  ✓ customer history shows paginated transactions                        0.19s  
+  ✓ customer history calculates first and last transaction dates         0.16s  
+  ✓ customer history with no transactions shows zero stats               0.15s  
+
+   PASS  Tests\Feature\MfaTest
+  ✓ transaction create requires mfa                                      0.16s  
+  ✓ transaction create allows after mfa                                  0.16s  
+
+   PASS  Tests\Feature\RbacComprehensiveTest
+  ✓ teller can access transaction create                                 0.15s  
+  ✓ manager can approve transactions                                     0.16s  
+  ✓ teller cannot approve transactions                                   0.15s  
+  ✓ teller can view transactions                                         0.16s  
+  ✓ teller can create transaction                                        0.16s  
+
+   PASS  Tests\Feature\RealWorldTransactionWorkflowTest
+  ✓ complete daily workflow                                              0.20s  
+  ✓ edge cases                                                           0.16s  
+  ✓ receipt generation workflow                                          0.40s  
+  ✓ transaction search and filtering                                     0.17s  
+  ✓ daily transaction summary                                            0.18s  
+
+   PASS  Tests\Feature\RouteConsistencyTest
+  ✓ teller can access transaction routes                                 0.16s  
+  ✓ mfa middleware applied to transaction creation                       0.16s  
+  ✓ transaction show route accepts transaction id                        0.15s  
+
+   PASS  Tests\Feature\TillReconciliationTest
+  ✓ reconciliation shows transaction details                             0.16s  
+
+   PASS  Tests\Feature\TransactionBatchUploadTest
+  ✓ manager can access batch upload form                                 0.19s  
+  ✓ teller cannot access batch upload                                    0.15s  
+  ✓ manager can upload csv                                               0.19s  
+  ✓ csv with errors shows error report                                   0.16s  
+  ✓ manager can view import results                                      0.15s  
+  ✓ user can only view own import results                                0.16s  
+  ✓ template download works                                              0.15s  
+  ✓ empty csv shows error                                                0.16s  
+  ✓ only managers can upload                                             0.15s  
+  ✓ sell fails with insufficient stock                                   0.15s  
+  ✓ fails with closed till                                               0.16s  
+  ✓ fails with invalid transaction type                                  0.15s  
+  ✓ mixed success and failure                                            0.17s  
+  ✓ file size validation                                                 0.15s  
+  ✓ admin can access batch upload                                        0.15s  
+
+   PASS  Tests\Feature\TransactionCancellationFlowTest
+  ✓ completed transaction is reversed within 24 hours by manager         0.18s  
+  ✓ completed transaction is reversed by admin                           0.16s  
+  ✓ original teller cannot cancel own transaction                        0.16s  
+  ✓ other teller cannot cancel transaction                               0.15s  
+  ✓ transaction cannot be cancelled after 24 hours                       0.16s  
+  ✓ completed transactions are reversed not cancelled                    0.15s  
+  ✓ pending approval transactions can be cancelled                       0.15s  
+  ✓ refund transactions cannot be cancelled                              0.16s  
+  ✓ already cancelled transactions cannot be cancelled again             0.15s  
+  ✓ cancellation reason is required and min length                       0.16s  
+  ✓ confirmation checkbox is required                                    0.16s  
+  ✓ cancel button appears for refundable transactions                    0.16s  
+  ✓ cancel button does not appear for old transactions                   0.16s  
+  ✓ stock position is reversed after cancellation                        0.16s  
+  ✓ refund transaction has reversed type                                 0.17s  
+  ✓ guest users cannot access cancellation                               0.16s  
+
+   PASS  Tests\Feature\TransactionReceiptTest
+  ✓ completed transaction can generate receipt                           0.20s  
+  ✓ pending transaction cannot generate receipt                          0.15s  
+  ✓ onhold transaction cannot generate receipt                           0.15s  
+  ✓ pdf receipt contains transaction details                             0.20s  
+  ✓ pdf receipt contains bnm compliance fields                           0.19s  
+  ✓ receipt requires authentication                                      0.16s  
+  ✓ completed sell transaction can generate receipt                      0.19s  
+  ✓ approved transaction can generate receipt                            0.21s  
+
+   PASS  Tests\Feature\TransactionTest
+  ✓ teller can access transaction create                                 0.16s  
+  ✓ teller can create buy transaction                                    0.17s  
+  ✓ teller can create sell transaction                                   0.16s  
+  ✓ sell fails with insufficient stock                                   0.16s  
+  ✓ transaction fails if till not open                                   0.15s  
+  ✓ large transaction requires approval                                  0.15s  
+  ✓ manager can approve transaction                                      0.16s  
+  ✓ teller cannot approve transaction                                    0.15s  
+  ✓ transaction creates audit log                                        0.16s  
+  ✓ buy updates currency position                                        0.16s  
+  ✓ sell updates currency position                                       0.16s  
+  ✓ can view transaction details                                         0.16s  
+  ✓ can view transaction list                                            0.15s  
+  ✓ transaction requires valid customer                                  0.16s  
+  ✓ transaction requires valid currency                                  0.15s  
+  ✓ transaction requires positive amount                                 0.15s  
+  ✓ approval creates journal entries                                     0.17s  
+
+   PASS  Tests\Feature\TransactionWorkflowTest
+  ✓ creating buy transaction completes successfully                      0.17s  
+  ✓ creating sell transaction with sufficient stock completes            0.16s  
+  ✓ pending transaction approval flow                                    0.16s  
+  ✓ manager can cancel transaction                                       0.16s  
+  ✓ refund transaction maintains correct amounts                         0.16s  
+  ✓ large transaction requires manager approval                          0.17s  
+  ✓ sell fails with insufficient stock                                   0.16s  
+  ✓ sell fails with insufficient remaining stock                         0.15s  
+  ✓ small transaction completes immediately                              0.16s  
+  ✓ teller cannot approve transactions                                   0.15s  
+  ✓ transaction creates journal entries on completion                    0.16s  
+  ✓ cancelled transaction cannot be cancelled again                      0.16s  
+  ✓ transaction fails when till is closed                                0.15s  
+
+  Tests:    234 passed (740 assertions)
+  Duration: 38.14s
+

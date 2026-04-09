@@ -1,0 +1,93 @@
+
+   PASS  Tests\Unit\BranchModelTest
+  ✓ branch type constants                                                1.00s  
+  ✓ branch can be created                                                0.15s  
+  ✓ branch has correct fillable attributes                               0.18s  
+  ✓ branch has correct casts                                             0.17s  
+  ✓ branch has users relationship                                        0.17s  
+  ✓ branch has counters relationship                                     0.16s  
+  ✓ branch has transactions relationship                                 0.16s  
+  ✓ branch has journal entries relationship                              0.16s  
+  ✓ branch has currency positions relationship                           0.17s  
+  ✓ branch has till balances relationship                                0.18s  
+  ✓ branch has counter sessions relationship                             0.16s  
+  ✓ branch has parent relationship                                       0.16s  
+  ✓ branch has children relationship                                     0.15s  
+  ✓ scope active filters active branches                                 0.15s  
+  ✓ scope main filters main branch                                       0.15s  
+  ✓ scope branches filters by type                                       0.15s  
+  ✓ scope head offices filters by type                                   0.15s  
+  ✓ branch can update attributes                                         0.15s  
+  ✓ branch code must be unique                                           0.15s  
+  ✓ branch can have users                                                0.20s  
+
+   PASS  Tests\Unit\BranchScopeServiceTest
+  ✓ admin user returns null for accessible branches                      0.17s  
+  ✓ manager with branch id returns array with branch id                  0.14s  
+  ✓ manager with no branch id returns empty array                        0.14s  
+  ✓ scope to user branch applies filter for non admin                    0.15s  
+  ✓ scope to user branch applies no filter for admin                     0.14s  
+  ✓ can access branch returns true for admin accessing any branch        0.15s  
+  ✓ can access branch returns true for user accessing own branch         0.15s  
+  ✓ can access branch returns false for user accessing other branch      0.15s  
+
+   PASS  Tests\Unit\BranchScopedReportingTest
+  ✓ trial balance accepts branch id parameter                            0.17s  
+  ✓ trial balance returns different results for different branches       0.17s  
+  ✓ account ledger accepts branch id parameter                           0.15s  
+  ✓ profit and loss accepts branch id parameter                          0.15s  
+  ✓ balance sheet accepts branch id parameter                            0.15s  
+  ✓ financial ratios accepts branch id parameter                         0.16s  
+  ✓ cash flow statement accepts branch id parameter                      0.16s  
+  ✓ services work with null branch id                                    0.16s  
+
+   PASS  Tests\Unit\BranchServiceTest
+  ✓ list branches returns only active branches                           0.15s  
+  ✓ list branches orders by is main desc then code                       0.15s  
+  ✓ create branch                                                        0.16s  
+  ✓ update branch                                                        0.17s  
+  ✓ deactivate branch                                                    0.15s  
+  ✓ deactivate branch fails for main branch                              0.15s  
+  ✓ get branch summary                                                   0.16s  
+  ✓ get branch summary returns zero for empty branch                     0.15s  
+  ✓ get all branches including inactive                                  0.15s  
+
+   PASS  Tests\Unit\StockTransferServiceTest
+  ✓ approve by branch manager changes status                             0.16s  
+
+   PASS  Tests\Unit\UserRoleBranchTest
+  ✓ admin can manage all branches                                        0.16s  
+  ✓ manager cannot manage all branches                                   0.18s  
+  ✓ compliance officer cannot manage all branches                        0.19s  
+  ✓ teller cannot manage all branches                                    0.19s  
+
+   PASS  Tests\Feature\Api\V1\BranchControllerTest
+  ✓ admin can list branches                                              0.29s  
+  ✓ non admin cannot list branches                                       0.16s  
+  ✓ admin can create branch                                              0.23s  
+  ✓ admin can get branch                                                 0.15s  
+  ✓ admin can update branch                                              0.16s  
+  ✓ admin can deactivate branch                                          0.16s  
+  ✓ cannot deactivate main branch                                        0.16s  
+  ✓ non admin can get own branch                                         0.16s  
+  ✓ non admin cannot get other branch                                    0.16s  
+  ✓ admin can get branch counters                                        0.15s  
+  ✓ admin can get branch users                                           0.15s  
+  ✓ create branch requires code                                          0.15s  
+  ✓ create branch code must be unique                                    0.15s  
+  ✓ create branch requires valid type                                    0.15s  
+  ✓ create branch email must be valid                                    0.16s  
+  ✓ branch not found returns 404                                         0.15s  
+
+   PASS  Tests\Feature\BranchAccessMiddlewareTest
+  ✓ unauthenticated user gets 401 or redirect                            0.18s  
+  ✓ admin can access any branch                                          0.16s  
+  ✓ manager cannot access other branch                                   0.16s  
+  ✓ manager can access own branch                                        0.16s  
+  ✓ branch id parameter works                                            0.19s  
+  ✓ route without branch parameter passes through                        0.17s  
+  ✓ non existent branch returns 403                                      0.16s  
+
+  Tests:    73 passed (221 assertions)
+  Duration: 13.03s
+

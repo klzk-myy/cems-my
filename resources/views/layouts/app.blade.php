@@ -453,15 +453,6 @@
 </a>
 </div>
 </div>
-
-<div class="nav-item">
-<a href="{{ route('transactions.batch-upload') }}" class="nav-link {{ request()->is('transactions/batch-upload*') ? 'active' : '' }}">
-<span class="nav-icon">
-<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-</span>
-<span>Transaction Imports</span>
-</a>
-</div>
 </div>
 
                 {{-- ============================================================
@@ -710,29 +701,44 @@
                     </div>
                 </div>
 
-                {{-- ============================================================
-                    SYSTEM - Administrative tasks
-                ============================================================ --}}
-                <div class="nav-section">
-                    <div class="nav-section-label">System</div>
+{{-- ============================================================
+SYSTEM - Administrative tasks
+============================================================ --}}
+<div class="nav-section">
+<div class="nav-section-label">System</div>
 
-                    <div class="nav-item">
-                        <a href="{{ route('tasks.index') }}" class="nav-link {{ request()->is('tasks*') ? 'active' : '' }}">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                            </span>
-                            <span>Tasks</span>
-                        </a>
-                    </div>
+<div class="nav-group">
+<a href="{{ route('tasks.index') }}" class="nav-link {{ request()->is('tasks*') || request()->is('transactions/batch-upload*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M12 12h.01"/></svg>
+</span>
+<span>Settings</span>
+<span class="nav-arrow">▼</span>
+</a>
+<div class="nav-submenu">
+<a href="{{ route('tasks.index') }}" class="nav-link {{ request()->is('tasks*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+</span>
+<span>Tasks</span>
+</a>
+<a href="{{ route('transactions.batch-upload') }}" class="nav-link {{ request()->is('transactions/batch-upload*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+</span>
+<span>Transaction Imports</span>
+</a>
+</div>
+</div>
 
-                    <div class="nav-item">
-                        <a href="{{ route('audit.index') }}" class="nav-link {{ request()->is('audit*') ? 'active' : '' }}">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                            </span>
-                            <span>Audit Log</span>
-                        </a>
-                    </div>
+<div class="nav-item">
+<a href="{{ route('audit.index') }}" class="nav-link {{ request()->is('audit*') ? 'active' : '' }}">
+<span class="nav-icon">
+<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+</span>
+<span>Audit Log</span>
+</a>
+</div>
 
 <div class="nav-item">
 <a href="{{ route('users.index') }}" class="nav-link {{ request()->is('users*') ? 'active' : '' }}">

@@ -157,21 +157,24 @@ Routes use these middleware:
 
 ### Navigation Structure
 
-The sidebar navigation is organized by function:
+The sidebar navigation is organized by function with logical grouping:
 
-**Operations** (All authenticated users) - 7 items:
+**Main**
 - Dashboard (`/dashboard`)
+
+**Operations**
 - Transactions (`/transactions`)
 - Customers (`/customers`)
-- **Counter Management** (group):
-  - Counters (`/counters`)
-  - Branches (`/branches`)
-- **Stock Management** (group):
-  - Stock & Cash (`/stock-cash`)
-  - Stock Transfers (`/stock-transfers`)
-- Transaction Imports (`/transactions/batch-upload`)
 
-**Compliance & AML** (Compliance officers) - 12 items:
+**Counter Management**
+- Counters (`/counters`)
+- Branches (`/branches`) - Admin only
+
+**Stock Management**
+- Stock & Cash (`/stock-cash`)
+- Stock Transfers (`/stock-transfers`)
+
+**Compliance & AML** - 12 items:
 - Compliance Dashboard (`/compliance`)
 - Compliance Workspace (`/compliance/workspace`)
 - Alert Triage (`/compliance/alerts`)
@@ -185,24 +188,22 @@ The sidebar navigation is organized by function:
 - Compliance Reporting (`/compliance/reporting`)
 - STR Reports (`/str`)
 
-**Accounting** (Managers/Admin) - 15 items:
+**Accounting** - 13 items:
 - Accounting Dashboard (`/accounting`)
 - Journal Entries (`/accounting/journal`)
-- New Entry (`/accounting/journal/create`)
-- Workflow (`/accounting/journal/workflow`)
 - Ledger (`/accounting/ledger`)
 - Trial Balance (`/accounting/trial-balance`)
 - Profit & Loss (`/accounting/profit-loss`)
 - Balance Sheet (`/accounting/balance-sheet`)
 - Cash Flow (`/accounting/cash-flow`)
 - Financial Ratios (`/accounting/ratios`)
-- Periods (`/accounting/periods`)
-- Fiscal Years (`/accounting/fiscal-years`)
 - Revaluation (`/accounting/revaluation`)
 - Reconciliation (`/accounting/reconciliation`)
 - Budget (`/accounting/budget`)
+- Periods (`/accounting/periods`)
+- Fiscal Years (`/accounting/fiscal-years`)
 
-**Reports** (Managers/Admin) - 7 items:
+**Reports** - 7 items:
 - Reports Dashboard (`/reports`)
 - MSB2 Report (`/reports/msb2`)
 - LCTR (`/reports/lctr`)
@@ -211,13 +212,12 @@ The sidebar navigation is organized by function:
 - Position Limits (`/reports/position-limit`)
 - Report History (`/reports/history`)
 
-**System** (Role-based) - 4 items:
+**System** - 5 items:
 - Tasks (`/tasks`)
+- Transaction Imports (`/transactions/batch-upload`)
 - Audit Log (`/audit`)
 - Users (`/users`) - Admin only
 - Data Breach Alerts (`/data-breach-alerts`) - Admin only
-
-Note: Branches has been moved to Counter Management under Operations.
 
 Configuration: `app/Config/Navigation.php`
 

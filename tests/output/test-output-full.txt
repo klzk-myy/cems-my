@@ -1,0 +1,1291 @@
+
+   PASS  Tests\Unit\AccountingServiceFixTest
+  ✓ debit account balance increases with debit and decreases with credi… 1.14s  
+  ✓ credit account balance decreases with debit and increases with cred… 0.16s  
+  ✓ expense account balance increases with debit                         0.15s  
+  ✓ revenue account balance increases with credit                        0.15s  
+  ✓ get account balance uses created at for same date entries            0.15s  
+  ✓ ledger entries ordered by date then created at                       0.15s  
+  ✓ comprehensive balance calculation                                    0.15s  
+  ✓ balance calculation with zero amounts                                0.16s  
+
+   PASS  Tests\Unit\AccountingServiceTest
+  ✓ can create journal entry                                             0.15s  
+  ✓ journal entry must be balanced                                       0.15s  
+  ✓ can reverse journal entry                                            0.15s  
+  ✓ validate balanced returns true for balanced entry                    0.15s  
+  ✓ validate balanced returns false for unbalanced entry                 0.14s  
+  ✓ get account balance returns correct balance                          0.15s  
+  ✓ get account balance returns zero for no entries                      0.14s  
+
+   PASS  Tests\Unit\AmlRuleTest
+  ✓ aml rule can be created                                              0.16s  
+  ✓ conditions are cast to array                                         0.14s  
+  ✓ rule type is cast to enum                                            0.14s  
+  ✓ active scope filters inactive rules                                  0.15s  
+  ✓ by type scope filters rules                                          0.14s  
+  ✓ velocity rule triggers when transaction count exceeds threshold      0.16s  
+  ✓ velocity rule does not trigger when below threshold                  0.15s  
+  ✓ velocity rule respects time window                                   0.15s  
+  ✓ amount threshold rule triggers on large transaction                  0.15s  
+  ✓ amount threshold rule does not trigger on small transaction          0.15s  
+  ✓ structuring rule detects multiple small transactions                 0.15s  
+  ✓ structuring rule does not trigger when count is low                  0.15s  
+  ✓ frequency rule triggers on rapid transactions                        0.15s  
+  ✓ geographic rule triggers for high risk country                       0.15s  
+  ✓ geographic rule does not trigger for low risk country                0.14s  
+  ✓ evaluate transaction runs all active rules                           0.17s  
+  ✓ get rules for transaction filters applicable rules                   0.15s  
+  ✓ inactive rule returns not triggered                                  0.15s  
+  ✓ validate conditions for velocity rule                                0.15s  
+  ✓ validate conditions for velocity rule missing fields                 0.14s  
+  ✓ validate conditions for geographic rule                              0.14s  
+  ✓ validate conditions for geographic rule empty countries              0.15s  
+  ✓ risk score is capped at 100                                          0.15s  
+
+   PASS  Tests\Unit\ApprovalWorkflowServiceTest
+  ✓ auto approve threshold below 3000                                    0.16s  
+  ✓ supervisor threshold 3000 to 9999                                    0.15s  
+  ✓ supervisor threshold boundary 3000                                   0.15s  
+  ✓ supervisor threshold boundary 9999 99                                0.15s  
+  ✓ manager threshold 10000 to 49999                                     0.15s  
+  ✓ manager threshold boundary 10000                                     0.14s  
+  ✓ manager threshold boundary 49999 99                                  0.15s  
+  ✓ admin threshold 50000 and above                                      0.15s  
+  ✓ admin threshold boundary 50000                                       0.14s  
+  ✓ large amount admin approval                                          0.15s  
+  ✓ auto approve eligible returns true for small amount                  0.17s  
+  ✓ auto approve eligible returns false for large amount                 0.15s  
+  ✓ boundary 2999 auto approve                                           0.15s  
+  ✓ create approval task for supervisor tier                             0.15s  
+  ✓ create approval task for manager tier                                0.15s  
+  ✓ create approval task for admin tier                                  0.15s  
+  ✓ create approval task returns null for auto approve                   0.15s  
+  ✓ create approval task sets expiration                                 0.15s  
+  ✓ manager can approve supervisor task                                  0.15s  
+  ✓ admin can approve supervisor task                                    0.15s  
+  ✓ manager can approve manager task                                     0.15s  
+  ✓ admin can approve manager task                                       0.15s  
+  ✓ admin can approve admin task                                         0.15s  
+  ✓ teller cannot approve                                                0.15s  
+  ✓ manager cannot approve admin task                                    0.15s  
+  ✓ approve with notes                                                   0.15s  
+  ✓ cannot approve already approved task                                 0.15s  
+  ✓ cannot approve expired task                                          0.15s  
+  ✓ manager can reject supervisor task                                   0.15s  
+  ✓ reject includes reason in notes                                      0.15s  
+  ✓ teller cannot reject                                                 0.16s  
+  ✓ cannot reject already rejected task                                  0.15s  
+  ✓ expire pending task                                                  0.15s  
+  ✓ cannot expire already approved task                                  0.16s  
+  ✓ cannot expire already rejected task                                  0.15s  
+  ✓ expire stale tasks                                                   0.15s  
+  ✓ manager sees supervisor tasks                                        0.16s  
+  ✓ admin sees all tasks                                                 0.16s  
+  ✓ teller sees no tasks                                                 0.15s  
+  ✓ pending tasks excludes expired                                       0.15s  
+  ✓ get transaction approval status no approval needed                   0.14s  
+  ✓ get transaction approval status with pending task                    0.15s  
+  ✓ get transaction approval status with approved task                   0.15s  
+  ✓ exact threshold boundaries                                           0.16s  
+  ✓ precision with bcmath                                                0.14s  
+  ✓ compliance officer cannot approve                                    0.15s  
+
+   PASS  Tests\Unit\AuditServiceTest
+  ✓ verify chain integrity returns valid for empty chain                 0.16s  
+  ✓ verify chain integrity returns valid after log entries               0.15s  
+  ✓ verify chain integrity with limit                                    0.14s  
+  ✓ verify chain integrity detects tampered hash                         0.14s  
+  ✓ verify chain integrity detects broken previous hash                  0.15s  
+  ✓ log creates entry with hash chain                                    0.14s  
+  ✓ log transaction creates entry with proper hash                       0.14s  
+  ✓ log customer creates entry with proper hash                          0.15s  
+
+   PASS  Tests\Unit\BranchModelTest
+  ✓ branch type constants                                                0.15s  
+  ✓ branch can be created                                                0.15s  
+  ✓ branch has correct fillable attributes                               0.14s  
+  ✓ branch has correct casts                                             0.14s  
+  ✓ branch has users relationship                                        0.15s  
+  ✓ branch has counters relationship                                     0.14s  
+  ✓ branch has transactions relationship                                 0.14s  
+  ✓ branch has journal entries relationship                              0.15s  
+  ✓ branch has currency positions relationship                           0.14s  
+  ✓ branch has till balances relationship                                0.14s  
+  ✓ branch has counter sessions relationship                             0.16s  
+  ✓ branch has parent relationship                                       0.14s  
+  ✓ branch has children relationship                                     0.14s  
+  ✓ scope active filters active branches                                 0.15s  
+  ✓ scope main filters main branch                                       0.14s  
+  ✓ scope branches filters by type                                       0.14s  
+  ✓ scope head offices filters by type                                   0.15s  
+  ✓ branch can update attributes                                         0.14s  
+  ✓ branch code must be unique                                           0.15s  
+  ✓ branch can have users                                                0.15s  
+
+   PASS  Tests\Unit\BranchScopeServiceTest
+  ✓ admin user returns null for accessible branches                      0.15s  
+  ✓ manager with branch id returns array with branch id                  0.15s  
+  ✓ manager with no branch id returns empty array                        0.14s  
+  ✓ scope to user branch applies filter for non admin                    0.15s  
+  ✓ scope to user branch applies no filter for admin                     0.15s  
+  ✓ can access branch returns true for admin accessing any branch        0.15s  
+  ✓ can access branch returns true for user accessing own branch         0.14s  
+  ✓ can access branch returns false for user accessing other branch      0.15s  
+
+   PASS  Tests\Unit\BranchScopedReportingTest
+  ✓ trial balance accepts branch id parameter                            0.16s  
+  ✓ trial balance returns different results for different branches       0.15s  
+  ✓ account ledger accepts branch id parameter                           0.15s  
+  ✓ profit and loss accepts branch id parameter                          0.15s  
+  ✓ balance sheet accepts branch id parameter                            0.14s  
+  ✓ financial ratios accepts branch id parameter                         0.16s  
+  ✓ cash flow statement accepts branch id parameter                      0.15s  
+  ✓ services work with null branch id                                    0.16s  
+
+   PASS  Tests\Unit\BranchServiceTest
+  ✓ list branches returns only active branches                           0.15s  
+  ✓ list branches orders by is main desc then code                       0.14s  
+  ✓ create branch                                                        0.15s  
+  ✓ update branch                                                        0.14s  
+  ✓ deactivate branch                                                    0.14s  
+  ✓ deactivate branch fails for main branch                              0.15s  
+  ✓ get branch summary                                                   0.15s  
+  ✓ get branch summary returns zero for empty branch                     0.14s  
+  ✓ get all branches including inactive                                  0.15s  
+
+   PASS  Tests\Unit\BudgetAndReversalFixTest
+  ✓ budget actuals respect period date range                             0.16s  
+  ✓ revaluation service validates account codes exist                    0.15s  
+  ✓ period close service validates account codes exist                   0.15s  
+  ✓ cannot reverse already reversed entry                                0.15s  
+  ✓ cannot reverse non posted entry                                      0.15s  
+  ✓ reversal creates explicit link to original                           0.16s  
+  ✓ reversed entry status is updated                                     0.15s  
+  ✓ budget service uses period date range                                0.15s  
+
+   PASS  Tests\Unit\CaseManagementDocumentLinkTest
+  ✓ add link creates compliance case link                                0.17s  
+  ✓ remove link deletes compliance case link                             0.15s  
+  ✓ verify document sets verified fields                                 0.15s  
+  ✓ get case documents returns documents                                 0.15s  
+  ✓ get case links returns links                                         0.15s  
+
+   PASS  Tests\Unit\CashFlowServiceTest
+  ✓ get cash flow statement returns all categories                       0.16s  
+  ✓ opening cash balance returns zero when no entries                    0.15s  
+  ✓ opening cash balance calculates from cash accounts                   0.15s  
+  ✓ opening cash balance sums multiple cash accounts                     0.15s  
+  ✓ operating cash flow returns all components                           0.15s  
+  ✓ operating cash flow with revenue and expenses                        0.15s  
+  ✓ operating cash flow calculates salary expenses                       0.15s  
+  ✓ net cash change sums all activities                                  0.15s  
+  ✓ investing cash flow returns all components                           0.14s  
+  ✓ investing cash flow returns zeros when no activity                   0.15s  
+  ✓ investing cash flow calculates asset purchases                       0.14s  
+  ✓ financing cash flow returns all components                           0.14s  
+  ✓ financing cash flow returns zeros when no activity                   0.15s  
+  ✓ closing cash balance equals opening balance                          0.15s  
+  ✓ operating cash flow calculates other expenses                        0.15s  
+  ✓ cash flow statement includes date range                              0.16s  
+  ✓ get total for accounts sums multiple accounts                        0.15s  
+  ✓ account balance returns zero for nonexistent account                 0.15s  
+  ✓ investing cash flow calculates investment income                     0.15s  
+  ✓ net cash change combines all activities                              0.15s  
+  ✓ multiple revenue accounts aggregated                                 0.15s  
+  ✓ multiple expense accounts aggregated                                 0.15s  
+
+   PASS  Tests\Unit\ComplianceEventListenerTest
+  ✓ handle risk score updated logs to audit                              0.16s  
+  ✓ handle risk score updated creates alert when escalating to high      0.15s  
+  ✓ handle risk score updated does not alert when already high           0.14s  
+
+   PASS  Tests\Unit\ComplianceFindingTest
+  ✓ can create finding                                                   0.15s  
+  ✓ can be dismissed                                                     0.15s  
+  ✓ dismiss throws exception for invalid status                          0.15s  
+  ✓ can transition to case created                                       0.15s  
+  ✓ mark case created throws exception for invalid status                0.15s  
+  ✓ is new returns true for new finding                                  0.15s  
+  ✓ is new returns false for non new finding                             0.15s  
+  ✓ is critical returns true for critical severity                       0.15s  
+  ✓ is critical returns false for non critical severity                  0.15s  
+  ✓ subject returns polymorphic relationship                             0.15s  
+  ✓ scope with status                                                    0.15s  
+  ✓ scope with severity                                                  0.15s  
+  ✓ scope new                                                            0.15s  
+  ✓ scope of type                                                        0.15s  
+
+   PASS  Tests\Unit\ComplianceServiceTest
+  ✓ simplified cdd for small amounts                                     0.15s  
+  ✓ standard cdd for medium amounts                                      0.15s  
+  ✓ enhanced cdd for large amounts                                       0.15s  
+  ✓ enhanced cdd for pep                                                 0.15s  
+  ✓ enhanced cdd for high risk customer                                  0.15s  
+  ✓ requires hold for large amounts                                      0.14s  
+  ✓ requires hold for pep status                                         0.15s  
+  ✓ requires hold for high risk customer                                 0.15s  
+  ✓ requires hold for sanction match                                     0.15s  
+  ✓ check sanction match finds match                                     0.15s  
+  ✓ check sanction match no match                                        0.15s  
+  ✓ check velocity tracks 24h transactions                               0.15s  
+  ✓ check velocity below threshold                                       0.15s  
+  ✓ check structuring detects multiple small transactions                0.15s  
+  ✓ check structuring no issue with normal transactions                  0.15s  
+  ✓ requires ctos for large cash transaction                             0.14s  
+  ✓ requires ctos for both buy and sell                                  0.15s  
+
+   PASS  Tests\Unit\CounterServiceTest
+  ✓ can open counter session                                             0.16s  
+  ✓ cannot open if already open                                          0.15s  
+  ✓ cannot open if user at another counter                               0.15s  
+  ✓ can close counter session                                            0.15s  
+  ✓ calculates variance correctly                                        0.15s  
+  ✓ requires supervisor for large variance                               0.15s  
+  ✓ get available counters                                               0.15s  
+  ✓ close session query only returns expected currencies                 0.15s  
+
+   PASS  Tests\Unit\CurrencyPositionServiceTest
+  ✓ creates position on first buy                                        0.15s  
+  ✓ updates position on additional buy                                   0.14s  
+  ✓ decreases position on sell                                           0.15s  
+  ✓ gets position by currency                                            0.15s  
+  ✓ throws exception when selling more than balance                      0.15s  
+  ✓ throws exception when selling with zero balance                      0.15s  
+  ✓ throws exception when selling exact balance                          0.15s  
+  ✓ position balance never negative                                      0.14s  
+  ✓ balance prevention error message includes available amount           0.15s  
+  ✓ allows partial sell within balance                                   0.14s  
+  ✓ multiple sells cannot exceed total balance                           0.15s  
+
+   PASS  Tests\Unit\EncryptionServiceTest
+  ✓ can encrypt and decrypt data                                         0.01s  
+  ✓ encrypts to different values                                         0.01s  
+  ✓ hashing is deterministic                                             0.01s  
+
+   PASS  Tests\Unit\Enums\CaseNoteTypeTest
+  ✓ all note types exist
+  ✓ label returns human readable labels
+  ✓ icon returns fontawesome classes
+
+   PASS  Tests\Unit\Enums\CaseResolutionTest
+  ✓ all resolutions exist
+  ✓ label returns human readable labels
+  ✓ requires str only for str filed
+  ✓ requires edd only for edd required
+
+   PASS  Tests\Unit\Enums\ComplianceCasePriorityTest
+  ✓ all priorities exist
+  ✓ weight returns correct values
+  ✓ color returns bootstrap colors
+  ✓ label returns human readable labels
+
+   PASS  Tests\Unit\Enums\ComplianceCaseStatusTest
+  ✓ all statuses exist
+  ✓ can move to valid transitions
+  ✓ is terminal only for closed
+  ✓ is active for all except closed
+  ✓ label returns human readable labels
+  ✓ color returns bootstrap colors
+
+   PASS  Tests\Unit\Enums\ComplianceCaseTypeTest
+  ✓ all case types exist
+  ✓ requires str link only for str
+  ✓ requires edd link only for edd
+  ✓ default sla hours
+  ✓ label returns human readable labels
+
+   PASS  Tests\Unit\Enums\EddStatusTest
+  ✓ pending questionnaire exists
+  ✓ questionnaire submitted exists
+  ✓ expired exists
+  ✓ can submit questionnaire
+
+   PASS  Tests\Unit\Enums\FindingSeverityTest
+  ✓ all severity levels exist
+  ✓ weight ordering
+  ✓ critical is higher than high
+  ✓ high is higher than medium
+  ✓ medium is higher than low
+  ✓ color returns bootstrap classes
+  ✓ icon returns fontawesome classes
+
+   PASS  Tests\Unit\Enums\FindingStatusTest
+  ✓ all statuses exist
+  ✓ can be reviewed
+  ✓ can be dismissed
+  ✓ can create case
+  ✓ label returns human readable labels
+
+   PASS  Tests\Unit\Enums\FindingTypeTest
+  ✓ all finding types exist
+  ✓ label returns human readable labels
+  ✓ default severity for critical types
+  ✓ default severity for high types
+  ✓ default severity for medium types
+  ✓ default severity for low types
+
+   PASS  Tests\Unit\Enums\RecalculationTriggerTest
+  ✓ all triggers exist
+  ✓ label returns human readable labels
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true
+
+   PASS  Tests\Unit\ExchangeRateHistoryTest
+  ✓ can create exchange rate history                                     0.15s  
+  ✓ scope for currency filters by currency                               0.15s  
+  ✓ scope for date range filters by date                                 0.15s  
+  ✓ get latest rate returns most recent rate                             0.14s  
+  ✓ get latest rate returns null when no history                         0.15s  
+  ✓ belongs to currency relationship                                     0.14s  
+  ✓ belongs to creator relationship                                      0.14s  
+
+   PASS  Tests\Unit\ExportServiceTest
+  ✓ can export to csv                                                    0.04s  
+  ✓ csv export handles empty data                                        0.01s  
+  ✓ can export to excel                                                  0.22s  
+  ✓ cleanup old reports deletes files older than days                    0.01s  
+  ✓ cleanup old reports keeps recent files                               0.01s  
+
+   PASS  Tests\Unit\FinancialRatioServiceTest
+  ✓ liquidity ratios with assets and liabilities                         0.15s  
+  ✓ liquidity ratios with zero liabilities                               0.15s  
+  ✓ liquidity ratios with no inventory account class                     0.15s  
+  ✓ profitability ratios calculates margins                              0.15s  
+  ✓ profitability ratios with zero revenue                               0.16s  
+  ✓ profitability ratios uses account type expense                       0.15s  
+  ✓ leverage ratios calculates debt to equity                            0.15s  
+  ✓ leverage ratios with zero equity                                     0.16s  
+  ✓ efficiency ratios calculates asset turnover                          0.16s  
+  ✓ efficiency ratios with zero inventory                                0.15s  
+  ✓ get all ratios returns all categories                                0.16s  
+  ✓ get all ratios with empty ledger entries                             0.15s  
+  ✓ get account balance uses latest entry before date                    0.16s  
+  ✓ no entries returns zero balance                                      0.15s  
+
+Journal entry created: 1
+
+Ledger entries for account 2000:
+  Entry Date: 2026-04-09 00:00:00, Debit: 0.0000, Credit: 500.0000, Balance: 500.0000
+
+Balance via accounting service: 500.0000
+Balance as of today: 500.0000
+Today date string: 2026-04-09
+
+Trial Balance Accounts:
+Account 1000 (Asset): debit=500.0000, credit=0, balance=500.0000
+Account 2000 (Liability): debit=0, credit=500.0000, balance=500.0000
+Account 3000 (Equity): debit=0, credit=0, balance=0
+Account 4000 (Revenue): debit=0, credit=0, balance=0
+Account 5000 (Expense): debit=0, credit=0, balance=0
+
+   PASS  Tests\Unit\LedgerServiceFixTest
+  ✓ trial balance credit normal accounts with positive balance go to cr… 0.15s  
+  ✓ trial balance credit normal accounts with negative balance go to de… 0.16s  
+  ✓ trial balance debit normal accounts with positive balance go to deb… 0.15s  
+  ✓ profit and loss revenue activity calculated as credits minus debits  0.15s  
+  ✓ profit and loss expense activity calculated as debits minus credits  0.16s  
+  ✓ profit and loss calculates net profit correctly                      0.15s  
+  ✓ trial balance equity accounts handled as credit normal               0.15s  
+
+   PASS  Tests\Unit\LedgerServiceTest
+  ✓ get trial balance returns all accounts                               0.15s  
+  ✓ get trial balance is balanced after entries                          0.15s  
+  ✓ get account ledger returns entries                                   0.15s  
+  ✓ get profit and loss returns revenue and expenses                     0.15s  
+  ✓ get balance sheet returns assets liabilities equity                  0.15s  
+
+   PASS  Tests\Unit\MathServiceTest
+  ✓ basic arithmetic operations                                          0.01s  
+  ✓ calculate average cost                                               0.01s  
+  ✓ calculate revaluation pnl                                            0.01s  
+  ✓ calculate transaction amount                                         0.01s  
+  ✓ compare values                                                       0.01s  
+  ✓ division by zero throws exception                                    0.01s  
+
+   PASS  Tests\Unit\MfaServiceTest
+  ✓ generates secret                                                     0.01s  
+  ✓ generates valid otpauth url                                          0.01s  
+  ✓ generates valid totp code                                            0.01s  
+  ✓ verifies valid totp code                                             0.01s  
+  ✓ rejects invalid totp code                                            0.01s  
+  ✓ rejects invalid format code                                          0.01s  
+  ✓ handles code with whitespace                                         0.01s  
+  ✓ generates different codes at different times                         1.01s  
+  ✓ base32 encoding                                                      0.01s  
+
+   PASS  Tests\Unit\ModelPrecisionFixTest
+  ✓ journal line is debit uses string comparison                         0.01s  
+  ✓ journal line is credit uses string comparison                        0.01s  
+  ✓ journal line get amount returns string                               0.01s  
+  ✓ journal line get amount returns credit when no debit                 0.01s  
+  ✓ journal line handles high precision amounts                          0.01s  
+  ✓ journal line uses bc math not float comparison                       0.01s  
+  ✓ account ledger get net amount returns string                         0.01s  
+  ✓ account ledger handles precision in net amount                       0.01s  
+  ✓ account ledger net amount handles negative result                    0.01s  
+  ✓ account ledger avoids floating point errors                          0.01s  
+  ✓ journal entry get total debits returns string                        0.01s  
+  ✓ journal entry get total credits returns string                       0.01s  
+  ✓ journal entry is balanced exists                                     0.01s  
+  ✓ journal entry precision no floating point errors                     0.01s  
+  ✓ is balanced uses exact comparison not epsilon                        0.01s  
+  ✓ journal line uses math service                                       0.01s  
+  ✓ account ledger uses math service                                     0.01s  
+  ✓ math service compare detects equality                                0.01s  
+  ✓ no float casts in journal line                                       0.01s  
+  ✓ no float arithmetic in journal entry is balanced                     0.01s  
+
+   PASS  Tests\Unit\Models\Compliance\ComplianceCaseTest
+  ✓ can create case                                                      0.16s  
+  ✓ case number auto generated                                           0.15s  
+  ✓ can add note                                                         0.15s  
+  ✓ can assign                                                           0.15s  
+  ✓ can close with resolution                                            0.15s  
+  ✓ can escalate                                                         0.14s  
+  ✓ sla is calculated from severity                                      0.14s  
+  ✓ add link creates compliance case link                                0.15s  
+  ✓ scope open                                                           0.15s  
+  ✓ scope by assignee                                                    0.15s  
+  ✓ scope overdue                                                        0.15s  
+  ✓ case has notes relationship                                          0.14s  
+  ✓ case has links relationship                                          0.14s  
+
+   PASS  Tests\Unit\Models\Compliance\CustomerRiskProfileTest
+  ✓ can create risk profile                                              0.16s  
+  ✓ risk tier correct for score ranges                                   0.16s  
+  ✓ can calculate from factors                                           0.16s  
+  ✓ score capped at 100                                                  0.14s  
+  ✓ can lock and unlock score                                            0.15s  
+  ✓ is locked returns true when within lock period                       0.15s  
+
+   PASS  Tests\Unit\Models\Compliance\EddQuestionnaireTemplateTest
+  ✓ can create template                                                  0.15s  
+  ✓ questions cast to array                                              0.14s  
+  ✓ get active templates only                                            0.15s  
+  ✓ is complete returns true when all required fields present            0.14s  
+  ✓ is complete returns false when required field missing                0.15s  
+
+   PASS  Tests\Unit\PeriodCloseServiceTest
+  ✓ can close open period                                                0.16s  
+  ✓ cannot close already closed period                                   0.14s  
+
+   PASS  Tests\Unit\RateApiServiceTest
+  ✓ fetches and caches rates                                             0.22s  
+  ✓ gets rate for specific currency                                      0.15s  
+  ✓ returns null for unknown currency                                    0.14s  
+  ✓ throws exception on api failure                                      0.15s  
+
+   PASS  Tests\Unit\RevaluationServiceFixTest
+  ✓ revaluation with journal validates period is open                    0.75s  
+  ✓ revaluation with journal throws exception for closed period          0.15s  
+  ✓ revaluation with journal validates date falls in period              0.16s  
+  ✓ revaluation processes each currency independently                    0.72s  
+  ✓ currency failure does not affect other currencies                    0.75s  
+  ✓ journal entries have period id assigned                              0.71s  
+
+   PASS  Tests\Unit\RevaluationServiceTest
+  ✓ run revaluation processes all positions                              0.73s  
+  ✓ run revaluation returns correct structure                            0.73s  
+  ✓ run revaluation with specific till                                   0.70s  
+
+   PASS  Tests\Unit\RiskRatingServiceTest
+  ✓ calculate score for low risk customer                                0.15s  
+  ✓ calculate score for pep customer                                     0.15s  
+  ✓ calculate score with high risk country                               0.14s  
+  ✓ calculate score with cash intensive pattern                          0.15s  
+  ✓ calculate score combined risk factors                                0.15s  
+  ✓ score capped at 100                                                  0.14s  
+  ✓ get low rating for low score                                         0.15s  
+  ✓ get medium rating for medium score                                   0.16s  
+  ✓ get high rating for high score                                       0.16s  
+  ✓ get low rating for boundary score                                    0.15s  
+  ✓ get medium rating for lower boundary                                 0.14s  
+  ✓ get medium rating for upper boundary                                 0.14s  
+  ✓ get high rating for minimum high score                               0.14s  
+  ✓ get refresh frequency by rating                                      0.14s  
+
+   PASS  Tests\Unit\Services\Compliance\BaseMonitorTest
+  ✓ create finding returns correct array structure                       0.16s  
+  ✓ get default severity returns finding type default                    0.15s  
+  ✓ execute calls run and stores findings                                0.15s  
+
+   PASS  Tests\Unit\Services\Compliance\CaseManagementServiceTest
+  ✓ can create case from finding                                         0.15s  
+  ✓ finding marked case created when case created                        0.14s  
+  ✓ can add note to case                                                 0.14s  
+  ✓ case number unique and auto incrementing                             0.15s  
+
+   PASS  Tests\Unit\Services\Compliance\ComplianceReportingServiceTest
+  ✓ dashboard kpis returns case summary                                  0.16s  
+  ✓ dashboard kpis returns str status                                    0.14s  
+  ✓ dashboard kpis returns edd status                                    0.15s  
+  ✓ dashboard kpis returns findings by severity                          0.15s  
+  ✓ dashboard kpis returns risk distribution                             0.14s  
+  ✓ case aging returns sla metrics                                       0.15s  
+  ✓ calendar calculates filing deadlines                                 0.14s  
+  ✓ calendar includes qlvr for current quarter                           0.14s  
+  ✓ audit trail returns paginated results                                0.15s  
+  ✓ audit trail can filter by date range                                 0.14s  
+  ✓ auto generated reports returns pending                               0.15s  
+  ✓ case aging calculates avg resolution time                            0.14s  
+
+   PASS  Tests\Unit\Services\Compliance\CounterfeitAlertMonitorTest
+  ✓ no findings when no counterfeit flags                                0.15s  
+  ✓ no findings with old counterfeit flags                               0.15s  
+  ✓ generates finding for open counterfeit flag                          0.14s  
+  ✓ generates finding for under review counterfeit flag                  0.15s  
+  ✓ ignores resolved counterfeit flags                                   0.15s  
+
+   PASS  Tests\Unit\Services\Compliance\CurrencyFlowMonitorTest
+  ✓ no findings with single transaction                                  0.15s  
+  ✓ no findings without round trip                                       0.14s  
+  ✓ detects round trip pattern                                           0.15s  
+  ✓ ignores round trip below threshold                                   0.15s  
+  ✓ ignores round trip outside time window                               0.15s  
+
+   PASS  Tests\Unit\Services\Compliance\CustomerLocationAnomalyMonitorTest
+  ✓ no findings for malaysian customers                                  0.15s  
+  ✓ no findings for foreign customers with no transactions               0.14s  
+  ✓ no findings for foreign customers with low value transactions        0.15s  
+  ✓ generates finding for multiple currencies                            0.15s  
+  ✓ generates finding for high transaction frequency                     0.15s  
+
+   PASS  Tests\Unit\Services\Compliance\MonitoringEngineTest
+  ✓ register monitor adds class to list                                  0.15s  
+  ✓ register monitor does not add duplicate                              0.14s  
+  ✓ get registered monitors returns array                                0.15s  
+  ✓ get monitor returns instance                                         0.15s  
+  ✓ run all calls all monitors                                           0.15s  
+  ✓ run monitor runs specific monitor                                    0.15s  
+
+   PASS  Tests\Unit\Services\Compliance\RiskScoringEngineTest
+  ✓ calculates base score for new customer                               0.15s  
+  ✓ returns factors with contributions                                   0.14s  
+  ✓ updates or creates profile                                           0.15s  
+  ✓ respects locked score                                                0.14s  
+
+   PASS  Tests\Unit\Services\Compliance\SanctionsRescreeningMonitorTest
+  ✓ no findings when no sanction entries                                 0.14s  
+  ✓ no findings when customer matches no sanctions                       0.16s  
+  ✓ generates finding when customer matches sanction                     0.15s  
+  ✓ handles multiple sanction matches                                    0.15s  
+
+   PASS  Tests\Unit\Services\Compliance\StrDeadlineMonitorTest
+  ✓ no finding when flag has str filed                                   0.15s  
+  ✓ generates finding when str deadline approaching                      0.14s  
+
+   PASS  Tests\Unit\Services\Compliance\StructuringMonitorTest
+  ✓ no finding when no structuring pattern                               0.15s  
+  ✓ generates finding when structuring detected                          0.15s  
+
+   PASS  Tests\Unit\Services\Compliance\VelocityMonitorTest
+  ✓ no finding when under threshold                                      0.14s  
+  ✓ generates finding when approaching threshold                         0.16s  
+  ✓ generates high finding when exceeding threshold                      0.14s  
+
+   PASS  Tests\Unit\StockTransferServiceTest
+  ✓ create request generates transfer number                             0.17s  
+  ✓ approve by branch manager changes status                             0.14s  
+  ✓ approve by hq requires bm approval first                             0.14s  
+  ✓ dispatch requires hq approval                                        0.15s  
+  ✓ cancel sets status and reason                                        0.14s  
+  ✓ teller cannot approve                                                0.14s  
+  ✓ receive items logs high variance to audit                            0.15s  
+
+   PASS  Tests\Unit\StrAutomationServiceTest
+  ✓ suggest narrative with velocity                                      0.14s  
+  ✓ suggest narrative with structuring                                   0.14s  
+  ✓ suggest narrative with sanctions                                     0.15s  
+  ✓ suggest narrative with high risk country                             0.15s  
+  ✓ suggest narrative with large amount                                  0.14s  
+  ✓ suggest narrative empty alerts returns default                       0.15s  
+  ✓ suggest narrative combines multiple flags                            0.14s  
+  ✓ convert to str report creates report                                 0.14s  
+  ✓ convert to str report fails when not convertible                     0.15s  
+  ✓ get overdue drafts returns only overdue                              0.14s  
+  ✓ get filing deadline summary                                          0.14s  
+  ✓ extract transaction patterns                                         0.15s  
+  ✓ identify suspected activity                                          0.14s  
+
+   PASS  Tests\Unit\TransactionCancellationServiceTest
+  ✓ manager can cancel draft transaction                                 0.16s  
+  ✓ manager can cancel pending approval transaction                      0.14s  
+  ✓ manager can cancel approved transaction                              0.15s  
+  ✓ manager can cancel processing transaction                            0.15s  
+  ✓ manager can cancel completed transaction                             0.15s  
+  ✓ teller cannot cancel transaction                                     0.15s  
+  ✓ cannot cancel finalized transaction                                  0.15s  
+  ✓ cannot cancel already cancelled transaction                          0.15s  
+  ✓ can cancel returns true for cancellable states                       0.15s  
+  ✓ can cancel returns false for final states                            0.16s  
+  ✓ manager can reverse completed transaction within window              0.15s  
+  ✓ cannot reverse transaction outside window                            0.15s  
+  ✓ cannot reverse non completed transaction                             0.15s  
+  ✓ cannot reverse refund transaction                                    0.15s  
+  ✓ teller can reverse own transaction within window                     0.15s  
+  ✓ teller cannot reverse others transaction                             0.15s  
+  ✓ can reverse returns true for completed within window                 0.14s  
+  ✓ can reverse returns false for completed outside window               0.14s  
+  ✓ can reverse returns false for non completed                          0.15s  
+  ✓ can reverse returns false for already reversed                       0.14s  
+  ✓ is within cancellation window returns true within 24 hours           0.14s  
+  ✓ is within cancellation window returns false after 24 hours           0.15s  
+  ✓ is within cancellation window boundary                               0.15s  
+  ✓ cancellation window uses config value                                0.14s  
+  ✓ create refund transaction creates opposite type                      0.15s  
+  ✓ create refund transaction for sell creates buy                       0.15s  
+  ✓ refund transaction is completed                                      0.14s  
+  ✓ refund transaction preserves customer and user                       0.15s  
+  ✓ reverse positions for buy transaction                                0.15s  
+  ✓ reverse positions for sell transaction                               0.15s  
+  ✓ record state history updates transaction                             0.15s  
+  ✓ manager can cancel returns true                                      0.14s  
+  ✓ teller can cancel returns false                                      0.14s  
+  ✓ manager can reverse any transaction                                  0.15s  
+  ✓ teller can reverse own transaction                                   0.15s  
+  ✓ can user reverse returns false for others transaction                0.14s  
+  ✓ full cancellation workflow                                           0.15s  
+  ✓ full reversal workflow                                               0.15s  
+  ✓ get cancellation window hours returns default                        0.14s  
+  ✓ get cancellation window hours returns config value                   0.15s  
+
+   PASS  Tests\Unit\TransactionErrorHandlerTest
+  ✓ handle processing error creates error record                         0.16s  
+  ✓ handle processing error records error context                        0.15s  
+  ✓ handle processing error returns false when max retries exceeded      0.14s  
+  ✓ should retry returns false when no errors                            0.14s  
+  ✓ should retry returns true when ready                                 0.15s  
+  ✓ should retry returns false when not yet time                         0.14s  
+  ✓ should retry returns false when max retries reached                  0.14s  
+  ✓ exponential backoff delays                                           0.15s  
+  ✓ get next retry delay returns zero when no errors                     0.14s  
+  ✓ should move to dlq returns false when not failed                     0.14s  
+  ✓ should move to dlq returns true when max retries exceeded            0.15s  
+  ✓ should move to dlq returns true for non retryable error types        0.15s  
+  ✓ should move to dlq returns true for compliance errors                0.14s  
+  ✓ should move to dlq returns false when retry available                0.15s  
+  ✓ should move to dlq returns false when no unresolved errors           0.14s  
+  ✓ mark error resolved updates error record                             0.14s  
+  ✓ mark error resolved returns false when no errors                     0.15s  
+  ✓ get transaction errors returns all errors                            0.14s  
+  ✓ get transaction errors returns empty collection when no errors       0.14s  
+  ✓ get retry count returns current count                                0.15s  
+  ✓ get retry count returns zero when no errors                          0.14s  
+  ✓ record successful retry marks error resolved                         0.14s  
+  ✓ record successful retry returns false when no errors                 0.15s  
+
+   PASS  Tests\Unit\TransactionStateMachineTest
+  ✓ submit transitions draft to pending approval                         0.15s  
+  ✓ approve transitions pending approval to approved                     0.15s  
+  ✓ reject transitions pending approval to rejected                      0.14s  
+  ✓ start processing transitions approved to processing                  0.14s  
+  ✓ complete transitions processing to completed                         0.15s  
+  ✓ fail transitions processing to failed                                0.14s  
+  ✓ retry transitions failed to pending approval                         0.14s  
+  ✓ reverse transitions completed to reversed                            0.15s  
+  ✓ finalize transitions completed to finalized                          0.14s  
+  ✓ cancel from draft                                                    0.14s  
+  ✓ cancel from pending approval                                         0.15s  
+  ✓ cancel from approved                                                 0.14s  
+  ✓ cancel from processing                                               0.14s  
+  ✓ cancel from completed                                                0.15s  
+  ✓ cancel from failed                                                   0.14s  
+  ✓ cancel from rejected                                                 0.14s  
+  ✓ rejected to cancelled                                                0.15s  
+  ✓ force status admin override                                          0.14s  
+  ✓ cannot approve from draft                                            0.14s  
+  ✓ cannot process from draft                                            0.15s  
+  ✓ cannot complete from approved                                        0.14s  
+  ✓ cannot complete from pending approval                                0.14s  
+  ✓ cannot retry from draft                                              0.15s  
+  ✓ cannot finalize from processing                                      0.14s  
+  ✓ cannot revert from finalized                                         0.14s  
+  ✓ cannot revert from cancelled                                         0.15s  
+  ✓ cannot revert from reversed                                          0.14s  
+  ✓ is final returns true for final states                               0.15s  
+  ✓ is final returns false for non final states                          0.16s  
+  ✓ is pending returns true for pending states                           0.14s  
+  ✓ is pending returns false for non pending states                      0.14s  
+  ✓ get available transitions from draft                                 0.15s  
+  ✓ get available transitions from processing                            0.14s  
+  ✓ get available transitions from completed                             0.14s  
+  ✓ get available transitions from finalized is empty                    0.16s  
+  ✓ get transition history records changes                               0.14s  
+  ✓ labels and colors exist for all states                               0.14s  
+  ✓ successful full lifecycle                                            0.15s  
+  ✓ failure and retry lifecycle                                          0.15s  
+  ✓ rejection lifecycle                                                  0.14s  
+
+   PASS  Tests\Unit\UserModelTest
+  ✓ user can be created                                                  0.16s  
+  ✓ user has correct fillable attributes                                 0.14s  
+  ✓ user has correct hidden attributes                                   0.15s  
+  ✓ user has correct casts                                               0.14s  
+  ✓ is admin method                                                      0.14s  
+  ✓ is manager method                                                    0.15s  
+  ✓ is compliance officer method                                         0.14s  
+  ✓ get auth password method                                             0.14s  
+  ✓ transactions relationship exists                                     0.15s  
+  ✓ valid roles                                                          0.14s  
+  ✓ email must be unique                                                 0.14s  
+  ✓ username must be unique                                              0.15s  
+  ✓ user can update last login                                           0.14s  
+  ✓ inactive user status                                                 0.14s  
+  ✓ mfa enabled status                                                   0.15s  
+
+   PASS  Tests\Unit\UserRoleBranchTest
+  ✓ admin can manage all branches                                        0.15s  
+  ✓ manager cannot manage all branches                                   0.15s  
+  ✓ compliance officer cannot manage all branches                        0.14s  
+  ✓ teller cannot manage all branches                                    0.14s  
+
+   PASS  Tests\Feature\AccountingWorkflowTest
+  ✓ journal entry creation through service                               0.16s  
+  ✓ journal entry creation via api                                       0.30s  
+  ✓ unbalanced journal entry rejected                                    0.16s  
+  ✓ journal entry reversal through service                               0.16s  
+  ✓ journal entry reversal via api                                       0.17s  
+  ✓ already reversed entry cannot be reversed again                      0.17s  
+  ✓ period closing through service                                       0.16s  
+  ✓ period closing via api                                               0.15s  
+  ✓ closed period cannot be closed again                                 0.16s  
+  ✓ journal entry to closed period rejected                              0.15s  
+  ✓ teller cannot access accounting routes                               0.21s  
+  ✓ manager can view journal entries                                     0.18s  
+  ✓ journal entry show displays lines                                    0.19s  
+  ✓ ledger balance updates after journal entry                           0.18s  
+  ✓ journal entry requires at least two lines                            0.17s  
+  ✓ journal entry requires valid account codes                           0.18s  
+  ✓ accounting period list loads                                         0.16s  
+
+   PASS  Tests\Feature\Api\Compliance\CaseControllerTest
+  ✓ can list cases                                                       0.18s  
+  ✓ can filter cases by status                                           0.16s  
+  ✓ can create case from finding                                         0.17s  
+  ✓ can add note                                                         0.16s  
+  ✓ can close case                                                       0.15s  
+  ✓ can get case timeline                                                0.15s  
+
+   PASS  Tests\Feature\Api\Compliance\DashboardControllerTest
+  ✓ can get dashboard kpis                                               0.17s  
+  ✓ can get calendar                                                     0.16s  
+  ✓ calendar includes required report types                              0.19s  
+  ✓ can get case aging                                                   0.15s  
+  ✓ can get audit trail                                                  0.15s  
+  ✓ can filter audit trail by date                                       0.16s  
+  ✓ can export audit trail csv                                           0.16s  
+  ✓ can get auto reports                                                 0.16s  
+  ✓ kpis include correct case counts                                     0.16s  
+  ✓ kpis include risk distribution                                       0.15s  
+  ✓ unauthenticated access denied                                        0.15s  
+  ✓ audit trail respects per page                                        0.15s  
+
+   PASS  Tests\Feature\Api\Compliance\EddControllerTest
+  ✓ can list edd records                                                 0.17s  
+  ✓ can filter edd by status                                             0.17s  
+  ✓ can get edd templates                                                0.16s  
+  ✓ can submit questionnaire                                             0.17s  
+
+   PASS  Tests\Feature\Api\Compliance\FindingControllerTest
+  ✓ can list findings                                                    0.16s  
+  ✓ can filter findings by status                                        0.17s  
+  ✓ can get finding stats                                                0.18s  
+  ✓ can dismiss finding                                                  0.17s  
+  ✓ dismiss requires reason                                              0.16s  
+
+   PASS  Tests\Feature\Api\Compliance\RiskControllerTest
+  ✓ can get customer risk profile                                        0.17s  
+  ✓ can recalculate risk score                                           0.15s  
+  ✓ can lock and unlock score                                            0.16s  
+  ✓ can get portfolio stats                                              0.15s  
+  ✓ portfolio returns empty by tier when no profiles                     0.17s  
+
+   PASS  Tests\Feature\Api\V1\BranchControllerTest
+  ✓ admin can list branches                                              0.18s  
+  ✓ non admin cannot list branches                                       0.16s  
+  ✓ admin can create branch                                              0.18s  
+  ✓ admin can get branch                                                 0.15s  
+  ✓ admin can update branch                                              0.15s  
+  ✓ admin can deactivate branch                                          0.16s  
+  ✓ cannot deactivate main branch                                        0.15s  
+  ✓ non admin can get own branch                                         0.16s  
+  ✓ non admin cannot get other branch                                    0.19s  
+  ✓ admin can get branch counters                                        0.21s  
+  ✓ admin can get branch users                                           0.16s  
+  ✓ create branch requires code                                          0.15s  
+  ✓ create branch code must be unique                                    0.15s  
+  ✓ create branch requires valid type                                    0.16s  
+  ✓ create branch email must be valid                                    0.16s  
+  ✓ branch not found returns 404                                         0.16s  
+
+   PASS  Tests\Feature\Api\V1\TransactionControllerTest
+  ✓ index returns proper json structure                                  0.17s  
+  ✓ create buy transaction succeeds                                      0.17s  
+  ✓ create sell transaction succeeds                                     0.17s  
+  ✓ idempotency key prevents duplicate                                   0.16s  
+  ✓ create transaction without open till fails                           0.16s  
+  ✓ create sell without sufficient stock fails                           0.17s  
+  ✓ validation errors return proper structure                            0.16s  
+  ✓ show returns proper json structure                                   0.17s  
+  ✓ show non existent transaction returns 404                            0.17s  
+  ✓ unauthenticated access returns 401                                   0.17s  
+  ✓ cdd level calculated for large amount                                0.17s  
+  ✓ monetary values precision                                            0.17s  
+
+   PASS  Tests\Feature\AuditLogTest
+  ✓ audit log index is accessible by manager                             0.17s  
+  ✓ audit log index is not accessible by regular user                    0.15s  
+  ✓ log with severity creates entry with correct severity                0.15s  
+  ✓ get audit trail returns filtered results by date                     0.16s  
+  ✓ get audit trail returns filtered results by severity                 0.15s  
+  ✓ get audit trail returns filtered results by user                     0.15s  
+  ✓ get audit trail returns filtered results by action                   0.15s  
+  ✓ audit log severity scope works correctly                             0.15s  
+  ✓ system log scope between dates works                                 0.18s  
+  ✓ system log scope action works                                        0.18s  
+  ✓ system log get severity color returns correct color                  0.16s  
+  ✓ export audit log returns csv data                                    0.15s  
+  ✓ log with severity includes session id                                0.16s  
+  ✓ audit log filters can be combined                                    0.16s  
+
+   PASS  Tests\Feature\AuthenticationTest
+  ✓ login page is accessible                                             0.21s  
+  ✓ admin can login with valid credentials                               0.16s  
+  ✓ teller can login with valid credentials                              0.18s  
+  ✓ login fails with invalid password                                    0.16s  
+  ✓ login fails with nonexistent email                                   0.15s  
+  ✓ inactive user cannot login                                           0.17s  
+  ✓ authenticated user can logout                                        0.16s  
+  ✓ unauthenticated user is redirected to login                          0.17s  
+  ✓ admin has correct role permissions                                   0.16s  
+  ✓ manager has correct role permissions                                 0.15s  
+  ✓ teller has correct role permissions                                  0.17s  
+  ✓ compliance officer has correct role permissions                      0.16s  
+  ✓ dashboard is accessible to authenticated users                       0.16s  
+  ✓ compliance page is accessible to compliance                          0.16s  
+  ✓ teller can access dashboard                                          0.15s  
+  ✓ password is hashed in database                                       0.15s  
+  ✓ teller cannot access user management                                 0.15s  
+  ✓ manager cannot access user management                                0.15s  
+  ✓ compliance officer cannot access user management                     0.16s  
+  ✓ admin can access user management                                     0.16s  
+  ✓ teller cannot access compliance portal                               0.16s  
+  ✓ manager cannot access compliance portal                              0.15s  
+  ✓ compliance officer can access compliance portal                      0.15s  
+  ✓ admin can access compliance portal                                   0.16s  
+  ✓ teller cannot access accounting                                      0.15s  
+  ✓ compliance officer cannot access accounting                          0.16s  
+  ✓ manager can access accounting                                        0.16s  
+  ✓ teller cannot access stock cash                                      0.17s  
+  ✓ manager can access stock cash                                        0.16s  
+  ✓ admin can access stock cash                                          0.15s  
+  ✓ login creates audit log                                              0.16s  
+  ✓ failed login creates audit log                                       0.15s  
+  ✓ failed login log does not reveal user status                         0.16s  
+
+   PASS  Tests\Feature\BankReconciliationTest
+  ✓ manager can access reconciliation page                               0.17s  
+  ✓ teller cannot access reconciliation                                  0.16s  
+  ✓ can import bank statement lines                                      0.15s  
+  ✓ reconciliation auto matches entries                                  0.16s  
+  ✓ unmatched items identified                                           0.15s  
+  ✓ can mark item as exception                                           0.15s  
+  ✓ reconciliation report shows balance                                  0.16s  
+  ✓ can view unmatched deposits                                          0.16s  
+  ✓ can view unmatched withdrawals                                       0.16s  
+  ✓ admin can access reconciliation                                      0.15s  
+  ✓ reconciliation report can be exported                                0.16s  
+
+   PASS  Tests\Feature\BranchAccessMiddlewareTest
+  ✓ unauthenticated user gets 401 or redirect                            0.16s  
+  ✓ admin can access any branch                                          0.16s  
+  ✓ manager cannot access other branch                                   0.15s  
+  ✓ manager can access own branch                                        0.16s  
+  ✓ branch id parameter works                                            0.15s  
+  ✓ route without branch parameter passes through                        0.15s  
+  ✓ non existent branch returns 403                                      0.15s  
+
+   PASS  Tests\Feature\BudgetTest
+  ✓ manager can access budget page                                       0.16s  
+  ✓ teller cannot access budget                                          0.16s  
+  ✓ can create budget for period                                         0.15s  
+  ✓ can update existing budget                                           0.16s  
+  ✓ budget report shows actual vs budget                                 0.15s  
+  ✓ variance calculation is correct                                      0.15s  
+  ✓ budget report shows under budget                                     0.16s  
+  ✓ budget report can filter by period                                   0.15s  
+  ✓ over budget count is correct                                         0.16s  
+  ✓ admin can access budget                                              0.17s  
+  ✓ shows accounts without budget                                        0.16s  
+  ✓ budget totals are calculated                                         0.15s  
+
+   PASS  Tests\Feature\ComplianceFlaggingTest
+  ✓ large transaction requires approval and creates flag                 0.17s  
+  ✓ manager approval completes transaction and creates journals          0.16s  
+  ✓ approval creates compliance log entry                                0.16s  
+  ✓ pep customer small amount goes on hold                               0.16s  
+  ✓ high risk customer large amount goes pending with flag               0.16s  
+  ✓ compliance officer can view flagged transactions                     0.16s  
+  ✓ compliance officer can resolve flag                                  0.15s  
+  ✓ teller cannot access compliance flags                                0.16s  
+  ✓ manager can approve large transaction                                0.17s  
+  ✓ regular transaction completes immediately                            0.17s  
+
+   PASS  Tests\Feature\ComplianceViewTest
+  ✓ compliance officer can access compliance portal                      0.20s  
+  ✓ admin can access compliance portal                                   0.15s  
+  ✓ teller cannot access compliance portal                               0.16s  
+  ✓ compliance page displays flagged transactions                        0.16s  
+  ✓ compliance filters work                                              0.15s  
+  ✓ assign flag action                                                   0.16s  
+  ✓ resolve flag action                                                  0.15s  
+
+   PASS  Tests\Feature\ComprehensiveViewsTest
+  ✓ compliance portal requires proper authorization                      0.17s  
+  ✓ compliance stats calculate correctly                                 0.20s  
+  ✓ compliance filters work correctly                                    0.18s  
+  ✓ reports dashboard requires manager or admin                          0.16s  
+  ✓ reports dashboard shows all eight report cards                       0.15s  
+  ✓ recent reports shows correct data                                    0.16s  
+  ✓ lctr only includes qualifying completed transactions                 0.17s  
+  ✓ lctr stats calculate correctly                                       0.16s  
+  ✓ lctr shows warning for pending qualifying transactions               0.16s  
+  ✓ msb2 aggregates currency data correctly                              0.17s  
+  ✓ msb2 stats calculate correctly                                       0.15s  
+  ✓ msb2 shows warning for negative net position                         0.16s  
+  ✓ flag assign requires compliance officer                              0.15s  
+  ✓ flag resolve updates correctly                                       0.15s  
+  ✓ views handle empty data gracefully                                   0.16s  
+  ✓ views handle invalid parameters                                      0.15s  
+  ✓ lctr masks customer names                                            0.16s  
+  ✓ compliance pagination preserves filters                              0.21s  
+
+   PASS  Tests\Feature\CounterControllerTest
+  ✓ user can view counters list                                          0.16s  
+  ✓ user can open counter form                                           0.15s  
+  ✓ user can open counter                                                0.15s  
+  ✓ user can view counter history                                        0.15s  
+  ✓ counter api returns status                                           0.16s  
+  ✓ teller cannot close counter                                          0.16s  
+  ✓ teller cannot initiate handover                                      0.15s  
+  ✓ manager can close counter                                            0.16s  
+
+   PASS  Tests\Feature\CounterHandoverTest
+  ✓ manager can open counter session                                     0.16s  
+  ✓ teller can start session at open counter                             0.15s  
+  ✓ teller cannot open session at already open counter                   0.16s  
+  ✓ manager can initiate handover                                        0.16s  
+  ✓ handover with variance records variance                              0.16s  
+  ✓ teller cannot initiate handover                                      0.16s  
+  ✓ handover transfers till balances                                     0.17s  
+  ✓ handover closes old session                                          0.16s  
+  ✓ manager can close session with acceptable variance                   0.15s  
+  ✓ teller cannot approve handover                                       0.16s  
+
+   PASS  Tests\Feature\CustomerHistoryTest
+  ✓ customer history displays correct statistics                         0.17s  
+  ✓ customer history shows paginated transactions                        0.21s  
+  ✓ customer history calculates first and last transaction dates         0.16s  
+  ✓ customer history export returns csv                                  0.15s  
+  ✓ customer history with no transactions shows zero stats               0.16s  
+  ✓ customer history returns monthly chart data                          0.15s  
+
+   PASS  Tests\Feature\DataBreachDetectionTest
+  ✓ breach alert created when threshold exceeded                         0.16s  
+  ✓ mass export detected with high limit                                 0.15s  
+  ✓ no alert when below threshold                                        0.15s  
+
+   PASS  Tests\Feature\EddWorkflowTest
+  ✓ edd index accessible by compliance                                   0.15s  
+  ✓ edd create page loads                                                0.15s  
+  ✓ can create edd record                                                0.15s  
+  ✓ edd record requires source of funds                                  0.15s  
+  ✓ can view edd record                                                  0.16s  
+  ✓ can update and complete edd record                                   0.15s  
+  ✓ can approve edd record                                               0.15s  
+  ✓ can reject edd record                                                0.15s  
+  ✓ edd reference is auto generated                                      0.15s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ the application returns a successful response                        0.02s  
+
+   PASS  Tests\Feature\FinancialStatementControllerTest
+  ✓ trial balance requires manager                                       0.16s  
+  ✓ profit loss requires manager                                         0.16s  
+  ✓ balance sheet requires manager                                       0.15s  
+  ✓ cash flow requires manager                                           0.15s  
+  ✓ ratios requires manager                                              0.16s  
+
+   PASS  Tests\Feature\FiscalYearControllerTest
+  ✓ fiscal year close creates income summary entries                     0.16s  
+  ✓ fiscal year open creates opening entries                             0.15s  
+  ✓ fiscal year close requires open periods                              0.15s  
+  ✓ manager can access fiscal year index                                 0.16s  
+  ✓ teller cannot access fiscal year index                               0.16s  
+  ✓ can create fiscal year                                               0.15s  
+
+   PASS  Tests\Feature\JournalEntryWorkflowTest
+  ✓ journal entry rejection requires notes                               0.16s  
+  ✓ journal entry approve changes status to posted                       0.15s  
+  ✓ journal entry reject changes status to draft                         0.16s  
+  ✓ teller cannot approve journal entries                                0.15s  
+  ✓ cannot approve own journal entry                                     0.15s  
+
+   PASS  Tests\Feature\MfaTest
+  ✓ mfa setup page is accessible for admin                               0.15s  
+  ✓ mfa setup generates secret and url                                   0.15s  
+  ✓ mfa verify redirects when mfa not enabled                            0.16s  
+  ✓ mfa verify page loads when enabled                                   0.15s  
+  ✓ mfa setup verifies valid code                                        0.17s  
+  ✓ mfa setup rejects invalid code                                       0.15s  
+  ✓ mfa verify with valid code                                           0.15s  
+  ✓ mfa verify with recovery code                                        0.17s  
+  ✓ mfa verify rejects invalid code                                      0.15s  
+  ✓ mfa verify rejects reused recovery code                              0.17s  
+  ✓ trusted device bypasses mfa                                          0.15s  
+  ✓ mfa disable requires valid code                                      0.15s  
+  ✓ mfa disable with valid code                                          0.16s  
+  ✓ transaction create requires mfa                                      0.15s  
+  ✓ transaction create allows after mfa                                  0.16s  
+  ✓ teller does not require mfa setup                                    0.15s  
+  ✓ mfa service generates valid totp                                     1.15s  
+  ✓ mfa service stores and retrieves secret                              0.15s  
+  ✓ recovery codes generated on mfa enable                               0.16s  
+  ✓ audit log created when mfa enabled                                   0.16s  
+  ✓ audit log created when mfa disabled                                  0.16s  
+
+   PASS  Tests\Feature\NavigationTest
+  ✓ admin sees complete navigation                                       0.16s  
+  ✓ manager sees navigation                                              0.16s  
+  ✓ compliance sees navigation                                           0.16s  
+  ✓ teller sees navigation                                               0.15s  
+  ✓ navigation links are clickable                                       0.16s  
+  ✓ logout link has csrf form                                            0.15s  
+  ✓ navigation consistent across pages                                   0.17s  
+  ✓ stock cash menu item exists                                          0.15s  
+  ✓ navigation has styling                                               0.15s  
+  ✓ unauthenticated user redirected to login                             0.16s  
+  ✓ navigation items in correct order                                    0.15s  
+
+   PASS  Tests\Feature\RateHistoryLoggingTest
+  ✓ rate fetch logs to history table                                     0.16s  
+  ✓ rate fetch only logs once per day                                    0.14s  
+  ✓ get rate trend returns correct data                                  0.15s  
+  ✓ get rate trend returns empty data for no history                     0.15s  
+
+   PASS  Tests\Feature\RbacComprehensiveTest
+  ✓ teller can access transaction create                                 0.15s  
+  ✓ teller cannot access user management                                 0.15s  
+  ✓ teller cannot access accounting                                      0.15s  
+  ✓ teller cannot access compliance                                      0.18s  
+  ✓ teller cannot access reports                                         0.16s  
+  ✓ manager can access accounting                                        0.15s  
+  ✓ manager can access reports                                           0.16s  
+  ✓ manager cannot access user management                                0.15s  
+  ✓ manager can approve transactions                                     0.16s  
+  ✓ manager cannot delete users                                          0.16s  
+  ✓ compliance officer can access compliance                             0.15s  
+  ✓ compliance officer can view flagged                                  0.16s  
+  ✓ compliance officer can access str                                    0.16s  
+  ✓ compliance officer cannot access users                               0.15s  
+  ✓ compliance officer cannot access accounting                          0.16s  
+  ✓ compliance officer cannot access reports                             0.15s  
+  ✓ admin has full access                                                0.16s  
+  ✓ admin can create users                                               0.15s  
+  ✓ admin can delete users                                               0.16s  
+  ✓ teller cannot approve transactions                                   0.15s  
+  ✓ teller can view transactions                                         0.15s  
+  ✓ teller can create transaction                                        0.16s  
+  ✓ manager can access trial balance                                     0.15s  
+  ✓ manager can access profit loss                                       0.16s  
+  ✓ manager can access balance sheet                                     0.15s  
+  ✓ manager can access ledger                                            0.16s  
+  ✓ manager can access journal                                           0.16s  
+  ✓ admin can access all accounting pages                                0.18s  
+  ✓ user role enum works                                                 0.15s  
+  ✓ permission methods on role enum                                      0.15s  
+
+   PASS  Tests\Feature\RealWorldTransactionWorkflowTest
+  ✓ complete daily workflow                                              0.21s  
+  ✓ edge cases                                                           0.16s  
+  ✓ receipt generation workflow                                          0.41s  
+  ✓ transaction search and filtering                                     0.17s  
+  ✓ daily transaction summary                                            0.17s  
+
+   PASS  Tests\Feature\ReportsViewTest
+  ✓ manager can access reports dashboard                                 0.16s  
+  ✓ compliance officer cannot access reports dashboard                   0.15s  
+  ✓ admin can access reports dashboard                                   0.16s  
+  ✓ teller cannot access reports dashboard                               0.15s  
+  ✓ reports page displays recent reports                                 0.16s  
+  ✓ reports page displays all report cards                               0.15s  
+  ✓ lctr report page loads                                               0.16s  
+  ✓ msb2 report page loads                                               0.15s  
+  ✓ lctr requires manager or admin                                       0.15s  
+  ✓ msb2 requires manager or admin                                       0.15s  
+
+   PASS  Tests\Feature\RouteConsistencyTest
+  ✓ unauthenticated users redirected to login                            0.16s  
+  ✓ teller can access transaction routes                                 0.16s  
+  ✓ teller cannot access manager routes                                  0.16s  
+  ✓ manager can access accounting routes                                 0.19s  
+  ✓ teller cannot access compliance routes                               0.16s  
+  ✓ compliance officer can access compliance routes                      0.18s  
+  ✓ admin can access admin routes                                        0.16s  
+  ✓ non admin cannot access admin routes                                 0.16s  
+  ✓ authenticated users can access customer routes                       0.16s  
+  ✓ stock cash routes require manager role                               0.15s  
+  ✓ authenticated users can access counter routes                        0.16s  
+  ✓ authenticated users can access task routes                           0.16s  
+  ✓ mfa routes exist                                                     0.16s  
+  ✓ all web routes return valid responses                                0.20s  
+  ✓ view files exist for main routes                                     0.15s  
+  ✓ mfa middleware applied to transaction creation                       0.16s  
+  ✓ reports routes require manager role                                  0.15s  
+  ✓ audit routes require manager role                                    0.16s  
+  ✓ transaction show route accepts transaction id                        0.15s  
+  ✓ customer show route accepts customer id                              0.15s  
+  ✓ authenticated users root route redirects to dashboard                0.16s  
+
+   PASS  Tests\Feature\StockTransferControllerTest
+  ✓ manager can create transfer                                          0.16s  
+  ✓ teller cannot create transfer                                        0.15s  
+  ✓ manager can approve transfer                                         0.15s  
+  ✓ admin can approve hq                                                 0.15s  
+  ✓ manager cannot approve hq                                            0.15s  
+  ✓ admin can dispatch transfer                                          0.15s  
+  ✓ index page is accessible                                             0.16s  
+  ✓ show page is accessible                                              0.15s  
+
+   PASS  Tests\Feature\StrWorkflowTest
+  ✓ compliance officer can generate str from flag                        0.16s  
+  ✓ str created with draft status                                        0.15s  
+  ✓ str generation creates system log                                    0.16s  
+  ✓ compliance officer can submit str for review                         0.16s  
+  ✓ manager can review and approve str                                   0.16s  
+  ✓ str status transitions correctly                                     0.17s  
+  ✓ manager can submit str to goaml                                      0.16s  
+  ✓ teller cannot access str management                                  0.18s  
+  ✓ manager cannot generate str                                          0.16s  
+  ✓ str list page loads for compliance                                   0.16s  
+  ✓ compliance officer can view str details                              0.16s  
+  ✓ str has filing deadline                                              0.16s  
+
+   PASS  Tests\Feature\TillReconciliationTest
+  ✓ reconciliation calculates expected closing correctly                 0.17s  
+  ✓ reconciliation calculates variance correctly                         0.15s  
+  ✓ reconciliation shows null variance for open till                     0.16s  
+  ✓ reconciliation shows transaction details                             0.16s  
+  ✓ reconciliation calculates buy and sell counts                        0.17s  
+  ✓ reconciliation returns error for nonexistent till                    0.17s  
+  ✓ non manager cannot access reconciliation                             0.16s  
+
+   PASS  Tests\Feature\TransactionBatchUploadTest
+  ✓ manager can access batch upload form                                 0.17s  
+  ✓ teller cannot access batch upload                                    0.15s  
+  ✓ manager can upload csv                                               0.19s  
+  ✓ csv with errors shows error report                                   0.16s  
+  ✓ manager can view import results                                      0.15s  
+  ✓ user can only view own import results                                0.16s  
+  ✓ template download works                                              0.15s  
+  ✓ empty csv shows error                                                0.16s  
+  ✓ only managers can upload                                             0.15s  
+  ✓ sell fails with insufficient stock                                   0.15s  
+  ✓ fails with closed till                                               0.17s  
+  ✓ fails with invalid transaction type                                  0.17s  
+  ✓ mixed success and failure                                            0.19s  
+  ✓ file size validation                                                 0.17s  
+  ✓ admin can access batch upload                                        0.15s  
+
+   PASS  Tests\Feature\TransactionCancellationFlowTest
+  ✓ completed transaction is reversed within 24 hours by manager         0.18s  
+  ✓ completed transaction is reversed by admin                           0.16s  
+  ✓ original teller cannot cancel own transaction                        0.16s  
+  ✓ other teller cannot cancel transaction                               0.16s  
+  ✓ transaction cannot be cancelled after 24 hours                       0.18s  
+  ✓ completed transactions are reversed not cancelled                    0.17s  
+  ✓ pending approval transactions can be cancelled                       0.17s  
+  ✓ refund transactions cannot be cancelled                              0.17s  
+  ✓ already cancelled transactions cannot be cancelled again             0.16s  
+  ✓ cancellation reason is required and min length                       0.17s  
+  ✓ confirmation checkbox is required                                    0.19s  
+  ✓ cancel button appears for refundable transactions                    0.17s  
+  ✓ cancel button does not appear for old transactions                   0.17s  
+  ✓ stock position is reversed after cancellation                        0.17s  
+  ✓ refund transaction has reversed type                                 0.17s  
+  ✓ guest users cannot access cancellation                               0.17s  
+
+   PASS  Tests\Feature\TransactionReceiptTest
+  ✓ completed transaction can generate receipt                           0.21s  
+  ✓ pending transaction cannot generate receipt                          0.15s  
+  ✓ onhold transaction cannot generate receipt                           0.15s  
+  ✓ pdf receipt contains transaction details                             0.21s  
+  ✓ pdf receipt contains bnm compliance fields                           0.20s  
+  ✓ receipt requires authentication                                      0.17s  
+  ✓ completed sell transaction can generate receipt                      0.19s  
+  ✓ approved transaction can generate receipt                            0.22s  
+
+   PASS  Tests\Feature\TransactionTest
+  ✓ teller can access transaction create                                 0.16s  
+  ✓ teller can create buy transaction                                    0.17s  
+  ✓ teller can create sell transaction                                   0.16s  
+  ✓ sell fails with insufficient stock                                   0.16s  
+  ✓ transaction fails if till not open                                   0.15s  
+  ✓ large transaction requires approval                                  0.16s  
+  ✓ manager can approve transaction                                      0.17s  
+  ✓ teller cannot approve transaction                                    0.15s  
+  ✓ transaction creates audit log                                        0.17s  
+  ✓ buy updates currency position                                        0.16s  
+  ✓ sell updates currency position                                       0.16s  
+  ✓ can view transaction details                                         0.16s  
+  ✓ can view transaction list                                            0.16s  
+  ✓ transaction requires valid customer                                  0.17s  
+  ✓ transaction requires valid currency                                  0.16s  
+  ✓ transaction requires positive amount                                 0.17s  
+  ✓ approval creates journal entries                                     0.18s  
+
+   PASS  Tests\Feature\TransactionWorkflowTest
+  ✓ creating buy transaction completes successfully                      0.16s  
+  ✓ creating sell transaction with sufficient stock completes            0.17s  
+  ✓ pending transaction approval flow                                    0.20s  
+  ✓ manager can cancel transaction                                       0.18s  
+  ✓ refund transaction maintains correct amounts                         0.17s  
+  ✓ large transaction requires manager approval                          0.17s  
+  ✓ sell fails with insufficient stock                                   0.16s  
+  ✓ sell fails with insufficient remaining stock                         0.16s  
+  ✓ small transaction completes immediately                              0.18s  
+  ✓ teller cannot approve transactions                                   0.16s  
+  ✓ transaction creates journal entries on completion                    0.17s  
+  ✓ cancelled transaction cannot be cancelled again                      0.16s  
+  ✓ transaction fails when till is closed                                0.15s  
+
+   PASS  Tests\Feature\UserManagementTest
+  ✓ admin can view user list                                             0.16s  
+  ✓ non admin cannot access user management                              0.15s  
+  ✓ admin can create new user                                            0.16s  
+  ✓ cannot create user with duplicate email                              0.15s  
+  ✓ cannot create user with weak password                                0.15s  
+  ✓ admin can update user role                                           0.16s  
+  ✓ admin can deactivate user                                            0.16s  
+  ✓ admin can activate user                                              0.17s  
+  ✓ admin cannot delete themselves                                       0.16s  
+  ✓ admin can delete other users                                         0.16s  
+  ✓ cannot delete last admin                                             0.17s  
+  ✓ create user page is accessible                                       0.15s  
+  ✓ edit user page is accessible                                         0.16s  
+  ✓ user list paginates                                                  0.18s  
+  ✓ user creation validates required fields                              0.15s  
+  ✓ user creation validates email format                                 0.16s  
+  ✓ user creation validates password confirmation                        0.15s  
+  ✓ user creation validates role options                                 0.16s  
+  ✓ user creation creates audit log                                      0.17s  
+  ✓ user update creates audit log                                        0.16s  
+  ✓ user deletion creates audit log                                      0.16s  
+  ✓ user status toggle creates audit log                                 0.16s  
+  ✓ user update logs role changes                                        0.16s  
+
+  Tests:    1061 passed (3153 assertions)
+  Duration: 158.45s
+
