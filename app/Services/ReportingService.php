@@ -513,11 +513,14 @@ class ReportingService
 
         foreach ($positions as $position) {
             $limit = $limits[$position->currency_code] ?? null;
-            $currentBalance = abs((float) $position->balance);
-            $limitValue = $limit ? (float) $limit : 0;
-            $utilization = $limitValue > 0
+            $currentBalance = $position->balance;
+            if ($this->mathService->compare($currentBalance, '0') < 0) {
+                $currentBalance = $this->mathService->multiply($currentBalance, '-1');
+            }
+            $limitValue = $limit ?? '0';
+            $utilization = $this->mathService->compare($limitValue, '0') > 0
                 ? $this->mathService->multiply(
-                    $this->mathService->divide((string) $currentBalance, (string) $limitValue),
+                    $this->mathService->divide($currentBalance, $limitValue),
                     '100'
                 )
                 : '0';
@@ -527,10 +530,10 @@ class ReportingService
                 'currency_name' => $position->currency->name ?? $position->currency_code,
                 'current_balance' => $position->balance,
                 'position_limit' => $limit,
-                'utilization_percent' => round((float) $utilization, 2),
+                'utilization_percent' => $utilization,
                 'avg_cost_rate' => $position->avg_cost_rate,
                 'last_valuation_rate' => $position->last_valuation_rate,
-                'exposure_myr' => $this->mathService->multiply((string) $currentBalance, $position->last_valuation_rate ?? '0'),
+                'exposure_myr' => $this->mathService->multiply($currentBalance, $position->last_valuation_rate ?? '0'),
                 'status' => $this->mathService->compare($utilization, '90') >= 0
                     ? 'Critical'
                     : ($this->mathService->compare($utilization, '75') >= 0 ? 'Warning' : 'Normal'),
@@ -538,7 +541,7 @@ class ReportingService
 
             $totalExposure = $this->mathService->add(
                 $totalExposure,
-                $this->mathService->multiply((string) $currentBalance, $position->last_valuation_rate ?? '0')
+                $this->mathService->multiply($currentBalance, $position->last_valuation_rate ?? '0')
             );
         }
 

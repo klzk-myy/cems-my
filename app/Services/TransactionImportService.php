@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\TransactionImportStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Models\Currency;
@@ -37,7 +38,7 @@ class TransactionImportService
     public function process(string $filePath): void
     {
         $this->import->update([
-            'status' => 'processing',
+            'status' => TransactionImportStatus::Processing->value,
             'started_at' => now(),
         ]);
 
@@ -72,7 +73,7 @@ class TransactionImportService
         fclose($handle);
 
         $this->import->update([
-            'status' => count($this->errors) > 0 ? 'completed_with_errors' : 'completed',
+            'status' => count($this->errors) > 0 ? TransactionImportStatus::CompletedWithErrors->value : TransactionImportStatus::Completed->value,
             'success_count' => $this->successCount,
             'error_count' => count($this->errors),
             'errors' => $this->errors,
@@ -277,7 +278,7 @@ class TransactionImportService
     {
         $entries = [];
 
-        if ($transaction->type->value === 'Buy') {
+        if ($transaction->type->value === TransactionType::Buy->value) {
             // Buy: Dr Foreign Currency Inventory, Cr Cash - MYR
             $entries = [
                 [

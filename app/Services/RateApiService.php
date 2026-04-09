@@ -14,8 +14,11 @@ class RateApiService
 
     protected int $cacheDuration = 60; // seconds
 
-    public function __construct(protected MathService $mathService = new MathService)
+    protected MathService $mathService;
+
+    public function __construct(?MathService $mathService = null)
     {
+        $this->mathService = $mathService ?? new MathService;
         $this->apiKey = config('services.exchange_rate_api.key');
         $this->baseUrl = 'https://api.exchangerate-api.com/v4';
     }
@@ -58,14 +61,13 @@ class RateApiService
                 $half = $this->mathService->divide($spreadStr, '2'); // '0.01'
                 $rateStr = (string) $rate;
 
+                $buyRate = $this->mathService->multiply($rateStr, $this->mathService->subtract('1', $half));
+                $sellRate = $this->mathService->multiply($rateStr, $this->mathService->add('1', $half));
+
                 $processed[$currency] = [
-                    'buy' => $this->roundRate(
-                        (float) $this->mathService->multiply($rateStr, $this->mathService->subtract('1', $half))
-                    ),
-                    'sell' => $this->roundRate(
-                        (float) $this->mathService->multiply($rateStr, $this->mathService->add('1', $half))
-                    ),
-                    'mid' => $this->roundRate($rate),
+                    'buy' => $this->roundRate($buyRate),
+                    'sell' => $this->roundRate($sellRate),
+                    'mid' => $this->roundRate($rateStr),
                     'timestamp' => $timestamp,
                 ];
             }
@@ -74,9 +76,9 @@ class RateApiService
         return $processed;
     }
 
-    protected function roundRate(float $rate): float
+    protected function roundRate(string $rate): string
     {
-        return round($rate, 6);
+        return bcadd($rate, '0', 6);
     }
 
     /**
@@ -149,10 +151,17 @@ class RateApiService
         // Calculate trend
         $firstRate = $histories->first()->rate;
         $lastRate = $histories->last()->rate;
-        $change = bcsub($lastRate, $firstRate, 6);
-        $percentChange = bccomp($firstRate, '0', 6) > 0
-            ? bcmul(bcdiv($change, $firstRate, 6), '100', 2)
-            : '0';
+        $firstRateStr = (string) $firstRate;
+        $lastRateStr = (string) $lastRate;
+
+        $change = $this->mathService->subtract($lastRateStr, $firstRateStr);
+
+        if ($this->mathService->compare($firstRateStr, '0') > 0) {
+            $percentChangeRaw = $this->mathService->divide($change, $firstRateStr);
+            $percentChange = bcadd(bcmul($percentChangeRaw, '100', 6), '0', 2);
+        } else {
+            $percentChange = '0';
+        }
 
         return [
             'currency' => $currencyCode,
@@ -163,7 +172,7 @@ class RateApiService
                 'end_rate' => $lastRate,
                 'change' => $change,
                 'percent_change' => $percentChange,
-                'direction' => bccomp($change, '0', 6) >= 0 ? 'up' : 'down',
+                'direction' => $this->mathService->compare($change, '0') >= 0 ? 'up' : 'down',
             ],
         ];
     }

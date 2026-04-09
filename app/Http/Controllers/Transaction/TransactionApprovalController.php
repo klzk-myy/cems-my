@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Transaction;
 
+use App\Enums\TransactionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Transaction\Concerns\TransactionAccounting;
-use App\Enums\TransactionStatus;
 use App\Models\SystemLog;
 use App\Models\TillBalance;
 use App\Models\Transaction;
@@ -174,9 +174,7 @@ class TransactionApprovalController extends Controller
      */
     public function confirm(Request $request, Transaction $transaction)
     {
-        if (! auth()->user()->isManager()) {
-            abort(403, 'Unauthorized. Manager approval required for confirmation.');
-        }
+        $this->requireManagerOrAdmin();
 
         if (! $this->requiresConfirmation($transaction)) {
             return redirect()->route('transactions.show', $transaction)

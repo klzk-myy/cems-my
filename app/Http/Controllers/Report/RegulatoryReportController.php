@@ -6,6 +6,7 @@ use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Models\ReportGenerated;
 use App\Models\Transaction;
+use App\Services\MathService;
 use App\Services\ReportingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -15,9 +16,14 @@ class RegulatoryReportController extends \App\Http\Controllers\Report\ReportCont
 {
     protected ReportingService $reportingService;
 
-    public function __construct(ReportingService $reportingService)
-    {
+    protected MathService $mathService;
+
+    public function __construct(
+        ReportingService $reportingService,
+        MathService $mathService
+    ) {
         $this->reportingService = $reportingService;
+        $this->mathService = $mathService;
     }
 
     protected function getQuarterStart(string $quarter): Carbon
@@ -70,7 +76,7 @@ class RegulatoryReportController extends \App\Http\Controllers\Report\ReportCont
 
         $stats = [
             'count' => $transactions->count(),
-            'total_amount' => $transactions->sum('amount_local'),
+            'total_amount' => $this->mathService->add('0', (string) $transactions->sum('amount_local')),
             'unique_customers' => $transactions->pluck('customer_id')->unique()->count(),
         ];
 
@@ -181,12 +187,18 @@ class RegulatoryReportController extends \App\Http\Controllers\Report\ReportCont
             ->orderBy('currency_code')
             ->get();
 
-        // Calculate totals
+        // Calculate totals using MathService for precision
         $stats = [
-            'total_transactions' => $summary->sum('buy_count') + $summary->sum('sell_count'),
-            'total_buy_myr' => $summary->sum('buy_amount_myr'),
-            'total_sell_myr' => $summary->sum('sell_amount_myr'),
-            'net_position' => $summary->sum('buy_amount_myr') - $summary->sum('sell_amount_myr'),
+            'total_transactions' => $this->mathService->add(
+                (string) $summary->sum('buy_count'),
+                (string) $summary->sum('sell_count')
+            ),
+            'total_buy_myr' => $this->mathService->add('0', (string) $summary->sum('buy_amount_myr')),
+            'total_sell_myr' => $this->mathService->add('0', (string) $summary->sum('sell_amount_myr')),
+            'net_position' => $this->mathService->subtract(
+                $this->mathService->add('0', (string) $summary->sum('buy_amount_myr')),
+                $this->mathService->add('0', (string) $summary->sum('sell_amount_myr'))
+            ),
         ];
 
         // Calculate next business day
