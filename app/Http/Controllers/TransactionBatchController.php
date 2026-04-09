@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Transaction;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\TransactionImport;
 use App\Services\AccountingService;
 use App\Services\ComplianceService;

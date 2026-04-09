@@ -111,8 +111,11 @@ class TransactionController extends Controller
             ]);
         }
 
+        // Sanitize text inputs to prevent XSS
+        $validated['purpose'] = strip_tags($validated['purpose']);
+        $validated['source_of_funds'] = strip_tags($validated['source_of_funds']);
+
         $tillBalance = TillBalance::where('till_id', $validated['till_id'])
-            ->where('currency_code', $validated['currency_code'])
             ->whereDate('date', today())
             ->whereNull('closed_at')
             ->first();
@@ -291,9 +294,9 @@ class TransactionController extends Controller
         $barcodeImage = null;
         $barcodeText = str_pad($transaction->id, 10, '0', STR_PAD_LEFT);
         try {
-            $barcodeGenerator = new \Picqer\Barcode\BarcodeGeneratorPNG();
+            $barcodeGenerator = new \Picqer\Barcode\BarcodeGeneratorPNG;
             $barcodeData = $barcodeGenerator->getBarcode($barcodeText, $barcodeGenerator::TYPE_CODE_128);
-            $barcodeImage = 'data:image/png;base64,' . base64_encode($barcodeData);
+            $barcodeImage = 'data:image/png;base64,'.base64_encode($barcodeData);
         } catch (\Exception $e) {
             // Graceful fallback if barcode generation fails
             $barcodeImage = null;
@@ -311,9 +314,9 @@ class TransactionController extends Controller
                     'date' => $transaction->created_at->toIso8601String(),
                     'customer_id' => $transaction->customer_id,
                     'type' => $transaction->type->value,
-                    'verify' => url('/verify/transaction/' . $transaction->id),
+                    'verify' => url('/verify/transaction/'.$transaction->id),
                 ]));
-            $qrCodeImage = 'data:image/png;base64,' . base64_encode($qrCodeData);
+            $qrCodeImage = 'data:image/png;base64,'.base64_encode($qrCodeData);
         } catch (\Exception $e) {
             // Graceful fallback if QR code generation fails
             $qrCodeImage = null;

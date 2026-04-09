@@ -19,6 +19,7 @@ use App\Http\Controllers\DataBreachAlertController;
 use App\Http\Controllers\EnhancedDiligenceController;
 use App\Http\Controllers\FinancialStatementController;
 use App\Http\Controllers\FiscalYearController;
+use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\JournalEntryWorkflowController;
 use App\Http\Controllers\LedgerController;
 use App\Http\Controllers\MfaController;
@@ -31,9 +32,9 @@ use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\StrController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TestResultsController;
-use App\Http\Controllers\TransactionApprovalController;
+use App\Http\Controllers\Transaction\TransactionApprovalController;
+use App\Http\Controllers\Transaction\TransactionCancellationController;
 use App\Http\Controllers\TransactionBatchController;
-use App\Http\Controllers\TransactionCancellationController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\TransactionReportController;
 use App\Http\Controllers\UserController;
@@ -64,6 +65,9 @@ Route::get('/', function () {
 
     return redirect('/login');
 })->name('home');
+
+// Health check endpoint (public, no auth required)
+Route::get('/health', [HealthCheckController::class, 'index'])->name('health');
 
 // =============================================================================
 // AUTHENTICATED ROUTES
