@@ -26,6 +26,7 @@ use App\Http\Controllers\Report\AnalyticsController;
 use App\Http\Controllers\Report\RegulatoryReportController;
 use App\Http\Controllers\RevaluationController;
 use App\Http\Controllers\StockCashController;
+use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\StrController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TransactionController;
@@ -181,6 +182,28 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/till-report', [StockCashController::class, 'tillReport'])->name('till-report')
             ->middleware('role:manager');
         Route::get('/reconciliation', [StockCashController::class, 'reconciliationReport'])->name('reconciliation');
+    });
+
+    // Stock Transfers
+    Route::prefix('stock-transfers')->name('stock-transfers.')->group(function () {
+        Route::get('/', [StockTransferController::class, 'index'])->name('index');
+        Route::get('/create', [StockTransferController::class, 'create'])->name('create')
+            ->middleware('role:manager');
+        Route::post('/', [StockTransferController::class, 'store'])->name('store')
+            ->middleware('role:manager');
+        Route::get('/{stockTransfer}', [StockTransferController::class, 'show'])->name('show');
+        Route::post('/{stockTransfer}/approve-bm', [StockTransferController::class, 'approveBm'])->name('approve-bm')
+            ->middleware('role:manager');
+        Route::post('/{stockTransfer}/approve-hq', [StockTransferController::class, 'approveHq'])->name('approve-hq')
+            ->middleware('role:admin');
+        Route::post('/{stockTransfer}/dispatch', [StockTransferController::class, 'dispatch'])->name('dispatch')
+            ->middleware('role:admin');
+        Route::post('/{stockTransfer}/receive', [StockTransferController::class, 'receive'])->name('receive')
+            ->middleware('role:admin');
+        Route::post('/{stockTransfer}/complete', [StockTransferController::class, 'complete'])->name('complete')
+            ->middleware('role:admin');
+        Route::post('/{stockTransfer}/cancel', [StockTransferController::class, 'cancel'])->name('cancel')
+            ->middleware('role:manager');
     });
 
     // -------------------------------------------------------------------------
