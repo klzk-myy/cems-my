@@ -13,8 +13,11 @@ class RiskScoreSnapshot extends Model
 
     protected $fillable = [
         'customer_id',
-        'snapshot_date',
+        'previous_score',
+        'previous_rating',
         'overall_score',
+        'overall_rating_label',
+        'snapshot_date',
         'velocity_score',
         'structuring_score',
         'geographic_score',

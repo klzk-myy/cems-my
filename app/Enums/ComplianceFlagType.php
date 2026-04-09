@@ -25,6 +25,7 @@ enum ComplianceFlagType: string
     case ProfileDeviation = 'Profile_Deviation';
     case AmlRuleTriggered = 'Aml_Rule_Triggered';
     case CounterfeitCurrency = 'Counterfeit_Currency';
+    case RiskScoreEscalation = 'Risk_Score_Escalation';
 
     /**
      * Check if this flag type indicates a sanctions issue.

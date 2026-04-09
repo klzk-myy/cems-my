@@ -38,6 +38,9 @@ class EventServiceProvider extends ServiceProvider
         StrDraftGenerated::class => [
             ComplianceEventListener::class,
         ],
+        RiskScoreUpdated::class => [
+            ComplianceEventListener::class,
+        ],
     ];
 
     /**

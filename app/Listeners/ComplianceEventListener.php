@@ -2,9 +2,16 @@
 
 namespace App\Listeners;
 
+use App\Enums\AlertPriority;
+use App\Enums\ComplianceFlagType;
+use App\Enums\FlagStatus;
 use App\Events\AlertCreated;
 use App\Events\CaseOpened;
+use App\Events\RiskScoreUpdated;
 use App\Events\StrDraftGenerated;
+use App\Models\Alert;
+use App\Models\RiskScoreSnapshot;
+use App\Services\AuditService;
 use App\Services\CustomerRiskScoringService;
 use App\Services\EddTemplateService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -42,12 +49,61 @@ class ComplianceEventListener implements ShouldQueue
         // STR draft generated - could trigger notification to compliance manager
     }
 
+    public function handleRiskScoreUpdated(RiskScoreUpdated $event): void
+    {
+        $snapshot = $event->snapshot;
+
+        // Log all score changes to audit trail
+        app(AuditService::class)->logWithSeverity(
+            'risk_score_updated',
+            [
+                'entity_type' => 'Customer',
+                'entity_id' => $snapshot->customer_id,
+                'old_values' => [
+                    'score' => $snapshot->previous_score,
+                    'rating' => $snapshot->previous_rating,
+                ],
+                'new_values' => [
+                    'score' => $snapshot->overall_score,
+                    'rating' => $snapshot->overall_rating_label,
+                ],
+            ],
+            'INFO'
+        );
+
+        // Alert compliance officer if score crossed HIGH/CRITICAL threshold
+        $highRiskRatings = ['high_risk', 'critical_risk'];
+        $oldWasHighRisk = in_array($snapshot->previous_rating, $highRiskRatings);
+        $newIsHighRisk = in_array($snapshot->overall_rating_label, $highRiskRatings);
+
+        if (!$oldWasHighRisk && $newIsHighRisk) {
+            $this->alertOnRiskEscalation($snapshot);
+        }
+    }
+
+    protected function alertOnRiskEscalation(RiskScoreSnapshot $snapshot): void
+    {
+        $priority = $snapshot->overall_rating_label === 'critical_risk'
+            ? AlertPriority::Critical
+            : AlertPriority::High;
+
+        Alert::create([
+            'customer_id' => $snapshot->customer_id,
+            'type' => ComplianceFlagType::RiskScoreEscalation,
+            'status' => FlagStatus::Open,
+            'priority' => $priority,
+            'risk_score' => $snapshot->overall_score,
+            'description' => "Customer risk score escalated to {$snapshot->overall_rating_label} (score: {$snapshot->overall_score})",
+        ]);
+    }
+
     public function subscribe($events): array
     {
         return [
             AlertCreated::class => 'handleAlertCreated',
             CaseOpened::class => 'handleCaseOpened',
             StrDraftGenerated::class => 'handleStrDraftGenerated',
+            RiskScoreUpdated::class => 'handleRiskScoreUpdated',
         ];
     }
 }
