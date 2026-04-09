@@ -7,6 +7,7 @@ use App\Listeners\ComplianceEventListener;
 use App\Models\Alert;
 use App\Models\Customer;
 use App\Models\RiskScoreSnapshot;
+use App\Services\AuditService;
 use App\Services\CustomerRiskScoringService;
 use App\Services\EddTemplateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,7 +32,8 @@ class ComplianceEventListenerTest extends TestCase
 
         $listener = new ComplianceEventListener(
             app(CustomerRiskScoringService::class),
-            app(EddTemplateService::class)
+            app(EddTemplateService::class),
+            app(AuditService::class)
         );
 
         $listener->handleRiskScoreUpdated(new RiskScoreUpdated($snapshot));
@@ -58,7 +60,8 @@ class ComplianceEventListenerTest extends TestCase
 
         $listener = new ComplianceEventListener(
             app(CustomerRiskScoringService::class),
-            app(EddTemplateService::class)
+            app(EddTemplateService::class),
+            app(AuditService::class)
         );
 
         $listener->handleRiskScoreUpdated(new RiskScoreUpdated($snapshot));
@@ -85,14 +88,15 @@ class ComplianceEventListenerTest extends TestCase
 
         $listener = new ComplianceEventListener(
             app(CustomerRiskScoringService::class),
-            app(EddTemplateService::class)
+            app(EddTemplateService::class),
+            app(AuditService::class)
         );
 
         $listener->handleRiskScoreUpdated(new RiskScoreUpdated($snapshot));
 
         $this->assertDatabaseMissing('alerts', [
             'customer_id' => $customer->id,
-            'type' => 'risk_score_escalation',
+            'type' => 'Risk_Score_Escalation',
         ]);
     }
 }

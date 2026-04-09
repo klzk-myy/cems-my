@@ -20,7 +20,8 @@ class ComplianceEventListener implements ShouldQueue
 {
     public function __construct(
         protected CustomerRiskScoringService $riskScoringService,
-        protected EddTemplateService $eddTemplateService
+        protected EddTemplateService $eddTemplateService,
+        protected AuditService $auditService
     ) {}
 
     public function handleAlertCreated(AlertCreated $event): void
@@ -54,7 +55,7 @@ class ComplianceEventListener implements ShouldQueue
         $snapshot = $event->snapshot;
 
         // Log all score changes to audit trail
-        app(AuditService::class)->logWithSeverity(
+        $this->auditService->logWithSeverity(
             'risk_score_updated',
             [
                 'entity_type' => 'Customer',
