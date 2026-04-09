@@ -30,11 +30,12 @@ use App\Http\Controllers\StockCashController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\StrController;
 use App\Http\Controllers\TaskController;
-use App\Http\Controllers\Transaction\TransactionApprovalController;
-use App\Http\Controllers\Transaction\TransactionBatchController;
-use App\Http\Controllers\Transaction\TransactionCancellationController;
-use App\Http\Controllers\Transaction\TransactionReportController;
+use App\Http\Controllers\TestResultsController;
+use App\Http\Controllers\TransactionApprovalController;
+use App\Http\Controllers\TransactionBatchController;
+use App\Http\Controllers\TransactionCancellationController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\TransactionReportController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -484,6 +485,16 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
     // Exchange Rate History
     Route::get('/api/rates/history/{currency}', [DashboardController::class, 'rateHistory'])
         ->name('api.rates.history');
+
+    // Test Results (Admin only)
+    Route::middleware(['role:admin'])->prefix('test-results')->name('test-results.')->group(function () {
+        Route::get('/', [TestResultsController::class, 'index'])->name('index');
+        Route::get('/statistics', [TestResultsController::class, 'statistics'])->name('statistics');
+        Route::post('/run', [TestResultsController::class, 'run'])->name('run');
+        Route::get('/{testResult}', [TestResultsController::class, 'show'])->name('show');
+        Route::post('/cleanup', [TestResultsController::class, 'cleanup'])->name('cleanup');
+        Route::get('/{testResult}/output', [TestResultsController::class, 'output'])->name('output');
+    });
 });
 
 require __DIR__.'/auth.php';

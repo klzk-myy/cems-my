@@ -342,6 +342,12 @@ class Navigation
                         'uri' => '/audit',
                     ],
                     [
+                        'label' => 'Test Results',
+                        'route' => 'test-results.index',
+                        'icon' => 'test',
+                        'uri' => '/test-results',
+                    ],
+                    [
                         'label' => 'Users',
                         'route' => 'users.index',
                         'icon' => 'user',
