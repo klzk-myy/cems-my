@@ -240,6 +240,10 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::post('/{case}/merge', [CaseManagementController::class, 'merge'])->name('merge');
             Route::post('/{case}/link-alert', [CaseManagementController::class, 'linkAlert'])->name('link-alert');
             Route::post('/{case}/escalate', [CaseManagementController::class, 'escalate'])->name('escalate');
+            Route::post('/{case}/documents', [CaseManagementController::class, 'uploadDocument'])->name('documents.upload');
+            Route::post('/{case}/documents/{document}/verify', [CaseManagementController::class, 'verifyDocument'])->name('documents.verify');
+            Route::post('/{case}/links', [CaseManagementController::class, 'addLink'])->name('links.add');
+            Route::delete('/{case}/links/{link}', [CaseManagementController::class, 'removeLink'])->name('links.remove');
         });
 
         // STR Studio

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Compliance;
 use App\Http\Controllers\Controller;
 use App\Models\Alert;
 use App\Models\Compliance\ComplianceCase;
+use App\Models\Compliance\ComplianceCaseDocument;
+use App\Models\Compliance\ComplianceCaseLink;
 use App\Services\CaseManagementService;
 use App\Services\Compliance\CaseManagementService as ComplianceCaseManagementService;
 use Illuminate\Http\Request;
@@ -104,6 +106,44 @@ class CaseManagementController extends Controller
         $this->caseManagementService->linkAlertToCase($alert, $case);
 
         return redirect()->back()->with('success', 'Alert linked to case');
+    }
+
+    public function uploadDocument(Request $request, ComplianceCase $case)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+        ]);
+
+        $document = $this->caseManagementService->addDocument(
+            $case->id,
+            $request->file('file'),
+            auth()->id()
+        );
+
+        return redirect()->back()->with('success', 'Document uploaded');
+    }
+
+    public function verifyDocument(Request $request, ComplianceCase $case, ComplianceCaseDocument $document)
+    {
+        $this->caseManagementService->verifyDocument($document->id, auth()->id());
+        return redirect()->back()->with('success', 'Document verified');
+    }
+
+    public function addLink(Request $request, ComplianceCase $case)
+    {
+        $request->validate([
+            'linked_type' => 'required|string',
+            'linked_id' => 'required|integer',
+        ]);
+
+        $this->caseManagementService->addLink($case->id, $request->linked_type, $request->linked_id);
+        return redirect()->back()->with('success', 'Link added');
+    }
+
+    public function removeLink(ComplianceCase $case, ComplianceCaseLink $link)
+    {
+        $this->caseManagementService->removeLink($link->id);
+        return redirect()->back()->with('success', 'Link removed');
     }
 
     public function escalate(Request $request, ComplianceCase $case)

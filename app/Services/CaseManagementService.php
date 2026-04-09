@@ -7,7 +7,11 @@ use App\Enums\CaseStatus;
 use App\Events\CaseOpened;
 use App\Models\Alert;
 use App\Models\Compliance\ComplianceCase;
+use App\Models\Compliance\ComplianceCaseDocument;
+use App\Models\Compliance\ComplianceCaseLink;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
 
 class CaseManagementService
 {
@@ -214,5 +218,58 @@ class CaseManagementService
         }
 
         return $query->get();
+    }
+
+    /**
+     * Add a document to a case.
+     */
+    public function addDocument(
+        int $caseId,
+        UploadedFile $file,
+        int $uploadedBy
+    ): ComplianceCaseDocument {
+        $case = ComplianceCase::findOrFail($caseId);
+
+        $storagePath = "compliance_cases/{$caseId}/documents";
+        $filename = Str::uuid().'_'.$file->getClientOriginalName();
+        $path = $file->storeAs($storagePath, $filename);
+
+        return $case->documents()->create([
+            'file_name' => $file->getClientOriginalName(),
+            'file_path' => $path,
+            'file_type' => $file->getClientMimeType(),
+            'uploaded_by' => $uploadedBy,
+            'uploaded_at' => now(),
+        ]);
+    }
+
+    /**
+     * Verify a document.
+     */
+    public function verifyDocument(int $documentId, int $verifiedBy): ComplianceCaseDocument
+    {
+        $document = ComplianceCaseDocument::findOrFail($documentId);
+        $document->update([
+            'verified_at' => now(),
+            'verified_by' => $verifiedBy,
+        ]);
+        return $document->fresh();
+    }
+
+    /**
+     * Add a link to a case.
+     */
+    public function addLink(int $caseId, string $linkedType, int $linkedId): ComplianceCaseLink
+    {
+        $case = ComplianceCase::findOrFail($caseId);
+        return $case->addLink($linkedType, $linkedId);
+    }
+
+    /**
+     * Remove a link from a case.
+     */
+    public function removeLink(int $linkId): void
+    {
+        ComplianceCaseLink::findOrFail($linkId)->delete();
     }
 }
