@@ -272,4 +272,20 @@ class CaseManagementService
     {
         ComplianceCaseLink::findOrFail($linkId)->delete();
     }
+
+    /**
+     * Get all documents for a case.
+     */
+    public function getCaseDocuments(int $caseId): \Illuminate\Database\Eloquent\Collection
+    {
+        return ComplianceCase::findOrFail($caseId)->documents()->get();
+    }
+
+    /**
+     * Get all links for a case.
+     */
+    public function getCaseLinks(int $caseId): \Illuminate\Database\Eloquent\Collection
+    {
+        return ComplianceCase::findOrFail($caseId)->links()->get();
+    }
 }

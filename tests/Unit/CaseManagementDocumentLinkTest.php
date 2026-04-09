@@ -72,4 +72,37 @@ class CaseManagementDocumentLinkTest extends TestCase
         $this->assertNotNull($verified->verified_at);
         $this->assertEquals($verifier->id, $verified->verified_by);
     }
+
+    public function test_get_case_documents_returns_documents(): void
+    {
+        $case = ComplianceCase::factory()->open()->create();
+
+        $case->documents()->create([
+            'file_name' => 'doc1.pdf',
+            'file_path' => 'compliance_cases/1/documents/doc1.pdf',
+            'file_type' => 'application/pdf',
+            'uploaded_by' => 1,
+            'uploaded_at' => now(),
+        ]);
+
+        $docs = $this->service->getCaseDocuments($case->id);
+
+        $this->assertCount(1, $docs);
+        $this->assertEquals('doc1.pdf', $docs->first()->file_name);
+    }
+
+    public function test_get_case_links_returns_links(): void
+    {
+        $case = ComplianceCase::factory()->open()->create();
+
+        $case->links()->create([
+            'linked_type' => 'Transaction',
+            'linked_id' => 789,
+        ]);
+
+        $links = $this->service->getCaseLinks($case->id);
+
+        $this->assertCount(1, $links);
+        $this->assertEquals('Transaction', $links->first()->linked_type);
+    }
 }
