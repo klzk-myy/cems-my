@@ -57,13 +57,14 @@ class CaseManagementDocumentLinkTest extends TestCase
     public function test_verify_document_sets_verified_fields(): void
     {
         $case = ComplianceCase::factory()->open()->create();
+        $uploader = User::factory()->create();
         $verifier = User::factory()->create();
 
         $doc = $case->documents()->create([
             'file_name' => 'test.pdf',
             'file_path' => 'compliance_cases/1/documents/test.pdf',
             'file_type' => 'application/pdf',
-            'uploaded_by' => 1,
+            'uploaded_by' => $uploader->id,
             'uploaded_at' => now(),
         ]);
 
@@ -76,12 +77,13 @@ class CaseManagementDocumentLinkTest extends TestCase
     public function test_get_case_documents_returns_documents(): void
     {
         $case = ComplianceCase::factory()->open()->create();
+        $uploader = User::factory()->create();
 
         $case->documents()->create([
             'file_name' => 'doc1.pdf',
             'file_path' => 'compliance_cases/1/documents/doc1.pdf',
             'file_type' => 'application/pdf',
-            'uploaded_by' => 1,
+            'uploaded_by' => $uploader->id,
             'uploaded_at' => now(),
         ]);
 

@@ -46,7 +46,7 @@ class EnhancedDiligenceController extends Controller
             $customer = $flag->customer;
         }
 
-        $customers = Customer::where('risk_rating', 'High Risk')->orWhere('is_pep', true)->get();
+        $customers = Customer::where('risk_rating', 'High')->orWhere('pep_status', true)->get();
 
         return view('compliance.edd.create', compact('flag', 'customer', 'customers'));
     }

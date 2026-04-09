@@ -16,7 +16,7 @@ return new class extends Migration
             $table->enum('role', ['teller', 'manager', 'compliance_officer', 'admin'])
                 ->default('teller');
             $table->boolean('mfa_enabled')->default(false);
-            $table->string('mfa_secret', 32)->nullable();
+            $table->text('mfa_secret')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamp('last_login_at')->nullable();
             $table->timestamps();

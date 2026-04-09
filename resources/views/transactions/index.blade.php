@@ -91,33 +91,34 @@
 </div>
 
 <div class="card">
-    <div class="actions-bar">
-        <h2>All Transactions</h2>
-        <a href="/transactions/create" class="btn btn-success">+ New Transaction</a>
-    </div>
+<div class="actions-bar">
+<h2>All Transactions</h2>
+<a href="/transactions/create" class="btn btn-success" aria-label="Create new transaction">+ New Transaction</a>
+</div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Date/Time</th>
-                <th>Customer</th>
-                <th>Type</th>
-                <th>Currency</th>
-                <th>Foreign Amount</th>
-                <th>Rate</th>
-                <th>Local (MYR)</th>
-                <th>Status</th>
-                <th>Teller</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($transactions as $transaction)
-            <tr>
-                <td>#{{ $transaction->id }}</td>
-                <td>{{ $transaction->created_at->format('Y-m-d H:i') }}</td>
-                <td>{{ $transaction->customer->full_name ?? 'N/A' }}</td>
+<div class="table-responsive" role="region" aria-label="Transaction list" tabindex="0">
+<table role="table">
+<thead role="rowgroup">
+<tr role="row">
+<th scope="col" role="columnheader">ID</th>
+<th scope="col" role="columnheader">Date/Time</th>
+<th scope="col" role="columnheader">Customer</th>
+<th scope="col" role="columnheader">Type</th>
+<th scope="col" role="columnheader">Currency</th>
+<th scope="col" role="columnheader">Foreign Amount</th>
+<th scope="col" role="columnheader">Rate</th>
+<th scope="col" role="columnheader">Local (MYR)</th>
+<th scope="col" role="columnheader">Status</th>
+<th scope="col" role="columnheader">Teller</th>
+<th scope="col" role="columnheader">Actions</th>
+</tr>
+</thead>
+<tbody role="rowgroup">
+@forelse($transactions as $transaction)
+<tr role="row">
+<td>#{{ $transaction->id }}</td>
+<td>{{ $transaction->created_at->format('Y-m-d H:i') }}</td>
+<td>{{ e($transaction->customer->full_name ?? 'N/A') }}</td>
                 <td class="type-{{ strtolower($transaction->type->value) }}">{{ $transaction->type->label() }}</td>
                 <td>{{ $transaction->currency_code }}</td>
                 <td>{{ number_format($transaction->amount_foreign, 4) }}</td>
@@ -145,18 +146,19 @@
                     @endif
                 </td>
             </tr>
-            @empty
-            <tr>
-                <td colspan="11" style="text-align: center; padding: 2rem; color: #718096;">
-                    No transactions found. <a href="/transactions/create">Create your first transaction</a>.
-                </td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
+@empty
+<tr role="row">
+<td colspan="11" style="text-align: center; padding: 2rem; color: #718096;">
+No transactions found. <a href="/transactions/create">Create your first transaction</a>.
+</td>
+</tr>
+@endforelse
+</tbody>
+</table>
+</div>
 
-    <div class="pagination">
-        {{ $transactions->links() }}
-    </div>
+<div class="pagination" role="navigation" aria-label="Pagination">
+{{ $transactions->links() }}
+</div>
 </div>
 @endsection

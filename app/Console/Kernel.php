@@ -78,24 +78,41 @@ class Kernel extends ConsoleKernel
         // ============ COMPLIANCE MONITORS ============
 
         // Sanctions Rescreening Monitor - Weekly on Sunday at 02:00
-        $schedule->job(new SanctionsRescreeningJob())
+        $schedule->job(new SanctionsRescreeningJob)
             ->weeklyOn(0, '02:00')
             ->appendOutputTo(storage_path('logs/monitor-sanctions-rescreen.log'));
 
         // Customer Location Anomaly Monitor - Daily at 03:00
-        $schedule->job(new CustomerLocationAnomalyJob())
+        $schedule->job(new CustomerLocationAnomalyJob)
             ->dailyAt('03:00')
             ->appendOutputTo(storage_path('logs/monitor-location-anomaly.log'));
 
         // Currency Flow Monitor - Daily at 03:30
-        $schedule->job(new CurrencyFlowJob())
+        $schedule->job(new CurrencyFlowJob)
             ->dailyAt('03:30')
             ->appendOutputTo(storage_path('logs/monitor-currency-flow.log'));
 
         // Counterfeit Alert Monitor - Daily at 04:00
-        $schedule->job(new CounterfeitAlertJob())
+        $schedule->job(new CounterfeitAlertJob)
             ->dailyAt('04:00')
             ->appendOutputTo(storage_path('logs/monitor-counterfeit-alert.log'));
+
+        // ============ SYSTEM MONITORING ============
+
+        // Health checks - Every 5 minutes
+        $schedule->command('monitor:check --alert')
+            ->everyFiveMinutes()
+            ->appendOutputTo(storage_path('logs/monitor-health-check.log'));
+
+        // Daily summary report - Every day at 08:00
+        $schedule->command('alert:daily-summary')
+            ->dailyAt('08:00')
+            ->appendOutputTo(storage_path('logs/alert-daily-summary.log'));
+
+        // Cleanup old alerts - Weekly on Sunday at 02:00
+        $schedule->command('alert:cleanup --days=30')
+            ->weeklyOn(0, '02:00')
+            ->appendOutputTo(storage_path('logs/alert-cleanup.log'));
     }
 
     protected function commands(): void

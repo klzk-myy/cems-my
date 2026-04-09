@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AccountingServiceFixTest extends TestCase
@@ -28,8 +29,9 @@ class AccountingServiceFixTest extends TestCase
     protected function seedChartOfAccounts(): void
     {
         // Delete any existing accounts to ensure clean state
-        // (migration seeds production accounts that conflict with test accounts)
-        ChartOfAccount::truncate();
+        // Note: Using delete instead of truncate because truncate commits immediately
+        // in MySQL and bypasses RefreshDatabase's transaction isolation
+        DB::table('chart_of_accounts')->delete();
 
         // Assets - Debit normal accounts
         ChartOfAccount::create(

@@ -458,6 +458,7 @@ class LedgerService
 
         $lastEntry = $query->orderBy('entry_date', 'desc')
             ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
             ->first();
 
         return $lastEntry ? (string) $lastEntry->running_balance : '0';

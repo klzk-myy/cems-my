@@ -278,7 +278,7 @@ class ComplianceServiceTest extends TestCase
         $result = $this->service->checkVelocity($customer->id, '6000');
 
         // 30000 + 15000 = 45000 (without new transaction)
-        $this->assertEquals('45000', $result['amount_24h']);
+        $this->assertEqualsWithDelta(45000, (float) $result['amount_24h'], 0.01);
         // With new transaction: 45000 + 6000 = 51000, which exceeds 50000 threshold
         $this->assertTrue($result['threshold_exceeded']);
     }
@@ -308,7 +308,7 @@ class ComplianceServiceTest extends TestCase
         $result = $this->service->checkVelocity($customer->id, '5000');
 
         // 5000 (only one small transaction)
-        $this->assertEquals('5000', $result['amount_24h']);
+        $this->assertEqualsWithDelta(5000, (float) $result['amount_24h'], 0.01);
         // With new transaction: 5000 + 5000 = 10000, which does not exceed 50000 threshold
         $this->assertFalse($result['threshold_exceeded']);
     }

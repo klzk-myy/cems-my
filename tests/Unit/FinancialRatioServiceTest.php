@@ -30,24 +30,24 @@ class FinancialRatioServiceTest extends TestCase
         $this->accountingService = new AccountingService($this->mathService);
         $this->service = new FinancialRatioService($this->mathService);
 
-        // Disable foreign key checks for truncation
-        DB::statement('PRAGMA foreign_keys = OFF');
-        ChartOfAccount::truncate();
-        AccountLedger::truncate();
-        JournalEntry::query()->truncate();
-        DB::statement('PRAGMA foreign_keys = ON');
+        // Clear chart of accounts to ensure clean state
+        // Note: Using delete instead of truncate because truncate commits immediately
+        // in MySQL and bypasses RefreshDatabase's transaction isolation
+        DB::table('chart_of_accounts')->delete();
 
         // Create a test user
         $this->user = User::factory()->create();
 
-        // Create accounting period for 2026-01
-        AccountingPeriod::create([
-            'period_code' => '2026-01',
-            'start_date' => '2026-01-01',
-            'end_date' => '2026-01-31',
-            'period_type' => 'month',
-            'status' => 'open',
-        ]);
+        // Create accounting period for testing
+        AccountingPeriod::firstOrCreate(
+            ['period_code' => '2026-01'],
+            [
+                'start_date' => '2026-01-01',
+                'end_date' => '2026-01-31',
+                'period_type' => 'month',
+                'status' => 'open',
+            ]
+        );
     }
 
     /**
@@ -55,12 +55,14 @@ class FinancialRatioServiceTest extends TestCase
      */
     protected function createAccount(string $code, string $name, string $type, ?string $class = null): ChartOfAccount
     {
-        return ChartOfAccount::create([
-            'account_code' => $code,
-            'account_name' => $name,
-            'account_type' => $type,
-            'account_class' => $class,
-        ]);
+        return ChartOfAccount::firstOrCreate(
+            ['account_code' => $code],
+            [
+                'account_name' => $name,
+                'account_type' => $type,
+                'account_class' => $class,
+            ]
+        );
     }
 
     /**

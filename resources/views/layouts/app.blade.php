@@ -151,13 +151,31 @@
             flex-shrink: 0;
         }
 
-        .nav-icon svg {
-            width: 16px;
-            height: 16px;
-            stroke: currentColor;
-            stroke-width: 2;
-            fill: none;
-        }
+.nav-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+}
+
+/* Ensure proper touch targets */
+.nav-link, .btn, .logout-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Table responsiveness */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Focus indicators for accessibility */
+*:focus-visible {
+  outline: 2px solid #3182ce;
+  outline-offset: 2px;
+}
 
         .nav-arrow {
             margin-left: auto;
@@ -364,47 +382,47 @@
     @yield('styles')
 </head>
 <body>
-    <div class="app">
-        <!-- Left Sidebar - Organized by Function -->
-        <aside class="sidebar">
+<div class="app">
+<!-- Left Sidebar - Organized by Function -->
+<aside class="sidebar" role="navigation" aria-label="Main navigation">
             <div class="sidebar-header">
                 <h1>CEMS-MY</h1>
                 <p>Currency Exchange MSB</p>
             </div>
 
-            <nav class="nav">
+            <nav class="nav" role="menubar" aria-label="Application menu">
                 {{-- ============================================================
                     OPERATIONS - Daily operational tasks
                 ============================================================ --}}
                 <div class="nav-section">
                     <div class="nav-section-label">Operations</div>
 
-                    <div class="nav-item">
-                        <a href="{{ route('dashboard') }}" class="nav-link {{ request()->is('dashboard') ? 'active' : '' }}">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-                            </span>
-                            <span>Dashboard</span>
-                        </a>
-                    </div>
+<div class="nav-item" role="none">
+<a href="{{ route('dashboard') }}" class="nav-link {{ request()->is('dashboard') ? 'active' : '' }}" role="menuitem" aria-label="Dashboard">
+<span class="nav-icon" aria-hidden="true">
+<svg viewBox="0 0 24 24" focusable="false"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+</span>
+<span>Dashboard</span>
+</a>
+</div>
 
-                    <div class="nav-item">
-                        <a href="{{ route('transactions.index') }}" class="nav-link {{ request()->is('transactions*') ? 'active' : '' }}">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>
-                            </span>
-                            <span>Transactions</span>
-                        </a>
-                    </div>
+<div class="nav-item" role="none">
+<a href="{{ route('transactions.index') }}" class="nav-link {{ request()->is('transactions*') ? 'active' : '' }}" role="menuitem" aria-label="Transactions">
+<span class="nav-icon" aria-hidden="true">
+<svg viewBox="0 0 24 24" focusable="false"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>
+</span>
+<span>Transactions</span>
+</a>
+</div>
 
-                    <div class="nav-item">
-                        <a href="{{ route('customers.index') }}" class="nav-link {{ request()->is('customers*') ? 'active' : '' }}">
-                            <span class="nav-icon">
-                                <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                            </span>
-                            <span>Customers</span>
-                        </a>
-                    </div>
+<div class="nav-item" role="none">
+<a href="{{ route('customers.index') }}" class="nav-link {{ request()->is('customers*') ? 'active' : '' }}" role="menuitem" aria-label="Customers">
+<span class="nav-icon" aria-hidden="true">
+<svg viewBox="0 0 24 24" focusable="false"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+</span>
+<span>Customers</span>
+</a>
+</div>
 
 <div class="nav-group">
 <a href="{{ route('counters.index') }}" class="nav-link {{ request()->is('counters*') || request()->is('branches*') ? 'active' : '' }}">
@@ -773,25 +791,29 @@ SYSTEM - Administrative tasks
             </div>
         </aside>
 
-        <!-- Main Content -->
-        <div class="main">
-            <div class="content">
-                @if(session('success'))
-                    <div class="alert alert-success">{{ session('success') }}</div>
-                @endif
+<!-- Main Content -->
+<main class="main" role="main" aria-label="Main content">
+<div class="content">
+@if(session('success'))
+<div class="alert alert-success" role="alert" aria-live="polite">{{ e(session('success')) }}</div>
+@endif
 
-                @if(session('error'))
-                    <div class="alert alert-error">{{ session('error') }}</div>
-                @endif
+@if(session('error'))
+<div class="alert alert-error" role="alert" aria-live="assertive">{{ e(session('error')) }}</div>
+@endif
+
+@if(session('warning'))
+<div class="alert alert-warning" role="alert" aria-live="polite">{{ e(session('warning')) }}</div>
+@endif
 
                 @yield('content')
-            </div>
+</div>
 
-            <footer class="footer">
-                <p>CEMS-MY v1.0 - Bank Negara Malaysia Compliant MSB Management System</p>
-            </footer>
-        </div>
-    </div>
+<footer class="footer" role="contentinfo">
+<p>CEMS-MY v1.0 - Bank Negara Malaysia Compliant MSB Management System</p>
+</footer>
+</main>
+</div>
 
     <script>
         // Mobile-friendly dropdown toggle with click

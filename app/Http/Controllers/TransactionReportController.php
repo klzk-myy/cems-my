@@ -58,8 +58,9 @@ class TransactionReportController extends Controller
         // Paginate results
         $transactions = $query->paginate(20)->withQueryString();
 
-        // Calculate summary statistics
-        $summary = $this->calculateSummary($customer, $validated);
+        // Calculate stats and chart data
+        $stats = $this->calculateStats($customer, $validated);
+        $chartData = $this->calculateChartData($customer, $validated);
 
         // Log access for audit trail
         SystemLog::create([
@@ -76,11 +77,10 @@ class TransactionReportController extends Controller
             'ip_address' => $request->ip(),
         ]);
 
-        return view('transactions.customer-history', compact(
-            'customer',
-            'transactions',
-            'summary',
-            'validated'
+        return view('transactions.customer-history', array_merge(
+            compact('customer', 'transactions', 'validated'),
+            ['stats' => $stats],
+            $chartData
         ));
     }
 
@@ -97,8 +97,15 @@ class TransactionReportController extends Controller
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'sort_by' => 'nullable|in:date,amount',
             'sort_order' => 'nullable|in:asc,desc',
-            'format' => 'required|in:CSV,PDF',
+            'format' => 'nullable|in:CSV,PDF',
+            'export' => 'nullable',
+            'limit' => 'nullable|integer',
         ]);
+
+        // Default to CSV if format not specified
+        if (empty($validated['format'])) {
+            $validated['format'] = 'CSV';
+        }
 
         // Build query
         $query = $customer->transactions()
@@ -164,9 +171,9 @@ class TransactionReportController extends Controller
     }
 
     /**
-     * Calculate summary statistics for customer transactions.
+     * Calculate statistics for customer transactions.
      */
-    protected function calculateSummary(Customer $customer, array $filters): array
+    protected function calculateStats(Customer $customer, array $filters): array
     {
         $query = $customer->transactions();
 
@@ -179,19 +186,81 @@ class TransactionReportController extends Controller
 
         $transactions = $query->get();
 
-        $buyTransactions = $transactions->where('type.value', 'buy');
-        $sellTransactions = $transactions->where('type.value', 'sell');
+        $buyTransactions = $transactions->where('type', \App\Enums\TransactionType::Buy);
+        $sellTransactions = $transactions->where('type', \App\Enums\TransactionType::Sell);
+
+        $buyVolume = $buyTransactions->sum('amount_local');
+        $sellVolume = $sellTransactions->sum('amount_local');
+        $totalVolume = $buyVolume + $sellVolume;
+        $totalCount = $transactions->count();
 
         return [
-            'total_transactions' => $transactions->count(),
-            'total_buy_count' => $buyTransactions->count(),
-            'total_sell_count' => $sellTransactions->count(),
-            'total_buy_amount' => $buyTransactions->sum('amount_local'),
-            'total_sell_amount' => $sellTransactions->sum('amount_local'),
-            'average_transaction_amount' => $transactions->avg('amount_local'),
-            'first_transaction_date' => $transactions->min('created_at'),
-            'last_transaction_date' => $transactions->max('created_at'),
+            'total_count' => $totalCount,
+            'buy_count' => $buyTransactions->count(),
+            'sell_count' => $sellTransactions->count(),
+            'buy_volume' => $buyVolume,
+            'sell_volume' => $sellVolume,
+            'total_volume' => $totalVolume,
+            'avg_transaction' => $totalCount > 0 ? $totalVolume / $totalCount : 0,
+            'first_transaction' => $transactions->min('created_at'),
+            'last_transaction' => $transactions->max('created_at'),
         ];
+    }
+
+    /**
+     * Calculate chart data for customer transactions.
+     */
+    protected function calculateChartData(Customer $customer, array $filters): array
+    {
+        // Get all transactions and aggregate in PHP for database compatibility
+        $query = $customer->transactions()
+            ->select('created_at', 'type', 'amount_local');
+
+        if (! empty($filters['date_from'])) {
+            $query->whereDate('created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->whereDate('created_at', '<=', $filters['date_to']);
+        }
+
+        $transactions = $query->get();
+
+        // Get last 12 months of labels
+        $chartLabels = [];
+        $chartBuyData = [];
+        $chartSellData = [];
+
+        for ($i = 11; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $monthKey = $date->format('Y-m');
+            $chartLabels[] = $date->format('M Y');
+
+            $monthTransactions = $transactions->filter(function ($t) use ($date) {
+                return $t->created_at->year === $date->year && $t->created_at->month === $date->month;
+            });
+
+            $buyTotal = $monthTransactions->where('type', \App\Enums\TransactionType::Buy)->sum('amount_local');
+            $sellTotal = $monthTransactions->where('type', \App\Enums\TransactionType::Sell)->sum('amount_local');
+
+            $chartBuyData[] = $buyTotal ?: 0;
+            $chartSellData[] = $sellTotal ?: 0;
+        }
+
+        return [
+            'chartLabels' => $chartLabels,
+            'chartBuyData' => $chartBuyData,
+            'chartSellData' => $chartSellData,
+        ];
+    }
+
+    /**
+     * Calculate summary statistics for customer transactions.
+     *
+     * @deprecated Use calculateStats() instead
+     */
+    protected function calculateSummary(Customer $customer, array $filters): array
+    {
+        return $this->calculateStats($customer, $filters);
     }
 
     /**

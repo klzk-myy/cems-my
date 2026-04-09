@@ -193,7 +193,7 @@ class UserManagementTest extends TestCase
         $response->assertRedirect('/users');
         $response->assertSessionHas('success');
 
-        $this->assertDatabaseMissing('users', [
+        $this->assertSoftDeleted('users', [
             'id' => $this->tellerUser->id,
         ]);
     }

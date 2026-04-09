@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Branch Model
@@ -33,13 +34,15 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
  */
 class Branch extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * Branch type constants
      */
     public const TYPE_HEAD_OFFICE = 'head_office';
+
     public const TYPE_BRANCH = 'branch';
+
     public const TYPE_SUB_BRANCH = 'sub_branch';
 
     /**
@@ -75,8 +78,6 @@ class Branch extends Model
 
     /**
      * Get all users belonging to this branch.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function users(): HasMany
     {
@@ -85,8 +86,6 @@ class Branch extends Model
 
     /**
      * Get all counters (tills) for this branch.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function counters(): HasMany
     {
@@ -95,8 +94,6 @@ class Branch extends Model
 
     /**
      * Get all transactions for this branch.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function transactions(): HasMany
     {
@@ -105,8 +102,6 @@ class Branch extends Model
 
     /**
      * Get all journal entries for this branch.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function journalEntries(): HasMany
     {
@@ -115,8 +110,6 @@ class Branch extends Model
 
     /**
      * Get all currency positions for this branch.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function currencyPositions(): HasMany
     {
@@ -125,8 +118,6 @@ class Branch extends Model
 
     /**
      * Get all till balances for this branch.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function tillBalances(): HasMany
     {
@@ -135,8 +126,6 @@ class Branch extends Model
 
     /**
      * Get all counter sessions for this branch through counters.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
      */
     public function counterSessions(): HasManyThrough
     {
@@ -145,8 +134,6 @@ class Branch extends Model
 
     /**
      * Get the parent branch (if this is a sub-branch or child branch).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function parent(): BelongsTo
     {
@@ -155,8 +142,6 @@ class Branch extends Model
 
     /**
      * Get the child branches (sub-branches or child branches).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function children(): HasMany
     {
@@ -166,7 +151,7 @@ class Branch extends Model
     /**
      * Scope a query to only include active branches.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeActive($query)
@@ -177,7 +162,7 @@ class Branch extends Model
     /**
      * Scope a query to only include main branch (head office).
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeMain($query)
@@ -188,7 +173,7 @@ class Branch extends Model
     /**
      * Scope a query to only include branches (not head offices).
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeBranches($query)
@@ -199,7 +184,7 @@ class Branch extends Model
     /**
      * Scope a query to only include head offices.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeHeadOffices($query)

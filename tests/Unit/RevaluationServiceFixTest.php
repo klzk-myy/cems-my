@@ -120,7 +120,7 @@ class RevaluationServiceFixTest extends TestCase
         ]);
 
         // Run revaluation with journal
-        $result = $this->service->runRevaluationWithJournal(now()->toDateString());
+        $result = $this->service->runRevaluationWithJournal(now()->toDateString(), $this->user->id);
 
         // Verify journal entries were created
         $this->assertGreaterThan(0, $result['positions_updated']);
@@ -159,7 +159,7 @@ class RevaluationServiceFixTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('closed period');
 
-        $this->service->runRevaluationWithJournal(now()->toDateString());
+        $this->service->runRevaluationWithJournal(now()->toDateString(), $this->user->id);
     }
 
     /**
@@ -188,7 +188,7 @@ class RevaluationServiceFixTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('date');
 
-        $this->service->runRevaluationWithJournal(now()->subYear()->toDateString());
+        $this->service->runRevaluationWithJournal(now()->subYear()->toDateString(), $this->user->id);
     }
 
     /**
@@ -226,7 +226,7 @@ class RevaluationServiceFixTest extends TestCase
         ]);
 
         // Run revaluation with journal
-        $result = $this->service->runRevaluationWithJournal(now()->toDateString());
+        $result = $this->service->runRevaluationWithJournal(now()->toDateString(), $this->user->id);
 
         // Verify all currencies were processed
         $this->assertEquals(3, $result['positions_updated']);
@@ -273,7 +273,7 @@ class RevaluationServiceFixTest extends TestCase
         $initialCount = DB::table('revaluation_entries')->count();
 
         // Run revaluation - both should succeed
-        $result = $this->service->runRevaluationWithJournal(now()->toDateString());
+        $result = $this->service->runRevaluationWithJournal(now()->toDateString(), $this->user->id);
 
         // Verify both were processed
         $this->assertEquals(2, $result['positions_updated']);
@@ -306,7 +306,7 @@ class RevaluationServiceFixTest extends TestCase
         ]);
 
         // Run revaluation
-        $this->service->runRevaluationWithJournal(now()->toDateString());
+        $this->service->runRevaluationWithJournal(now()->toDateString(), $this->user->id);
 
         // Verify journal entry has period_id
         $journalEntry = JournalEntry::where('reference_type', 'Revaluation')->first();

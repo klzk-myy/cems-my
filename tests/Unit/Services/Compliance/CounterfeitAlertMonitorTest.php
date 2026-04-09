@@ -75,7 +75,7 @@ class CounterfeitAlertMonitorTest extends TestCase
         $this->assertCount(1, $findings);
         $this->assertEquals('Counterfeit_Alert', $findings[0]['finding_type']);
         $this->assertEquals('Critical', $findings[0]['severity']);
-        $this->assertEquals($customer->id, $findings[0]['subject_id']);
+        $this->assertEquals($transaction->id, $findings[0]['subject_id']);
     }
 
     public function test_generates_finding_for_under_review_counterfeit_flag(): void

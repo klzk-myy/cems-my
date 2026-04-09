@@ -121,21 +121,21 @@
 
 @section('content')
 <div class="customers-header">
-    <div>
-        <h2>Customer Management</h2>
-        <p>Manage customer profiles, KYC documents, and risk assessments</p>
-    </div>
-    <a href="/customers/create" class="btn btn-success">+ Add New Customer</a>
+<div>
+<h2>Customer Management</h2>
+<p>Manage customer profiles, KYC documents, and risk assessments</p>
+</div>
+<a href="/customers/create" class="btn btn-success" aria-label="Add new customer">+ Add New Customer</a>
 </div>
 
 <!-- Filters -->
 <div class="filters">
     <form method="GET" action="{{ route('customers.index') }}">
         <div class="filters-grid">
-            <div class="filter-group">
-                <label for="search">Search by Name</label>
-                <input type="text" id="search" name="search" value="{{ request('search') }}" placeholder="Customer name...">
-            </div>
+<div class="filter-group">
+<label for="search">Search by Name</label>
+<input type="text" id="search" name="search" value="{{ e(request('search')) }}" placeholder="Customer name..." autocomplete="off" aria-describedby="search-hint">
+</div>
             <div class="filter-group">
                 <label for="risk_rating">Risk Rating</label>
                 <select id="risk_rating" name="risk_rating">
@@ -184,42 +184,42 @@
 
 <!-- Customer List -->
 <div class="card">
-    <div class="results-info">
-        Showing {{ $customers->count() }} of {{ $customers->total() }} customers
-    </div>
+<div class="results-info" aria-live="polite">
+Showing {{ $customers->count() }} of {{ $customers->total() }} customers
+</div>
 
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>ID Type</th>
-                    <th>Nationality</th>
-                    <th>Risk Rating</th>
-                    <th>PEP</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($customers as $customer)
-                <tr>
-                    <td>{{ $customer->id }}</td>
-                    <td>
-                        <strong>{{ $customer->full_name }}</strong>
-                        @if($customer->risk_rating === 'High')
-                            <span class="risk-badge risk-high" style="margin-left: 0.5rem;">High Risk</span>
-                        @endif
-                    </td>
-                    <td>{{ $customer->id_type }}</td>
-                    <td>{{ $customer->nationality }}</td>
-                    <td>
-                        <span class="risk-badge risk-{{ strtolower($customer->risk_rating) }}">
-                            {{ $customer->risk_rating }}
-                        </span>
-                    </td>
+<div class="table-responsive" role="region" aria-label="Customer list" tabindex="0">
+<table role="table">
+<thead role="rowgroup">
+<tr role="row">
+<th scope="col" role="columnheader">ID</th>
+<th scope="col" role="columnheader">Name</th>
+<th scope="col" role="columnheader">ID Type</th>
+<th scope="col" role="columnheader">Nationality</th>
+<th scope="col" role="columnheader">Risk Rating</th>
+<th scope="col" role="columnheader">PEP</th>
+<th scope="col" role="columnheader">Status</th>
+<th scope="col" role="columnheader">Created</th>
+<th scope="col" role="columnheader">Actions</th>
+</tr>
+</thead>
+            <tbody role="rowgroup">
+@forelse($customers as $customer)
+<tr role="row">
+<td>{{ $customer->id }}</td>
+<td>
+<strong>{{ e($customer->full_name) }}</strong>
+@if($customer->risk_rating === 'High')
+<span class="risk-badge risk-high" style="margin-left: 0.5rem;">High Risk</span>
+@endif
+</td>
+<td>{{ e($customer->id_type) }}</td>
+<td>{{ e($customer->nationality) }}</td>
+<td>
+<span class="risk-badge risk-{{ strtolower(e($customer->risk_rating)) }}">
+{{ e($customer->risk_rating) }}
+</span>
+</td>
                     <td>
                         @if($customer->pep_status)
                             <span class="pep-badge pep-yes">PEP</span>
@@ -235,24 +235,24 @@
                         @endif
                     </td>
                     <td>{{ $customer->created_at->format('Y-m-d') }}</td>
-                    <td>
-                        <div class="actions">
-                            <a href="{{ route('customers.show', $customer) }}" class="btn btn-primary btn-sm">View</a>
-                            <a href="{{ route('customers.edit', $customer) }}" class="btn btn-sm" style="background: #ed8936; color: white;">Edit</a>
-                            <a href="{{ route('customers.kyc', $customer) }}" class="btn btn-sm" style="background: #38a169; color: white;">KYC</a>
-                        </div>
-                    </td>
+<td>
+<div class="actions">
+<a href="{{ route('customers.show', $customer) }}" class="btn btn-primary btn-sm" aria-label="View {{ e($customer->full_name) }}">View</a>
+<a href="{{ route('customers.edit', $customer) }}" class="btn btn-sm" style="background: #ed8936; color: white;" aria-label="Edit {{ e($customer->full_name) }}">Edit</a>
+<a href="{{ route('customers.kyc', $customer) }}" class="btn btn-sm" style="background: #38a169; color: white;" aria-label="KYC for {{ e($customer->full_name) }}">KYC</a>
+</div>
+</td>
                 </tr>
-                @empty
-                <tr>
-                    <td colspan="9" style="text-align: center; padding: 2rem; color: #718096;">
-                        No customers found. @if(request()->anyFilled(['search', 'risk_rating', 'nationality', 'is_active', 'pep_status'])) Try adjusting your filters. @else <a href="{{ route('customers.create') }}">Add your first customer</a>. @endif
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+@empty
+<tr role="row">
+<td colspan="9" style="text-align: center; padding: 2rem; color: #718096;">
+No customers found. @if(request()->anyFilled(['search', 'risk_rating', 'nationality', 'is_active', 'pep_status'])) Try adjusting your filters. @else <a href="{{ route('customers.create') }}">Add your first customer</a>. @endif
+</td>
+</tr>
+@endforelse
+</tbody>
+</table>
+</div>
 
     <div class="pagination">
         {{ $customers->links() }}

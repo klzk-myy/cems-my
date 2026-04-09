@@ -20,6 +20,8 @@ class BranchServiceTest extends TestCase
     {
         parent::setUp();
         $this->branchService = new BranchService;
+        // Clear branches to avoid conflicts with DatabaseSeeder
+        Branch::query()->delete();
     }
 
     public function test_list_branches_returns_only_active_branches(): void

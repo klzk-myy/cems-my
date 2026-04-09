@@ -154,7 +154,7 @@
 </div>
 
 @if(session('warning'))
-    <div class="alert alert-warning">{{ session('warning') }}</div>
+<div class="alert alert-warning" role="alert" aria-live="polite">{{ e(session('warning')) }}</div>
 @endif
 
 <form action="/transactions" method="POST" id="transaction-form">

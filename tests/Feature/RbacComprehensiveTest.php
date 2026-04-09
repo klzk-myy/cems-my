@@ -334,7 +334,7 @@ class RbacComprehensiveTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('success');
 
-        $this->assertDatabaseMissing('users', [
+        $this->assertSoftDeleted('users', [
             'id' => $this->tellerUser->id,
         ]);
     }

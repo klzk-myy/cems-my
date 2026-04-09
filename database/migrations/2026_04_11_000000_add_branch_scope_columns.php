@@ -24,7 +24,7 @@ return new class extends Migration
     public function up(): void
     {
         // Add parent_id to branches table if not exists (for hierarchical structure)
-        if (!Schema::hasColumn('branches', 'parent_id')) {
+        if (! Schema::hasColumn('branches', 'parent_id')) {
             Schema::table('branches', function (Blueprint $table) {
                 $table->foreignId('parent_id')->nullable()->after('id')->constrained('branches')->nullOnDelete();
                 $table->index('parent_id');
@@ -32,7 +32,7 @@ return new class extends Migration
         }
 
         // Add branch_id to counters table after 'status' column
-        if (!Schema::hasColumn('counters', 'branch_id')) {
+        if (! Schema::hasColumn('counters', 'branch_id')) {
             Schema::table('counters', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('status')->constrained('branches')->nullOnDelete();
                 $table->index('branch_id');
@@ -40,15 +40,15 @@ return new class extends Migration
         }
 
         // Add branch_id to transactions table after 'user_id' column
-        if (!Schema::hasColumn('transactions', 'branch_id')) {
+        if (! Schema::hasColumn('transactions', 'branch_id')) {
             Schema::table('transactions', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('user_id')->constrained('branches')->nullOnDelete();
-                $table->index('branch_id');
+                $table->index('branch_id', 'transactions_branch_id_fk_index');
             });
         }
 
         // Add branch_id to journal_lines table after 'journal_entry_id' column
-        if (!Schema::hasColumn('journal_lines', 'branch_id')) {
+        if (! Schema::hasColumn('journal_lines', 'branch_id')) {
             Schema::table('journal_lines', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('journal_entry_id')->constrained('branches')->nullOnDelete();
                 $table->index('branch_id');
@@ -57,7 +57,7 @@ return new class extends Migration
 
         // Add branch_id to currency_positions table after 'currency_code' column
         // Note: currency_positions currently has branch_id as string - we replace with FK
-        if (!Schema::hasColumn('currency_positions', 'branch_id')) {
+        if (! Schema::hasColumn('currency_positions', 'branch_id')) {
             Schema::table('currency_positions', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('currency_code')->constrained('branches')->nullOnDelete();
                 $table->index('branch_id');
@@ -65,7 +65,7 @@ return new class extends Migration
         }
 
         // Add branch_id to till_balances table after 'counter_id' column
-        if (!Schema::hasColumn('till_balances', 'branch_id')) {
+        if (! Schema::hasColumn('till_balances', 'branch_id')) {
             Schema::table('till_balances', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('currency_code')->constrained('branches')->nullOnDelete();
                 $table->index('branch_id');

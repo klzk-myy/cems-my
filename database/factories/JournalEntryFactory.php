@@ -16,7 +16,7 @@ class JournalEntryFactory extends Factory
     public function definition(): array
     {
         return [
-            'period_id' => 1,
+            'period_id' => null,
             'entry_date' => now()->toDateString(),
             'description' => fake()->sentence(),
             'status' => 'Draft',

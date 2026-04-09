@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Branch;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Branch>
@@ -15,7 +16,7 @@ class BranchFactory extends Factory
     public function definition(): array
     {
         return [
-            'code' => 'BR'.fake()->unique()->numberBetween(100, 999),
+            'code' => 'BR'.Str::upper(Str::random(4)),
             'name' => fake()->company().' Branch',
             'type' => Branch::TYPE_BRANCH,
             'address' => fake()->streetAddress(),

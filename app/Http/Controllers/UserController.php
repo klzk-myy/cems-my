@@ -212,6 +212,13 @@ class UserController extends Controller
     {
         $this->requireAdmin();
 
+        // Debug logging
+        \Log::debug('UserController@destroy', [
+            'user_id' => $user->id,
+            'user_is_admin' => $user->isAdmin(),
+            'auth_id' => auth()->id(),
+        ]);
+
         // Prevent deleting the last admin
         if ($user->isAdmin() && User::where('role', UserRole::Admin)->count() <= 1) {
             return redirect()->route('users.index')
@@ -226,7 +233,12 @@ class UserController extends Controller
 
         $username = $user->username;
         $userId = $user->id;
+
+        \Log::debug('UserController@destroy proceeding to delete', ['userId' => $userId]);
+
         $user->delete();
+
+        \Log::debug('UserController@destroy deleted', ['userId' => $userId]);
 
         // Log user deletion
         SystemLog::create([

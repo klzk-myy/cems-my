@@ -107,6 +107,7 @@ class StrAutomationServiceTest extends TestCase
 
     public function test_convert_to_str_report_creates_report(): void
     {
+        $user = User::factory()->create();
         $customer = Customer::factory()->create();
         $strDraft = StrDraft::create([
             'customer_id' => $customer->id,
@@ -116,6 +117,7 @@ class StrAutomationServiceTest extends TestCase
             'transaction_ids' => [],
             'confidence_score' => 85,
             'filing_deadline' => now()->addHours(24), // Within 48h for canConvert
+            'created_by' => $user->id,
         ]);
 
         $strReport = $this->service->convertToStrReport($strDraft);

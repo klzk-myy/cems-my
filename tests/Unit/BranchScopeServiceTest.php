@@ -19,6 +19,8 @@ class BranchScopeServiceTest extends TestCase
     {
         parent::setUp();
         $this->branchScopeService = new BranchScopeService;
+        // Clear branches to avoid conflicts with DatabaseSeeder
+        Branch::query()->delete();
     }
 
     public function test_admin_user_returns_null_for_accessible_branches(): void

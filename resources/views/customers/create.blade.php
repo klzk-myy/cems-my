@@ -136,14 +136,14 @@
 </div>
 
 @if($errors->any())
-    <div class="alert alert-error">
-        <strong>Please fix the following errors:</strong>
-        <ul style="margin-top: 0.5rem; margin-left: 1rem;">
-            @foreach($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
+<div class="alert alert-error" role="alert" aria-live="assertive">
+<strong>Please fix the following errors:</strong>
+<ul style="margin-top: 0.5rem; margin-left: 1rem;">
+@foreach($errors->all() as $error)
+<li>{{ e($error) }}</li>
+@endforeach
+</ul>
+</div>
 @endif
 
 <form action="{{ route('customers.store') }}" method="POST">

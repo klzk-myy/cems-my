@@ -16,6 +16,13 @@ class BranchModelTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Clear branches created by DatabaseSeeder to avoid conflicts
+        Branch::query()->delete();
+    }
+
     /**
      * Test branch constants are defined correctly
      */
@@ -194,6 +201,9 @@ class BranchModelTest extends TestCase
      */
     public function test_scope_active_filters_active_branches(): void
     {
+        // Delete seeder-created branches to avoid conflicts
+        Branch::whereIn('code', ['BR001', 'BR002', 'BR003', 'HQ'])->delete();
+
         Branch::create([
             'code' => 'BR001',
             'name' => 'Active Branch',
@@ -221,6 +231,9 @@ class BranchModelTest extends TestCase
      */
     public function test_scope_main_filters_main_branch(): void
     {
+        // Delete seeder-created branches to avoid conflicts
+        Branch::whereIn('code', ['BR001', 'BR002', 'BR003', 'HQ'])->delete();
+
         Branch::create([
             'code' => 'HQ',
             'name' => 'Head Office',
@@ -248,6 +261,9 @@ class BranchModelTest extends TestCase
      */
     public function test_scope_branches_filters_by_type(): void
     {
+        // Delete seeder-created branches to avoid conflicts
+        Branch::whereIn('code', ['BR001', 'BR002', 'BR003', 'HQ'])->delete();
+
         Branch::create([
             'code' => 'HQ',
             'name' => 'Head Office',

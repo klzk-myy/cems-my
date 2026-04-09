@@ -87,49 +87,49 @@
         </div>
     </div>
 
-    {{-- Summary Statistics --}}
-    <div class="row mb-4">
-        <div class="col-md-2">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h3 class="text-primary">{{ number_format($summary['total_transactions']) }}</h3>
-                    <small class="text-muted">Total Transactions</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h3 class="text-success">{{ number_format($summary['total_buy_count']) }}</h3>
-                    <small class="text-muted">Buy Transactions</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-2">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h3 class="text-info">{{ number_format($summary['total_sell_count']) }}</h3>
-                    <small class="text-muted">Sell Transactions</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h3 class="text-success">RM {{ number_format($summary['total_buy_amount'], 2) }}</h3>
-                    <small class="text-muted">Total Buy (MYR)</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h3 class="text-info">RM {{ number_format($summary['total_sell_amount'], 2) }}</h3>
-                    <small class="text-muted">Total Sell (MYR)</small>
-                </div>
+{{-- Summary Statistics --}}
+<div class="row mb-4">
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-primary">{{ number_format($stats['total_count']) }}</h3>
+                <small class="text-muted">Total Transactions</small>
             </div>
         </div>
     </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-success">{{ number_format($stats['buy_count']) }}</h3>
+                <small class="text-muted">Buy Transactions</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-info">{{ number_format($stats['sell_count']) }}</h3>
+                <small class="text-muted">Sell Transactions</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-success">RM {{ number_format($stats['buy_volume'], 2) }}</h3>
+                <small class="text-muted">Total Buy (MYR)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="text-info">RM {{ number_format($stats['sell_volume'], 2) }}</h3>
+                <small class="text-muted">Total Sell (MYR)</small>
+            </div>
+        </div>
+    </div>
+</div>
 
     {{-- Export Buttons --}}
     <div class="mb-3">

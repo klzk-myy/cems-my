@@ -1,9 +1,9 @@
 # CEMS-MY Test Suite Specification
 
-**Document Type:** Test Specification  
-**Version:** 1.0  
-**Last Updated:** April 2026  
-**Total Tests:** 364 tests, 1,063 assertions
+**Document Type:** Test Specification
+**Version:** 1.1
+**Last Updated:** April 2026
+**Total Tests:** 1,061 tests, 3,153 assertions
 
 ---
 
@@ -28,11 +28,11 @@ This document specifies the test suites for CEMS-MY (Currency Exchange Managemen
 
 | Category | Count |
 |----------|-------|
-| Feature Tests | 19 test files |
-| Unit Tests | 18 test files |
-| Total Tests | 364 |
-| Total Assertions | 1,063 |
-| Duration (full suite) | ~30 seconds |
+| Feature Tests | 24 test files |
+| Unit Tests | 30 test files |
+| Total Tests | 1,061 |
+| Total Assertions | 3,153 |
+| Duration (full suite) | ~45 seconds |
 
 ### 1.3 Test Philosophy
 
@@ -844,6 +844,7 @@ Duration: 30.40s
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0 | 2026-04-05 | Initial specification | CEMS-MY Team |
+| 1.1 | 2026-04-09 | Updated test counts after MySQL migration fixes (1,061 tests) | CEMS-MY Team |
 
 ---
 

@@ -162,8 +162,8 @@
 
 @section('content')
 <div class="edit-customer-header">
-    <h2>Edit Customer: {{ $customer->full_name }}</h2>
-    <p>Update customer information and KYC details</p>
+<h2>Edit Customer: {{ e($customer->full_name) }}</h2>
+<p>Update customer information and KYC details</p>
 </div>
 
 <!-- Customer Summary -->
@@ -207,14 +207,14 @@
 </div>
 
 @if($errors->any())
-    <div class="alert alert-error">
-        <strong>Please fix the following errors:</strong>
-        <ul style="margin-top: 0.5rem; margin-left: 1rem;">
-            @foreach($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
+<div class="alert alert-error" role="alert" aria-live="assertive">
+<strong>Please fix the following errors:</strong>
+<ul style="margin-top: 0.5rem; margin-left: 1rem;">
+@foreach($errors->all() as $error)
+<li>{{ e($error) }}</li>
+@endforeach
+</ul>
+</div>
 @endif
 
 <form action="{{ route('customers.update', $customer) }}" method="POST">

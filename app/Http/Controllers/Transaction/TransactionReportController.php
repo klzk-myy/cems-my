@@ -59,8 +59,7 @@ class TransactionReportController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        $dbDriver = DB::getDriverName();
-        $dateFormat = $dbDriver === 'sqlite' ? "strftime('%Y-%m', created_at)" : "DATE_FORMAT(created_at, '%Y-%m')";
+        $dateFormat = "DATE_FORMAT(created_at, '%Y-%m')";
 
         $monthlyData = Transaction::where('customer_id', $customer->id)
             ->selectRaw("{$dateFormat} as month, type, SUM(amount_local) as total")

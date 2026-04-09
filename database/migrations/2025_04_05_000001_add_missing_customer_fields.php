@@ -50,8 +50,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // SQLite doesn't support multiple dropColumn in single modification
-        // So we need to drop columns one at a time
+        // Drop columns one at a time
         $columns = [
             'is_active',
             'sanction_hit',

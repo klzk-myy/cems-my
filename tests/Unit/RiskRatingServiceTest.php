@@ -135,22 +135,22 @@ class RiskRatingServiceTest extends TestCase
     public function test_score_capped_at_100()
     {
         HighRiskCountry::create([
-            'country_code' => 'HR1',
-            'country_name' => 'HighRisk1',
+            'country_code' => 'IR',
+            'country_name' => 'Iran',
             'risk_level' => 'High',
             'source' => 'Test',
             'list_date' => now()->subYear(),
         ]);
         HighRiskCountry::create([
-            'country_code' => 'HR2',
-            'country_name' => 'HighRisk2',
+            'country_code' => 'KP',
+            'country_name' => 'North Korea',
             'risk_level' => 'High',
             'source' => 'Test',
             'list_date' => now()->subYear(),
         ]);
         HighRiskCountry::create([
-            'country_code' => 'HR3',
-            'country_name' => 'HighRisk3',
+            'country_code' => 'SY',
+            'country_name' => 'Syria',
             'risk_level' => 'High',
             'source' => 'Test',
             'list_date' => now()->subYear(),
