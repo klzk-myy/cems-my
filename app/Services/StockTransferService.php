@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\UserRole;
 use App\Models\StockTransfer;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -101,6 +102,26 @@ class StockTransferService
 
                 if ($item->hasVariance()) {
                     $item->update(['variance_notes' => "Variance: {$item->variance}"]);
+
+                    // Log high variance to audit trail
+                    if ($item->quantity > 0) {
+                        $variancePercent = abs(bcdiv($item->variance, $item->quantity, 4)) * 100;
+                        if (bccomp($variancePercent, '5', 4) > 0) {
+                            app(AuditService::class)->logWithSeverity(
+                                'stock_transfer_variance_exceeded',
+                                [
+                                    'entity_type' => 'StockTransfer',
+                                    'entity_id' => $transfer->id,
+                                    'new_values' => [
+                                        'item_id' => $item->id,
+                                        'currency' => $item->currency_code,
+                                        'variance_percent' => $variancePercent,
+                                    ],
+                                ],
+                                'WARNING'
+                            );
+                        }
+                    }
                 }
             }
         }

@@ -130,4 +130,34 @@ class StockTransferServiceTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $service->approveByBranchManager($transfer);
     }
+
+    public function test_receive_items_logs_high_variance_to_audit(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $transfer = StockTransfer::create([
+            'transfer_number' => 'TRF-TEST-0006',
+            'type' => StockTransfer::TYPE_STANDARD,
+            'status' => StockTransfer::STATUS_IN_TRANSIT,
+            'source_branch_name' => 'HQ',
+            'destination_branch_name' => 'Branch A',
+            'requested_by' => $admin->id,
+        ]);
+
+        $item = $transfer->items()->create([
+            'currency_code' => 'USD',
+            'quantity' => '1000.0000',
+            'rate' => '4.500000',
+            'value_myr' => '4500.00',
+        ]);
+
+        $service = $this->createService($admin);
+        // Received only 890 out of 1000 = 11% variance (> 5% threshold)
+        $service->receiveItems($transfer, [['id' => $item->id, 'quantity_received' => '890.0000']]);
+
+        $this->assertDatabaseHas('system_logs', [
+            'action' => 'stock_transfer_variance_exceeded',
+            'entity_type' => 'StockTransfer',
+            'entity_id' => $transfer->id,
+        ]);
+    }
 }

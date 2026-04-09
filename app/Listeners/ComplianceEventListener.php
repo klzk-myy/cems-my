@@ -94,7 +94,7 @@ class ComplianceEventListener implements ShouldQueue
             'status' => FlagStatus::Open,
             'priority' => $priority,
             'risk_score' => $snapshot->overall_score,
-            'description' => "Customer risk score escalated to {$snapshot->overall_rating_label} (score: {$snapshot->overall_score})",
+            'reason' => "Customer risk score escalated to {$snapshot->overall_rating_label} (score: {$snapshot->overall_score})",
         ]);
     }
 
