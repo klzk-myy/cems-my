@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Customer;
 use App\Models\DataBreachAlert;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,13 +16,16 @@ class DataBreachDetectionTest extends TestCase
     public function test_breach_alert_created_when_threshold_exceeded(): void
     {
         $user = User::factory()->create();
+        $customer = Customer::factory()->create();
 
+        // Pre-fill cache above threshold
         $cacheKey = "data_access:{$user->id}:127.0.0.1";
         Cache::put($cacheKey, 1001, 60);
 
         $this->actingAs($user);
 
-        $response = $this->get('/dashboard');
+        // Hit /customers/{customer} which IS protected by data.breach middleware
+        $response = $this->get("/customers/{$customer->id}");
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('data_breach_alerts', [
@@ -33,9 +37,11 @@ class DataBreachDetectionTest extends TestCase
     public function test_mass_export_detected_with_high_limit(): void
     {
         $user = User::factory()->create();
+        $customer = Customer::factory()->create();
         $this->actingAs($user);
 
-        $response = $this->get('/customers?export=1&limit=600');
+        // Hit /customers/{customer}/history/export which IS protected
+        $response = $this->get("/customers/{$customer->id}/history/export?export=1&limit=600");
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('data_breach_alerts', [
