@@ -468,6 +468,13 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::delete('/{branch}', [BranchController::class, 'destroy'])->name('destroy');
     });
 
+    // Data Breach Alerts (Admin only)
+    Route::middleware(['auth', 'role:admin'])->prefix('data-breach-alerts')->name('data-breach-alerts.')->group(function () {
+        Route::get('/', [DataBreachAlertController::class, 'index'])->name('index');
+        Route::get('/{dataBreachAlert}', [DataBreachAlertController::class, 'show'])->name('show');
+        Route::post('/{dataBreachAlert}/resolve', [DataBreachAlertController::class, 'resolve'])->name('resolve');
+    });
+
     // -------------------------------------------------------------------------
     // API ROUTES
     // -------------------------------------------------------------------------

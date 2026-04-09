@@ -54,6 +54,18 @@ class Navigation
                         'icon' => 'cash',
                         'uri' => '/stock-cash',
                     ],
+                    [
+                        'label' => 'Stock Transfers',
+                        'route' => 'stock-transfers.index',
+                        'icon' => 'arrows-right-left',
+                        'uri' => '/stock-transfers',
+                    ],
+                    [
+                        'label' => 'Transaction Imports',
+                        'route' => 'transactions.batch-upload',
+                        'icon' => 'arrow-up-tray',
+                        'uri' => '/transactions/batch-upload',
+                    ],
                 ],
             ],
 
@@ -347,6 +359,12 @@ class Navigation
                         'route' => 'branches.index',
                         'icon' => 'branch',
                         'uri' => '/branches',
+                    ],
+                    [
+                        'label' => 'Data Breach Alerts',
+                        'route' => 'data-breach-alerts.index',
+                        'icon' => 'shield-exclamation',
+                        'uri' => '/data-breach-alerts',
                     ],
                 ],
             ],
