@@ -125,6 +125,10 @@ class CaseManagementController extends Controller
 
     public function verifyDocument(Request $request, ComplianceCase $case, ComplianceCaseDocument $document)
     {
+        if ($document->case_id !== $case->id) {
+            abort(403, 'Document does not belong to this case');
+        }
+
         $this->caseManagementService->verifyDocument($document->id, auth()->id());
         return redirect()->back()->with('success', 'Document verified');
     }
@@ -142,6 +146,10 @@ class CaseManagementController extends Controller
 
     public function removeLink(ComplianceCase $case, ComplianceCaseLink $link)
     {
+        if ($link->case_id !== $case->id) {
+            abort(403, 'Link does not belong to this case');
+        }
+
         $this->caseManagementService->removeLink($link->id);
         return redirect()->back()->with('success', 'Link removed');
     }
