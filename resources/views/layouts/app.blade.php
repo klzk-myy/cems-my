@@ -115,6 +115,38 @@
                 <span>Alert Triage</span>
             </a>
 
+            <a href="{{ route('compliance.workspace') }}"
+               class="sidebar__link {{ request()->is('compliance/workspace*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+                </svg>
+                <span>Compliance Workspace</span>
+            </a>
+
+            <a href="{{ route('compliance.edd.index') }}"
+               class="sidebar__link {{ request()->is('compliance/edd*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span>EDD Records</span>
+            </a>
+
+            <a href="{{ route('compliance.risk-dashboard.index') }}"
+               class="sidebar__link {{ request()->is('compliance/risk-dashboard*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/>
+                </svg>
+                <span>Risk Dashboard</span>
+            </a>
+
+            <a href="{{ route('compliance.str-studio.index') }}"
+               class="sidebar__link {{ request()->is('compliance/str-studio*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                <span>STR Studio</span>
+            </a>
+
             <a href="{{ route('compliance.cases.index') }}"
                class="sidebar__link {{ request()->is('compliance/cases*') ? 'sidebar__link--active' : '' }}">
                 <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -164,6 +196,86 @@
                 </svg>
                 <span>Ledger</span>
             </a>
+
+            <a href="{{ route('accounting.trial-balance') }}"
+               class="sidebar__link {{ request()->is('accounting/trial-balance*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Trial Balance</span>
+            </a>
+
+            <a href="{{ route('accounting.profit-loss') }}"
+               class="sidebar__link {{ request()->is('accounting/profit-loss*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Profit & Loss</span>
+            </a>
+
+            <a href="{{ route('accounting.balance-sheet') }}"
+               class="sidebar__link {{ request()->is('accounting/balance-sheet*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Balance Sheet</span>
+            </a>
+
+            <a href="{{ route('accounting.cash-flow') }}"
+               class="sidebar__link {{ request()->is('accounting/cash-flow*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Cash Flow</span>
+            </a>
+
+            <a href="{{ route('accounting.ratios') }}"
+               class="sidebar__link {{ request()->is('accounting/ratios*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Financial Ratios</span>
+            </a>
+
+            <a href="{{ route('accounting.revaluation') }}"
+               class="sidebar__link {{ request()->is('accounting/revaluation*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Revaluation</span>
+            </a>
+
+            <a href="{{ route('accounting.reconciliation') }}"
+               class="sidebar__link {{ request()->is('accounting/reconciliation*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Reconciliation</span>
+            </a>
+
+            <a href="{{ route('accounting.budget') }}"
+               class="sidebar__link {{ request()->is('accounting/budget*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Budget</span>
+            </a>
+
+            <a href="{{ route('accounting.periods') }}"
+               class="sidebar__link {{ request()->is('accounting/periods*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Periods</span>
+            </a>
+
+            <a href="{{ route('accounting.fiscal-years') }}"
+               class="sidebar__link {{ request()->is('accounting/fiscal-years*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 3v18M3 9h18M3 15h18"/>
+                </svg>
+                <span>Fiscal Years</span>
+            </a>
         </div>
 
         {{-- Reports --}}
@@ -178,6 +290,54 @@
                     <line x1="6" y1="20" x2="6" y2="14"/>
                 </svg>
                 <span>Reports</span>
+            </a>
+
+            <a href="{{ route('reports.msb2') }}"
+               class="sidebar__link {{ request()->is('reports/msb2*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>MSB2 Report</span>
+            </a>
+
+            <a href="{{ route('reports.lctr') }}"
+               class="sidebar__link {{ request()->is('reports/lctr*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>LCTR</span>
+            </a>
+
+            <a href="{{ route('reports.lmca') }}"
+               class="sidebar__link {{ request()->is('reports/lmca*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>LMCA</span>
+            </a>
+
+            <a href="{{ route('reports.quarterly-lvr') }}"
+               class="sidebar__link {{ request()->is('reports/quarterly-lvr*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>Quarterly LVR</span>
+            </a>
+
+            <a href="{{ route('reports.position-limit') }}"
+               class="sidebar__link {{ request()->is('reports/position-limit*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>Position Limits</span>
+            </a>
+
+            <a href="{{ route('reports.history') }}"
+               class="sidebar__link {{ request()->is('reports/history*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>Report History</span>
             </a>
         </div>
 
@@ -204,6 +364,30 @@
                     <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
                 <span>Users</span>
+            </a>
+
+            <a href="{{ route('tasks.index') }}"
+               class="sidebar__link {{ request()->is('tasks*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                <span>Tasks</span>
+            </a>
+
+            <a href="{{ route('transactions.batch-upload') }}"
+               class="sidebar__link {{ request()->is('transactions/batch-upload*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Transaction Imports</span>
+            </a>
+
+            <a href="{{ route('data-breach-alerts.index') }}"
+               class="sidebar__link {{ request()->is('data-breach-alerts*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span>Data Breach Alerts</span>
             </a>
         </div>
     </nav>
@@ -247,23 +431,6 @@
 </main>
 </div>
 
-<script>
-    // Mobile-friendly dropdown toggle with click
-    document.querySelectorAll('.nav-group > .nav-link').forEach(function(toggle) {
-        toggle.addEventListener('click', function(e) {
-            var navGroup = this.parentElement;
-            if (navGroup.classList.contains('nav-group')) {
-                var href = this.getAttribute('href');
-                var isParentLink = href && !href.includes('#');
-
-                if (navGroup.classList.contains('open') || e.target.closest('.nav-arrow')) {
-                    e.preventDefault();
-                    navGroup.classList.toggle('open');
-                }
-            }
-        });
-    });
-</script>
 
 @yield('scripts')
 </body>
