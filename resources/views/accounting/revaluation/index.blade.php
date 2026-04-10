@@ -3,55 +3,51 @@
 @section('title', 'Monthly Revaluation - CEMS-MY')
 
 @section('content')
-<div class="reval-header">
-    <h2>Monthly Revaluation</h2>
-    <div class="header-actions">
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-xl font-semibold text-gray-800">Monthly Revaluation</h2>
+    <div class="flex gap-2">
         <form method="POST" action="{{ route('accounting.revaluation.run') }}" onsubmit="return confirm('Are you sure you want to run revaluation? This will create journal entries.');">
             @csrf
-            <button type="submit" class="btn btn-primary">Run Revaluation</button>
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700 transition-colors">Run Revaluation</button>
         </form>
-        <a href="{{ route('accounting.revaluation.history') }}" class="btn btn-secondary">View History</a>
+        <a href="{{ route('accounting.revaluation.history') }}" class="px-4 py-2 bg-gray-200 text-gray-700 no-underline rounded font-semibold text-sm hover:bg-gray-300 transition-colors">View History</a>
     </div>
 </div>
 
 @if(session('success'))
-    <div class="alert alert-success">
-        {{ session('success') }}
-    </div>
+    <div class="p-4 mb-4 rounded bg-green-100 text-green-800">{{ session('success') }}</div>
 @endif
 
 @if(session('error'))
-    <div class="alert alert-error">
-        {{ session('error') }}
-    </div>
+    <div class="p-4 mb-4 rounded bg-red-100 text-red-800">{{ session('error') }}</div>
 @endif
 
 <!-- Revaluation Status -->
-<div class="card">
-    <h2>Current Month Status</h2>
-    <div class="status-grid">
-        <div class="status-item">
-            <span class="status-label">Month</span>
-            <span class="status-value">{{ $status['month'] }}</span>
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Current Month Status</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <span class="text-sm text-gray-500 mb-1 block">Month</span>
+            <span class="font-semibold text-gray-800 text-lg">{{ $status['month'] }}</span>
         </div>
-        <div class="status-item">
-            <span class="status-label">Status</span>
-            <span class="status-badge status-{{ $status['has_run'] ? 'completed' : 'pending' }}">
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <span class="text-sm text-gray-500 mb-1 block">Status</span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold {{ $status['has_run'] ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
                 {{ $status['has_run'] ? 'Completed' : 'Pending' }}
             </span>
         </div>
         @if($status['has_run'])
-        <div class="status-item">
-            <span class="status-label">Run Date</span>
-            <span class="status-value">{{ $status['run_date'] }}</span>
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <span class="text-sm text-gray-500 mb-1 block">Run Date</span>
+            <span class="font-semibold text-gray-800 text-lg">{{ $status['run_date'] }}</span>
         </div>
-        <div class="status-item">
-            <span class="status-label">Positions Updated</span>
-            <span class="status-value">{{ $status['positions_updated'] }}</span>
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <span class="text-sm text-gray-500 mb-1 block">Positions Updated</span>
+            <span class="font-semibold text-gray-800 text-lg">{{ $status['positions_updated'] }}</span>
         </div>
-        <div class="status-item">
-            <span class="status-label">Total Gain/Loss</span>
-            <span class="status-value {{ ($status['total_gain_loss'] ?? 0) >= 0 ? 'positive' : 'negative' }}">
+        <div class="p-4 bg-gray-50 rounded-lg">
+            <span class="text-sm text-gray-500 mb-1 block">Total Gain/Loss</span>
+            <span class="font-semibold text-lg {{ ($status['total_gain_loss'] ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' }}">
                 RM {{ number_format($status['total_gain_loss'] ?? 0, 2) }}
             </span>
         </div>
@@ -60,138 +56,68 @@
 </div>
 
 <!-- Currency Positions -->
-<div class="card">
-    <h2>Currency Positions</h2>
-    <p style="color: #718096; margin-bottom: 1rem;">
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-2">Currency Positions</h2>
+    <p class="text-gray-500 mb-4">
         Revaluation calculates unrealized P&L using: <strong>(Current Rate - Avg Cost Rate) × Position Amount</strong>
     </p>
-    
+
     @if($positions->count() > 0)
-    <table>
-        <thead>
-            <tr>
-                <th>Currency</th>
-                <th>Till</th>
-                <th>Balance</th>
-                <th>Avg Cost Rate</th>
-                <th>Last Valuation</th>
-                <th class="text-right">Unrealized P&L</th>
-                <th>Last Updated</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($positions as $position)
-            <tr>
-                <td><strong>{{ $position->currency_code }}</strong></td>
-                <td>{{ $position->till_id }}</td>
-                <td>{{ number_format($position->balance, 4) }}</td>
-                <td>{{ number_format($position->avg_cost_rate, 6) }}</td>
-                <td>{{ $position->last_valuation_rate ? number_format($position->last_valuation_rate, 6) : 'N/A' }}</td>
-                <td class="text-right {{ ($position->unrealized_pnl ?? 0) >= 0 ? 'positive' : 'negative' }}">
-                    {{ ($position->unrealized_pnl ?? 0) >= 0 ? '+' : '' }}
-                    RM {{ number_format($position->unrealized_pnl ?? 0, 2) }}
-                </td>
-                <td>{{ $position->updated_at->diffForHumans() }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-        <tfoot>
-            <tr>
-                <th colspan="5" class="text-right">Total Unrealized P&L:</th>
-                <th class="text-right {{ $positions->sum('unrealized_pnl') >= 0 ? 'positive' : 'negative' }}">
-                    {{ $positions->sum('unrealized_pnl') >= 0 ? '+' : '' }}
-                    RM {{ number_format($positions->sum('unrealized_pnl'), 2) }}
-                </th>
-                <th></th>
-            </tr>
-        </tfoot>
-    </table>
+    <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+            <thead>
+                <tr>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b-2 border-gray-200">Currency</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b-2 border-gray-200">Till</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b-2 border-gray-200">Balance</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b-2 border-gray-200">Avg Cost Rate</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b-2 border-gray-200">Last Valuation</th>
+                    <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b-2 border-gray-200">Unrealized P&L</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b-2 border-gray-200">Last Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($positions as $position)
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 border-b border-gray-100 font-semibold text-gray-800">{{ $position->currency_code }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-gray-600">{{ $position->till_id }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-gray-600">{{ number_format($position->balance, 4) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-gray-600">{{ number_format($position->avg_cost_rate, 6) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-gray-600">{{ $position->last_valuation_rate ? number_format($position->last_valuation_rate, 6) : 'N/A' }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-right font-semibold {{ ($position->unrealized_pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                        {{ ($position->unrealized_pnl ?? 0) >= 0 ? '+' : '' }}
+                        RM {{ number_format($position->unrealized_pnl ?? 0, 2) }}
+                    </td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-gray-500 text-sm">{{ $position->updated_at->diffForHumans() }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+            <tfoot>
+                <tr class="border-t-2 border-gray-200 bg-gray-50">
+                    <td colspan="5" class="px-4 py-3 text-right font-semibold text-gray-700">Total Unrealized P&L:</td>
+                    <td class="px-4 py-3 text-right font-semibold text-lg {{ $positions->sum('unrealized_pnl') >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                        {{ $positions->sum('unrealized_pnl') >= 0 ? '+' : '' }}
+                        RM {{ number_format($positions->sum('unrealized_pnl'), 2) }}
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
     @else
-    <div class="alert alert-info">
+    <div class="p-4 rounded bg-blue-50 text-blue-800">
         No currency positions found. Positions are created automatically when transactions are processed.
     </div>
     @endif
 </div>
 
 <!-- Revaluation Schedule -->
-<div class="card">
-    <h2>Automation Schedule</h2>
-    <div class="alert alert-info">
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Automation Schedule</h2>
+    <div class="p-4 rounded bg-blue-50 text-blue-800">
         <strong>Automatic Revaluation:</strong> Runs on the last day of each month at 23:59<br>
         <strong>Next Run:</strong> {{ now()->endOfMonth()->format('Y-m-d 23:59') }}<br>
         <strong>Notification:</strong> Manager and Compliance Officer will receive email notification
     </div>
 </div>
-
-@section('styles')
-<style>
-    .reval-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-    .header-actions {
-        display: flex;
-        gap: 0.5rem;
-    }
-    .status-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-    }
-    .status-item {
-        display: flex;
-        flex-direction: column;
-        padding: 1rem;
-        background: #f7fafc;
-        border-radius: 8px;
-    }
-    .status-label {
-        color: #718096;
-        font-size: 0.875rem;
-        margin-bottom: 0.25rem;
-    }
-    .status-value {
-        font-weight: 600;
-        color: #2d3748;
-        font-size: 1.125rem;
-    }
-    .status-completed {
-        background: #c6f6d5;
-        color: #22543d;
-    }
-    .status-pending {
-        background: #fef3c7;
-        color: #92400e;
-    }
-    .text-right {
-        text-align: right;
-    }
-    .positive {
-        color: #38a169;
-    }
-    .negative {
-        color: #e53e3e;
-    }
-    tfoot tr {
-        border-top: 2px solid #e2e8f0;
-        background: #f7fafc;
-    }
-    .alert-success {
-        background: #c6f6d5;
-        color: #22543d;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-    }
-    .alert-error {
-        background: #fed7d7;
-        color: #c53030;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-    }
-</style>
-@endsection
 @endsection
