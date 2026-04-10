@@ -4,197 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cancel Transaction #{{ $transaction->id }} - CEMS-MY</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-        }
-        .header {
-            background: #1a365d;
-            color: white;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header h1 { font-size: 1.5rem; }
-        .nav { display: flex; gap: 1rem; }
-        .nav a {
-            color: white;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            transition: background 0.2s;
-        }
-        .nav a:hover { background: rgba(255,255,255,0.1); }
-        .container {
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-        .card {
-            background: white;
-            border-radius: 8px;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 1.5rem;
-        }
-        .card h2 {
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-            color: #1a365d;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 0.5rem;
-        }
-        .btn {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            font-size: 0.875rem;
-        }
-        .btn-primary { background: #3182ce; color: white; }
-        .btn-secondary { background: #e2e8f0; color: #4a5568; }
-        .btn-danger { background: #e53e3e; color: white; }
-        .btn-warning { background: #dd6b20; color: white; }
-        .alert {
-            padding: 1rem;
-            border-radius: 4px;
-            margin-bottom: 1rem;
-        }
-        .alert-error {
-            background: #fed7d7;
-            border-left: 4px solid #e53e3e;
-            color: #c53030;
-        }
-        .warning-header {
-            background: #fff5f5;
-            border: 2px solid #fc8181;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-        .warning-header h2 {
-            color: #c53030;
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-        }
-        .warning-header p {
-            color: #742a2a;
-        }
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .detail-row:last-child { border-bottom: none; }
-        .detail-label { color: #718096; font-weight: 500; }
-        .detail-value { color: #2d3748; font-weight: 600; }
-        .form-group { margin-bottom: 1.5rem; }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #2d3748;
-        }
-        .form-group .required { color: #e53e3e; }
-        .form-control {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            font-family: inherit;
-        }
-        .form-control:focus {
-            outline: none;
-            border-color: #3182ce;
-            box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
-        }
-        textarea.form-control { min-height: 120px; resize: vertical; }
-        .checkbox-group {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-        }
-        .checkbox-group input[type="checkbox"] {
-            margin-top: 0.25rem;
-            width: 1.25rem;
-            height: 1.25rem;
-            cursor: pointer;
-        }
-        .checkbox-group label {
-            margin: 0;
-            cursor: pointer;
-            font-weight: normal;
-        }
-        .actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-top: 2rem;
-        }
-        .consequences {
-            background: #fffaf0;
-            border-left: 4px solid #dd6b20;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .consequences h3 {
-            color: #c05621;
-            margin-bottom: 0.75rem;
-            font-size: 1rem;
-        }
-        .consequences ul {
-            margin-left: 1.5rem;
-            color: #744210;
-        }
-        .consequences li {
-            margin-bottom: 0.5rem;
-        }
-        .error-text {
-            color: #e53e3e;
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
-        }
-    </style>
 </head>
-<body>
-    <header class="header">
-        <h1>CEMS-MY Cancel Transaction</h1>
-        <nav class="nav">
-            <a href="/">Dashboard</a>
-            <a href="/transactions">Transactions</a>
-            <a href="/stock-cash">Stock/Cash</a>
-            <a href="/compliance">Compliance</a>
-            <a href="/accounting">Accounting</a>
-            <a href="/reports">Reports</a>
-            <a href="/users">Users</a>
-            <a href="/logout" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
+<body class="font-sans bg-gray-100 text-gray-800 m-0 p-0">
+    <header class="bg-blue-900 text-white px-8 py-4 flex justify-between items-center">
+        <h1 class="text-xl font-semibold">CEMS-MY Cancel Transaction</h1>
+        <nav class="flex gap-4">
+            <a href="/" class="text-white no-underline px-3 py-2 rounded hover:bg-white/10 transition-colors">Dashboard</a>
+            <a href="/transactions" class="text-white no-underline px-3 py-2 rounded hover:bg-white/10 transition-colors">Transactions</a>
+            <a href="/stock-cash" class="text-white no-underline px-3 py-2 rounded hover:bg-white/10 transition-colors">Stock/Cash</a>
+            <a href="/compliance" class="text-white no-underline px-3 py-2 rounded hover:bg-white/10 transition-colors">Compliance</a>
+            <a href="/accounting" class="text-white no-underline px-3 py-2 rounded hover:bg-white/10 transition-colors">Accounting</a>
+            <a href="/reports" class="text-white no-underline px-3 py-2 rounded hover:bg-white/10 transition-colors">Reports</a>
+            <a href="/users" class="text-white no-underline px-3 py-2 rounded hover:bg-white/10 transition-colors">Users</a>
+            <a href="/logout" onclick="event.preventDefault(); document.getElementById('logout-form').submit();" class="text-white no-underline px-3 py-2 rounded hover:bg-white/10 transition-colors">Logout</a>
         </nav>
-        <form id="logout-form" action="/logout" method="POST" style="display: none;">
+        <form id="logout-form" action="/logout" method="POST" class="hidden">
             @csrf
         </form>
     </header>
 
-    <div class="container">
+    <div class="max-w-3xl mx-auto my-8 px-4">
         <!-- Warning Header -->
-        <div class="warning-header">
-            <h2>⚠️ Cancel Transaction</h2>
-            <p>You are about to cancel Transaction #{{ $transaction->id }}</p>
+        <div class="bg-red-50 border-2 border-red-400 rounded-lg p-6 mb-6 text-center">
+            <h2 class="text-2xl font-bold text-red-700 mb-2">⚠️ Cancel Transaction</h2>
+            <p class="text-red-800">You are about to cancel Transaction #{{ $transaction->id }}</p>
         </div>
 
         @if($errors->any())
-            <div class="alert alert-error">
+            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
                 <strong>Please correct the following errors:</strong>
-                <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+                <ul class="mt-2 ml-6 list-disc">
                     @foreach($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
@@ -203,44 +42,46 @@
         @endif
 
         <!-- Transaction Summary -->
-        <div class="card">
-            <h2>Transaction Summary</h2>
-            <div class="detail-row">
-                <span class="detail-label">Transaction ID</span>
-                <span class="detail-value">#{{ $transaction->id }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Customer</span>
-                <span class="detail-value">
-                    {{ str_repeat('*', strlen($transaction->customer->full_name ?? '') - 3) . substr($transaction->customer->full_name ?? 'N/A', -3) }}
-                </span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Type</span>
-                <span class="detail-value">{{ $transaction->type }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Amount (Foreign)</span>
-                <span class="detail-value">{{ number_format($transaction->amount_foreign, 4) }} {{ $transaction->currency_code }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Rate</span>
-                <span class="detail-value">{{ number_format($transaction->rate, 6) }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Amount (MYR)</span>
-                <span class="detail-value">RM {{ number_format($transaction->amount_local, 2) }}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Created</span>
-                <span class="detail-value">{{ $transaction->created_at->format('Y-m-d H:i:s') }}</span>
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 class="text-lg font-semibold text-blue-900 mb-4 border-b-2 border-gray-200 pb-2">Transaction Summary</h2>
+            <div class="divide-y divide-gray-200">
+                <div class="flex justify-between py-3">
+                    <span class="text-gray-500 font-medium">Transaction ID</span>
+                    <span class="text-gray-800 font-semibold">#{{ $transaction->id }}</span>
+                </div>
+                <div class="flex justify-between py-3">
+                    <span class="text-gray-500 font-medium">Customer</span>
+                    <span class="text-gray-800 font-semibold">
+                        {{ str_repeat('*', strlen($transaction->customer->full_name ?? '') - 3) . substr($transaction->customer->full_name ?? 'N/A', -3) }}
+                    </span>
+                </div>
+                <div class="flex justify-between py-3">
+                    <span class="text-gray-500 font-medium">Type</span>
+                    <span class="text-gray-800 font-semibold">{{ $transaction->type }}</span>
+                </div>
+                <div class="flex justify-between py-3">
+                    <span class="text-gray-500 font-medium">Amount (Foreign)</span>
+                    <span class="text-gray-800 font-semibold">{{ number_format($transaction->amount_foreign, 4) }} {{ $transaction->currency_code }}</span>
+                </div>
+                <div class="flex justify-between py-3">
+                    <span class="text-gray-500 font-medium">Rate</span>
+                    <span class="text-gray-800 font-semibold">{{ number_format($transaction->rate, 6) }}</span>
+                </div>
+                <div class="flex justify-between py-3">
+                    <span class="text-gray-500 font-medium">Amount (MYR)</span>
+                    <span class="text-gray-800 font-semibold">RM {{ number_format($transaction->amount_local, 2) }}</span>
+                </div>
+                <div class="flex justify-between py-3">
+                    <span class="text-gray-500 font-medium">Created</span>
+                    <span class="text-gray-800 font-semibold">{{ $transaction->created_at->format('Y-m-d H:i:s') }}</span>
+                </div>
             </div>
         </div>
 
         <!-- Consequences Warning -->
-        <div class="consequences">
-            <h3>⚠️ This action will:</h3>
-            <ul>
+        <div class="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6">
+            <h3 class="text-orange-700 font-semibold mb-2">⚠️ This action will:</h3>
+            <ul class="text-orange-800 ml-6 list-disc space-y-1">
                 <li>Create a refund transaction to reverse this transaction</li>
                 <li>Reverse the stock position for {{ $transaction->currency_code }}</li>
                 <li>Create reversing accounting journal entries</li>
@@ -249,31 +90,31 @@
         </div>
 
         <!-- Cancellation Form -->
-        <div class="card">
-            <h2>Cancellation Reason</h2>
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-lg font-semibold text-blue-900 mb-4 border-b-2 border-gray-200 pb-2">Cancellation Reason</h2>
             <form action="{{ route('transactions.cancel', $transaction) }}" method="POST">
                 @csrf
 
-                <div class="form-group">
-                    <label for="cancellation_reason">
-                        Reason for Cancellation <span class="required">*</span>
+                <div class="mb-6">
+                    <label for="cancellation_reason" class="block mb-2 font-semibold text-gray-800">
+                        Reason for Cancellation <span class="text-red-500">*</span>
                     </label>
                     <textarea
                         name="cancellation_reason"
                         id="cancellation_reason"
-                        class="form-control"
+                        class="w-full p-3 border border-gray-200 rounded text-sm font-sans resize-y min-h-32"
                         placeholder="Please provide a detailed reason for cancelling this transaction (minimum 10 characters)..."
                         required
                         minlength="10"
                         maxlength="1000"
                     >{{ old('cancellation_reason') }}</textarea>
                     @error('cancellation_reason')
-                        <div class="error-text">{{ $message }}</div>
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div class="form-group">
-                    <div class="checkbox-group">
+                <div class="mb-6">
+                    <div class="flex items-start gap-3">
                         <input
                             type="checkbox"
                             name="confirm_understanding"
@@ -281,19 +122,20 @@
                             value="1"
                             {{ old('confirm_understanding') ? 'checked' : '' }}
                             required
+                            class="mt-1 w-5 h-5 cursor-pointer"
                         >
-                        <label for="confirm_understanding">
+                        <label for="confirm_understanding" class="cursor-pointer font-normal text-gray-700">
                             I understand that this action <strong>cannot be undone</strong> and will create a refund transaction, reverse stock movements, and create reversing accounting entries.
                         </label>
                     </div>
                     @error('confirm_understanding')
-                        <div class="error-text">{{ $message }}</div>
+                        <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div class="actions">
-                    <a href="{{ route('transactions.show', $transaction) }}" class="btn btn-secondary">Back to Transaction</a>
-                    <button type="submit" class="btn btn-danger">Confirm Cancellation</button>
+                <div class="flex gap-4 justify-center mt-8">
+                    <a href="{{ route('transactions.show', $transaction) }}" class="px-6 py-3 bg-gray-200 text-gray-700 no-underline rounded font-semibold hover:bg-gray-300 transition-colors">Back to Transaction</a>
+                    <button type="submit" class="px-6 py-3 bg-red-600 text-white no-underline rounded font-semibold hover:bg-red-700 transition-colors cursor-pointer border-0">Confirm Cancellation</button>
                 </div>
             </form>
         </div>

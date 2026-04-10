@@ -2,258 +2,86 @@
 
 @section('title', 'Customer Profile - CEMS-MY')
 
-@section('styles')
-<style>
-    .customer-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 1.5rem;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-    .customer-header h2 {
-        color: #2d3748;
-        margin-bottom: 0.25rem;
-    }
-    .customer-header p {
-        color: #718096;
-        font-size: 0.875rem;
-    }
-    .header-actions {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-    }
-
-    .profile-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .info-card {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .info-card h3 {
-        color: #2d3748;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e2e8f0;
-        font-size: 1rem;
-    }
-
-    .detail-table {
-        width: 100%;
-    }
-    .detail-table th,
-    .detail-table td {
-        padding: 0.625rem 0.5rem;
-        border-bottom: 1px solid #e2e8f0;
-        text-align: left;
-    }
-    .detail-table th {
-        width: 40%;
-        color: #718096;
-        font-weight: 500;
-        font-size: 0.875rem;
-    }
-    .detail-table td {
-        color: #2d3748;
-        font-size: 0.875rem;
-    }
-    .detail-table tr:last-child th,
-    .detail-table tr:last-child td {
-        border-bottom: none;
-    }
-
-    .risk-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .risk-low { background: #c6f6d5; color: #276749; }
-    .risk-medium { background: #feebc8; color: #c05621; }
-    .risk-high { background: #fed7d7; color: #c53030; }
-
-    .status-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .status-active { background: #c6f6d5; color: #276749; }
-    .status-inactive { background: #e2e8f0; color: #718096; }
-
-    .pep-badge {
-        display: inline-block;
-        padding: 0.125rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.625rem;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    .pep-yes { background: #fed7d7; color: #c53030; }
-    .pep-no { background: #e2e8f0; color: #718096; }
-
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 1rem;
-        margin-top: 1rem;
-    }
-    .stat-item {
-        text-align: center;
-        padding: 1rem;
-        background: #f7fafc;
-        border-radius: 6px;
-    }
-    .stat-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #2d3748;
-    }
-    .stat-label {
-        font-size: 0.75rem;
-        color: #718096;
-        margin-top: 0.25rem;
-    }
-
-    .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
-    .btn-warning { background: #dd6b20; color: white; }
-    .btn-danger { background: #e53e3e; color: white; }
-
-    .alert {
-        padding: 1rem;
-        border-radius: 6px;
-        margin-bottom: 1rem;
-    }
-    .alert-warning {
-        background: #fffaf0;
-        border-left: 4px solid #dd6b20;
-        color: #c05621;
-    }
-
-    .document-status {
-        display: flex;
-        gap: 1rem;
-        margin-top: 0.5rem;
-    }
-    .document-stat {
-        font-size: 0.875rem;
-    }
-    .document-stat strong {
-        color: #2d3748;
-    }
-    .document-stat span {
-        color: #718096;
-    }
-
-    .warning-box {
-        background: #fffaf0;
-        border-left: 4px solid #dd6b20;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        border-radius: 0 6px 6px 0;
-    }
-    .warning-box h4 {
-        color: #c05621;
-        margin-bottom: 0.5rem;
-    }
-    .warning-box p {
-        color: #744210;
-        font-size: 0.875rem;
-    }
-</style>
-@endsection
-
 @section('content')
-<div class="customer-header">
+<div class="mb-6 flex justify-between items-start flex-wrap gap-4">
     <div>
-        <h2>{{ $customer->full_name }}</h2>
-        <p>Customer ID: {{ $customer->id }} | Created: {{ $customer->created_at->format('Y-m-d H:i') }}</p>
+        <h2 class="text-xl font-semibold text-gray-800 mb-1">{{ $customer->full_name }}</h2>
+        <p class="text-gray-500 text-sm">Customer ID: {{ $customer->id }} | Created: {{ $customer->created_at->format('Y-m-d H:i') }}</p>
     </div>
-    <div class="header-actions">
-        <a href="{{ route('customers.edit', $customer) }}" class="btn btn-warning btn-sm">Edit</a>
-        <a href="{{ route('customers.kyc', $customer) }}" class="btn btn-primary btn-sm">KYC Documents</a>
-        <a href="{{ route('customers.index') }}" class="btn btn-sm" style="background: #e2e8f0; color: #4a5568;">Back to List</a>
+    <div class="flex gap-2 flex-wrap">
+        <a href="{{ route('customers.edit', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-orange-500 text-white no-underline rounded hover:bg-orange-600 transition-colors">Edit</a>
+        <a href="{{ route('customers.kyc', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white no-underline rounded hover:bg-blue-700 transition-colors">KYC Documents</a>
+        <a href="{{ route('customers.index') }}" class="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 no-underline rounded hover:bg-gray-300 transition-colors">Back to List</a>
     </div>
 </div>
 
 <!-- Risk Warning -->
 @if($customer->risk_rating === 'High' || $customer->pep_status)
-    <div class="warning-box">
-        <h4>High Risk Customer Alert</h4>
+    <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r mb-6">
+        <h4 class="text-orange-800 font-semibold mb-2">High Risk Customer Alert</h4>
         @if($customer->risk_rating === 'High')
-            <p>This customer has been flagged as <strong>High Risk</strong>. All transactions require enhanced due diligence (EDD) and manager approval.</p>
+            <p class="text-orange-900 text-sm">This customer has been flagged as <strong>High Risk</strong>. All transactions require enhanced due diligence (EDD) and manager approval.</p>
         @endif
         @if($customer->pep_status)
-            <p style="margin-top: 0.5rem;">Customer is a <strong>Politically Exposed Person (PEP)</strong>. Additional monitoring and approval requirements apply.</p>
+            <p class="text-orange-900 text-sm mt-2">Customer is a <strong>Politically Exposed Person (PEP)</strong>. Additional monitoring and approval requirements apply.</p>
         @endif
     </div>
 @endif
 
-<div class="profile-grid">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
     <!-- Basic Information -->
-    <div class="info-card">
-        <h3>Basic Information</h3>
-        <table class="detail-table">
-            <tr>
-                <th>Full Name</th>
-                <td>{{ $customer->full_name }}</td>
+    <div class="bg-white rounded-lg p-6 shadow-sm">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Basic Information</h3>
+        <table class="w-full">
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium w-2/5 text-sm">Full Name</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->full_name }}</td>
             </tr>
-            <tr>
-                <th>ID Type</th>
-                <td>{{ $customer->id_type }}</td>
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">ID Type</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->id_type }}</td>
             </tr>
-            <tr>
-                <th>ID Number</th>
-                <td>{{ Str::limit($customer->id_number_encrypted, 8, '****') }}</td>
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">ID Number</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ Str::limit($customer->id_number_encrypted, 8, '****') }}</td>
             </tr>
-            <tr>
-                <th>Date of Birth</th>
-                <td>{{ $customer->date_of_birth->format('Y-m-d') }}</td>
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Date of Birth</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->date_of_birth->format('Y-m-d') }}</td>
             </tr>
-            <tr>
-                <th>Nationality</th>
-                <td>{{ $customer->nationality }}</td>
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Nationality</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->nationality }}</td>
             </tr>
-            <tr>
-                <th>Risk Rating</th>
-                <td>
-                    <span class="risk-badge risk-{{ strtolower($customer->risk_rating) }}">
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Risk Rating</th>
+                <td class="py-2.5">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $customer->risk_rating === 'Low' ? 'bg-green-100 text-green-800' : ($customer->risk_rating === 'Medium' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800') }}">
                         {{ $customer->risk_rating }}
                     </span>
                 </td>
             </tr>
-            <tr>
-                <th>Risk Score</th>
-                <td>{{ $customer->risk_score ?? 0 }} / 100</td>
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Risk Score</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->risk_score ?? 0 }} / 100</td>
             </tr>
-            <tr>
-                <th>PEP Status</th>
-                <td>
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">PEP Status</th>
+                <td class="py-2.5">
                     @if($customer->pep_status)
-                        <span class="pep-badge pep-yes">PEP</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase bg-red-100 text-red-800">PEP</span>
                     @else
-                        <span class="pep-badge pep-no">Non-PEP</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase bg-gray-200 text-gray-600">Non-PEP</span>
                     @endif
                 </td>
             </tr>
             <tr>
-                <th>Status</th>
-                <td>
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Status</th>
+                <td class="py-2.5">
                     @if($customer->is_active ?? true)
-                        <span class="status-badge status-active">Active</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>
                     @else
-                        <span class="status-badge status-inactive">Inactive</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-600">Inactive</span>
                     @endif
                 </td>
             </tr>
@@ -261,131 +89,131 @@
     </div>
 
     <!-- Contact Information -->
-    <div class="info-card">
-        <h3>Contact Information</h3>
-        <table class="detail-table">
-            <tr>
-                <th>Address</th>
-                <td>{{ $customer->address ?? 'Not provided' }}</td>
+    <div class="bg-white rounded-lg p-6 shadow-sm">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Contact Information</h3>
+        <table class="w-full">
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium w-2/5 text-sm">Address</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->address ?? 'Not provided' }}</td>
+            </tr>
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Phone</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->phone ?? 'Not provided' }}</td>
             </tr>
             <tr>
-                <th>Phone</th>
-                <td>{{ $customer->phone ?? 'Not provided' }}</td>
-            </tr>
-            <tr>
-                <th>Email</th>
-                <td>{{ $customer->email ?? 'Not provided' }}</td>
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Email</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->email ?? 'Not provided' }}</td>
             </tr>
         </table>
     </div>
 
     <!-- Employment Information -->
-    <div class="info-card">
-        <h3>Employment Information</h3>
-        <table class="detail-table">
-            <tr>
-                <th>Occupation</th>
-                <td>{{ $customer->occupation ?? 'Not provided' }}</td>
+    <div class="bg-white rounded-lg p-6 shadow-sm">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Employment Information</h3>
+        <table class="w-full">
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium w-2/5 text-sm">Occupation</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->occupation ?? 'Not provided' }}</td>
+            </tr>
+            <tr class="border-b border-gray-100">
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Employer Name</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->employer_name ?? 'Not provided' }}</td>
             </tr>
             <tr>
-                <th>Employer Name</th>
-                <td>{{ $customer->employer_name ?? 'Not provided' }}</td>
-            </tr>
-            <tr>
-                <th>Employer Address</th>
-                <td>{{ $customer->employer_address ?? 'Not provided' }}</td>
+                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Employer Address</th>
+                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->employer_address ?? 'Not provided' }}</td>
             </tr>
         </table>
     </div>
 
     <!-- Transaction Summary -->
-    <div class="info-card">
-        <h3>Transaction Summary</h3>
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-value">{{ $transactionStats['total_transactions'] }}</div>
-                <div class="stat-label">Total Transactions</div>
+    <div class="bg-white rounded-lg p-6 shadow-sm">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Transaction Summary</h3>
+        <div class="grid grid-cols-3 gap-4 mt-4">
+            <div class="text-center p-4 bg-gray-50 rounded">
+                <div class="text-2xl font-bold text-gray-800">{{ $transactionStats['total_transactions'] }}</div>
+                <div class="text-xs text-gray-500 mt-1">Total Transactions</div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">RM {{ number_format($transactionStats['total_volume'], 2) }}</div>
-                <div class="stat-label">Total Volume</div>
+            <div class="text-center p-4 bg-gray-50 rounded">
+                <div class="text-2xl font-bold text-gray-800">RM {{ number_format($transactionStats['total_volume'], 2) }}</div>
+                <div class="text-xs text-gray-500 mt-1">Total Volume</div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">RM {{ number_format($transactionStats['avg_transaction'], 2) }}</div>
-                <div class="stat-label">Avg Transaction</div>
+            <div class="text-center p-4 bg-gray-50 rounded">
+                <div class="text-2xl font-bold text-gray-800">RM {{ number_format($transactionStats['avg_transaction'], 2) }}</div>
+                <div class="text-xs text-gray-500 mt-1">Avg Transaction</div>
             </div>
         </div>
         @if($transactionStats['last_transaction'])
-            <p style="margin-top: 1rem; font-size: 0.875rem; color: #718096;">
+            <p class="mt-4 text-sm text-gray-500">
                 Last transaction: {{ $transactionStats['last_transaction']->diffForHumans() }}
             </p>
         @endif
-        <div style="margin-top: 1rem;">
-            <a href="{{ route('customers.history', $customer) }}" class="btn btn-sm" style="background: #3182ce; color: white;">View Full History</a>
+        <div class="mt-4">
+            <a href="{{ route('customers.history', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white no-underline rounded hover:bg-blue-700 transition-colors">View Full History</a>
         </div>
     </div>
 </div>
 
 <!-- KYC Document Status -->
-<div class="info-card">
-    <h3>KYC Document Status</h3>
-    <div class="document-status">
-        <div class="document-stat">
-            <strong>{{ $documentStatus['total'] }}</strong> <span>Total Documents</span>
+<div class="bg-white rounded-lg p-6 shadow-sm mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">KYC Document Status</h3>
+    <div class="flex gap-6">
+        <div class="text-sm">
+            <strong class="text-gray-800">{{ $documentStatus['total'] }}</strong> <span class="text-gray-500">Total Documents</span>
         </div>
-        <div class="document-stat">
-            <strong style="color: #38a169;">{{ $documentStatus['verified'] }}</strong> <span>Verified</span>
+        <div class="text-sm">
+            <strong class="text-green-600">{{ $documentStatus['verified'] }}</strong> <span class="text-gray-500">Verified</span>
         </div>
-        <div class="document-stat">
-            <strong style="color: #dd6b20;">{{ $documentStatus['pending'] }}</strong> <span>Pending Verification</span>
+        <div class="text-sm">
+            <strong class="text-orange-500">{{ $documentStatus['pending'] }}</strong> <span class="text-gray-500">Pending Verification</span>
         </div>
         @if($documentStatus['expired'] > 0)
-        <div class="document-stat">
-            <strong style="color: #e53e3e;">{{ $documentStatus['expired'] }}</strong> <span>Expired</span>
+        <div class="text-sm">
+            <strong class="text-red-600">{{ $documentStatus['expired'] }}</strong> <span class="text-gray-500">Expired</span>
         </div>
         @endif
     </div>
-    <div style="margin-top: 1rem;">
-        <a href="{{ route('customers.kyc', $customer) }}" class="btn btn-sm" style="background: #38a169; color: white;">Manage KYC Documents</a>
+    <div class="mt-4">
+        <a href="{{ route('customers.kyc', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-green-600 text-white no-underline rounded hover:bg-green-700 transition-colors">Manage KYC Documents</a>
     </div>
 </div>
 
 <!-- Recent Transactions -->
-<div class="info-card" style="margin-top: 1.5rem;">
-    <h3>Recent Transactions</h3>
+<div class="bg-white rounded-lg p-6 shadow-sm mt-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Recent Transactions</h3>
     @if($customer->transactions->count() > 0)
-        <table>
+        <table class="w-full border-collapse">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Type</th>
-                    <th>Currency</th>
-                    <th>Amount</th>
-                    <th>Rate</th>
-                    <th>Status</th>
-                    <th>Date</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">ID</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Type</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Currency</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Amount</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Rate</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Status</th>
+                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Date</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($customer->transactions as $transaction)
-                <tr>
-                    <td>{{ $transaction->id }}</td>
-                    <td>{{ $transaction->type->value ?? $transaction->type }}</td>
-                    <td>{{ $transaction->currency_code }}</td>
-                    <td>RM {{ number_format($transaction->amount_local, 2) }}</td>
-                    <td>{{ $transaction->rate }}</td>
-                    <td>
-                        <span class="status-badge status-{{ strtolower($transaction->status->value ?? $transaction->status) }}">
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->id }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->type->value ?? $transaction->type }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->currency_code }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-sm">RM {{ number_format($transaction->amount_local, 2) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->rate }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ strtolower($transaction->status->value ?? $transaction->status) === 'completed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}">
                             {{ $transaction->status->label() ?? $transaction->status }}
                         </span>
                     </td>
-                    <td>{{ $transaction->created_at->format('Y-m-d H:i') }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->created_at->format('Y-m-d H:i') }}</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
     @else
-        <p style="text-align: center; padding: 2rem; color: #718096;">No transactions found for this customer.</p>
+        <p class="text-center p-8 text-gray-500">No transactions found for this customer.</p>
     @endif
 </div>
 @endsection

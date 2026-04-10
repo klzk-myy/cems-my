@@ -2,155 +2,10 @@
 
 @section('title', 'New Transaction - CEMS-MY')
 
-@section('styles')
-<style>
-    .transaction-header {
-        margin-bottom: 1.5rem;
-    }
-    .transaction-header h2 {
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-    }
-    .transaction-header p {
-        color: #718096;
-    }
-
-    .form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-    .form-group {
-        margin-bottom: 1.25rem;
-    }
-    .form-group label {
-        display: block;
-        margin-bottom: 0.5rem;
-        color: #2d3748;
-        font-weight: 600;
-        font-size: 0.875rem;
-    }
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        width: 100%;
-        padding: 0.75rem;
-        border: 2px solid #e2e8f0;
-        border-radius: 6px;
-        font-size: 1rem;
-        transition: border-color 0.2s;
-    }
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-        outline: none;
-        border-color: #3182ce;
-    }
-    .form-group .error {
-        color: #e53e3e;
-        font-size: 0.75rem;
-        margin-top: 0.25rem;
-    }
-
-    .type-selector {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    .type-option {
-        flex: 1;
-    }
-    .type-option input {
-        display: none;
-    }
-    .type-option label {
-        display: block;
-        padding: 1rem;
-        text-align: center;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-    .type-option input:checked + label {
-        border-color: #3182ce;
-        background: #ebf8ff;
-        color: #2b6cb0;
-    }
-    .type-option.buy label {
-        border-left: 4px solid #38a169;
-    }
-    .type-option.sell label {
-        border-left: 4px solid #e53e3e;
-    }
-
-    .calculation-box {
-        background: #f7fafc;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-top: 1rem;
-    }
-    .calculation-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #e2e8f0;
-    }
-    .calculation-row:last-child {
-        border-bottom: none;
-        font-weight: 600;
-        font-size: 1.25rem;
-        color: #1a365d;
-    }
-
-    .rate-display {
-        background: #f7fafc;
-        padding: 0.75rem;
-        border-radius: 4px;
-        font-family: monospace;
-        font-size: 1.1rem;
-        color: #2d3748;
-    }
-
-    .compliance-warning {
-        background: #fffaf0;
-        border: 2px solid #dd6b20;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    .compliance-warning h4 {
-        color: #c05621;
-        margin-bottom: 0.5rem;
-    }
-
-    .stock-info {
-        background: #f0fff4;
-        border: 2px solid #38a169;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    .stock-info h4 {
-        color: #276749;
-        margin-bottom: 0.5rem;
-    }
-
-    .actions {
-        display: flex;
-        gap: 1rem;
-        margin-top: 1.5rem;
-        padding-top: 1.5rem;
-        border-top: 2px solid #e2e8f0;
-    }
-</style>
-@endsection
-
 @section('content')
-<div class="transaction-header">
-    <h2>Create New Transaction</h2>
-    <p>Record a buy or sell transaction with customer</p>
+<div class="mb-6">
+    <h2 class="text-xl font-semibold text-gray-800 mb-1">Create New Transaction</h2>
+    <p class="text-gray-500 text-sm">Record a buy or sell transaction with customer</p>
 </div>
 
 @if(session('warning'))
@@ -163,17 +18,17 @@
     <!-- Transaction Type Selection -->
     <div class="card">
         <h2>Transaction Type</h2>
-        <div class="type-selector">
-            <div class="type-option buy">
-                <input type="radio" name="type" id="type-buy" value="Buy" {{ old('type') == 'Buy' ? 'checked' : 'checked' }}>
-                <label for="type-buy">
+        <div class="flex gap-4 mb-6">
+            <div class="flex-1">
+                <input type="radio" name="type" id="type-buy" value="Buy" {{ old('type') == 'Buy' ? 'checked' : 'checked' }} class="hidden">
+                <label for="type-buy" class="block p-4 text-center border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-200 transition-colors {{ old('type') == 'Buy' ? 'border-blue-500 bg-blue-50 text-blue-700' : '' }}">
                     <strong>BUY</strong><br>
                     <small>From Customer</small>
                 </label>
             </div>
-            <div class="type-option sell">
-                <input type="radio" name="type" id="type-sell" value="Sell" {{ old('type') == 'Sell' ? 'checked' : '' }}>
-                <label for="type-sell">
+            <div class="flex-1">
+                <input type="radio" name="type" id="type-sell" value="Sell" {{ old('type') == 'Sell' ? 'checked' : '' }} class="hidden">
+                <label for="type-sell" class="block p-4 text-center border-2 border-gray-200 rounded-lg cursor-pointer hover:border-blue-200 transition-colors {{ old('type') == 'Sell' ? 'border-red-500 bg-red-50 text-red-700' : '' }}">
                     <strong>SELL</strong><br>
                     <small>To Customer</small>
                 </label>
@@ -184,11 +39,11 @@
     <!-- Transaction Details -->
     <div class="card">
         <h2>Transaction Details</h2>
-        <div class="form-grid">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <div class="form-group">
-                    <label for="customer_id">Customer *</label>
-                    <select name="customer_id" id="customer_id" required>
+                <div class="mb-5">
+                    <label for="customer_id" class="block mb-2 text-sm font-semibold text-gray-800">Customer *</label>
+                    <select name="customer_id" id="customer_id" required class="w-full p-3 border-2 border-gray-200 rounded text-sm focus:border-blue-500 focus:outline-none transition-colors">
                         <option value="">Select Customer</option>
                         @foreach($customers as $customer)
                             <option value="{{ $customer->id }}" {{ old('customer_id') == $customer->id ? 'selected' : '' }}>
@@ -197,13 +52,13 @@
                         @endforeach
                     </select>
                     @error('customer_id')
-                        <div class="error">{{ $message }}</div>
+                        <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div class="form-group">
-                    <label for="till_id">Till *</label>
-                    <select name="till_id" id="till_id" required>
+                <div class="mb-5">
+                    <label for="till_id" class="block mb-2 text-sm font-semibold text-gray-800">Till *</label>
+                    <select name="till_id" id="till_id" required class="w-full p-3 border-2 border-gray-200 rounded text-sm focus:border-blue-500 focus:outline-none transition-colors">
                         <option value="">Select Till</option>
                         @foreach($tillBalances as $tb)
                             <option value="{{ $tb->till_id }}" data-currency="{{ $tb->currency_code }}" {{ old('till_id') == $tb->till_id ? 'selected' : '' }}>
@@ -212,13 +67,13 @@
                         @endforeach
                     </select>
                     @error('till_id')
-                        <div class="error">{{ $message }}</div>
+                        <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div class="form-group">
-                    <label for="currency_code">Currency *</label>
-                    <select name="currency_code" id="currency_code" required>
+                <div class="mb-5">
+                    <label for="currency_code" class="block mb-2 text-sm font-semibold text-gray-800">Currency *</label>
+                    <select name="currency_code" id="currency_code" required class="w-full p-3 border-2 border-gray-200 rounded text-sm focus:border-blue-500 focus:outline-none transition-colors">
                         <option value="">Select Currency</option>
                         @foreach($currencies as $currency)
                             <option value="{{ $currency->code }}" data-rate-buy="{{ $currency->rate_buy }}" data-rate-sell="{{ $currency->rate_sell }}" {{ old('currency_code') == $currency->code ? 'selected' : '' }}>
@@ -227,77 +82,77 @@
                         @endforeach
                     </select>
                     @error('currency_code')
-                        <div class="error">{{ $message }}</div>
+                        <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                     @enderror
                 </div>
             </div>
 
             <div>
-                <div class="form-group">
-                    <label for="amount_foreign">Foreign Amount *</label>
-                    <input type="number" step="0.0001" name="amount_foreign" id="amount_foreign" value="{{ old('amount_foreign') }}" required placeholder="0.00">
+                <div class="mb-5">
+                    <label for="amount_foreign" class="block mb-2 text-sm font-semibold text-gray-800">Foreign Amount *</label>
+                    <input type="number" step="0.0001" name="amount_foreign" id="amount_foreign" value="{{ old('amount_foreign') }}" required placeholder="0.00" class="w-full p-3 border-2 border-gray-200 rounded text-sm focus:border-blue-500 focus:outline-none transition-colors">
                     @error('amount_foreign')
-                        <div class="error">{{ $message }}</div>
+                        <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div class="form-group">
-                    <label for="rate">Exchange Rate *</label>
-                    <input type="number" step="0.000001" name="rate" id="rate" value="{{ old('rate') }}" required placeholder="0.000000">
-                    <div id="rate-info" class="rate-display" style="margin-top: 0.5rem;">Select currency to see current rates</div>
+                <div class="mb-5">
+                    <label for="rate" class="block mb-2 text-sm font-semibold text-gray-800">Exchange Rate *</label>
+                    <input type="number" step="0.000001" name="rate" id="rate" value="{{ old('rate') }}" required placeholder="0.000000" class="w-full p-3 border-2 border-gray-200 rounded text-sm focus:border-blue-500 focus:outline-none transition-colors">
+                    <div id="rate-info" class="mt-2 p-3 bg-gray-50 rounded font-mono text-sm text-gray-800">Select currency to see current rates</div>
                     @error('rate')
-                        <div class="error">{{ $message }}</div>
+                        <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                     @enderror
                 </div>
 
-                <div class="form-group">
-                    <label for="amount_local">Local Amount (MYR) *</label>
-                    <input type="number" step="0.0001" name="amount_local_display" id="amount_local_display" readonly placeholder="Calculated automatically" style="background: #f7fafc;">
+                <div class="mb-5">
+                    <label for="amount_local" class="block mb-2 text-sm font-semibold text-gray-800">Local Amount (MYR) *</label>
+                    <input type="number" step="0.0001" name="amount_local_display" id="amount_local_display" readonly placeholder="Calculated automatically" class="w-full p-3 border-2 border-gray-200 rounded text-sm bg-gray-50 focus:border-blue-500 focus:outline-none transition-colors">
                     <input type="hidden" name="amount_local" id="amount_local">
                 </div>
             </div>
         </div>
 
         <!-- Calculation Summary -->
-        <div class="calculation-box">
-            <div class="calculation-row">
+        <div class="bg-gray-50 border-2 border-gray-200 rounded-lg p-6 mt-4">
+            <div class="flex justify-between py-2 border-b border-gray-200 last:border-b-0 last:font-bold last:text-lg last:text-blue-900 last:pt-4">
                 <span>Transaction Type:</span>
                 <span id="calc-type">Buy</span>
             </div>
-            <div class="calculation-row">
+            <div class="flex justify-between py-2 border-b border-gray-200">
                 <span>Foreign Amount:</span>
                 <span id="calc-foreign">0.00</span>
             </div>
-            <div class="calculation-row">
+            <div class="flex justify-between py-2 border-b border-gray-200">
                 <span>Exchange Rate:</span>
                 <span id="calc-rate">0.000000</span>
             </div>
-            <div class="calculation-row">
+            <div class="flex justify-between py-2 font-bold text-lg text-blue-900 pt-4">
                 <span>Total (MYR):</span>
                 <span id="calc-total">RM 0.00</span>
             </div>
         </div>
 
         <!-- Compliance Warning -->
-        <div id="compliance-warning" class="compliance-warning" style="display: none;">
-            <h4>⚠️ Compliance Alert</h4>
-            <p>This transaction exceeds RM 50,000 and will require manager approval.</p>
+        <div id="compliance-warning" class="bg-orange-50 border-2 border-orange-500 rounded-lg p-4 mb-4 hidden">
+            <h4 class="text-orange-700 font-semibold mb-1">⚠️ Compliance Alert</h4>
+            <p class="text-orange-800 text-sm">This transaction exceeds RM 50,000 and will require manager approval.</p>
         </div>
 
         <!-- Stock Info for Sell -->
-        <div id="stock-info" class="stock-info" style="display: none;">
-            <h4>📦 Current Stock</h4>
-            <p>Available: <span id="stock-available">-</span></p>
+        <div id="stock-info" class="bg-green-50 border-2 border-green-500 rounded-lg p-4 mb-4 hidden">
+            <h4 class="text-green-700 font-semibold mb-1">📦 Current Stock</h4>
+            <p class="text-green-800 text-sm">Available: <span id="stock-available">-</span></p>
         </div>
     </div>
 
     <!-- Additional Information -->
     <div class="card">
         <h2>Additional Information</h2>
-        <div class="form-grid">
-            <div class="form-group">
-                <label for="purpose">Purpose *</label>
-                <select name="purpose" id="purpose" required>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="mb-5">
+                <label for="purpose" class="block mb-2 text-sm font-semibold text-gray-800">Purpose *</label>
+                <select name="purpose" id="purpose" required class="w-full p-3 border-2 border-gray-200 rounded text-sm focus:border-blue-500 focus:outline-none transition-colors">
                     <option value="">Select Purpose</option>
                     <option value="Travel" {{ old('purpose') == 'Travel' ? 'selected' : '' }}>Travel</option>
                     <option value="Business" {{ old('purpose') == 'Business' ? 'selected' : '' }}>Business</option>
@@ -307,13 +162,13 @@
                     <option value="Other" {{ old('purpose') == 'Other' ? 'selected' : '' }}>Other</option>
                 </select>
                 @error('purpose')
-                    <div class="error">{{ $message }}</div>
+                    <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                 @enderror
             </div>
 
-            <div class="form-group">
-                <label for="source_of_funds">Source of Funds *</label>
-                <select name="source_of_funds" id="source_of_funds" required>
+            <div class="mb-5">
+                <label for="source_of_funds" class="block mb-2 text-sm font-semibold text-gray-800">Source of Funds *</label>
+                <select name="source_of_funds" id="source_of_funds" required class="w-full p-3 border-2 border-gray-200 rounded text-sm focus:border-blue-500 focus:outline-none transition-colors">
                     <option value="">Select Source</option>
                     <option value="Salary" {{ old('source_of_funds') == 'Salary' ? 'selected' : '' }}>Salary</option>
                     <option value="Savings" {{ old('source_of_funds') == 'Savings' ? 'selected' : '' }}>Savings</option>
@@ -323,14 +178,14 @@
                     <option value="Other" {{ old('source_of_funds') == 'Other' ? 'selected' : '' }}>Other</option>
                 </select>
                 @error('source_of_funds')
-                    <div class="error">{{ $message }}</div>
+                    <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                 @enderror
             </div>
         </div>
     </div>
 
-    <div class="actions">
-        <a href="/transactions" class="btn" style="background: #e2e8f0; color: #4a5568;">Cancel</a>
+    <div class="flex gap-4 mt-6 pt-6 border-t-2 border-gray-200">
+        <a href="/transactions" class="px-6 py-3 bg-gray-200 text-gray-700 no-underline rounded font-semibold hover:bg-gray-300 transition-colors">Cancel</a>
         <button type="submit" class="btn btn-success">Create Transaction</button>
     </div>
 </form>

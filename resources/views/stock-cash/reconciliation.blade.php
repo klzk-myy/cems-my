@@ -2,123 +2,6 @@
 
 @section('title', 'Till Reconciliation Report')
 
-@section('styles')
-<style>
-    .report-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 8px;
-        padding: 2rem;
-        color: white;
-        margin-bottom: 1.5rem;
-    }
-    .report-header h2 {
-        margin-bottom: 0.5rem;
-        font-size: 1.5rem;
-    }
-    .report-header p {
-        opacity: 0.9;
-        margin-bottom: 0.25rem;
-    }
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    .summary-box {
-        background: #f7fafc;
-        border-radius: 8px;
-        padding: 1.5rem;
-        text-align: center;
-        border-left: 4px solid #667eea;
-    }
-    .summary-box.positive {
-        border-left-color: #38a169;
-    }
-    .summary-box.negative {
-        border-left-color: #e53e3e;
-    }
-    .summary-box.warning {
-        border-left-color: #dd6b20;
-    }
-    .summary-box .value {
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: #2d3748;
-    }
-    .summary-box .label {
-        color: #718096;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-    .reconciliation-flow {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin: 2rem 0;
-        padding: 1.5rem;
-        background: #f7fafc;
-        border-radius: 8px;
-    }
-    .flow-item {
-        text-align: center;
-        padding: 1rem 1.5rem;
-        background: white;
-        border-radius: 6px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        min-width: 120px;
-    }
-    .flow-item .amount {
-        font-size: 1.25rem;
-        font-weight: bold;
-        color: #2d3748;
-    }
-    .flow-item .label {
-        font-size: 0.75rem;
-        color: #718096;
-    }
-    .flow-operator {
-        font-size: 1.5rem;
-        color: #718096;
-        font-weight: bold;
-    }
-    .variance-display {
-        padding: 1rem 2rem;
-        border-radius: 6px;
-        font-weight: bold;
-        font-size: 1.25rem;
-    }
-    .variance-zero {
-        background: #c6f6d5;
-        color: #276749;
-    }
-    .variance-positive {
-        background: #fed7d7;
-        color: #c53030;
-    }
-    .variance-negative {
-        background: #fed7d7;
-        color: #c53030;
-    }
-    .status-closed {
-        background: #c6f6d5;
-        color: #276749;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.75rem;
-    }
-    .status-open {
-        background: #fefcbf;
-        color: #744210;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.75rem;
-    }
-</style>
-@endsection
-
 @section('content')
 <div class="report-header">
     <h2>Till Reconciliation Report</h2>
@@ -184,9 +67,9 @@
         </div>
     </div>
 
-    <div style="text-align: center; margin-top: 1.5rem;">
+    <div class="text-center mt-6">
         <p><strong>Actual Closing:</strong> {{ $reconciliation['actual_closing'] !== null ? number_format($reconciliation['actual_closing'], 2) : 'Not yet closed' }}</p>
-        <p style="margin-top: 1rem;"><strong>Variance:</strong></p>
+        <p class="mt-4"><strong>Variance:</strong></p>
         <div class="variance-display {{ $reconciliation['variance'] == 0 ? 'variance-zero' : ($reconciliation['variance'] > 0 ? 'variance-positive' : 'variance-negative') }}">
             {{ $reconciliation['variance'] !== null ? number_format($reconciliation['variance'], 2) : 'N/A' }}
         </div>
@@ -224,7 +107,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="7" style="text-align: center; color: #718096;">
+                <td colspan="7" class="text-center text-gray">
                     No transactions found for this till and date.
                 </td>
             </tr>
@@ -233,7 +116,7 @@
     </table>
 </div>
 
-<div style="text-align: center; margin-top: 1.5rem;">
+<div class="text-center mt-6">
     <a href="{{ route('stock-cash.index') }}" class="btn btn-secondary">Back to Stock & Cash</a>
     <button onclick="window.print()" class="btn btn-primary">Print Report</button>
 </div>

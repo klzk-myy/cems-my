@@ -2,141 +2,46 @@
 
 @section('title', 'Customer Analysis - CEMS-MY')
 
-@section('styles')
-<style>
-    .analysis-header {
-        margin-bottom: 1.5rem;
-    }
-    
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .stat-card {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        text-align: center;
-    }
-    
-    .stat-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #1a365d;
-    }
-    
-    .stat-label {
-        color: #718096;
-        font-size: 0.875rem;
-        margin-top: 0.5rem;
-    }
-    
-    .chart-container {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-    }
-    
-    .customer-table {
-        width: 100%;
-        border-collapse: collapse;
-        background: white;
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    
-    .customer-table th,
-    .customer-table td {
-        padding: 0.75rem;
-        text-align: left;
-        border-bottom: 1px solid #e2e8f0;
-    }
-    
-    .customer-table th {
-        background: #f7fafc;
-        font-weight: 600;
-        color: #4a5568;
-    }
-    
-    .customer-name {
-        font-family: monospace;
-        background: #edf2f7;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-    }
-    
-    .risk-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    
-    .risk-Low { background: #c6f6d5; color: #276749; }
-    .risk-Medium { background: #feebc8; color: #c05621; }
-    .risk-High { background: #fed7d7; color: #c53030; }
-    
-    .volume-bar {
-        height: 8px;
-        background: #e2e8f0;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-    
-    .volume-fill {
-        height: 100%;
-        background: #3182ce;
-        border-radius: 4px;
-    }
-</style>
-@endsection
-
 @section('content')
-<div class="analysis-header">
-    <h2>Customer Analysis</h2>
-    <p>Top customers by transaction volume and activity</p>
+<div class="mb-6">
+    <h2 class="text-xl font-semibold text-gray-800 mb-1">Customer Analysis</h2>
+    <p class="text-gray-500 text-sm">Top customers by transaction volume and activity</p>
 </div>
 
 <!-- Statistics -->
-<div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-value">{{ $topCustomers->count() }}</div>
-        <div class="stat-label">Top Customers</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+    <div class="bg-white rounded-lg p-6 text-center">
+        <div class="text-3xl font-bold text-blue-900">{{ $topCustomers->count() }}</div>
+        <div class="text-sm text-gray-500 mt-2">Top Customers</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">RM {{ number_format($topCustomers->sum('total_volume'), 0) }}</div>
-        <div class="stat-label">Total Volume</div>
+    <div class="bg-white rounded-lg p-6 text-center">
+        <div class="text-3xl font-bold text-blue-900">RM {{ number_format($topCustomers->sum('total_volume'), 0) }}</div>
+        <div class="text-sm text-gray-500 mt-2">Total Volume</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ number_format($topCustomers->avg('transaction_count'), 1) }}</div>
-        <div class="stat-label">Avg Transactions/Customer</div>
+    <div class="bg-white rounded-lg p-6 text-center">
+        <div class="text-3xl font-bold text-blue-900">{{ number_format($topCustomers->avg('transaction_count'), 1) }}</div>
+        <div class="text-sm text-gray-500 mt-2">Avg Transactions/Customer</div>
     </div>
-    <div class="stat-card">
-        <div class="stat-value">RM {{ number_format($topCustomers->avg('avg_transaction'), 0) }}</div>
-        <div class="stat-label">Avg Transaction Size</div>
+    <div class="bg-white rounded-lg p-6 text-center">
+        <div class="text-3xl font-bold text-blue-900">RM {{ number_format($topCustomers->avg('avg_transaction'), 0) }}</div>
+        <div class="text-sm text-gray-500 mt-2">Avg Transaction Size</div>
     </div>
 </div>
 
 <!-- Risk Distribution Chart -->
-<div class="chart-container">
-    <h3>Risk Distribution</h3>
-    <div style="height: 300px; display: flex; align-items: center; justify-content: center;">
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Risk Distribution</h3>
+    <div class="h-64 flex items-center justify-center">
         @if($riskDistribution->isNotEmpty())
-        <table style="width: 100%;">
+        <table class="w-full">
             <tr>
                 @foreach($riskDistribution as $risk)
-                <td style="text-align: center; padding: 1rem;">
-                    <div style="font-size: 2rem; font-weight: bold; color: 
-                        {{ $risk->risk_rating === 'Low' ? '#38a169' : ($risk->risk_rating === 'Medium' ? '#d69e2e' : '#e53e3e') }}">
+                <td class="text-center p-4">
+                    <div class="text-3xl font-bold" style="color: {{ $risk->risk_rating === 'Low' ? '#38a169' : ($risk->risk_rating === 'Medium' ? '#d69e2e' : '#e53e3e') }}">
                         {{ $risk->count }}
                     </div>
-                    <div style="margin-top: 0.5rem;">
-                        <span class="risk-badge risk-{{ $risk->risk_rating }}">
+                    <div class="mt-2">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $risk->risk_rating === 'Low' ? 'bg-green-100 text-green-800' : ($risk->risk_rating === 'Medium' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800') }}">
                             {{ $risk->risk_rating }}
                         </span>
                     </div>
@@ -145,65 +50,65 @@
             </tr>
         </table>
         @else
-        <p style="color: #718096;">No risk data available</p>
+        <p class="text-gray-500">No risk data available</p>
         @endif
     </div>
 </div>
 
 <!-- Top Customers Table -->
-<div class="card">
-    <h3>Top 50 Customers by Transaction Volume</h3>
-    
-    <table class="customer-table">
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Top 50 Customers by Transaction Volume</h3>
+
+    <table class="w-full border-collapse">
         <thead>
             <tr>
-                <th>Rank</th>
-                <th>Customer</th>
-                <th>Risk</th>
-                <th>Transactions</th>
-                <th>Total Volume</th>
-                <th>Avg Transaction</th>
-                <th>First Transaction</th>
-                <th>Last Transaction</th>
-                <th>Activity</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Rank</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Customer</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Risk</th>
+                <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Transactions</th>
+                <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Total Volume</th>
+                <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Avg Transaction</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">First Transaction</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Last Transaction</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Activity</th>
             </tr>
         </thead>
         <tbody>
             @forelse($topCustomers as $index => $customer)
-            <tr>
-                <td>{{ $index + 1 }}</td>
-                <td>
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 border-b border-gray-100">{{ $index + 1 }}</td>
+                <td class="px-4 py-3 border-b border-gray-100">
                     @php
                         $name = $customer['customer']->full_name ?? 'N/A';
                         $masked = strlen($name) > 4 ? substr($name, 0, 2) . str_repeat('*', strlen($name) - 4) . substr($name, -2) : $name;
                     @endphp
-                    <span class="customer-name">{{ $masked }}</span>
+                    <span class="font-mono bg-gray-100 px-2 py-1 rounded text-sm">{{ $masked }}</span>
                     <br>
-                    <small>ID: {{ $customer['customer']->id }}</small>
+                    <small class="text-gray-500">ID: {{ $customer['customer']->id }}</small>
                 </td>
-                <td>
-                    <span class="risk-badge risk-{{ $customer['risk_rating'] ?? 'Low' }}">
+                <td class="px-4 py-3 border-b border-gray-100">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ ($customer['risk_rating'] ?? 'Low') === 'Low' ? 'bg-green-100 text-green-800' : (($customer['risk_rating'] ?? 'Low') === 'Medium' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800') }}">
                         {{ $customer['risk_rating'] ?? 'Low' }}
                     </span>
                 </td>
-                <td>{{ number_format($customer['transaction_count']) }}</td>
-                <td>RM {{ number_format($customer['total_volume'], 2) }}</td>
-                <td>RM {{ number_format($customer['avg_transaction'], 2) }}</td>
-                <td>{{ $customer['first_transaction'] ? date('d/m/Y', strtotime($customer['first_transaction'])) : 'N/A' }}</td>
-                <td>{{ $customer['last_transaction'] ? date('d/m/Y', strtotime($customer['last_transaction'])) : 'N/A' }}</td>
-                <td>
+                <td class="px-4 py-3 border-b border-gray-100 text-right">{{ number_format($customer['transaction_count']) }}</td>
+                <td class="px-4 py-3 border-b border-gray-100 text-right">RM {{ number_format($customer['total_volume'], 2) }}</td>
+                <td class="px-4 py-3 border-b border-gray-100 text-right">RM {{ number_format($customer['avg_transaction'], 2) }}</td>
+                <td class="px-4 py-3 border-b border-gray-100">{{ $customer['first_transaction'] ? date('d/m/Y', strtotime($customer['first_transaction'])) : 'N/A' }}</td>
+                <td class="px-4 py-3 border-b border-gray-100">{{ $customer['last_transaction'] ? date('d/m/Y', strtotime($customer['last_transaction'])) : 'N/A' }}</td>
+                <td class="px-4 py-3 border-b border-gray-100">
                     @php
                         $daysSince = $customer['last_transaction'] ? now()->diffInDays($customer['last_transaction']) : null;
                         $activityClass = $daysSince === null ? 'gray' : ($daysSince < 30 ? 'green' : ($daysSince < 90 ? 'yellow' : 'red'));
                     @endphp
-                    <span style="color: {{ $activityClass === 'green' ? '#38a169' : ($activityClass === 'yellow' ? '#d69e2e' : ($activityClass === 'red' ? '#e53e3e' : '#718096')) }}">
+                    <span class="{{ $activityClass === 'green' ? 'text-green-600' : ($activityClass === 'yellow' ? 'text-orange-500' : ($activityClass === 'red' ? 'text-red-600' : 'text-gray-500')) }} font-semibold">
                         {{ $daysSince === null ? 'Never' : ($daysSince < 30 ? 'Active' : ($daysSince < 90 ? 'Recent' : 'Inactive')) }}
                     </span>
                 </td>
             </tr>
             @empty
             <tr>
-                <td colspan="9" style="text-align: center; padding: 2rem;">
+                <td colspan="9" class="px-4 py-8 text-center text-gray-500">
                     No customer data found.
                 </td>
             </tr>
@@ -213,20 +118,20 @@
 </div>
 
 <!-- Activity Legend -->
-<div class="card" style="margin-top: 1.5rem;">
-    <h3>Activity Status Legend</h3>
-    <div style="display: flex; gap: 2rem;">
+<div class="bg-white rounded-lg shadow-sm p-6 mt-6">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Activity Status Legend</h3>
+    <div class="flex flex-wrap gap-8">
         <div>
-            <span style="color: #38a169; font-weight: 600;">● Active</span>
-            <p style="color: #718096; font-size: 0.875rem;">Transaction within last 30 days</p>
+            <span class="text-green-600 font-semibold">● Active</span>
+            <p class="text-gray-500 text-sm mt-1">Transaction within last 30 days</p>
         </div>
         <div>
-            <span style="color: #d69e2e; font-weight: 600;">● Recent</span>
-            <p style="color: #718096; font-size: 0.875rem;">Transaction within last 90 days</p>
+            <span class="text-orange-500 font-semibold">● Recent</span>
+            <p class="text-gray-500 text-sm mt-1">Transaction within last 90 days</p>
         </div>
         <div>
-            <span style="color: #e53e3e; font-weight: 600;">● Inactive</span>
-            <p style="color: #718096; font-size: 0.875rem;">No transaction in 90+ days</p>
+            <span class="text-red-600 font-semibold">● Inactive</span>
+            <p class="text-gray-500 text-sm mt-1">No transaction in 90+ days</p>
         </div>
     </div>
 </div>

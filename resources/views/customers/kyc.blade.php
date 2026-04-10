@@ -2,287 +2,40 @@
 
 @section('title', 'KYC Documents - CEMS-MY')
 
-@section('styles')
-<style>
-    .kyc-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 1.5rem;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-    .kyc-header h2 {
-        color: #2d3748;
-        margin-bottom: 0.25rem;
-    }
-    .kyc-header p {
-        color: #718096;
-        font-size: 0.875rem;
-    }
-    .header-actions {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-    }
-
-    .customer-summary {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-    .customer-info {
-        display: flex;
-        gap: 2rem;
-        flex-wrap: wrap;
-    }
-    .customer-field {
-        display: flex;
-        flex-direction: column;
-    }
-    .customer-field-label {
-        font-size: 0.75rem;
-        color: #718096;
-        text-transform: uppercase;
-    }
-    .customer-field-value {
-        font-weight: 600;
-        color: #2d3748;
-    }
-
-    .risk-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .risk-low { background: #c6f6d5; color: #276749; }
-    .risk-medium { background: #feebc8; color: #c05621; }
-    .risk-high { background: #fed7d7; color: #c53030; }
-
-    .document-section {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .document-section h3 {
-        color: #2d3748;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e2e8f0;
-    }
-
-    .upload-form {
-        border: 2px dashed #e2e8f0;
-        border-radius: 8px;
-        padding: 2rem;
-        text-align: center;
-        margin-bottom: 1.5rem;
-    }
-    .upload-form:hover {
-        border-color: #3182ce;
-        background: #f7fafc;
-    }
-    .upload-form p {
-        color: #718096;
-        margin-bottom: 1rem;
-    }
-
-    .form-group {
-        margin-bottom: 1rem;
-        text-align: left;
-    }
-    .form-group label {
-        display: block;
-        margin-bottom: 0.5rem;
-        color: #2d3748;
-        font-weight: 600;
-        font-size: 0.875rem;
-    }
-    .form-group input,
-    .form-group select {
-        width: 100%;
-        padding: 0.75rem;
-        border: 2px solid #e2e8f0;
-        border-radius: 6px;
-        font-size: 1rem;
-    }
-    .form-group input:focus,
-    .form-group select:focus {
-        outline: none;
-        border-color: #3182ce;
-    }
-    .form-group .hint {
-        color: #718096;
-        font-size: 0.75rem;
-        margin-top: 0.25rem;
-    }
-    .form-group .error {
-        color: #e53e3e;
-        font-size: 0.75rem;
-        margin-top: 0.25rem;
-    }
-
-    .document-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1rem;
-    }
-    .document-card {
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 1rem;
-        position: relative;
-    }
-    .document-card.verified {
-        border-color: #38a169;
-        background: #f0fff4;
-    }
-    .document-card.pending {
-        border-color: #dd6b20;
-        background: #fffaf0;
-    }
-    .document-card.expired {
-        border-color: #e53e3e;
-        background: #fff5f5;
-    }
-
-    .document-type {
-        font-weight: 600;
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-    }
-    .document-meta {
-        font-size: 0.75rem;
-        color: #718096;
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-    .document-status-badge {
-        display: inline-block;
-        padding: 0.125rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.625rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        margin-top: 0.5rem;
-    }
-    .status-verified { background: #c6f6d5; color: #276749; }
-    .status-pending { background: #feebc8; color: #c05621; }
-    .status-expired { background: #fed7d7; color: #c53030; }
-
-    .document-actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 1rem;
-    }
-    .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
-
-    .btn-success { background: #38a169; color: white; }
-    .btn-danger { background: #e53e3e; color: white; }
-    .btn-warning { background: #dd6b20; color: white; }
-
-    .info-box {
-        background: #ebf8ff;
-        border-left: 4px solid #3182ce;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        border-radius: 0 6px 6px 0;
-    }
-    .info-box p {
-        color: #2b6cb0;
-        font-size: 0.875rem;
-    }
-
-    .alert {
-        padding: 1rem;
-        border-radius: 6px;
-        margin-bottom: 1rem;
-    }
-    .alert-success {
-        background: #c6f6d5;
-        border-left: 4px solid #38a169;
-        color: #276749;
-    }
-    .alert-warning {
-        background: #fffaf0;
-        border-left: 4px solid #dd6b20;
-        color: #c05621;
-    }
-    .alert-error {
-        background: #fed7d7;
-        border-left: 4px solid #e53e3e;
-        color: #c53030;
-    }
-
-    .required-docs {
-        margin-top: 1.5rem;
-        padding: 1rem;
-        background: #f7fafc;
-        border-radius: 6px;
-    }
-    .required-docs h4 {
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-        font-size: 0.875rem;
-    }
-    .required-docs ul {
-        margin: 0;
-        padding-left: 1.5rem;
-        color: #4a5568;
-        font-size: 0.875rem;
-    }
-    .required-docs li {
-        margin-bottom: 0.25rem;
-    }
-</style>
-@endsection
-
 @section('content')
-<div class="kyc-header">
+<div class="mb-6 flex justify-between items-start flex-wrap gap-4">
     <div>
-        <h2>KYC Document Management</h2>
-        <p>Upload and verify customer identification documents</p>
+        <h2 class="text-xl font-semibold text-gray-800 mb-1">KYC Document Management</h2>
+        <p class="text-gray-500 text-sm">Upload and verify customer identification documents</p>
     </div>
-    <div class="header-actions">
-        <a href="{{ route('customers.show', $customer) }}" class="btn btn-sm" style="background: #e2e8f0; color: #4a5568;">Back to Profile</a>
-        <a href="{{ route('customers.index') }}" class="btn btn-sm" style="background: #e2e8f0; color: #4a5568;">Back to List</a>
+    <div class="flex gap-2 flex-wrap">
+        <a href="{{ route('customers.show', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 no-underline rounded hover:bg-gray-300 transition-colors">Back to Profile</a>
+        <a href="{{ route('customers.index') }}" class="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 no-underline rounded hover:bg-gray-300 transition-colors">Back to List</a>
     </div>
 </div>
 
 <!-- Customer Summary -->
-<div class="customer-summary">
-    <div class="customer-info">
-        <div class="customer-field">
-            <span class="customer-field-label">Customer Name</span>
-            <span class="customer-field-value">{{ $customer->full_name }}</span>
+<div class="bg-white rounded-lg p-6 mb-6 shadow-sm flex justify-between items-center flex-wrap gap-4">
+    <div class="flex gap-8 flex-wrap">
+        <div class="flex flex-col">
+            <span class="text-xs text-gray-500 uppercase">Customer Name</span>
+            <span class="font-semibold text-gray-800">{{ $customer->full_name }}</span>
         </div>
-        <div class="customer-field">
-            <span class="customer-field-label">ID Type</span>
-            <span class="customer-field-value">{{ $customer->id_type }}</span>
+        <div class="flex flex-col">
+            <span class="text-xs text-gray-500 uppercase">ID Type</span>
+            <span class="font-semibold text-gray-800">{{ $customer->id_type }}</span>
         </div>
-        <div class="customer-field">
-            <span class="customer-field-label">Risk Rating</span>
-            <span class="customer-field-value">
-                <span class="risk-badge risk-{{ strtolower($customer->risk_rating) }}">
+        <div class="flex flex-col">
+            <span class="text-xs text-gray-500 uppercase">Risk Rating</span>
+            <span class="font-semibold">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $customer->risk_rating === 'Low' ? 'bg-green-100 text-green-800' : ($customer->risk_rating === 'Medium' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800') }}">
                     {{ $customer->risk_rating }}
                 </span>
             </span>
         </div>
-        <div class="customer-field">
-            <span class="customer-field-label">Documents</span>
-            <span class="customer-field-value">
+        <div class="flex flex-col">
+            <span class="text-xs text-gray-500 uppercase">Documents</span>
+            <span class="font-semibold text-gray-800">
                 {{ $documents->where('verified_at', '!=', null)->count() }} / {{ $documents->count() }} Verified
             </span>
         </div>
@@ -290,69 +43,69 @@
 </div>
 
 @if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
+    <div class="p-4 mb-4 rounded bg-green-100 border-l-4 border-green-600 text-green-800">{{ session('success') }}</div>
 @endif
 
 @if(session('error'))
-    <div class="alert alert-error">{{ session('error') }}</div>
+    <div class="p-4 mb-4 rounded bg-red-100 border-l-4 border-red-600 text-red-800">{{ session('error') }}</div>
 @endif
 
 <!-- Document Upload Section -->
-<div class="document-section">
-    <h3>Upload New Document</h3>
+<div class="bg-white rounded-lg p-6 mb-6 shadow-sm">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Upload New Document</h3>
 
-    <div class="upload-form">
+    <div class="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center hover:border-blue-500 hover:bg-gray-50 mb-6">
         <form action="{{ route('customers.kyc.upload', $customer) }}" method="POST" enctype="multipart/form-data">
             @csrf
-            <div class="form-group">
-                <label for="document_type">Document Type <span style="color: #e53e3e;">*</span></label>
-                <select id="document_type" name="document_type" required>
+            <div class="mb-4 text-left">
+                <label for="document_type" class="block mb-2 text-sm font-semibold text-gray-700">Document Type <span class="text-red-600">*</span></label>
+                <select id="document_type" name="document_type" required class="w-full p-3 border-2 border-gray-200 rounded-md text-base">
                     <option value="">Select document type...</option>
                     @foreach($documentTypes as $key => $label)
                         <option value="{{ $key }}">{{ $label }}</option>
                     @endforeach
                 </select>
                 @error('document_type')
-                    <div class="error">{{ $message }}</div>
+                    <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                 @enderror
             </div>
 
-            <div class="form-group">
-                <label for="document_file">Document File <span style="color: #e53e3e;">*</span></label>
-                <input type="file" id="document_file" name="document_file" required accept=".jpg,.jpeg,.png,.pdf">
-                <div class="hint">Accepted formats: JPG, PNG, PDF. Maximum file size: 10MB</div>
+            <div class="mb-4 text-left">
+                <label for="document_file" class="block mb-2 text-sm font-semibold text-gray-700">Document File <span class="text-red-600">*</span></label>
+                <input type="file" id="document_file" name="document_file" required accept=".jpg,.jpeg,.png,.pdf" class="w-full p-3 border-2 border-gray-200 rounded-md text-base">
+                <div class="text-gray-500 text-xs mt-1">Accepted formats: JPG, PNG, PDF. Maximum file size: 10MB</div>
                 @error('document_file')
-                    <div class="error">{{ $message }}</div>
+                    <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                 @enderror
             </div>
 
-            <div class="form-group">
-                <label for="expiry_date">Expiry Date (Optional)</label>
-                <input type="date" id="expiry_date" name="expiry_date" min="{{ date('Y-m-d', strtotime('+1 day')) }}">
-                <div class="hint">For passports and some ID cards. Leave blank if document doesn't expire.</div>
+            <div class="mb-6 text-left">
+                <label for="expiry_date" class="block mb-2 text-sm font-semibold text-gray-700">Expiry Date (Optional)</label>
+                <input type="date" id="expiry_date" name="expiry_date" min="{{ date('Y-m-d', strtotime('+1 day')) }}" class="w-full p-3 border-2 border-gray-200 rounded-md text-base">
+                <div class="text-gray-500 text-xs mt-1">For passports and some ID cards. Leave blank if document doesn't expire.</div>
                 @error('expiry_date')
-                    <div class="error">{{ $message }}</div>
+                    <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
                 @enderror
             </div>
 
-            <button type="submit" class="btn btn-success">Upload Document</button>
+            <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700 transition-colors">Upload Document</button>
         </form>
     </div>
 
     @if($customer->id_type === 'MyKad')
-    <div class="required-docs">
-        <h4>Required Documents for MyKad Customer:</h4>
-        <ul>
-            <li>MyKad Front (Required)</li>
-            <li>MyKad Back (Required)</li>
+    <div class="mt-6 p-4 bg-gray-50 rounded">
+        <h4 class="text-sm font-semibold text-gray-800 mb-2">Required Documents for MyKad Customer:</h4>
+        <ul class="list-disc ml-6 text-sm text-gray-600">
+            <li class="mb-1">MyKad Front (Required)</li>
+            <li class="mb-1">MyKad Back (Required)</li>
             <li>Proof of Address (If address differs from IC)</li>
         </ul>
     </div>
     @elseif($customer->id_type === 'Passport')
-    <div class="required-docs">
-        <h4>Required Documents for Passport Customer:</h4>
-        <ul>
-            <li>Passport (Required - must show photo and personal details page)</li>
+    <div class="mt-6 p-4 bg-gray-50 rounded">
+        <h4 class="text-sm font-semibold text-gray-800 mb-2">Required Documents for Passport Customer:</h4>
+        <ul class="list-disc ml-6 text-sm text-gray-600">
+            <li class="mb-1">Passport (Required - must show photo and personal details page)</li>
             <li>Proof of Address (Required)</li>
         </ul>
     </div>
@@ -360,17 +113,17 @@
 </div>
 
 <!-- Document List Section -->
-<div class="document-section">
-    <h3>Uploaded Documents ({{ $documents->count() }})</h3>
+<div class="bg-white rounded-lg p-6 mb-6 shadow-sm">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Uploaded Documents ({{ $documents->count() }})</h3>
 
     @if($documents->count() > 0)
-        <div class="document-grid">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($documents as $document)
-                <div class="document-card {{ $document->isVerified() ? 'verified' : ($document->isExpired() ? 'expired' : 'pending') }}">
-                    <div class="document-type">
+                <div class="border border-gray-200 rounded-lg p-4 relative {{ $document->isVerified() ? 'border-green-500 bg-green-50' : ($document->isExpired() ? 'border-red-500 bg-red-50' : 'border-orange-400 bg-orange-50') }}">
+                    <div class="font-semibold text-gray-800 mb-2">
                         {{ $documentTypes[$document->document_type] ?? $document->document_type }}
                     </div>
-                    <div class="document-meta">
+                    <div class="text-xs text-gray-500 flex flex-col gap-1">
                         <span>Uploaded: {{ $document->created_at->format('Y-m-d H:i') }}</span>
                         @if($document->uploader)
                             <span>By: {{ $document->uploader->username }}</span>
@@ -382,39 +135,39 @@
                         @endif
 
                         @if($document->isVerified())
-                            <span class="document-status-badge status-verified">
+                            <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase bg-green-100 text-green-800 mt-2">
                                 Verified by {{ $document->verifier->username ?? 'Unknown' }} on {{ $document->verified_at->format('Y-m-d') }}
                             </span>
                         @elseif($document->isExpired())
-                            <span class="document-status-badge status-expired">Expired</span>
+                            <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase bg-red-100 text-red-800 mt-2">Expired</span>
                         @else
-                            <span class="document-status-badge status-pending">Pending Verification</span>
+                            <span class="inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase bg-orange-100 text-orange-800 mt-2">Pending Verification</span>
                         @endif
                     </div>
 
-                    <div class="document-actions">
+                    <div class="flex gap-2 mt-4">
                         @if(! $document->isVerified() && $canVerify)
-                            <form action="{{ route('customers.kyc.verify', [$customer, $document]) }}" method="POST" style="display: inline;">
+                            <form action="{{ route('customers.kyc.verify', [$customer, $document]) }}" method="POST">
                                 @csrf
-                                <button type="submit" class="btn btn-success btn-sm">Verify</button>
+                                <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded hover:bg-green-700 transition-colors">Verify</button>
                             </form>
                         @endif
 
                         @if($document->isVerified())
-                            <span style="color: #38a169; font-size: 0.75rem; align-self: center;">Verified</span>
+                            <span class="text-green-600 text-xs self-center">Verified</span>
                         @endif
 
-                        <form action="{{ route('customers.kyc.delete', [$customer, $document]) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this document?');">
+                        <form action="{{ route('customers.kyc.delete', [$customer, $document]) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this document?');">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            <button type="submit" class="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded hover:bg-red-700 transition-colors">Delete</button>
                         </form>
                     </div>
                 </div>
             @endforeach
         </div>
     @else
-        <div style="text-align: center; padding: 3rem; color: #718096;">
+        <div class="text-center p-12 text-gray-500">
             <p>No documents uploaded yet.</p>
             <p>Please upload the required KYC documents above.</p>
         </div>
@@ -423,12 +176,12 @@
 
 <!-- Verification Notice -->
 @if($canVerify)
-    <div class="info-box">
-        <p><strong>Compliance Officer/Admin Notice:</strong> You have permission to verify customer documents. Please ensure all verified documents are genuine and legible before approving.</p>
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r mb-6">
+        <p class="text-blue-800 text-sm"><strong>Compliance Officer/Admin Notice:</strong> You have permission to verify customer documents. Please ensure all verified documents are genuine and legible before approving.</p>
     </div>
 @else
-    <div class="info-box">
-        <p><strong>Note:</strong> Only Compliance Officers and Administrators can verify KYC documents. Please contact your supervisor after uploading all required documents.</p>
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r mb-6">
+        <p class="text-blue-800 text-sm"><strong>Note:</strong> Only Compliance Officers and Administrators can verify KYC documents. Please contact your supervisor after uploading all required documents.</p>
     </div>
 @endif
 @endsection

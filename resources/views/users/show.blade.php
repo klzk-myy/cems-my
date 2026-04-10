@@ -62,7 +62,7 @@
             </tr>
         </table>
     </div>
-    
+
     <!-- Permissions -->
     <div class="card">
         <h2>Role Permissions</h2>
@@ -70,37 +70,37 @@
             <div class="permission-item">
                 <span class="permission-label">Create Transactions</span>
                 <span class="permission-value {{ in_array($user->role, ['teller', 'manager', 'compliance_officer', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['teller', 'manager', 'compliance_officer', 'admin']) ? '✓' : '✗' }}
+                    {{ in_array($user->role, ['teller', 'manager', 'compliance_officer', 'admin']) ? 'Yes' : 'No' }}
                 </span>
             </div>
             <div class="permission-item">
-                <span class="permission-label">Approve Transactions ≥ RM 50k</span>
+                <span class="permission-label">Approve Transactions >= RM 50k</span>
                 <span class="permission-value {{ in_array($user->role, ['manager', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['manager', 'admin']) ? '✓' : '✗' }}
+                    {{ in_array($user->role, ['manager', 'admin']) ? 'Yes' : 'No' }}
                 </span>
             </div>
             <div class="permission-item">
                 <span class="permission-label">View Compliance Portal</span>
                 <span class="permission-value {{ in_array($user->role, ['compliance_officer', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['compliance_officer', 'admin']) ? '✓' : '✗' }}
+                    {{ in_array($user->role, ['compliance_officer', 'admin']) ? 'Yes' : 'No' }}
                 </span>
             </div>
             <div class="permission-item">
                 <span class="permission-label">Manage Stock/Cash</span>
                 <span class="permission-value {{ in_array($user->role, ['manager', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['manager', 'admin']) ? '✓' : '✗' }}
+                    {{ in_array($user->role, ['manager', 'admin']) ? 'Yes' : 'No' }}
                 </span>
             </div>
             <div class="permission-item">
                 <span class="permission-label">Run Reports</span>
                 <span class="permission-value {{ in_array($user->role, ['manager', 'compliance_officer', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['manager', 'compliance_officer', 'admin']) ? '✓' : '✗' }}
+                    {{ in_array($user->role, ['manager', 'compliance_officer', 'admin']) ? 'Yes' : 'No' }}
                 </span>
             </div>
             <div class="permission-item">
                 <span class="permission-label">Manage Users</span>
                 <span class="permission-value {{ $user->role === 'admin' ? 'granted' : 'denied' }}">
-                    {{ $user->role === 'admin' ? '✓' : '✗' }}
+                    {{ $user->role === 'admin' ? 'Yes' : 'No' }}
                 </span>
             </div>
         </div>
@@ -139,7 +139,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="7" style="text-align: center; padding: 2rem; color: #718096;">
+                <td colspan="7" class="text-center p-8 text-gray">
                     No transactions found for this user.
                 </td>
             </tr>
@@ -178,7 +178,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="5" style="text-align: center; padding: 2rem; color: #718096;">
+                <td colspan="5" class="text-center p-8 text-gray">
                     No activity logs found for this user.
                 </td>
             </tr>
@@ -186,87 +186,4 @@
         </tbody>
     </table>
 </div>
-
-@section('styles')
-<style>
-    .user-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-    }
-    .header-actions {
-        display: flex;
-        gap: 0.5rem;
-    }
-    .detail-table {
-        width: 100%;
-    }
-    .detail-table th,
-    .detail-table td {
-        padding: 0.75rem;
-        border-bottom: 1px solid #e2e8f0;
-    }
-    .detail-table th {
-        width: 35%;
-        text-align: left;
-        color: #718096;
-        font-weight: 500;
-    }
-    .detail-table td {
-        color: #2d3748;
-    }
-    .role-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: capitalize;
-    }
-    .role-admin {
-        background: #fed7d7;
-        color: #c53030;
-    }
-    .role-manager {
-        background: #c6f6d5;
-        color: #22543d;
-    }
-    .role-compliance_officer {
-        background: #fef3c7;
-        color: #92400e;
-    }
-    .role-teller {
-        background: #dbeafe;
-        color: #1e40af;
-    }
-    .permissions-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-    .permission-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.75rem;
-        background: #f7fafc;
-        border-radius: 4px;
-    }
-    .permission-value {
-        font-weight: 600;
-        font-size: 1.25rem;
-    }
-    .permission-value.granted {
-        color: #38a169;
-    }
-    .permission-value.denied {
-        color: #e53e3e;
-    }
-    .status-inactive {
-        background: #fed7d7;
-        color: #c53030;
-    }
-</style>
-@endsection
 @endsection

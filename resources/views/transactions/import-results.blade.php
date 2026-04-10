@@ -2,208 +2,40 @@
 
 @section('title', 'Import Results - CEMS-MY')
 
-@section('styles')
-<style>
-    .results-header {
-        margin-bottom: 1.5rem;
-    }
-    .results-header h2 {
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-    }
-    .results-header p {
-        color: #718096;
-    }
-
-    .summary-card {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .summary-card h3 {
-        color: #2d3748;
-        margin-bottom: 1rem;
-        font-size: 1.1rem;
-    }
-
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-    }
-
-    .summary-item {
-        padding: 1rem;
-        background: #f7fafc;
-        border-radius: 6px;
-    }
-
-    .summary-item label {
-        display: block;
-        font-size: 0.875rem;
-        color: #718096;
-        margin-bottom: 0.25rem;
-    }
-
-    .summary-item .value {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #2d3748;
-    }
-
-    .summary-item.success .value {
-        color: #38a169;
-    }
-
-    .summary-item.error .value {
-        color: #e53e3e;
-    }
-
-    .badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .badge-success {
-        background: #c6f6d5;
-        color: #276749;
-    }
-
-    .badge-danger {
-        background: #fed7d7;
-        color: #c53030;
-    }
-
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
-    }
-
-    .data-table th,
-    .data-table td {
-        padding: 0.75rem;
-        text-align: left;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    .data-table th {
-        background: #edf2f7;
-        font-weight: 600;
-        color: #2d3748;
-    }
-
-    .data-table tr:hover {
-        background: #f7fafc;
-    }
-
-    .error-section {
-        margin-top: 2rem;
-    }
-
-    .error-card {
-        background: #fff5f5;
-        border: 1px solid #feb2b2;
-        border-radius: 8px;
-        padding: 1.5rem;
-    }
-
-    .error-card h3 {
-        color: #c53030;
-        margin-bottom: 1rem;
-    }
-
-    .error-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
-        background: #fff;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-
-    .error-table th,
-    .error-table td {
-        padding: 0.75rem;
-        text-align: left;
-        border-bottom: 1px solid #feb2b2;
-    }
-
-    .error-table th {
-        background: #fed7d7;
-        color: #c53030;
-        font-weight: 600;
-    }
-
-    .error-row {
-        font-family: monospace;
-        font-size: 0.875rem;
-        background: #fff;
-        max-width: 300px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .error-message {
-        color: #c53030;
-        font-size: 0.875rem;
-    }
-
-    .actions {
-        margin-top: 2rem;
-        display: flex;
-        gap: 1rem;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 3rem;
-        color: #718096;
-    }
-</style>
-@endsection
-
 @section('content')
-<div class="results-header">
-    <h2>Import Results</h2>
-    <p>Details for import: <strong>{{ $import->original_filename }}</strong></p>
+<div class="mb-6">
+    <h2 class="text-xl font-semibold text-gray-800 mb-1">Import Results</h2>
+    <p class="text-gray-500 text-sm">Details for import: <strong>{{ $import->original_filename }}</strong></p>
 </div>
 
 <!-- Summary Card -->
-<div class="summary-card">
-    <h3>Import Summary</h3>
-    <div class="summary-grid">
-        <div class="summary-item">
-            <label>Filename</label>
-            <div class="value" style="font-size: 1rem;">{{ $import->original_filename }}</div>
+<div class="bg-white border border-gray-200 rounded-lg p-6 mb-8">
+    <h3 class="text-lg font-semibold text-gray-800 mb-4">Import Summary</h3>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="p-4 bg-gray-50 rounded">
+            <label class="block text-xs text-gray-500 mb-1">Filename</label>
+            <div class="text-sm font-semibold text-gray-800">{{ $import->original_filename }}</div>
         </div>
-        <div class="summary-item">
-            <label>Import Date</label>
-            <div class="value" style="font-size: 1rem;">{{ $import->created_at->format('Y-m-d H:i:s') }}</div>
+        <div class="p-4 bg-gray-50 rounded">
+            <label class="block text-xs text-gray-500 mb-1">Import Date</label>
+            <div class="text-sm font-semibold text-gray-800">{{ $import->created_at->format('Y-m-d H:i:s') }}</div>
         </div>
-        <div class="summary-item">
-            <label>Total Rows</label>
-            <div class="value">{{ $import->total_rows }}</div>
+        <div class="p-4 bg-gray-50 rounded">
+            <label class="block text-xs text-gray-500 mb-1">Total Rows</label>
+            <div class="text-2xl font-bold text-gray-800">{{ $import->total_rows }}</div>
         </div>
-        <div class="summary-item success">
-            <label>Success</label>
-            <div class="value">{{ $import->success_count }}</div>
+        <div class="p-4 bg-green-50 rounded">
+            <label class="block text-xs text-green-600 mb-1">Success</label>
+            <div class="text-2xl font-bold text-green-600">{{ $import->success_count }}</div>
         </div>
-        <div class="summary-item {{ $import->error_count > 0 ? 'error' : '' }}">
-            <label>Errors</label>
-            <div class="value">{{ $import->error_count }}</div>
+        <div class="p-4 bg-red-50 rounded">
+            <label class="block text-xs text-red-600 mb-1">Errors</label>
+            <div class="text-2xl font-bold text-red-600">{{ $import->error_count }}</div>
         </div>
-        <div class="summary-item">
-            <label>Status</label>
-            <div class="value" style="font-size: 1rem;">
-                <span class="badge badge-{{ $import->getStatusColor() }}">
+        <div class="p-4 bg-gray-50 rounded">
+            <label class="block text-xs text-gray-500 mb-1">Status</label>
+            <div class="text-sm font-semibold text-gray-800">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-{{ $import->getStatusColor() === 'success' ? 'green-100 text-green-800' : ($import->getStatusColor() === 'warning' ? 'orange-100 text-orange-800' : 'red-100 text-red-800') }}">
                     {{ ucfirst($import->status) }}
                 </span>
             </div>
@@ -215,46 +47,46 @@
 @if($import->success_count > 0)
 <div class="card">
     <h3>Successful Transactions</h3>
-    <p style="color: #38a169; margin-bottom: 1rem;">
+    <p class="text-green-600 mb-4">
         ✓ {{ $import->success_count }} transactions imported successfully
     </p>
-    <p style="color: #718096; font-size: 0.875rem;">
-        View all transactions in the <a href="{{ route('transactions.index') }}">Transaction History</a>
+    <p class="text-gray-500 text-sm">
+        View all transactions in the <a href="{{ route('transactions.index') }}" class="text-blue-600 hover:underline">Transaction History</a>
     </p>
 </div>
 @endif
 
 <!-- Error Details -->
 @if($import->hasErrors())
-<div class="error-section">
-    <div class="error-card">
-        <h3>⚠️ Error Details ({{ count($import->getErrors()) }} errors)</h3>
-        <p style="margin-bottom: 1rem;">The following rows could not be imported:</p>
+<div class="mt-8">
+    <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+        <h3 class="text-red-800 font-semibold mb-2">⚠️ Error Details ({{ count($import->getErrors()) }} errors)</h3>
+        <p class="text-red-700 mb-4">The following rows could not be imported:</p>
 
-        <div style="overflow-x: auto;">
-            <table class="error-table">
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
                 <thead>
                     <tr>
-                        <th>Row</th>
-                        <th>Data</th>
-                        <th>Error Message</th>
+                        <th class="bg-red-100 text-red-800 font-semibold px-3 py-2 text-left">Row</th>
+                        <th class="bg-red-100 text-red-800 font-semibold px-3 py-2 text-left">Data</th>
+                        <th class="bg-red-100 text-red-800 font-semibold px-3 py-2 text-left">Error Message</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($import->getErrors() as $error)
                     <tr>
-                        <td>{{ $error['row'] }}</td>
-                        <td class="error-row" title="{{ implode(', ', $error['data']) }}">
+                        <td class="border-b border-red-200 px-3 py-2">{{ $error['row'] }}</td>
+                        <td class="border-b border-red-200 px-3 py-2 font-mono text-sm max-w-xs overflow-hidden text-ellipsis whitespace-nowrap" title="{{ implode(', ', $error['data']) }}">
                             {{ implode(', ', $error['data']) }}
                         </td>
-                        <td class="error-message">{{ $error['error'] }}</td>
+                        <td class="border-b border-red-200 px-3 py-2 text-red-600 text-sm">{{ $error['error'] }}</td>
                     </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
 
-        <div style="margin-top: 1.5rem;">
+        <div class="mt-6">
             <a href="{{ route('transactions.batch-upload') }}?export_errors={{ $import->id }}" class="btn btn-secondary">
                 Export Errors to CSV
             </a>
@@ -265,26 +97,26 @@
 
 <!-- Processing Time -->
 @if($import->started_at && $import->completed_at)
-<div class="card" style="margin-top: 2rem;">
+<div class="card mt-8">
     <h3>Processing Details</h3>
-    <div class="summary-grid" style="margin-top: 1rem;">
-        <div class="summary-item">
-            <label>Started At</label>
-            <div class="value" style="font-size: 1rem;">{{ $import->started_at->format('Y-m-d H:i:s') }}</div>
+    <div class="grid grid-cols-3 gap-4 mt-4">
+        <div class="p-4 bg-gray-50 rounded">
+            <label class="block text-xs text-gray-500 mb-1">Started At</label>
+            <div class="text-sm font-semibold text-gray-800">{{ $import->started_at->format('Y-m-d H:i:s') }}</div>
         </div>
-        <div class="summary-item">
-            <label>Completed At</label>
-            <div class="value" style="font-size: 1rem;">{{ $import->completed_at->format('Y-m-d H:i:s') }}</div>
+        <div class="p-4 bg-gray-50 rounded">
+            <label class="block text-xs text-gray-500 mb-1">Completed At</label>
+            <div class="text-sm font-semibold text-gray-800">{{ $import->completed_at->format('Y-m-d H:i:s') }}</div>
         </div>
-        <div class="summary-item">
-            <label>Duration</label>
-            <div class="value" style="font-size: 1rem;">{{ $import->started_at->diffInSeconds($import->completed_at) }} seconds</div>
+        <div class="p-4 bg-gray-50 rounded">
+            <label class="block text-xs text-gray-500 mb-1">Duration</label>
+            <div class="text-sm font-semibold text-gray-800">{{ $import->started_at->diffInSeconds($import->completed_at) }} seconds</div>
         </div>
     </div>
 </div>
 @endif
 
-<div class="actions">
+<div class="flex gap-4 mt-8">
     <a href="{{ route('transactions.batch-upload') }}" class="btn btn-secondary">
         ← Back to Upload
     </a>

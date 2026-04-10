@@ -2,493 +2,130 @@
 
 @section('title', 'BNM Form LMCA - CEMS-MY')
 
-@section('styles')
-<style>
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-    color: #718096;
-}
-
-.breadcrumb a {
-    color: #3182ce;
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-.page-header {
-    margin-bottom: 1.5rem;
-}
-
-.page-header h1 {
-    font-size: 1.5rem;
-    color: #1a365d;
-    margin-bottom: 0.25rem;
-}
-
-.page-header p {
-    color: #718096;
-    font-size: 0.875rem;
-}
-
-.control-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 1.5rem;
-}
-
-.control-card h2 {
-    font-size: 1rem;
-    color: #2d3748;
-    margin-bottom: 1rem;
-    border: none;
-    padding: 0;
-}
-
-.control-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.form-group label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #4a5568;
-}
-
-.form-control {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    min-width: 200px;
-}
-
-.status-info {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.status-not-generated {
-    background: #e2e8f0;
-    color: #4a5568;
-}
-
-.status-generated {
-    background: #bee3f8;
-    color: #2c5282;
-}
-
-.status-submitted {
-    background: #c6f6d5;
-    color: #276749;
-}
-
-.timestamp {
-    font-size: 0.875rem;
-    color: #718096;
-}
-
-.button-group {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    text-decoration: none;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    font-size: 0.875rem;
-    transition: background 0.2s;
-}
-
-.btn-primary {
-    background: #3182ce;
-    color: white;
-}
-
-.btn-primary:hover {
-    background: #2c5282;
-}
-
-.btn-success {
-    background: #38a169;
-    color: white;
-}
-
-.btn-success:hover {
-    background: #2f855a;
-}
-
-.btn-warning {
-    background: #d69e2e;
-    color: white;
-}
-
-.btn-warning:hover {
-    background: #b7791f;
-}
-
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-@media (max-width: 1024px) {
-    .summary-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 640px) {
-    .summary-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.summary-card {
-    background: #f7fafc;
-    border-radius: 8px;
-    padding: 1.25rem;
-}
-
-.summary-card-label {
-    font-size: 0.875rem;
-    color: #718096;
-    margin-bottom: 0.5rem;
-}
-
-.summary-card-value {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #2d3748;
-}
-
-.table-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 1.5rem;
-}
-
-.table-card h2 {
-    font-size: 1.125rem;
-    color: #2d3748;
-    margin-bottom: 0.5rem;
-    border: none;
-    padding: 0;
-}
-
-.table-container {
-    overflow-x: auto;
-    margin: 0 -1.5rem;
-    padding: 0 1.5rem;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-    margin-top: 1rem;
-}
-
-.data-table th,
-.data-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid #e2e8f0;
-    white-space: nowrap;
-}
-
-.data-table th {
-    background: #f7fafc;
-    font-weight: 600;
-    color: #4a5568;
-    text-align: center;
-}
-
-.data-table th.buy-col,
-.data-table td.buy-col {
-    background: rgba(198, 246, 213, 0.15);
-}
-
-.data-table th.sell-col,
-.data-table td.sell-col {
-    background: rgba(254, 215, 215, 0.15);
-}
-
-.data-table th.stock-col,
-.data-table td.stock-col {
-    background: rgba(190, 227, 248, 0.15);
-}
-
-.data-table tr:hover td {
-    background: #f7fafc !important;
-}
-
-.data-table tr:hover td.buy-col {
-    background: rgba(198, 246, 213, 0.25) !important;
-}
-
-.data-table tr:hover td.sell-col {
-    background: rgba(254, 215, 215, 0.25) !important;
-}
-
-.data-table tr:hover td.stock-col {
-    background: rgba(190, 227, 248, 0.25) !important;
-}
-
-.grand-total {
-    background: #edf2f7 !important;
-    font-weight: 600;
-}
-
-.grand-total td {
-    border-top: 2px solid #cbd5e0;
-    border-bottom: none;
-}
-
-.info-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 1.5rem;
-}
-
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-}
-
-@media (max-width: 768px) {
-    .info-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.info-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.info-label {
-    font-size: 0.75rem;
-    color: #718096;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-}
-
-.info-value {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #2d3748;
-}
-
-.compliance-footer {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-    background: #f7fafc;
-    border-radius: 8px;
-    padding: 1.25rem;
-    margin-top: 1.5rem;
-}
-
-@media (max-width: 768px) {
-    .compliance-footer {
-        grid-template-columns: 1fr;
-    }
-}
-
-.compliance-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.compliance-label {
-    font-size: 0.75rem;
-    color: #718096;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-}
-
-.compliance-value {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #2d3748;
-}
-</style>
-@endsection
-
 @section('content')
-<nav class="breadcrumb">
-    <a href="{{ route('reports.index') }}">Reports</a>
+<nav class="flex items-center gap-2 mb-4 text-sm text-gray-500">
+    <a href="{{ route('reports.index') }}" class="text-blue-600 no-underline hover:underline">Reports</a>
     <span>›</span>
     <span>BNM Form LMCA</span>
 </nav>
 
-<div class="page-header">
-    <h1>BNM Form LMCA</h1>
-    <p>Monthly Regulatory Report for Bank Negara Malaysia</p>
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-blue-900 mb-1">BNM Form LMCA</h1>
+    <p class="text-gray-500 text-sm">Monthly Regulatory Report for Bank Negara Malaysia</p>
 </div>
 
-<div class="control-card">
-    <h2>Report Controls</h2>
-    <div class="control-row">
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h2 class="text-base font-semibold text-gray-800 mb-4">Report Controls</h2>
+    <div class="flex flex-wrap items-center gap-4">
         <form method="GET" action="{{ route('reports.lmca') }}" id="lmca-form">
-            <div class="form-group">
-                <label for="month">Select Month</label>
-                <input type="month" id="month" name="month" value="{{ $month }}" class="form-control">
+            <div class="flex flex-col gap-1">
+                <label for="month" class="text-sm font-medium text-gray-600">Select Month</label>
+                <input type="month" id="month" name="month" value="{{ $month }}" class="p-2 border border-gray-200 rounded text-sm min-w-48">
             </div>
         </form>
 
-        <div class="status-info">
+        <div class="flex flex-wrap items-center gap-3">
             @php
             if ($reportGenerated) {
                 if ($reportGenerated->status === 'Submitted') {
                     $status = 'Submitted';
-                    $statusClass = 'status-submitted';
+                    $statusClass = 'bg-green-100 text-green-800';
                 } else {
                     $status = 'Generated';
-                    $statusClass = 'status-generated';
+                    $statusClass = 'bg-blue-100 text-blue-800';
                 }
             } else {
                 $status = 'Not Generated';
-                $statusClass = 'status-not-generated';
+                $statusClass = 'bg-gray-200 text-gray-600';
             }
             @endphp
 
-            <span class="status-badge {{ $statusClass }}">{{ $status }}</span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $status }}</span>
 
             @if($reportGenerated)
-            <span class="timestamp">
+            <span class="text-sm text-gray-500">
                 Generated: {{ $reportGenerated->generated_at->format('M d, Y H:i') }}
             </span>
             @endif
         </div>
 
-        <div class="button-group">
-            <button type="button" class="btn btn-primary" onclick="document.getElementById('lmca-form').submit()">
+        <div class="flex flex-wrap gap-2">
+            <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700 transition-colors" onclick="document.getElementById('lmca-form').submit()">
                 Update View
             </button>
-            <button type="button" class="btn btn-primary" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
+            <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700 transition-colors" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
                 Generate Report
             </button>
-            <button type="button" class="btn btn-success" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
+            <button type="button" class="px-4 py-2 bg-green-600 text-white rounded font-semibold text-sm hover:bg-green-700 transition-colors" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
                 Download CSV
             </button>
-            <button type="button" class="btn btn-warning" onclick="markSubmitted()" {{ !$reportGenerated || $status === 'Submitted' ? 'disabled' : '' }}>
+            <button type="button" class="px-4 py-2 bg-yellow-500 text-white rounded font-semibold text-sm hover:bg-yellow-600 transition-colors" onclick="markSubmitted()" {{ !$reportGenerated || $status === 'Submitted' ? 'disabled' : '' }}>
                 Mark as Submitted
             </button>
         </div>
     </div>
 </div>
 
-<div class="info-card">
-    <div class="info-grid">
-        <div class="info-item">
-            <span class="info-label">License Number</span>
-            <span class="info-value">{{ $reportData['license_number'] }}</span>
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="flex flex-col">
+            <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">License Number</span>
+            <span class="text-base font-semibold text-gray-800">{{ $reportData['license_number'] }}</span>
         </div>
-        <div class="info-item">
-            <span class="info-label">Reporting Period</span>
-            <span class="info-value">{{ $reportData['reporting_period'] }}</span>
+        <div class="flex flex-col">
+            <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Reporting Period</span>
+            <span class="text-base font-semibold text-gray-800">{{ $reportData['reporting_period'] }}</span>
         </div>
-        <div class="info-item">
-            <span class="info-label">Report Generated</span>
-            <span class="info-value">{{ $reportData['generated_at'] }}</span>
+        <div class="flex flex-col">
+            <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Report Generated</span>
+            <span class="text-base font-semibold text-gray-800">{{ $reportData['generated_at'] }}</span>
         </div>
     </div>
 </div>
 
-<div class="summary-grid">
-    <div class="summary-card">
-        <div class="summary-card-label">Total Customers Served</div>
-        <div class="summary-card-value">{{ number_format($reportData['customer_count']) }}</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+    <div class="bg-gray-50 rounded-lg p-5">
+        <div class="text-sm text-gray-500 mb-2">Total Customers Served</div>
+        <div class="text-2xl font-bold text-gray-800">{{ number_format($reportData['customer_count']) }}</div>
     </div>
-    <div class="summary-card">
-        <div class="summary-card-label">Total Active Staff</div>
-        <div class="summary-card-value">{{ number_format($reportData['staff_count']) }}</div>
+    <div class="bg-gray-50 rounded-lg p-5">
+        <div class="text-sm text-gray-500 mb-2">Total Active Staff</div>
+        <div class="text-2xl font-bold text-gray-800">{{ number_format($reportData['staff_count']) }}</div>
     </div>
-    <div class="summary-card">
-        <div class="summary-card-label">Currencies Traded</div>
-        <div class="summary-card-value">{{ count($reportData['currencies']) }}</div>
+    <div class="bg-gray-50 rounded-lg p-5">
+        <div class="text-sm text-gray-500 mb-2">Currencies Traded</div>
+        <div class="text-2xl font-bold text-gray-800">{{ count($reportData['currencies']) }}</div>
     </div>
-    <div class="summary-card">
-        <div class="summary-card-label">Submission Deadline</div>
-        <div class="summary-card-value">10th of Next Month</div>
+    <div class="bg-gray-50 rounded-lg p-5">
+        <div class="text-sm text-gray-500 mb-2">Submission Deadline</div>
+        <div class="text-2xl font-bold text-gray-800">10th of Next Month</div>
     </div>
 </div>
 
-<div class="table-card">
-    <h2>Currency Summary</h2>
-    
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Currency Summary</h2>
+
     @if(empty($reportData['currencies']))
-    <p>No transaction data available for this period.</p>
+    <p class="text-gray-500">No transaction data available for this period.</p>
     @else
-    <div class="table-container">
-        <table class="data-table">
+    <div class="overflow-x-auto -mx-6 px-6">
+        <table class="w-full border-collapse text-sm">
             <thead>
                 <tr>
-                    <th rowspan="2" style="vertical-align: middle; background: #f7fafc;">Currency</th>
-                    <th colspan="3" class="buy-col">Buy Transactions</th>
-                    <th colspan="3" class="sell-col">Sell Transactions</th>
-                    <th colspan="2" class="stock-col">Stock Position</th>
+                    <th rowspan="2" class="align-middle bg-gray-50 text-left px-4 py-3 font-semibold text-gray-700">Currency</th>
+                    <th colspan="3" class="text-center px-4 py-3 bg-green-50/50 font-semibold text-green-800">Buy Transactions</th>
+                    <th colspan="3" class="text-center px-4 py-3 bg-red-50/50 font-semibold text-red-800">Sell Transactions</th>
+                    <th colspan="2" class="text-center px-4 py-3 bg-blue-50/50 font-semibold text-blue-800">Stock Position</th>
                 </tr>
                 <tr>
-                    <th class="buy-col">Count</th>
-                    <th class="buy-col">Volume (Foreign)</th>
-                    <th class="buy-col">Value (MYR)</th>
-                    <th class="sell-col">Count</th>
-                    <th class="sell-col">Volume (Foreign)</th>
-                    <th class="sell-col">Value (MYR)</th>
-                    <th class="stock-col">Opening</th>
-                    <th class="stock-col">Closing</th>
+                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800">Count</th>
+                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800">Volume (Foreign)</th>
+                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800">Value (MYR)</th>
+                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800">Count</th>
+                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800">Volume (Foreign)</th>
+                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800">Value (MYR)</th>
+                    <th class="text-left px-4 py-2 bg-blue-50/50 text-blue-800">Opening</th>
+                    <th class="text-left px-4 py-2 bg-blue-50/50 text-blue-800">Closing</th>
                 </tr>
             </thead>
             <tbody>
@@ -512,29 +149,29 @@
                 $totals['sell_volume'] += $currency['sell_volume'];
                 $totals['sell_value'] += $currency['sell_value_myr'];
                 @endphp
-                <tr>
-                    <td><strong>{{ $currency['currency_code'] }}</strong><br><small style="color: #718096;">{{ $currency['currency_name'] }}</small></td>
-                    <td class="buy-col">{{ number_format($currency['buy_count']) }}</td>
-                    <td class="buy-col">{{ number_format($currency['buy_volume'], 4) }}</td>
-                    <td class="buy-col">RM {{ number_format($currency['buy_value_myr'], 2) }}</td>
-                    <td class="sell-col">{{ number_format($currency['sell_count']) }}</td>
-                    <td class="sell-col">{{ number_format($currency['sell_volume'], 4) }}</td>
-                    <td class="sell-col">RM {{ number_format($currency['sell_value_myr'], 2) }}</td>
-                    <td class="stock-col">{{ number_format($currency['opening_stock'], 4) }}</td>
-                    <td class="stock-col">{{ number_format($currency['closing_stock'], 4) }}</td>
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 border-b border-gray-100"><strong>{{ $currency['currency_code'] }}</strong><br><small class="text-gray-500">{{ $currency['currency_name'] }}</small></td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">{{ number_format($currency['buy_count']) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">{{ number_format($currency['buy_volume'], 4) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">RM {{ number_format($currency['buy_value_myr'], 2) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">{{ number_format($currency['sell_count']) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">{{ number_format($currency['sell_volume'], 4) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">RM {{ number_format($currency['sell_value_myr'], 2) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-blue-50/25">{{ number_format($currency['opening_stock'], 4) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-blue-50/25">{{ number_format($currency['closing_stock'], 4) }}</td>
                 </tr>
                 @endforeach
 
-                <tr class="grand-total">
-                    <td><strong>Grand Total</strong></td>
-                    <td class="buy-col">{{ number_format($totals['buy_count']) }}</td>
-                    <td class="buy-col">{{ number_format($totals['buy_volume'], 4) }}</td>
-                    <td class="buy-col">RM {{ number_format($totals['buy_value'], 2) }}</td>
-                    <td class="sell-col">{{ number_format($totals['sell_count']) }}</td>
-                    <td class="sell-col">{{ number_format($totals['sell_volume'], 4) }}</td>
-                    <td class="sell-col">RM {{ number_format($totals['sell_value'], 2) }}</td>
-                    <td class="stock-col">-</td>
-                    <td class="stock-col">-</td>
+                <tr class="bg-gray-100 font-semibold">
+                    <td class="px-4 py-3 border-t-2 border-gray-300"><strong>Grand Total</strong></td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">{{ number_format($totals['buy_count']) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">{{ number_format($totals['buy_volume'], 4) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">RM {{ number_format($totals['buy_value'], 2) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">{{ number_format($totals['sell_count']) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">{{ number_format($totals['sell_volume'], 4) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">RM {{ number_format($totals['sell_value'], 2) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-blue-50/50">-</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-blue-50/50">-</td>
                 </tr>
             </tbody>
         </table>
@@ -542,18 +179,18 @@
     @endif
 </div>
 
-<div class="compliance-footer">
-    <div class="compliance-item">
-        <span class="compliance-label">Regulatory Requirement</span>
-        <span class="compliance-value">BNM MSB Licensing & Operations</span>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 rounded-lg p-5 mt-6">
+    <div class="flex flex-col">
+        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Regulatory Requirement</span>
+        <span class="text-sm font-semibold text-gray-800">BNM MSB Licensing & Operations</span>
     </div>
-    <div class="compliance-item">
-        <span class="compliance-label">Submission Method</span>
-        <span class="compliance-value">BNM Portal (Manual or API)</span>
+    <div class="flex flex-col">
+        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Submission Method</span>
+        <span class="text-sm font-semibold text-gray-800">BNM Portal (Manual or API)</span>
     </div>
-    <div class="compliance-item">
-        <span class="compliance-label">Record Retention</span>
-        <span class="compliance-value">7 Years</span>
+    <div class="flex flex-col">
+        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Record Retention</span>
+        <span class="text-sm font-semibold text-gray-800">7 Years</span>
     </div>
 </div>
 @endsection

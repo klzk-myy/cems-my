@@ -3,9 +3,9 @@
 @section('title', 'Currency Position Report - CEMS-MY')
 
 @section('content')
-<div class="report-header">
-    <h2>Currency Position Report</h2>
-    <p>Real-time foreign currency inventory and unrealized P&L</p>
+<div class="mb-6">
+    <h2 class="text-xl font-semibold text-gray-800 mb-1">Currency Position Report</h2>
+    <p class="text-gray-500 text-sm">Real-time foreign currency inventory and unrealized P&L</p>
 </div>
 
 @php
@@ -13,135 +13,94 @@ $reportData = app(App\Services\ReportingService::class)->generateCurrencyPositio
 @endphp
 
 <!-- Summary Cards -->
-<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
-    <div class="card summary-card">
-        <h3>Active Currencies</h3>
-        <p class="amount">{{ count($reportData['positions']) }}</p>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="bg-white rounded-lg shadow-sm p-6 text-center">
+        <h3 class="text-sm text-gray-500 mb-2">Active Currencies</h3>
+        <p class="text-3xl font-bold text-gray-800">{{ count($reportData['positions']) }}</p>
     </div>
-    <div class="card summary-card">
-        <h3>Total Unrealized P&L</h3>
-        <p class="amount {{ $reportData['total_unrealized_pnl'] >= 0 ? 'positive' : 'negative' }}">
+    <div class="bg-white rounded-lg shadow-sm p-6 text-center">
+        <h3 class="text-sm text-gray-500 mb-2">Total Unrealized P&L</h3>
+        <p class="text-3xl font-bold {{ $reportData['total_unrealized_pnl'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
             {{ $reportData['total_unrealized_pnl'] >= 0 ? '+' : '' }}
             RM {{ number_format($reportData['total_unrealized_pnl'], 2) }}
         </p>
     </div>
-    <div class="card summary-card">
-        <h3>Report Generated</h3>
-        <p class="amount" style="font-size: 1rem;">{{ $reportData['generated_at'] }}</p>
+    <div class="bg-white rounded-lg shadow-sm p-6 text-center">
+        <h3 class="text-sm text-gray-500 mb-2">Report Generated</h3>
+        <p class="text-lg font-semibold text-gray-800">{{ $reportData['generated_at'] }}</p>
     </div>
 </div>
 
 <!-- Positions Table -->
-<div class="card">
-    <h2>Currency Positions Detail</h2>
-    
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Currency Positions Detail</h2>
+
     @if(count($reportData['positions']) > 0)
-    <table>
+    <table class="w-full border-collapse">
         <thead>
             <tr>
-                <th>Currency</th>
-                <th>Name</th>
-                <th>Balance</th>
-                <th>Avg Cost Rate</th>
-                <th>Last Valuation Rate</th>
-                <th class="text-right">Unrealized P&L</th>
-                <th>Status</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Currency</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Name</th>
+                <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Balance</th>
+                <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Avg Cost Rate</th>
+                <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Last Valuation Rate</th>
+                <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Unrealized P&L</th>
+                <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Status</th>
             </tr>
         </thead>
         <tbody>
             @foreach($reportData['positions'] as $position)
-            <tr>
-                <td><strong>{{ $position['currency_code'] }}</strong></td>
-                <td>{{ $position['currency_name'] }}</td>
-                <td>{{ number_format($position['balance'], 4) }}</td>
-                <td>{{ number_format($position['avg_cost_rate'], 6) }}</td>
-                <td>{{ $position['last_valuation_rate'] ? number_format($position['last_valuation_rate'], 6) : 'N/A' }}</td>
-                <td class="text-right {{ $position['unrealized_pnl'] >= 0 ? 'positive' : 'negative' }}">
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 border-b border-gray-100"><strong>{{ $position['currency_code'] }}</strong></td>
+                <td class="px-4 py-3 border-b border-gray-100">{{ $position['currency_name'] }}</td>
+                <td class="px-4 py-3 border-b border-gray-100 text-right">{{ number_format($position['balance'], 4) }}</td>
+                <td class="px-4 py-3 border-b border-gray-100 text-right">{{ number_format($position['avg_cost_rate'], 6) }}</td>
+                <td class="px-4 py-3 border-b border-gray-100 text-right">{{ $position['last_valuation_rate'] ? number_format($position['last_valuation_rate'], 6) : 'N/A' }}</td>
+                <td class="px-4 py-3 border-b border-gray-100 text-right {{ $position['unrealized_pnl'] >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
                     {{ $position['unrealized_pnl'] >= 0 ? '+' : '' }}
                     RM {{ number_format($position['unrealized_pnl'], 2) }}
                 </td>
-                <td>
+                <td class="px-4 py-3 border-b border-gray-100">
                     @if($position['balance'] > 0)
-                        <span class="status-badge status-active">Long</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Long</span>
                     @elseif($position['balance'] < 0)
-                        <span class="status-badge status-flagged">Short</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">Short</span>
                     @else
-                        <span class="status-badge">Flat</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">Flat</span>
                     @endif
                 </td>
             </tr>
             @endforeach
         </tbody>
-        <tfoot>
+        <tfoot class="font-semibold bg-gray-50 border-t-2 border-gray-200">
             <tr>
-                <th colspan="5" class="text-right">Total Unrealized P&L:</th>
-                <th class="text-right {{ $reportData['total_unrealized_pnl'] >= 0 ? 'positive' : 'negative' }}">
+                <td colspan="5" class="text-right px-4 py-3">Total Unrealized P&L:</td>
+                <td class="text-right px-4 py-3 {{ $reportData['total_unrealized_pnl'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
                     {{ $reportData['total_unrealized_pnl'] >= 0 ? '+' : '' }}
                     RM {{ number_format($reportData['total_unrealized_pnl'], 2) }}
-                </th>
-                <th></th>
+                </td>
+                <td></td>
             </tr>
         </tfoot>
     </table>
-    
-    <div style="margin-top: 1.5rem; text-align: center;">
-        <a href="{{ route('reports.export') }}?report_type=currency_position&period={{ now()->format('Y-m-d') }}&format=CSV" class="btn btn-success">Export CSV</a>
+
+    <div class="mt-6 text-center">
+        <a href="{{ route('reports.export') }}?report_type=currency_position&period={{ now()->format('Y-m-d') }}&format=CSV" class="btn btn-success mr-2">Export CSV</a>
         <a href="{{ route('reports.export') }}?report_type=currency_position&period={{ now()->format('Y-m-d') }}&format=PDF" class="btn btn-primary">Export PDF</a>
     </div>
     @else
-    <div class="alert alert-info">
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
         No currency positions found. Positions are created automatically when transactions are processed.
     </div>
     @endif
 </div>
 
 <!-- Formula Reference -->
-<div class="card">
-    <h2>Calculation Formula</h2>
-    <div class="alert alert-info">
+<div class="bg-white rounded-lg shadow-sm p-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Calculation Formula</h2>
+    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg text-sm text-blue-800">
         <strong>Unrealized P&L =</strong> (Last Valuation Rate - Average Cost Rate) × Balance<br>
         <strong>Note:</strong> Positive value indicates unrealized gain, negative indicates unrealized loss
     </div>
 </div>
-
-@section('styles')
-<style>
-    .report-header {
-        margin-bottom: 1.5rem;
-    }
-    .report-header h2 {
-        margin-bottom: 0.5rem;
-        color: #2d3748;
-    }
-    .report-header p {
-        color: #718096;
-    }
-    .summary-card {
-        text-align: center;
-        padding: 1.5rem;
-    }
-    .summary-card h3 {
-        color: #718096;
-        margin-bottom: 0.5rem;
-        font-size: 1rem;
-    }
-    .amount {
-        font-size: 1.5rem;
-        font-weight: 700;
-    }
-    .positive {
-        color: #38a169;
-    }
-    .negative {
-        color: #e53e3e;
-    }
-    .text-right {
-        text-align: right;
-    }
-    tfoot tr {
-        border-top: 2px solid #e2e8f0;
-        background: #f7fafc;
-    }
-</style>
-@endsection
 @endsection

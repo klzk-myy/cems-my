@@ -2,461 +2,65 @@
 
 @section('title', 'MSB(2) Report - CEMS-MY')
 
-@section('styles')
-<style>
-/* Breadcrumb */
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-    color: #718096;
-}
-
-.breadcrumb a {
-    color: #3182ce;
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-/* Header Section */
-.page-header {
-    margin-bottom: 1.5rem;
-}
-
-.page-header h1 {
-    font-size: 1.5rem;
-    color: #1a365d;
-    margin-bottom: 0.25rem;
-}
-
-.page-header p {
-    color: #718096;
-    font-size: 0.875rem;
-}
-
-/* Control Card */
-.control-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 1.5rem;
-}
-
-.control-card h2 {
-    font-size: 1rem;
-    color: #2d3748;
-    margin-bottom: 1rem;
-    border: none;
-    padding: 0;
-}
-
-.control-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.form-group label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #4a5568;
-}
-
-.form-control {
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    min-width: 200px;
-}
-
-.status-info {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.status-not-generated {
-    background: #e2e8f0;
-    color: #4a5568;
-}
-
-.status-generated {
-    background: #bee3f8;
-    color: #2c5282;
-}
-
-.status-submitted {
-    background: #c6f6d5;
-    color: #276749;
-}
-
-.status-overdue {
-    background: #fed7d7;
-    color: #c53030;
-}
-
-.timestamp {
-    font-size: 0.875rem;
-    color: #718096;
-}
-
-.button-group {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    text-decoration: none;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    font-size: 0.875rem;
-    transition: background 0.2s;
-}
-
-.btn-primary {
-    background: #3182ce;
-    color: white;
-}
-
-.btn-primary:hover {
-    background: #2c5282;
-}
-
-.btn-success {
-    background: #38a169;
-    color: white;
-}
-
-.btn-success:hover {
-    background: #2f855a;
-}
-
-.btn-warning {
-    background: #d69e2e;
-    color: white;
-}
-
-.btn-warning:hover {
-    background: #b7791f;
-}
-
-.btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* Summary Cards */
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
-}
-
-@media (max-width: 1024px) {
-    .summary-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 640px) {
-    .summary-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.summary-card {
-    background: #f7fafc;
-    border-radius: 8px;
-    padding: 1.25rem;
-}
-
-.summary-card-label {
-    font-size: 0.875rem;
-    color: #718096;
-    margin-bottom: 0.5rem;
-}
-
-.summary-card-value {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #2d3748;
-}
-
-.summary-card-value.positive {
-    color: #38a169;
-}
-
-.summary-card-value.negative {
-    color: #e53e3e;
-}
-
-/* Validation Alerts */
-.validation-alert {
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-    border-radius: 0 4px 4px 0;
-    border-left: 4px solid;
-}
-
-.validation-alert.warning {
-    background: #fffaf0;
-    border-left-color: #dd6b20;
-    color: #c05621;
-}
-
-.validation-alert.info {
-    background: #ebf8ff;
-    border-left-color: #3182ce;
-    color: #2b6cb0;
-}
-
-/* Table Card */
-.table-card {
-    background: white;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 1.5rem;
-}
-
-.table-card h2 {
-    font-size: 1.125rem;
-    color: #2d3748;
-    margin-bottom: 0.5rem;
-    border: none;
-    padding: 0;
-}
-
-.table-container {
-    overflow-x: auto;
-    margin: 0 -1.5rem;
-    padding: 0 1.5rem;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-    margin-top: 1rem;
-}
-
-.data-table th,
-.data-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid #e2e8f0;
-    white-space: nowrap;
-}
-
-.data-table th {
-    background: #f7fafc;
-    font-weight: 600;
-    color: #4a5568;
-    text-align: center;
-}
-
-.data-table th.header-row-1 {
-    border-bottom: 1px solid #cbd5e0;
-}
-
-.data-table th.header-row-2 {
-    font-size: 0.8rem;
-}
-
-/* Column Grouping Colors */
-.data-table th.buy-col,
-.data-table td.buy-col {
-    background: rgba(198, 246, 213, 0.15);
-}
-
-.data-table th.sell-col,
-.data-table td.sell-col {
-    background: rgba(254, 215, 215, 0.15);
-}
-
-.data-table th.net-col,
-.data-table td.net-col {
-    background: rgba(190, 227, 248, 0.15);
-}
-
-.data-table tr:hover td {
-    background: #f7fafc !important;
-}
-
-.data-table tr:hover td.buy-col {
-    background: rgba(198, 246, 213, 0.25) !important;
-}
-
-.data-table tr:hover td.sell-col {
-    background: rgba(254, 215, 215, 0.25) !important;
-}
-
-.data-table tr:hover td.net-col {
-    background: rgba(190, 227, 248, 0.25) !important;
-}
-
-/* Value Formatting */
-.value-positive {
-    color: #38a169;
-    font-weight: 600;
-}
-
-.value-negative {
-    color: #e53e3e;
-    font-weight: 600;
-}
-
-/* Grand Total Row */
-.grand-total {
-    background: #edf2f7 !important;
-    font-weight: 600;
-}
-
-.grand-total td {
-    border-top: 2px solid #cbd5e0;
-    border-bottom: none;
-}
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 3rem;
-    color: #718096;
-}
-
-.empty-state-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-}
-
-/* Compliance Footer */
-.compliance-footer {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-    background: #f7fafc;
-    border-radius: 8px;
-    padding: 1.25rem;
-    margin-top: 1.5rem;
-}
-
-@media (max-width: 768px) {
-    .compliance-footer {
-        grid-template-columns: 1fr;
-    }
-}
-
-.compliance-item {
-    display: flex;
-    flex-direction: column;
-}
-
-.compliance-label {
-    font-size: 0.75rem;
-    color: #718096;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-}
-
-.compliance-value {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #2d3748;
-}
-</style>
-@endsection
-
 @section('content')
 <!-- Breadcrumb -->
-<nav class="breadcrumb">
-    <a href="{{ route('reports.index') }}">Reports</a>
+<nav class="flex items-center gap-2 mb-4 text-sm text-gray-500">
+    <a href="{{ route('reports.index') }}" class="text-blue-600 no-underline hover:underline">Reports</a>
     <span>›</span>
     <span>MSB(2)</span>
 </nav>
 
 <!-- Header -->
-<div class="page-header">
-    <h1>MSB(2) Report</h1>
-    <p>Daily Money Services Business Transaction Summary</p>
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-blue-900 mb-1">MSB(2) Report</h1>
+    <p class="text-gray-500 text-sm">Daily Money Services Business Transaction Summary</p>
 </div>
 
 <!-- Control Card -->
-<div class="control-card">
-    <h2>Report Controls</h2>
-    <div class="control-row">
-        <div class="form-group">
-            <label for="date">Select Date</label>
-            <input type="date" id="date" name="date" value="{{ $date }}" class="form-control" form="msb2-form">
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h2 class="text-base font-semibold text-gray-800 mb-4">Report Controls</h2>
+    <div class="flex flex-wrap items-center gap-4">
+        <div class="flex flex-col gap-1">
+            <label for="date" class="text-sm font-medium text-gray-600">Select Date</label>
+            <input type="date" id="date" name="date" value="{{ $date }}" class="p-2 border border-gray-200 rounded text-sm min-w-48" form="msb2-form">
         </div>
 
-        <div class="status-info">
+        <div class="flex flex-wrap items-center gap-3">
             @php
             if ($reportGenerated) {
                 if ($reportGenerated->status === 'Submitted') {
                     $status = 'Submitted';
-                    $statusClass = 'status-submitted';
+                    $statusClass = 'bg-green-100 text-green-800';
                 } else {
                     $status = 'Generated';
-                    $statusClass = 'status-generated';
+                    $statusClass = 'bg-blue-100 text-blue-800';
                 }
             } else {
                 $status = 'Not Generated';
-                $statusClass = 'status-not-generated';
+                $statusClass = 'bg-gray-200 text-gray-600';
             }
             @endphp
 
-            <span class="status-badge {{ $statusClass }}">{{ $status }}</span>
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $status }}</span>
 
             @if($reportGenerated)
-            <span class="timestamp">
+            <span class="text-sm text-gray-500">
                 Generated: {{ $reportGenerated->generated_at->format('M d, Y H:i') }}
             </span>
             @endif
         </div>
 
-        <div class="button-group">
-            <button type="button" class="btn btn-primary" onclick="updateView()">
+        <div class="flex flex-wrap gap-2">
+            <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700 transition-colors" onclick="updateView()">
                 Update View
             </button>
-            <button type="button" class="btn btn-primary" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
+            <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700 transition-colors" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
                 Generate Report
             </button>
-            <button type="button" class="btn btn-success" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
+            <button type="button" class="px-4 py-2 bg-green-600 text-white rounded font-semibold text-sm hover:bg-green-700 transition-colors" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
                 Download CSV
             </button>
-            <button type="button" class="btn btn-warning" onclick="markSubmitted()" {{ !$reportGenerated || $status === 'Submitted' ? 'disabled' : '' }}>
+            <button type="button" class="px-4 py-2 bg-yellow-500 text-white rounded font-semibold text-sm hover:bg-yellow-600 transition-colors" onclick="markSubmitted()" {{ !$reportGenerated || $status === 'Submitted' ? 'disabled' : '' }}>
                 Mark as Submitted
             </button>
         </div>
@@ -464,22 +68,22 @@
 </div>
 
 <!-- Summary Cards -->
-<div class="summary-grid">
-    <div class="summary-card">
-        <div class="summary-card-label">Total Transactions</div>
-        <div class="summary-card-value">{{ number_format($stats['total_transactions']) }}</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+    <div class="bg-gray-50 rounded-lg p-5">
+        <div class="text-sm text-gray-500 mb-2">Total Transactions</div>
+        <div class="text-2xl font-bold text-gray-800">{{ number_format($stats['total_transactions']) }}</div>
     </div>
-    <div class="summary-card">
-        <div class="summary-card-label">Total Buy Volume (MYR)</div>
-        <div class="summary-card-value">RM {{ number_format($stats['total_buy_myr'], 2) }}</div>
+    <div class="bg-gray-50 rounded-lg p-5">
+        <div class="text-sm text-gray-500 mb-2">Total Buy Volume (MYR)</div>
+        <div class="text-2xl font-bold text-gray-800">RM {{ number_format($stats['total_buy_myr'], 2) }}</div>
     </div>
-    <div class="summary-card">
-        <div class="summary-card-label">Total Sell Volume (MYR)</div>
-        <div class="summary-card-value">RM {{ number_format($stats['total_sell_myr'], 2) }}</div>
+    <div class="bg-gray-50 rounded-lg p-5">
+        <div class="text-sm text-gray-500 mb-2">Total Sell Volume (MYR)</div>
+        <div class="text-2xl font-bold text-gray-800">RM {{ number_format($stats['total_sell_myr'], 2) }}</div>
     </div>
-    <div class="summary-card">
-        <div class="summary-card-label">Net Position (Buy - Sell)</div>
-        <div class="summary-card-value {{ $stats['net_position'] >= 0 ? 'positive' : 'negative' }}">
+    <div class="bg-gray-50 rounded-lg p-5">
+        <div class="text-sm text-gray-500 mb-2">Net Position (Buy - Sell)</div>
+        <div class="text-2xl font-bold {{ $stats['net_position'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
             {{ $stats['net_position'] >= 0 ? '+' : '' }}RM {{ number_format($stats['net_position'], 2) }}
         </div>
     </div>
@@ -487,45 +91,45 @@
 
 <!-- Validation Alerts -->
 @if($stats['net_position'] < 0)
-<div class="validation-alert warning">
-    ⚠️ Validation Notice: Negative net position indicates more sales than purchases for this period.
+<div class="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6 rounded-r-lg">
+    <p class="text-orange-800 text-sm">⚠️ Validation Notice: Negative net position indicates more sales than purchases for this period.</p>
 </div>
 @endif
 
 @if($isToday)
-<div class="validation-alert info">
-    ℹ️ Note: You are viewing today's data. The report should typically be generated for the previous completed business day.
+<div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
+    <p class="text-blue-800 text-sm">ℹ️ Note: You are viewing today's data. The report should typically be generated for the previous completed business day.</p>
 </div>
 @endif
 
 <!-- Currency Summary Table -->
-<div class="table-card">
-    <h2>Currency Summary</h2>
-    
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Currency Summary</h2>
+
     @if($summary->isEmpty())
-    <div class="empty-state">
-        <div class="empty-state-icon">📊</div>
+    <div class="text-center py-12 text-gray-500">
+        <div class="text-5xl mb-4">📊</div>
         <p>No transactions found for {{ $date }}. Select a different date or check if transactions have been recorded.</p>
     </div>
     @else
-    <div class="table-container">
-        <table class="data-table">
+    <div class="overflow-x-auto -mx-6 px-6">
+        <table class="w-full border-collapse text-sm">
             <thead>
                 <tr>
-                    <th rowspan="2" style="vertical-align: middle; background: #f7fafc;">Currency<br>Code</th>
-                    <th colspan="3" class="header-row-1 buy-col">Buy Transactions</th>
-                    <th colspan="3" class="header-row-1 sell-col">Sell Transactions</th>
-                    <th colspan="2" class="header-row-1 net-col">Net</th>
+                    <th rowspan="2" class="align-middle text-left px-4 py-3 bg-gray-50 font-semibold text-gray-700 border-b-2 border-gray-200">Currency<br>Code</th>
+                    <th colspan="3" class="text-center px-4 py-3 bg-green-50/50 font-semibold text-green-800 border-b-2 border-gray-200">Buy Transactions</th>
+                    <th colspan="3" class="text-center px-4 py-3 bg-red-50/50 font-semibold text-red-800 border-b-2 border-gray-200">Sell Transactions</th>
+                    <th colspan="2" class="text-center px-4 py-3 bg-blue-50/50 font-semibold text-blue-800 border-b-2 border-gray-200">Net</th>
                 </tr>
                 <tr>
-                    <th class="header-row-2 buy-col">Volume<br>(Foreign)</th>
-                    <th class="header-row-2 buy-col">Count</th>
-                    <th class="header-row-2 buy-col">Amount<br>(MYR)</th>
-                    <th class="header-row-2 sell-col">Volume<br>(Foreign)</th>
-                    <th class="header-row-2 sell-col">Count</th>
-                    <th class="header-row-2 sell-col">Amount<br>(MYR)</th>
-                    <th class="header-row-2 net-col">Volume<br>(Foreign)</th>
-                    <th class="header-row-2 net-col">Amount<br>(MYR)</th>
+                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800 text-xs">Volume<br>(Foreign)</th>
+                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800 text-xs">Count</th>
+                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800 text-xs">Amount<br>(MYR)</th>
+                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800 text-xs">Volume<br>(Foreign)</th>
+                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800 text-xs">Count</th>
+                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800 text-xs">Amount<br>(MYR)</th>
+                    <th class="text-left px-4 py-2 bg-blue-50/50 text-blue-800 text-xs">Volume<br>(Foreign)</th>
+                    <th class="text-left px-4 py-2 bg-blue-50/50 text-blue-800 text-xs">Amount<br>(MYR)</th>
                 </tr>
             </thead>
             <tbody>
@@ -544,7 +148,7 @@
                 @php
                 $netVolume = $currency->buy_volume_foreign - $currency->sell_volume_foreign;
                 $netAmount = $currency->buy_amount_myr - $currency->sell_amount_myr;
-                
+
                 $totals['buy_volume_foreign'] += $currency->buy_volume_foreign;
                 $totals['buy_count'] += $currency->buy_count;
                 $totals['buy_amount_myr'] += $currency->buy_amount_myr;
@@ -552,18 +156,18 @@
                 $totals['sell_count'] += $currency->sell_count;
                 $totals['sell_amount_myr'] += $currency->sell_amount_myr;
                 @endphp
-                <tr>
-                    <td><strong>{{ $currency->currency_code }}</strong></td>
-                    <td class="buy-col">{{ number_format($currency->buy_volume_foreign, 4) }}</td>
-                    <td class="buy-col">{{ number_format($currency->buy_count) }}</td>
-                    <td class="buy-col">{{ number_format($currency->buy_amount_myr, 2) }}</td>
-                    <td class="sell-col">{{ number_format($currency->sell_volume_foreign, 4) }}</td>
-                    <td class="sell-col">{{ number_format($currency->sell_count) }}</td>
-                    <td class="sell-col">{{ number_format($currency->sell_amount_myr, 2) }}</td>
-                    <td class="net-col {{ $netVolume >= 0 ? 'value-positive' : 'value-negative' }}">
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 border-b border-gray-100"><strong>{{ $currency->currency_code }}</strong></td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">{{ number_format($currency->buy_volume_foreign, 4) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">{{ number_format($currency->buy_count) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">{{ number_format($currency->buy_amount_myr, 2) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">{{ number_format($currency->sell_volume_foreign, 4) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">{{ number_format($currency->sell_count) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">{{ number_format($currency->sell_amount_myr, 2) }}</td>
+                    <td class="px-4 py-3 border-b border-gray-100 bg-blue-50/25 {{ $netVolume >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
                         {{ $netVolume >= 0 ? '+' : '' }}{{ number_format($netVolume, 4) }}
                     </td>
-                    <td class="net-col {{ $netAmount >= 0 ? 'value-positive' : 'value-negative' }}">
+                    <td class="px-4 py-3 border-b border-gray-100 bg-blue-50/25 {{ $netAmount >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
                         {{ $netAmount >= 0 ? '+' : '' }}RM {{ number_format($netAmount, 2) }}
                     </td>
                 </tr>
@@ -574,18 +178,18 @@
                 $grandNetAmount = $totals['buy_amount_myr'] - $totals['sell_amount_myr'];
                 @endphp
 
-                <tr class="grand-total">
-                    <td><strong>Grand Total</strong></td>
-                    <td class="buy-col">{{ number_format($totals['buy_volume_foreign'], 4) }}</td>
-                    <td class="buy-col">{{ number_format($totals['buy_count']) }}</td>
-                    <td class="buy-col">{{ number_format($totals['buy_amount_myr'], 2) }}</td>
-                    <td class="sell-col">{{ number_format($totals['sell_volume_foreign'], 4) }}</td>
-                    <td class="sell-col">{{ number_format($totals['sell_count']) }}</td>
-                    <td class="sell-col">{{ number_format($totals['sell_amount_myr'], 2) }}</td>
-                    <td class="net-col {{ $grandNetVolume >= 0 ? 'value-positive' : 'value-negative' }}">
+                <tr class="bg-gray-100 font-semibold">
+                    <td class="px-4 py-3 border-t-2 border-gray-300"><strong>Grand Total</strong></td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">{{ number_format($totals['buy_volume_foreign'], 4) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">{{ number_format($totals['buy_count']) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">{{ number_format($totals['buy_amount_myr'], 2) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">{{ number_format($totals['sell_volume_foreign'], 4) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">{{ number_format($totals['sell_count']) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">{{ number_format($totals['sell_amount_myr'], 2) }}</td>
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-blue-50/50 {{ $grandNetVolume >= 0 ? 'text-green-600' : 'text-red-600' }}">
                         {{ $grandNetVolume >= 0 ? '+' : '' }}{{ number_format($grandNetVolume, 4) }}
                     </td>
-                    <td class="net-col {{ $grandNetAmount >= 0 ? 'value-positive' : 'value-negative' }}">
+                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-blue-50/50 {{ $grandNetAmount >= 0 ? 'text-green-600' : 'text-red-600' }}">
                         {{ $grandNetAmount >= 0 ? '+' : '' }}RM {{ number_format($grandNetAmount, 2) }}
                     </td>
                 </tr>
@@ -596,22 +200,22 @@
 </div>
 
 <!-- Compliance Footer -->
-<div class="compliance-footer">
-    <div class="compliance-item">
-        <span class="compliance-label">Reporting Rule</span>
-        <span class="compliance-value">All transactions included</span>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 rounded-lg p-5 mt-6">
+    <div class="flex flex-col">
+        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Reporting Rule</span>
+        <span class="text-sm font-semibold text-gray-800">All transactions included</span>
     </div>
-    <div class="compliance-item">
-        <span class="compliance-label">Submission Deadline</span>
-        <span class="compliance-value">Next business day</span>
+    <div class="flex flex-col">
+        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Submission Deadline</span>
+        <span class="text-sm font-semibold text-gray-800">Next business day</span>
     </div>
-    <div class="compliance-item">
-        <span class="compliance-label">Next Business Day</span>
-        <span class="compliance-value">{{ $nextBusinessDay }}</span>
+    <div class="flex flex-col">
+        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Next Business Day</span>
+        <span class="text-sm font-semibold text-gray-800">{{ $nextBusinessDay }}</span>
     </div>
 </div>
 
-<form id="msb2-form" method="GET" action="{{ route('reports.msb2') }}" style="display: none;">
+<form id="msb2-form" method="GET" action="{{ route('reports.msb2') }}" class="hidden">
     @csrf
 </form>
 @endsection
@@ -664,7 +268,7 @@ function downloadCSV() {
     window.location.href = routeExport + '?report_type=msb2&period=' + encodeURIComponent(date) + '&format=CSV';
 }
 
-  async function markSubmitted() {
+async function markSubmitted() {
     const date = document.getElementById('date').value;
 
     if (!confirm('Mark this report as submitted to Bank Negara Malaysia? This action cannot be undone.')) {
