@@ -5,12 +5,12 @@
 @section('content')
 <nav class="breadcrumb">
     <a href="{{ route('dashboard') }}">Dashboard</a>
-    <span>›</span>
+    <span>/</span>
     <span>Tasks</span>
 </nav>
 
 <div class="page-header">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="flex justify-between items-center">
         <div>
             <h1>Task Management</h1>
             <p>Manage and track compliance, operational, and administrative tasks</p>
@@ -34,7 +34,7 @@
     </div>
     <div class="summary-card">
         <div class="summary-card-label">Overdue</div>
-        <div class="summary-card-value" style="color: #e53e3e;">{{ $tasks->where('due_at', '<', now())->whereNotIn('status', ['Completed', 'Cancelled'])->count() }}</div>
+        <div class="summary-card-value text-danger">{{ $tasks->where('due_at', '<', now())->whereNotIn('status', ['Completed', 'Cancelled'])->count() }}</div>
     </div>
 </div>
 
@@ -84,7 +84,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="7" style="text-align: center; padding: 2rem;">
+                <td colspan="7" class="text-center p-8">
                     No tasks found.
                 </td>
             </tr>
@@ -93,25 +93,9 @@
     </table>
 
     @if($tasks->hasPages())
-    <div style="margin-top: 1rem;">
+    <div class="mt-4">
         {{ $tasks->links() }}
     </div>
     @endif
 </div>
-@endsection
-
-@section('styles')
-<style>
-.priority-urgent { background: #fed7d7; color: #c53030; }
-.priority-high { background: #feebc8; color: #c05621; }
-.priority-medium { background: #fefcbf; color: #975a16; }
-.priority-low { background: #c6f6d5; color: #276749; }
-
-.status-pending { background: #e2e8f0; color: #4a5568; }
-.status-inprogress { background: #bee3f8; color: #2c5282; }
-.status-completed { background: #c6f6d5; color: #276749; }
-.status-cancelled { background: #e2e8f0; color: #718096; }
-
-.text-danger { color: #e53e3e; font-weight: 600; }
-</style>
 @endsection

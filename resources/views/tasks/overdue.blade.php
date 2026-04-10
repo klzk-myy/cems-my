@@ -5,7 +5,7 @@
 @section('content')
 <nav class="breadcrumb">
     <a href="{{ route('dashboard') }}">Dashboard</a>
-    <span>›</span>
+    <span>/</span>
     <span>Overdue Tasks</span>
 </nav>
 
@@ -52,7 +52,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="7" style="text-align: center; padding: 2rem;">
+                <td colspan="7" class="text-center p-8">
                     No overdue tasks. Great job!
                 </td>
             </tr>
@@ -61,32 +61,9 @@
     </table>
 
     @if($tasks->hasPages())
-    <div style="margin-top: 1rem;">
+    <div class="mt-4">
         {{ $tasks->links() }}
     </div>
     @endif
 </div>
-@endsection
-
-@section('styles')
-<style>
-.alert {
-    padding: 1rem;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-}
-
-.alert-warning {
-    background: #feebc8;
-    border-left: 4px solid #dd6b20;
-    color: #c05621;
-}
-
-.priority-urgent { background: #fed7d7; color: #c53030; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.priority-high { background: #feebc8; color: #c05621; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.priority-medium { background: #fefcbf; color: #975a16; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.priority-low { background: #c6f6d5; color: #276749; padding: 0.25rem 0.5rem; border-radius: 4px; }
-
-.text-danger { color: #e53e3e; font-weight: 600; }
-</style>
 @endsection

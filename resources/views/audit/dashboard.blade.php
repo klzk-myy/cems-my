@@ -198,12 +198,3 @@
     </div>
 </div>
 @endsection
-
-@section('styles')
-<style>
-    .display-4 {
-        font-size: 2.5rem;
-        font-weight: 300;
-    }
-</style>
-@endsection

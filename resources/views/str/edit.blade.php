@@ -2,42 +2,6 @@
 
 @section('title', "Edit STR {{ $str->str_no }} - CEMS-MY")
 
-@section('styles')
-<style>
-    .form-section {
-        background: #f7fafc;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    .form-section h3 {
-        margin-bottom: 1rem;
-        color: #2d3748;
-    }
-    .form-group {
-        margin-bottom: 1rem;
-    }
-    .form-group label {
-        display: block;
-        font-weight: 600;
-        color: #4a5568;
-        margin-bottom: 0.5rem;
-    }
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 4px;
-        font-size: 0.875rem;
-    }
-    .form-group textarea {
-        min-height: 150px;
-    }
-</style>
-@endsection
-
 @section('content')
 <div class="str-header">
     <h2>Edit STR Draft - {{ $str->str_no }}</h2>
@@ -71,7 +35,7 @@
                 </option>
                 @endforeach
             </select>
-            <small style="color: #718096;">Hold Ctrl/Cmd to select multiple transactions</small>
+            <small class="text-small">Hold Ctrl/Cmd to select multiple transactions</small>
         </div>
     </div>
 
@@ -83,7 +47,7 @@
         </div>
     </div>
 
-    <div class="flex gap-1" style="margin-top: 1.5rem;">
+    <div class="flex gap-1 mt-6">
         <button type="submit" class="btn btn-primary">Save Changes</button>
         <a href="{{ route('str.show', $str) }}" class="btn btn-secondary">Cancel</a>
     </div>

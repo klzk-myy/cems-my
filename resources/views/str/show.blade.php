@@ -2,136 +2,6 @@
 
 @section('title', "STR {{ $str->str_no }} - CEMS-MY")
 
-@section('styles')
-<style>
-    .str-detail-header {
-        background: #f7fafc;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    .str-detail-header h2 {
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-    }
-    .status-badge {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        font-weight: 700;
-        font-size: 1rem;
-    }
-    .status-draft { background: #e2e8f0; color: #4a5568; }
-    .status-pending_review { background: #feebc8; color: #c05621; }
-    .status-pending_approval { background: #ebf8ff; color: #2b6cb0; }
-    .status-submitted { background: #bee3f8; color: #2c5282; }
-    .status-acknowledged { background: #c6f6d5; color: #276749; }
-
-    .detail-section {
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    .detail-section h3 {
-        color: #2d3748;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e2e8f0;
-    }
-    .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-    }
-    .detail-item {
-        margin-bottom: 1rem;
-    }
-    .detail-item label {
-        display: block;
-        font-weight: 600;
-        color: #718096;
-        font-size: 0.875rem;
-        margin-bottom: 0.25rem;
-    }
-    .detail-item span {
-        color: #2d3748;
-    }
-
-    .reason-box {
-        background: #fff5f5;
-        border-left: 4px solid #e53e3e;
-        padding: 1rem;
-        border-radius: 4px;
-        white-space: pre-wrap;
-    }
-
-    .workflow-timeline {
-        display: flex;
-        justify-content: space-between;
-        margin: 2rem 0;
-        position: relative;
-    }
-    .workflow-timeline::before {
-        content: '';
-        position: absolute;
-        top: 20px;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: #e2e8f0;
-    }
-    .workflow-step {
-        position: relative;
-        text-align: center;
-        z-index: 1;
-    }
-    .workflow-step .icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: #e2e8f0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 0.5rem;
-    }
-    .workflow-step.active .icon {
-        background: #3182ce;
-        color: white;
-    }
-    .workflow-step.completed .icon {
-        background: #38a169;
-        color: white;
-    }
-    .workflow-step label {
-        font-size: 0.75rem;
-        color: #718096;
-    }
-
-    .action-box {
-        background: #f7fafc;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-top: 1.5rem;
-    }
-
-    .btn-submit {
-        background: #e53e3e;
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 4px;
-        border: none;
-        font-weight: 600;
-        cursor: pointer;
-    }
-    .btn-submit:hover {
-        background: #c53030;
-    }
-</style>
-@endsection
-
 @section('content')
 <div class="str-detail-header">
     <div class="flex justify-between items-center">
@@ -243,7 +113,7 @@
         </tbody>
     </table>
     @else
-    <p style="color: #718096;">No transactions linked to this STR.</p>
+    <p class="text-gray-500">No transactions linked to this STR.</p>
     @endif
 </div>
 
@@ -256,7 +126,7 @@
 <div class="detail-section">
     <h3>Linked Alert</h3>
     <p>
-        Alert #{{ $str->alert->id }} - 
+        Alert #{{ $str->alert->id }} -
         <span class="badge">{{ $str->alert->flag_type->value }}</span>
         {{ $str->alert->flag_reason }}
     </p>
@@ -265,10 +135,10 @@
 
 <!-- Action Box -->
 <div class="action-box">
-    <h3 style="margin-bottom: 1rem;">Workflow Actions</h3>
+    <h3 class="mb-4">Workflow Actions</h3>
 
     @if($str->isDraft())
-    <form action="{{ route('str.submit-review', $str) }}" method="POST" style="display:inline;">
+    <form action="{{ route('str.submit-review', $str) }}" method="POST" class="inline">
         @csrf
         <button type="submit" class="btn btn-primary">Submit for Manager Review</button>
     </form>
@@ -276,33 +146,33 @@
     @endif
 
     @if($str->isPendingReview())
-    <form action="{{ route('str.submit-approval', $str) }}" method="POST" style="display:inline;">
+    <form action="{{ route('str.submit-approval', $str) }}" method="POST" class="inline">
         @csrf
         <button type="submit" class="btn btn-primary">Submit for PO Approval</button>
     </form>
     @endif
 
     @if($str->isPendingApproval())
-    <form action="{{ route('str.approve', $str) }}" method="POST" style="display:inline;">
+    <form action="{{ route('str.approve', $str) }}" method="POST" class="inline">
         @csrf
         <button type="submit" class="btn btn-success">Approve STR</button>
     </form>
-    <form action="{{ route('str.submit', $str) }}" method="POST" style="display:inline;">
+    <form action="{{ route('str.submit', $str) }}" method="POST" class="inline">
         @csrf
-        <button type="submit" class="btn-submit">Submit to goAML</button>
+        <button type="submit" class="btn btn-danger">Submit to goAML</button>
     </form>
     @endif
 
     @if($str->isSubmitted())
-    <form action="{{ route('str.track-acknowledgment', $str) }}" method="POST" style="display:inline;">
+    <form action="{{ route('str.track-acknowledgment', $str) }}" method="POST" class="inline">
         @csrf
-        <div style="display: flex; gap: 1rem; align-items: center;">
-            <input type="text" name="bnm_reference" placeholder="Enter BNM Reference" required style="padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 4px; width: 250px;">
+        <div class="action-form-inline">
+            <input type="text" name="bnm_reference" placeholder="Enter BNM Reference" required class="action-form-input">
             <button type="submit" class="btn btn-success">Track Acknowledgment</button>
         </div>
     </form>
     @endif
 
-    <a href="{{ route('str.index') }}" class="btn btn-secondary" style="margin-left: 1rem;">Back to List</a>
+    <a href="{{ route('str.index') }}" class="btn btn-secondary ml-4">Back to List</a>
 </div>
 @endsection

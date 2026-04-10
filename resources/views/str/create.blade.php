@@ -2,56 +2,6 @@
 
 @section('title', 'Create STR - CEMS-MY')
 
-@section('styles')
-<style>
-    .form-section {
-        background: #f7fafc;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    .form-section h3 {
-        margin-bottom: 1rem;
-        color: #2d3748;
-    }
-    .form-group {
-        margin-bottom: 1rem;
-    }
-    .form-group label {
-        display: block;
-        font-weight: 600;
-        color: #4a5568;
-        margin-bottom: 0.5rem;
-    }
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 4px;
-        font-size: 0.875rem;
-    }
-    .form-group textarea {
-        min-height: 150px;
-    }
-    .alert-box {
-        background: #fed7d7;
-        border-left: 4px solid #e53e3e;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        color: #c53030;
-    }
-    .info-box {
-        background: #ebf8ff;
-        border-left: 4px solid #3182ce;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        color: #2b6cb0;
-    }
-</style>
-@endsection
-
 @section('content')
 <div class="str-header">
     <h2>Create Suspicious Transaction Report</h2>
@@ -61,7 +11,7 @@
 @if($pendingAlerts->count() > 0)
 <div class="info-box">
     <strong>Pending Alerts:</strong> There are {{ $pendingAlerts->count() }} open alerts that may require STR filing.
-    <a href="{{ route('str.create') }}" class="btn btn-sm" style="margin-left: 1rem;">Generate from Alert</a>
+    <a href="{{ route('str.create') }}" class="btn btn-sm ml-4">Generate from Alert</a>
 </div>
 @endif
 
@@ -82,7 +32,7 @@
                 @endforeach
             </select>
             @error('customer_id')
-            <span style="color: #e53e3e; font-size: 0.875rem;">{{ $message }}</span>
+            <span class="text-danger text-sm">{{ $message }}</span>
             @enderror
         </div>
 
@@ -111,9 +61,9 @@
                 </option>
                 @endforeach
             </select>
-            <small style="color: #718096;">Hold Ctrl/Cmd to select multiple transactions</small>
+            <small class="text-small">Hold Ctrl/Cmd to select multiple transactions</small>
             @error('transaction_ids')
-            <span style="color: #e53e3e; font-size: 0.875rem;">{{ $message }}</span>
+            <span class="text-danger text-sm">{{ $message }}</span>
             @enderror
         </div>
     </div>
@@ -125,12 +75,12 @@
             <label for="reason">Detailed Reason *</label>
             <textarea name="reason" id="reason" required minlength="20" placeholder="Describe why this transaction is suspicious and warrants reporting to BNM...">{{ old('reason') }}</textarea>
             @error('reason')
-            <span style="color: #e53e3e; font-size: 0.875rem;">{{ $message }}</span>
+            <span class="text-danger text-sm">{{ $message }}</span>
             @enderror
         </div>
     </div>
 
-    <div class="flex gap-1" style="margin-top: 1.5rem;">
+    <div class="flex gap-1 mt-6">
         <button type="submit" class="btn btn-primary">Create STR Draft</button>
         <a href="{{ route('str.index') }}" class="btn btn-secondary">Cancel</a>
     </div>

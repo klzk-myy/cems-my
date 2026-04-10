@@ -5,7 +5,7 @@
 @section('content')
 <nav class="breadcrumb">
     <a href="{{ route('dashboard') }}">Dashboard</a>
-    <span>›</span>
+    <span>/</span>
     <span>My Tasks</span>
 </nav>
 
@@ -58,7 +58,7 @@
             </tr>
             @empty
             <tr>
-                <td colspan="6" style="text-align: center; padding: 2rem;">
+                <td colspan="6" class="text-center p-8">
                     No tasks assigned to you.
                 </td>
             </tr>
@@ -67,25 +67,9 @@
     </table>
 
     @if($tasks->hasPages())
-    <div style="margin-top: 1rem;">
+    <div class="mt-4">
         {{ $tasks->links() }}
     </div>
     @endif
 </div>
-@endsection
-
-@section('styles')
-<style>
-.priority-urgent { background: #fed7d7; color: #c53030; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.priority-high { background: #feebc8; color: #c05621; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.priority-medium { background: #fefcbf; color: #975a16; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.priority-low { background: #c6f6d5; color: #276749; padding: 0.25rem 0.5rem; border-radius: 4px; }
-
-.status-pending { background: #e2e8f0; color: #4a5568; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.status-inprogress { background: #bee3f8; color: #2c5282; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.status-completed { background: #c6f6d5; color: #276749; padding: 0.25rem 0.5rem; border-radius: 4px; }
-.status-cancelled { background: #e2e8f0; color: #718096; padding: 0.25rem 0.5rem; border-radius: 4px; }
-
-.text-danger { color: #e53e3e; font-weight: 600; }
-</style>
 @endsection

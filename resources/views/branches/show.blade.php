@@ -2,151 +2,6 @@
 
 @section('title', 'Branch Details - CEMS-MY')
 
-@section('styles')
-<style>
-    .branch-detail-header {
-        margin-bottom: 1.5rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-    }
-    .branch-detail-header h2 {
-        color: #2d3748;
-        margin-bottom: 0.25rem;
-    }
-    .branch-detail-header .branch-code {
-        color: #718096;
-        font-size: 0.875rem;
-    }
-
-    .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1.5rem;
-    }
-
-    .info-card {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .info-card h3 {
-        color: #2d3748;
-        font-size: 1rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e2e8f0;
-    }
-
-    .info-row {
-        display: flex;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #f0f0f0;
-    }
-    .info-row:last-child {
-        border-bottom: none;
-    }
-    .info-label {
-        width: 140px;
-        color: #718096;
-        font-size: 0.875rem;
-    }
-    .info-value {
-        flex: 1;
-        color: #2d3748;
-        font-weight: 500;
-    }
-
-    .stat-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-    }
-    .stat-item {
-        text-align: center;
-        padding: 1rem;
-        background: #f7fafc;
-        border-radius: 6px;
-    }
-    .stat-item .stat-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #1a365d;
-    }
-    .stat-item .stat-label {
-        font-size: 0.75rem;
-        color: #718096;
-        margin-top: 0.25rem;
-    }
-
-    .branch-type-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .type-head_office { background: #e9d8fd; color: #6b46c1; }
-    .type-branch { background: #c6f6d5; color: #276749; }
-    .type-sub_branch { background: #feebc8; color: #c05621; }
-
-    .status-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .status-active { background: #c6f6d5; color: #276749; }
-    .status-inactive { background: #e2e8f0; color: #718096; }
-
-    .main-badge {
-        display: inline-block;
-        padding: 0.125rem 0.5rem;
-        border-radius: 9999px;
-        font-size: 0.625rem;
-        font-weight: 700;
-        background: #3182ce;
-        color: white;
-        text-transform: uppercase;
-    }
-
-    .child-branches h4 {
-        color: #2d3748;
-        margin-bottom: 0.75rem;
-    }
-    .child-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-    .child-list li {
-        padding: 0.5rem;
-        background: #f7fafc;
-        border-radius: 4px;
-        margin-bottom: 0.5rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .child-list li span:first-child {
-        font-weight: 500;
-    }
-    .child-list li span:last-child {
-        font-size: 0.875rem;
-        color: #718096;
-    }
-
-    .actions {
-        display: flex;
-        gap: 0.75rem;
-        margin-top: 1.5rem;
-    }
-</style>
-@endsection
-
 @section('content')
 <div class="branch-detail-header">
     <div>
@@ -157,7 +12,7 @@
 </div>
 
 @if(session('success'))
-    <div class="alert alert-success" style="margin-bottom: 1rem;">
+    <div class="alert alert-success mb-4">
         {{ session('success') }}
     </div>
 @endif
@@ -259,7 +114,7 @@
 </div>
 
 <!-- Summary Statistics Card -->
-<div class="info-card" style="margin-top: 1.5rem;">
+<div class="info-card mt-6">
     <h3>Branch Statistics</h3>
     <div class="stat-grid">
         <div class="stat-item">
@@ -283,7 +138,7 @@
 
 <!-- Child Branches Card -->
 @if($childBranches->count() > 0)
-<div class="info-card child-branches" style="margin-top: 1.5rem;">
+<div class="info-card child-branches mt-6">
     <h4>Child Branches</h4>
     <ul class="child-list">
         @foreach($childBranches as $child)
@@ -301,9 +156,9 @@
 @endif
 
 <div class="actions">
-    <a href="{{ route('branches.index') }}" class="btn" style="background: #e2e8f0; color: #4a5568;">Back to List</a>
+    <a href="{{ route('branches.index') }}" class="btn btn-secondary">Back to List</a>
     @if($branch->is_active && !$branch->is_main)
-        <form action="{{ route('branches.destroy', $branch) }}" method="POST" style="display: inline;">
+        <form action="{{ route('branches.destroy', $branch) }}" method="POST" class="inline">
             @csrf
             @method('DELETE')
             <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to deactivate this branch?');">
