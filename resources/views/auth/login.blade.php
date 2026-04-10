@@ -4,35 +4,82 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - CEMS-MY</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --color-primary: #1a365d;
+            --color-primary-light: #2c5282;
+            --color-primary-lighter: #3182ce;
+            --color-gold: #D4AF37;
+            --color-success: #38a169;
+            --color-warning: #dd6b20;
+            --color-danger: #e53e3e;
+            --color-gray-50: #f7fafc;
+            --color-gray-100: #edf2f7;
+            --color-gray-200: #e2e8f0;
+            --color-gray-300: #cbd5e0;
+            --color-gray-400: #a0aec0;
+            --color-gray-500: #718096;
+            --color-gray-600: #4a5568;
+            --color-gray-700: #2d3748;
+            --color-gray-800: #1a202c;
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 8px;
+            --radius-xl: 12px;
+            --radius-full: 9999px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+            --font-heading: 'Merriweather', Georgia, serif;
+            --font-body: 'Source Sans 3', -apple-system, sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a365d 0%, #2c5282 100%);
+            font-family: var(--font-body);
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 2rem;
         }
         .login-container {
             background: white;
+            border-radius: var(--radius-xl);
             padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             width: 100%;
             max-width: 420px;
+            box-shadow: var(--shadow-lg);
         }
-        .logo {
+        .login-logo {
             text-align: center;
             margin-bottom: 2rem;
         }
-        .logo h1 {
-            color: #1a365d;
-            font-size: 1.75rem;
-            margin-bottom: 0.5rem;
+        .login-logo-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--color-gold);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-family: var(--font-heading);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
         }
-        .logo p {
-            color: #718096;
+        .login-logo h1 {
+            font-family: var(--font-heading);
+            font-size: 1.5rem;
+            color: var(--color-primary);
+            margin-bottom: 0.25rem;
+        }
+        .login-logo p {
+            color: var(--color-gray-500);
             font-size: 0.875rem;
         }
         .form-group {
@@ -41,95 +88,99 @@
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
-            color: #2d3748;
+            font-size: 0.75rem;
             font-weight: 600;
-            font-size: 0.875rem;
+            color: var(--color-gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-        .form-group input {
+        .form-input {
             width: 100%;
-            padding: 0.75rem 1rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: border-color 0.2s;
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--color-gray-200);
+            border-radius: var(--radius-md);
+            font-family: var(--font-body);
+            font-size: 0.875rem;
+            color: var(--color-gray-800);
+            transition: border-color 150ms ease;
         }
-        .form-group input:focus {
+        .form-input:focus {
             outline: none;
-            border-color: #3182ce;
+            border-color: var(--color-primary-lighter);
+            box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
         }
         .btn-login {
             width: 100%;
-            padding: 0.875rem;
-            background: #3182ce;
+            padding: 1rem;
+            background: var(--color-primary);
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-md);
+            font-family: var(--font-body);
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 150ms ease;
         }
         .btn-login:hover {
-            background: #2c5282;
+            background: var(--color-primary-light);
+        }
+        .login-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--color-gray-200);
+            font-size: 0.75rem;
+            color: var(--color-gray-500);
         }
         .alert {
-            padding: 0.75rem 1rem;
-            border-radius: 6px;
+            padding: 1rem;
+            border-radius: var(--radius-md);
             margin-bottom: 1rem;
+            font-size: 0.875rem;
         }
         .alert-error {
             background: #fed7d7;
             color: #c53030;
-            border-left: 4px solid #e53e3e;
+            border-left: 4px solid var(--color-danger);
         }
-        .footer {
-            text-align: center;
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid #e2e8f0;
-            font-size: 0.75rem;
-            color: #718096;
+        .alert-success {
+            background: #c6f6d5;
+            color: #276749;
+            border-left: 4px solid var(--color-success);
         }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <div class="logo">
+        <div class="login-logo">
+            <div class="login-logo-icon">CEMS</div>
             <h1>CEMS-MY</h1>
             <p>Currency Exchange Management System</p>
-            <p style="font-size: 0.75rem; margin-top: 0.5rem;">Bank Negara Malaysia Compliant</p>
         </div>
 
-        @if($errors->any())
-            <div class="alert alert-error">
-                {{ $errors->first() }}
-            </div>
+        @if(session('error'))
+            <div class="alert alert-error">{{ e(session('error')) }}</div>
         @endif
-
-        @if(session('status'))
-            <div class="alert alert-success">
-                {{ session('status') }}
-            </div>
+        @if(session('success'))
+            <div class="alert alert-success">{{ e(session('success')) }}</div>
         @endif
 
         <form method="POST" action="{{ route('login') }}">
             @csrf
             <div class="form-group">
-                <label for="email">Email Address</label>
-                <input type="email" id="email" name="email" required autofocus placeholder="Enter your email">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" value="{{ old('username') }}" required autofocus class="form-input" placeholder="Enter your username">
             </div>
-
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" required placeholder="Enter your password">
+                <input type="password" id="password" name="password" required class="form-input" placeholder="Enter your password">
             </div>
-
             <button type="submit" class="btn-login">Sign In</button>
         </form>
 
-        <div class="footer">
-            <p>Secure login required for all staff</p>
-            <p style="margin-top: 0.25rem;">PDPA 2010 (Amended 2024) Compliant</p>
+        <div class="login-footer">
+            <p>CEMS-MY v1.0 - Bank Negara Malaysia Compliant MSB Management System</p>
         </div>
     </div>
 </body>
