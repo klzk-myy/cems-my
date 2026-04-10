@@ -1,81 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>419 - Page Expired | CEMS-MY</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .error-container {
-            text-align: center;
-            max-width: 500px;
-            padding: 2rem;
-        }
-        .error-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-        .error-code {
-            font-size: 6rem;
-            font-weight: 700;
-            color: #dd6b20;
-            line-height: 1;
-            margin-bottom: 0.5rem;
-        }
-        .error-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #1a365d;
-            margin-bottom: 0.75rem;
-        }
-        .error-message {
-            font-size: 1rem;
-            color: #718096;
-            margin-bottom: 2rem;
-            line-height: 1.6;
-        }
-        .btn {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background: #3182ce;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-weight: 600;
-            transition: background 0.2s;
-        }
-        .btn:hover {
-            background: #2c5282;
-        }
-        .footer {
-            margin-top: 3rem;
-            color: #a0aec0;
-            font-size: 0.875rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="error-container">
-        <div class="error-icon">⏰</div>
-        <div class="error-code">419</div>
-        <h1 class="error-title">Session Expired</h1>
-        <p class="error-message">
+@extends('layouts.app')
+
+@section('title', '419 - Session Expired | CEMS-MY')
+
+@section('content')
+<div class="min-h-screen flex items-center justify-center">
+    <div class="card text-center" style="max-width: 500px;">
+        <div class="text-6xl mb-4">⏰</div>
+        <div class="text-6xl font-bold text-orange-500 leading-none mb-2">419</div>
+        <h1 class="text-2xl font-semibold text-gray-900 mb-3">Session Expired</h1>
+        <p class="text-gray-500 mb-8 leading-relaxed">
             Your session has expired due to inactivity.<br>
             Please refresh the page and try again.
         </p>
-        <a href="/" class="btn">Back to Dashboard</a>
-        <div class="footer">
+        <a href="/" class="btn btn--primary">Back to Dashboard</a>
+        <div class="mt-12 text-gray-400 text-sm">
             <p>CEMS-MY v1.0 - Bank Negara Malaysia Compliant MSB Management System</p>
         </div>
     </div>
-</body>
-</html>
+</div>
+@endsection
