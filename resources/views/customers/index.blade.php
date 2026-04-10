@@ -2,281 +2,141 @@
 
 @section('title', 'Customer Management - CEMS-MY')
 
-@section('styles')
-<style>
-    .customers-header {
-        margin-bottom: 1.5rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-    .customers-header h2 {
-        color: #2d3748;
-        margin-bottom: 0.25rem;
-    }
-    .customers-header p {
-        color: #718096;
-        font-size: 0.875rem;
-    }
-
-    .filters {
-        background: white;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .filters-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        align-items: end;
-    }
-    .filter-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-    .filter-group label {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #4a5568;
-        text-transform: uppercase;
-    }
-    .filter-group input,
-    .filter-group select {
-        padding: 0.5rem;
-        border: 1px solid #e2e8f0;
-        border-radius: 4px;
-        font-size: 0.875rem;
-    }
-    .filter-actions {
-        display: flex;
-        gap: 0.5rem;
-        align-items: flex-end;
-    }
-
-    .risk-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .risk-low { background: #c6f6d5; color: #276749; }
-    .risk-medium { background: #feebc8; color: #c05621; }
-    .risk-high { background: #fed7d7; color: #c53030; }
-
-    .pep-badge {
-        display: inline-block;
-        padding: 0.125rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.625rem;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    .pep-yes { background: #fed7d7; color: #c53030; }
-    .pep-no { background: #e2e8f0; color: #718096; }
-
-    .status-badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    .status-active { background: #c6f6d5; color: #276749; }
-    .status-inactive { background: #e2e8f0; color: #718096; }
-
-    .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
-    .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-
-    .pagination {
-        display: flex;
-        justify-content: center;
-        gap: 0.5rem;
-        margin-top: 1rem;
-    }
-    .pagination a, .pagination span {
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        text-decoration: none;
-    }
-    .pagination a { background: #e2e8f0; color: #4a5568; }
-    .pagination span { background: #3182ce; color: white; }
-
-    .table-responsive {
-        overflow-x: auto;
-    }
-
-    .results-info {
-        font-size: 0.875rem;
-        color: #718096;
-        margin-bottom: 1rem;
-    }
-</style>
-@endsection
-
 @section('content')
-<div class="customers-header">
-<div>
-<h2>Customer Management</h2>
-<p>Manage customer profiles, KYC documents, and risk assessments</p>
-</div>
-<a href="/customers/create" class="btn btn-success" aria-label="Add new customer">+ Add New Customer</a>
+<div class="page-header">
+    <h1 class="page-header__title">Customer Management</h1>
+    <p class="page-header__subtitle">Manage customer profiles, KYC documents, and risk assessments</p>
+    <div class="page-header__actions">
+        <a href="{{ route('customers.create') }}" class="btn btn--success">+ Add New Customer</a>
+    </div>
 </div>
 
 <!-- Filters -->
-<div class="filters">
-    <form method="GET" action="{{ route('customers.index') }}">
-        <div class="filters-grid">
-<div class="filter-group">
-<label for="search">Search by Name</label>
-<input type="text" id="search" name="search" value="{{ e(request('search')) }}" placeholder="Customer name..." autocomplete="off" aria-describedby="search-hint">
-</div>
-            <div class="filter-group">
-                <label for="risk_rating">Risk Rating</label>
-                <select id="risk_rating" name="risk_rating">
-                    <option value="">All Ratings</option>
-                    @foreach($riskRatings as $rating)
-                        <option value="{{ $rating }}" {{ request('risk_rating') == $rating ? 'selected' : '' }}>
-                            {{ $rating }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="nationality">Nationality</label>
-                <select id="nationality" name="nationality">
-                    <option value="">All</option>
-                    @foreach($nationalities as $nat)
-                        <option value="{{ $nat }}" {{ request('nationality') == $nat ? 'selected' : '' }}>
-                            {{ $nat }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="is_active">Status</label>
-                <select id="is_active" name="is_active">
-                    <option value="">All</option>
-                    <option value="1" {{ request('is_active') == '1' ? 'selected' : '' }}>Active</option>
-                    <option value="0" {{ request('is_active') == '0' ? 'selected' : '' }}>Inactive</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="pep_status">PEP Status</label>
-                <select id="pep_status" name="pep_status">
-                    <option value="">All</option>
-                    <option value="1" {{ request('pep_status') == '1' ? 'selected' : '' }}>PEP</option>
-                    <option value="0" {{ request('pep_status') == '0' ? 'selected' : '' }}>Non-PEP</option>
-                </select>
-            </div>
-            <div class="filter-actions">
-                <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-                <a href="{{ route('customers.index') }}" class="btn btn-sm" style="background: #e2e8f0; color: #4a5568;">Clear</a>
-            </div>
+<form method="GET" action="{{ route('customers.index') }}" class="card" style="margin-bottom: 1.5rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="search" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase;">Search by Name</label>
+            <input type="text" id="search" name="search" value="{{ e(request('search')) }}" placeholder="Customer name..." class="form-input" style="margin-bottom: 0;">
         </div>
-    </form>
-</div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="risk_rating" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase;">Risk Rating</label>
+            <select id="risk_rating" name="risk_rating" class="form-select" style="margin-bottom: 0;">
+                <option value="">All Ratings</option>
+                @foreach($riskRatings as $rating)
+                    <option value="{{ $rating }}" {{ request('risk_rating') == $rating ? 'selected' : '' }}>{{ $rating }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="is_active" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase;">Status</label>
+            <select id="is_active" name="is_active" class="form-select" style="margin-bottom: 0;">
+                <option value="">All</option>
+                <option value="1" {{ request('is_active') == '1' ? 'selected' : '' }}>Active</option>
+                <option value="0" {{ request('is_active') == '0' ? 'selected' : '' }}>Inactive</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn--primary btn--sm">Filter</button>
+            <a href="{{ route('customers.index') }}" class="btn btn--secondary btn--sm">Clear</a>
+        </div>
+    </div>
+</form>
 
 <!-- Customer List -->
 <div class="card">
-<div class="results-info" aria-live="polite">
-Showing {{ $customers->count() }} of {{ $customers->total() }} customers
-</div>
+    <div style="font-size: 0.875rem; color: var(--color-gray-500); margin-bottom: 1rem;">
+        Showing {{ $customers->count() }} of {{ $customers->total() }} customers
+    </div>
 
-<div class="table-responsive" role="region" aria-label="Customer list" tabindex="0">
-<table role="table">
-<thead role="rowgroup">
-<tr role="row">
-<th scope="col" role="columnheader">ID</th>
-<th scope="col" role="columnheader">Name</th>
-<th scope="col" role="columnheader">ID Type</th>
-<th scope="col" role="columnheader">Nationality</th>
-<th scope="col" role="columnheader">Risk Rating</th>
-<th scope="col" role="columnheader">PEP</th>
-<th scope="col" role="columnheader">Status</th>
-<th scope="col" role="columnheader">Created</th>
-<th scope="col" role="columnheader">Actions</th>
-</tr>
-</thead>
-            <tbody role="rowgroup">
-@forelse($customers as $customer)
-<tr role="row">
-<td>{{ $customer->id }}</td>
-<td>
-<strong>{{ e($customer->full_name) }}</strong>
-@if($customer->risk_rating === 'High')
-<span class="risk-badge risk-high" style="margin-left: 0.5rem;">High Risk</span>
-@endif
-</td>
-<td>{{ e($customer->id_type) }}</td>
-<td>{{ e($customer->nationality) }}</td>
-<td>
-<span class="risk-badge risk-{{ strtolower(e($customer->risk_rating)) }}">
-{{ e($customer->risk_rating) }}
-</span>
-</td>
+    <div style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>ID Type</th>
+                    <th>Nationality</th>
+                    <th>Risk Rating</th>
+                    <th>PEP</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($customers as $customer)
+                <tr>
+                    <td>{{ $customer->id }}</td>
+                    <td>
+                        <strong>{{ e($customer->full_name) }}</strong>
+                        @if($customer->risk_rating === 'High')
+                        <span class="status-badge status-badge--flagged" style="margin-left: 0.5rem;">High Risk</span>
+                        @endif
+                    </td>
+                    <td>{{ e($customer->id_type) }}</td>
+                    <td>{{ e($customer->nationality) }}</td>
+                    <td>
+                        @php
+                            $riskClass = match($customer->risk_rating) {
+                                'Low' => 'status-badge--completed',
+                                'Medium' => 'status-badge--pending',
+                                'High' => 'status-badge--flagged',
+                                default => 'status-badge--pending'
+                            };
+                        @endphp
+                        <span class="status-badge {{ $riskClass }}">{{ e($customer->risk_rating) }}</span>
+                    </td>
                     <td>
                         @if($customer->pep_status)
-                            <span class="pep-badge pep-yes">PEP</span>
+                            <span class="status-badge status-badge--flagged">PEP</span>
                         @else
-                            <span class="pep-badge pep-no">No</span>
+                            <span class="status-badge" style="background: var(--color-gray-100); color: var(--color-gray-600);">No</span>
                         @endif
                     </td>
                     <td>
                         @if($customer->is_active ?? true)
-                            <span class="status-badge status-active">Active</span>
+                            <span class="status-badge status-badge--active">Active</span>
                         @else
-                            <span class="status-badge status-inactive">Inactive</span>
+                            <span class="status-badge status-badge--inactive">Inactive</span>
                         @endif
                     </td>
                     <td>{{ $customer->created_at->format('Y-m-d') }}</td>
-<td>
-<div class="actions">
-<a href="{{ route('customers.show', $customer) }}" class="btn btn-primary btn-sm" aria-label="View {{ e($customer->full_name) }}">View</a>
-<a href="{{ route('customers.edit', $customer) }}" class="btn btn-sm" style="background: #ed8936; color: white;" aria-label="Edit {{ e($customer->full_name) }}">Edit</a>
-<a href="{{ route('customers.kyc', $customer) }}" class="btn btn-sm" style="background: #38a169; color: white;" aria-label="KYC for {{ e($customer->full_name) }}">KYC</a>
-</div>
-</td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <a href="{{ route('customers.show', $customer) }}" class="btn btn--sm btn--primary">View</a>
+                            <a href="{{ route('customers.edit', $customer) }}" class="btn btn--sm btn--secondary">Edit</a>
+                        </div>
+                    </td>
                 </tr>
-@empty
-<tr role="row">
-<td colspan="9" style="text-align: center; padding: 2rem; color: #718096;">
-No customers found. @if(request()->anyFilled(['search', 'risk_rating', 'nationality', 'is_active', 'pep_status'])) Try adjusting your filters. @else <a href="{{ route('customers.create') }}">Add your first customer</a>. @endif
-</td>
-</tr>
-@endforelse
-</tbody>
-</table>
-</div>
+                @empty
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 2rem; color: var(--color-gray-500);">
+                        No customers found.
+                    </td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 
-    <div class="pagination">
+    <div style="margin-top: 1rem; display: flex; justify-content: center;">
         {{ $customers->links() }}
     </div>
 </div>
 
 <!-- Quick Stats -->
-<div class="grid">
-    <div class="card">
-        <h2>Customer Summary</h2>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center;">
-            <div>
-                <div style="font-size: 2rem; font-weight: 700; color: #3182ce;">{{ $customers->total() }}</div>
-                <div style="color: #718096; font-size: 0.875rem;">Total Customers</div>
-            </div>
-            <div>
-                <div style="font-size: 2rem; font-weight: 700; color: #38a169;">{{ $customers->where('risk_rating', 'Low')->count() + $customers->where('risk_rating', 'Medium')->count() }}</div>
-                <div style="color: #718096; font-size: 0.875rem;">Low/Medium Risk</div>
-            </div>
-            <div>
-                <div style="font-size: 2rem; font-weight: 700; color: #e53e3e;">{{ $customers->where('risk_rating', 'High')->count() }}</div>
-                <div style="color: #718096; font-size: 0.875rem;">High Risk</div>
-            </div>
-        </div>
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">{{ $customers->total() }}</div>
+        <div class="stat-card__label">Total Customers</div>
+    </div>
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__value">{{ $customers->where('risk_rating', '!=', 'High')->count() }}</div>
+        <div class="stat-card__label">Low/Medium Risk</div>
+    </div>
+    <div class="stat-card stat-card--danger">
+        <div class="stat-card__value">{{ $customers->where('risk_rating', 'High')->count() }}</div>
+        <div class="stat-card__label">High Risk</div>
     </div>
 </div>
 @endsection
