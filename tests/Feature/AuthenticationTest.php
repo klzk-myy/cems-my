@@ -79,7 +79,7 @@ class AuthenticationTest extends TestCase
     public function test_admin_can_login_with_valid_credentials(): void
     {
         $response = $this->post('/login', [
-            'email' => 'admin@cems.my',
+            'username' => 'admin',
             'password' => 'Admin@1234',
         ]);
 
@@ -93,7 +93,7 @@ class AuthenticationTest extends TestCase
     public function test_teller_can_login_with_valid_credentials(): void
     {
         $response = $this->post('/login', [
-            'email' => 'teller1@cems.my',
+            'username' => 'teller1',
             'password' => 'Teller@1234',
         ]);
 
@@ -107,11 +107,11 @@ class AuthenticationTest extends TestCase
     public function test_login_fails_with_invalid_password(): void
     {
         $response = $this->post('/login', [
-            'email' => 'admin@cems.my',
+            'username' => 'admin',
             'password' => 'WrongPassword123',
         ]);
 
-        $response->assertSessionHasErrors('email');
+        $response->assertSessionHasErrors('username');
         $this->assertGuest();
     }
 
@@ -121,11 +121,11 @@ class AuthenticationTest extends TestCase
     public function test_login_fails_with_nonexistent_email(): void
     {
         $response = $this->post('/login', [
-            'email' => 'nonexistent@cems.my',
+            'username' => 'nonexistent',
             'password' => 'SomePassword123',
         ]);
 
-        $response->assertSessionHasErrors('email');
+        $response->assertSessionHasErrors('username');
         $this->assertGuest();
     }
 
@@ -148,7 +148,7 @@ class AuthenticationTest extends TestCase
             'password' => 'Inactive@1234',
         ]);
 
-        $response->assertSessionHasErrors('email');
+        $response->assertSessionHasErrors('username');
         $this->assertGuest();
     }
 
@@ -405,7 +405,7 @@ class AuthenticationTest extends TestCase
     public function test_login_creates_audit_log(): void
     {
         $this->post('/login', [
-            'email' => 'admin@cems.my',
+            'username' => 'admin',
             'password' => 'Admin@1234',
         ]);
 
@@ -421,7 +421,7 @@ class AuthenticationTest extends TestCase
     public function test_failed_login_creates_audit_log(): void
     {
         $this->post('/login', [
-            'email' => 'admin@cems.my',
+            'username' => 'admin',
             'password' => 'WrongPassword',
         ]);
 
@@ -446,7 +446,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->post('/login', [
-            'email' => 'test@example.com',
+            'username' => 'testuser',
             'password' => 'wrong',
         ]);
 

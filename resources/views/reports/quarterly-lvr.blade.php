@@ -2,13 +2,25 @@
 
 @section('title', 'Quarterly Large Value Report - CEMS-MY')
 
-@section('content')
-<nav class="breadcrumb">
-    <a href="{{ route('reports.index') }}">Reports</a>
-    <span>›</span>
-    <span>Quarterly Large Value Report</span>
+@section('breadcrumbs')
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumbs__list">
+        <li class="breadcrumbs__item">
+            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item">
+            <a href="{{ route('reports.index') }}" class="breadcrumbs__link">Reports</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
+            <span class="breadcrumbs__text">Quarterly LVR</span>
+        </li>
+    </ol>
 </nav>
+@endsection
 
+@section('content')
 <div class="page-header">
     <h1>Quarterly Large Value Transaction Report</h1>
     <p>Quarterly summary of transactions ≥ RM50,000 for BNM regulatory compliance</p>

@@ -508,4 +508,44 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 1rem;
 }
 
+/* ========================================
+   BREADCRUMBS
+   ======================================== */
+nav.breadcrumbs {
+  margin-bottom: 0.75rem !important;
+}
+nav.breadcrumbs ol.breadcrumbs__list {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 0.8125rem !important;
+}
+nav.breadcrumbs li.breadcrumbs__item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  color: var(--color-gray-500) !important;
+}
+nav.breadcrumbs a.breadcrumbs__link {
+  color: var(--color-gray-500) !important;
+  text-decoration: none !important;
+  transition: color 150ms ease !important;
+}
+nav.breadcrumbs a.breadcrumbs__link:hover {
+  color: var(--color-primary) !important;
+}
+nav.breadcrumbs svg.breadcrumbs__separator {
+  width: 14px !important;
+  height: 14px !important;
+  color: var(--color-gray-400) !important;
+  flex-shrink: 0 !important;
+}
+nav.breadcrumbs li.breadcrumbs__item--current span.breadcrumbs__text {
+  color: var(--color-gray-800) !important;
+  font-weight: 600 !important;
+}
+
 @import "tailwindcss";

@@ -2,14 +2,25 @@
 
 @section('title', 'LCTR Report - CEMS-MY')
 
-@section('content')
-<!-- Breadcrumb -->
-<nav class="flex items-center gap-2 mb-4 text-sm text-gray-500">
-    <a href="{{ route('reports.index') }}" class="text-blue-600 no-underline hover:underline">Reports</a>
-    <span>›</span>
-    <span>LCTR</span>
+@section('breadcrumbs')
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumbs__list">
+        <li class="breadcrumbs__item">
+            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item">
+            <a href="{{ route('reports.index') }}" class="breadcrumbs__link">Reports</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
+            <span class="breadcrumbs__text">LCTR</span>
+        </li>
+    </ol>
 </nav>
+@endsection
 
+@section('content')
 <!-- Header -->
 <div class="mb-6">
     <h1 class="text-2xl font-bold text-blue-900 mb-1">LCTR Report</h1>

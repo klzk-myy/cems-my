@@ -2,6 +2,20 @@
 
 @section('title', 'Stock Transfers - CEMS-MY')
 
+@section('breadcrumbs')
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumbs__list">
+        <li class="breadcrumbs__item">
+            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
+            <span class="breadcrumbs__text">Stock Transfers</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
 <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold">Stock Transfers</h1>

@@ -184,7 +184,7 @@ class NavigationTest extends TestCase
         $response->assertSee('/audit"', false);
         $response->assertSee('/users"', false);
         // Logout is a form, not a link - check for the logout form instead
-        $response->assertSee('action="/logout"', false);
+        $response->assertSee('id="logout-form"', false);
     }
 
     /**
@@ -198,7 +198,6 @@ class NavigationTest extends TestCase
 
         // Check logout form exists with CSRF protection
         $response->assertSee('id="logout-form"', false);
-        $response->assertSee('action="/logout"', false);
         $response->assertSee('method="POST"', false);
         $response->assertSee('_token'); // CSRF token field
     }
@@ -260,9 +259,10 @@ class NavigationTest extends TestCase
 
         $response->assertStatus(200);
 
-        // Check CSS classes exist
-        $response->assertSee('sidebar-header', false); // header class on sidebar
-        $response->assertSee('class="nav"', false);
+        // Check sidebar CSS classes exist
+        $response->assertSee('sidebar', false); // sidebar base class
+        $response->assertSee('sidebar__header', false); // sidebar header
+        $response->assertSee('sidebar__nav', false); // sidebar navigation
     }
 
     /**

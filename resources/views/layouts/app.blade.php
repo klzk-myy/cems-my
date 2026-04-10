@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'CEMS-MY')</title>
+    @vite(['resources/css/app.css'])
 </head>
 <body class="antialiased font-sans bg-gray-100 text-gray-800 m-0 p-0">
 <div class="flex min-h-screen">
@@ -345,6 +346,14 @@
         <div class="sidebar__group">
             <div class="sidebar__group-title">System</div>
 
+            <a href="{{ route('tasks.index') }}"
+               class="sidebar__link {{ request()->is('tasks*') ? 'sidebar__link--active' : '' }}">
+                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                <span>Tasks</span>
+            </a>
+
             <a href="{{ route('audit.index') }}"
                class="sidebar__link {{ request()->is('audit*') ? 'sidebar__link--active' : '' }}">
                 <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -364,14 +373,6 @@
                     <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
                 <span>Users</span>
-            </a>
-
-            <a href="{{ route('tasks.index') }}"
-               class="sidebar__link {{ request()->is('tasks*') ? 'sidebar__link--active' : '' }}">
-                <svg class="sidebar__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-                </svg>
-                <span>Tasks</span>
             </a>
 
             <a href="{{ route('transactions.batch-upload') }}"
@@ -410,6 +411,10 @@
 <!-- Main Content -->
 <main class="main-content" role="main" aria-label="Main content" style="margin-left: var(--sidebar-width); min-height: 100vh; background: var(--color-gray-50);">
     <div style="padding: 2rem; max-width: 1400px; margin: 0 auto;">
+        @hasSection('breadcrumbs')
+            @yield('breadcrumbs')
+        @endif
+
         @if(session('success'))
             <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded-r-lg" role="alert" aria-live="polite">{{ e(session('success')) }}</div>
         @endif
