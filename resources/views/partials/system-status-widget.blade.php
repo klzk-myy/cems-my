@@ -56,7 +56,7 @@ $bgStyle = 'background-color: ' . $color['bg'] . '; color: ' . $color['text'] . 
             <div class="check-item">
                 <span class="check-icon" style="{{ $checkIconStyle }}">{{ $checkIcon }}</span>
                 <span class="check-name">{{ ucfirst(str_replace('_', ' ', $name)) }}</span>
-                <span class="check-time" style="color: #718096; font-size: 0.75rem;">
+                <span class="check-time text-small">
                     {{ $checkedAt ? $checkedAt->diffForHumans() : 'Never' }}
                 </span>
             </div>
@@ -79,106 +79,3 @@ $bgStyle = 'background-color: ' . $color['bg'] . '; color: ' . $color['text'] . 
         </div>
     @endif
 </div>
-
-<style>
-    .system-status-widget {
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        overflow: hidden;
-        font-family: system-ui, -apple-system, sans-serif;
-    }
-
-    .status-header {
-        display: flex;
-        align-items: center;
-        padding: 1rem;
-        gap: 0.75rem;
-        border-bottom: 1px solid rgba(255,255,255,0.2);
-    }
-
-    .status-icon {
-        font-size: 1.5rem;
-        font-weight: bold;
-        width: 2.5rem;
-        height: 2.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255,255,255,0.2);
-        border-radius: 50%;
-    }
-
-    .status-text {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .status-label {
-        font-size: 0.75rem;
-        opacity: 0.9;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .status-value {
-        font-size: 1.25rem;
-        font-weight: 600;
-    }
-
-    .status-details {
-        padding: 0.75rem;
-        background: #f7fafc;
-    }
-
-    .check-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.375rem 0;
-        font-size: 0.875rem;
-    }
-
-    .check-icon {
-        width: 1.25rem;
-        text-align: center;
-    }
-
-    .check-name {
-        flex: 1;
-        color: #4a5568;
-    }
-
-    .alert-summary {
-        padding: 0.75rem;
-        border-top: 1px solid #e2e8f0;
-        background: #fff;
-    }
-
-    .alert-counts {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .alert-count {
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-
-    .alert-count.critical {
-        background: #fed7d7;
-        color: #c53030;
-    }
-
-    .alert-count.warning {
-        background: #fef5e7;
-        color: #b7791f;
-    }
-
-    .alert-count.info {
-        background: #e6f2ff;
-        color: #3182ce;
-    }
-</style>

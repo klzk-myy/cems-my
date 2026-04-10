@@ -2,64 +2,6 @@
 
 @section('title', 'Accounting - CEMS-MY')
 
-@section('styles')
-<style>
-    .accounting-header {
-        margin-bottom: 1.5rem;
-    }
-    .accounting-header h2 {
-        color: #2d3748;
-        margin-bottom: 0.5rem;
-    }
-    .accounting-header p {
-        color: #718096;
-    }
-
-    .summary-box {
-        background: #f7fafc;
-        border-radius: 8px;
-        padding: 1.5rem;
-        text-align: center;
-    }
-    .summary-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1a365d;
-    }
-    .summary-label {
-        color: #718096;
-        margin-top: 0.5rem;
-    }
-    .pnl-positive { color: #48bb78; }
-    .pnl-negative { color: #fc8181; }
-
-    .quick-links {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-top: 1rem;
-    }
-    .quick-link {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 1rem;
-        background: #f7fafc;
-        border-radius: 6px;
-        text-decoration: none;
-        color: #2d3748;
-        transition: all 0.2s;
-    }
-    .quick-link:hover {
-        background: #edf2f7;
-        transform: translateY(-2px);
-    }
-    .quick-link-icon {
-        font-size: 1.5rem;
-    }
-</style>
-@endsection
-
 @section('content')
 <div class="accounting-header">
     <h2>Currency Positions & Accounting</h2>
@@ -198,7 +140,7 @@
         <strong>Formula:</strong> (New Rate - Avg Cost Rate) × Position Amount<br>
         <strong>Next Run:</strong> {{ now()->endOfMonth()->format('Y-m-d 23:59') }}
     </div>
-    <div style="margin-top: 1rem;">
+    <div class="mt-4">
         <a href="{{ route('accounting.revaluation.run') }}" class="btn btn-primary">Run Manual Revaluation</a>
         <a href="{{ route('accounting.revaluation.history') }}" class="btn btn-success">View Revaluation History</a>
     </div>
