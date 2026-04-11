@@ -21,6 +21,7 @@ class Kernel extends HttpKernel
         \Illuminate\Foundation\Http\Middleware\ValidatePostSize::class,
         \App\Http\Middleware\TrimStrings::class,
         \Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull::class,
+        \App\Http\Middleware\SecurityHeaders::class,
     ];
 
     /**
@@ -74,5 +75,6 @@ class Kernel extends HttpKernel
         'session.timeout' => \App\Http\Middleware\SessionTimeout::class,
         'data.breach' => \App\Http\Middleware\DataBreachDetection::class,
         'query.monitor' => \App\Http\Middleware\QueryPerformanceMonitor::class,
+        'security.headers' => \App\Http\Middleware\SecurityHeaders::class,
     ];
 }
