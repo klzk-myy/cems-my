@@ -330,6 +330,30 @@ class AuditService
     }
 
     /**
+     * Log journal entry workflow events.
+     *
+     * @param  string  $action  Workflow action (journal_entry_submitted,
+     *                          journal_entry_approved, journal_entry_rejected)
+     * @param  int  $entryId  Journal entry ID
+     * @param  array  $data  Workflow data
+     */
+    public function logJournalWorkflowEvent(string $action, int $entryId, array $data = []): SystemLog
+    {
+        $severity = $action === 'journal_entry_rejected' ? 'WARNING' : 'INFO';
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'JournalEntry',
+                'entity_id' => $entryId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
      * Export audit log to CSV or PDF
      */
     public function exportAuditLog(string $dateFrom, string $dateTo, string $format = 'CSV')
