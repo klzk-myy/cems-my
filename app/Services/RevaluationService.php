@@ -20,7 +20,8 @@ class RevaluationService
     public function __construct(
         protected MathService $mathService,
         protected RateApiService $rateApiService,
-        protected AccountingService $accountingService
+        protected AccountingService $accountingService,
+        protected AuditService $auditService,
     ) {}
 
     /**
@@ -52,6 +53,20 @@ class RevaluationService
             if ($result) {
                 $results[] = $result;
             }
+        }
+
+        // Log revaluation run event
+        $this->auditService->logPositionEvent('position_revaluation_run', [
+            'new' => [
+                'date' => $revaluationDate,
+                'till_id' => $tillId,
+                'positions_revalued' => count($results),
+            ],
+        ]);
+
+        // Check for position limit breaches
+        foreach ($results as $result) {
+            $this->checkPositionLimitBreach($result);
         }
 
         return [
@@ -489,5 +504,43 @@ class RevaluationService
         }
 
         return $code;
+    }
+
+    /**
+     * Check if a revaluation result breaches position limits.
+     *
+     * Logs a warning event if the position balance exceeds configured limits.
+     *
+     * @param  array  $result  Revaluation result containing currency and gain/loss
+     */
+    protected function checkPositionLimitBreach(array $result): void
+    {
+        $currencyCode = $result['currency'] ?? null;
+        $gainLoss = $result['gain_loss'] ?? '0';
+
+        // Only log if there's a gain (position increase)
+        if ($this->mathService->compare($gainLoss, '0') <= 0) {
+            return;
+        }
+
+        $limits = config('cems.position_limits', []);
+
+        // Check if this currency has a configured limit
+        foreach ($limits as $limit) {
+            if (($limit['currency'] ?? null) === $currencyCode) {
+                $positionLimit = $limit['limit'] ?? null;
+                if ($positionLimit && $this->mathService->compare($gainLoss, (string) $positionLimit) > 0) {
+                    $this->auditService->logPositionEvent('position_limit_breach', [
+                        'new' => [
+                            'currency_code' => $currencyCode,
+                            'gain_loss' => $gainLoss,
+                            'limit' => $positionLimit,
+                            'breach_amount' => $this->mathService->subtract($gainLoss, (string) $positionLimit),
+                        ],
+                    ]);
+                }
+                break;
+            }
+        }
     }
 }
