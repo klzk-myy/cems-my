@@ -299,6 +299,37 @@ class AuditService
     }
 
     /**
+     * Log stock transfer events.
+     *
+     * @param  string  $action  Transfer action (stock_transfer_created,
+     *                          stock_transfer_approved_bm, stock_transfer_approved_hq,
+     *                          stock_transfer_dispatched, stock_transfer_partially_received,
+     *                          stock_transfer_completed, stock_transfer_cancelled,
+     *                          stock_transfer_variance_exceeded)
+     * @param  int  $transferId  Stock transfer ID
+     * @param  array  $data  Transfer data with old/new values
+     */
+    public function logStockTransferEvent(string $action, int $transferId, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'stock_transfer_partially_received', 'stock_transfer_cancelled',
+            'stock_transfer_variance_exceeded' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'StockTransfer',
+                'entity_id' => $transferId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
      * Export audit log to CSV or PDF
      */
     public function exportAuditLog(string $dateFrom, string $dateTo, string $format = 'CSV')
