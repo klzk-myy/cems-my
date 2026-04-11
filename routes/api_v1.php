@@ -57,15 +57,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customers/{customer}/kyc', [CustomerController::class, 'uploadDocument'])
         ->middleware('throttle:30,1');
 
-    // STR API
-    Route::get('/str', [StrController::class, 'index']);
-    Route::post('/str', [StrController::class, 'store']);
-    Route::get('/str/{str}', [StrController::class, 'show']);
-    Route::post('/str/{str}/submit', [StrController::class, 'submit']);
+    // STR API - Compliance Officer only
+    Route::get('/str', [StrController::class, 'index'])
+        ->middleware('role:compliance');
+    Route::post('/str', [StrController::class, 'store'])
+        ->middleware('role:compliance');
+    Route::get('/str/{str}', [StrController::class, 'show'])
+        ->middleware('role:compliance');
+    Route::post('/str/{str}/submit', [StrController::class, 'submit'])
+        ->middleware('role:compliance');
 
-    // Sanctions API
+    // Sanctions API - Admin only for upload
     Route::post('/sanctions/search', [SanctionController::class, 'search']);
-    Route::post('/sanctions/upload', [SanctionController::class, 'upload']);
+    Route::post('/sanctions/upload', [SanctionController::class, 'upload'])
+        ->middleware('role:admin');
 
     // Reports API
     Route::post('/reports/lctr', [RegulatoryReportController::class, 'generateLCTR'])
@@ -113,13 +118,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/cases/{id}/escalate', [CaseController::class, 'escalate']);
         Route::get('/cases/{id}/timeline', [CaseController::class, 'timeline']);
 
-        // EDD API
-        Route::get('/edd', [EddController::class, 'index']);
+        // EDD API - Compliance Officer for management
+        Route::get('/edd', [EddController::class, 'index'])
+            ->middleware('role:compliance');
         Route::get('/edd/templates', [EddController::class, 'templates']);
-        Route::get('/edd/{id}', [EddController::class, 'show']);
-        Route::post('/edd/{id}/questionnaire', [EddController::class, 'submitQuestionnaire']);
-        Route::post('/edd/{id}/approve', [EddController::class, 'approve']);
-        Route::post('/edd/{id}/reject', [EddController::class, 'reject']);
+        Route::get('/edd/{id}', [EddController::class, 'show'])
+            ->middleware('role:compliance');
+        Route::post('/edd/{id}/questionnaire', [EddController::class, 'submitQuestionnaire'])
+            ->middleware('role:compliance');
+        Route::post('/edd/{id}/approve', [EddController::class, 'approve'])
+            ->middleware('role:compliance');
+        Route::post('/edd/{id}/reject', [EddController::class, 'reject'])
+            ->middleware('role:compliance');
 
         // Dashboard API
         Route::get('/dashboard', [DashboardController::class, 'kpis']);

@@ -1,0 +1,347 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: CEMS
+        - generic [ref=e7]: CEMS-MY
+      - paragraph [ref=e8]: Currency Exchange MSB
+    - navigation "Main menu" [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: Operations
+        - link "Dashboard" [ref=e12] [cursor=pointer]:
+          - /url: http://local.host/dashboard
+          - img [ref=e13]
+          - generic [ref=e18]: Dashboard
+        - link "Transactions" [ref=e19] [cursor=pointer]:
+          - /url: http://local.host/transactions
+          - img [ref=e20]
+          - generic [ref=e22]: Transactions
+        - link "Customers" [ref=e23] [cursor=pointer]:
+          - /url: http://local.host/customers
+          - img [ref=e24]
+          - generic [ref=e28]: Customers
+      - generic [ref=e29]:
+        - generic [ref=e30]: Counter Management
+        - link "Counters" [ref=e31] [cursor=pointer]:
+          - /url: http://local.host/counters
+          - img [ref=e32]
+          - generic [ref=e35]: Counters
+        - link "Branches" [ref=e36] [cursor=pointer]:
+          - /url: http://local.host/branches
+          - img [ref=e37]
+          - generic [ref=e40]: Branches
+      - generic [ref=e41]:
+        - generic [ref=e42]: Stock Management
+        - link "Stock & Cash" [ref=e43] [cursor=pointer]:
+          - /url: http://local.host/stock-cash
+          - img [ref=e44]
+          - generic [ref=e46]: Stock & Cash
+        - link "Stock Transfers" [ref=e47] [cursor=pointer]:
+          - /url: http://local.host/stock-transfers
+          - img [ref=e48]
+          - generic [ref=e50]: Stock Transfers
+      - generic [ref=e51]:
+        - generic [ref=e52]: Compliance & AML
+        - link "Compliance" [ref=e53] [cursor=pointer]:
+          - /url: http://local.host/compliance
+          - img [ref=e54]
+          - generic [ref=e56]: Compliance
+        - link "Alert Triage" [ref=e57] [cursor=pointer]:
+          - /url: http://local.host/compliance/alerts
+          - img [ref=e58]
+          - generic [ref=e61]: Alert Triage
+        - link "Compliance Workspace" [ref=e62] [cursor=pointer]:
+          - /url: http://local.host/compliance/workspace
+          - img [ref=e63]
+          - generic [ref=e66]: Compliance Workspace
+        - link "EDD Records" [ref=e67] [cursor=pointer]:
+          - /url: http://local.host/compliance/edd
+          - img [ref=e68]
+          - generic [ref=e71]: EDD Records
+        - link "Risk Dashboard" [ref=e72] [cursor=pointer]:
+          - /url: http://local.host/compliance/risk-dashboard
+          - img [ref=e73]
+          - generic [ref=e76]: Risk Dashboard
+        - link "STR Studio" [ref=e77] [cursor=pointer]:
+          - /url: http://local.host/compliance/str-studio
+          - img [ref=e78]
+          - generic [ref=e80]: STR Studio
+        - link "Cases" [ref=e81] [cursor=pointer]:
+          - /url: http://local.host/compliance/cases
+          - img [ref=e82]
+          - generic [ref=e84]: Cases
+        - link "STR Reports" [ref=e85] [cursor=pointer]:
+          - /url: http://local.host/str
+          - img [ref=e86]
+          - generic [ref=e88]: STR Reports
+      - generic [ref=e89]:
+        - generic [ref=e90]: Accounting
+        - link "Accounting" [ref=e91] [cursor=pointer]:
+          - /url: http://local.host/accounting
+          - img [ref=e92]
+          - generic [ref=e94]: Accounting
+        - link "Journal" [ref=e95] [cursor=pointer]:
+          - /url: http://local.host/accounting/journal
+          - img [ref=e96]
+          - generic [ref=e99]: Journal
+        - link "Ledger" [ref=e100] [cursor=pointer]:
+          - /url: http://local.host/accounting/ledger
+          - img [ref=e101]
+          - generic [ref=e104]: Ledger
+        - link "Trial Balance" [ref=e105] [cursor=pointer]:
+          - /url: http://local.host/accounting/trial-balance
+          - img [ref=e106]
+          - generic [ref=e108]: Trial Balance
+        - link "Profit & Loss" [ref=e109] [cursor=pointer]:
+          - /url: http://local.host/accounting/profit-loss
+          - img [ref=e110]
+          - generic [ref=e112]: Profit & Loss
+        - link "Balance Sheet" [ref=e113] [cursor=pointer]:
+          - /url: http://local.host/accounting/balance-sheet
+          - img [ref=e114]
+          - generic [ref=e116]: Balance Sheet
+        - link "Cash Flow" [ref=e117] [cursor=pointer]:
+          - /url: http://local.host/accounting/cash-flow
+          - img [ref=e118]
+          - generic [ref=e120]: Cash Flow
+        - link "Financial Ratios" [ref=e121] [cursor=pointer]:
+          - /url: http://local.host/accounting/ratios
+          - img [ref=e122]
+          - generic [ref=e124]: Financial Ratios
+        - link "Revaluation" [ref=e125] [cursor=pointer]:
+          - /url: http://local.host/accounting/revaluation
+          - img [ref=e126]
+          - generic [ref=e128]: Revaluation
+        - link "Reconciliation" [ref=e129] [cursor=pointer]:
+          - /url: http://local.host/accounting/reconciliation
+          - img [ref=e130]
+          - generic [ref=e132]: Reconciliation
+        - link "Budget" [ref=e133] [cursor=pointer]:
+          - /url: http://local.host/accounting/budget
+          - img [ref=e134]
+          - generic [ref=e136]: Budget
+        - link "Periods" [ref=e137] [cursor=pointer]:
+          - /url: http://local.host/accounting/periods
+          - img [ref=e138]
+          - generic [ref=e140]: Periods
+        - link "Fiscal Years" [ref=e141] [cursor=pointer]:
+          - /url: http://local.host/accounting/fiscal-years
+          - img [ref=e142]
+          - generic [ref=e144]: Fiscal Years
+      - generic [ref=e145]:
+        - generic [ref=e146]: Reports
+        - link "Reports" [ref=e147] [cursor=pointer]:
+          - /url: http://local.host/reports
+          - img [ref=e148]
+          - generic [ref=e149]: Reports
+        - link "MSB2 Report" [ref=e150] [cursor=pointer]:
+          - /url: http://local.host/reports/msb2
+          - img [ref=e151]
+          - generic [ref=e152]: MSB2 Report
+        - link "LCTR" [ref=e153] [cursor=pointer]:
+          - /url: http://local.host/reports/lctr
+          - img [ref=e154]
+          - generic [ref=e155]: LCTR
+        - link "LMCA" [ref=e156] [cursor=pointer]:
+          - /url: http://local.host/reports/lmca
+          - img [ref=e157]
+          - generic [ref=e158]: LMCA
+        - link "Quarterly LVR" [ref=e159] [cursor=pointer]:
+          - /url: http://local.host/reports/quarterly-lvr
+          - img [ref=e160]
+          - generic [ref=e161]: Quarterly LVR
+        - link "Position Limits" [ref=e162] [cursor=pointer]:
+          - /url: http://local.host/reports/position-limit
+          - img [ref=e163]
+          - generic [ref=e164]: Position Limits
+        - link "Report History" [ref=e165] [cursor=pointer]:
+          - /url: http://local.host/reports/history
+          - img [ref=e166]
+          - generic [ref=e167]: Report History
+      - generic [ref=e168]:
+        - generic [ref=e169]: System
+        - link "Tasks" [ref=e170] [cursor=pointer]:
+          - /url: http://local.host/tasks
+          - img [ref=e171]
+          - generic [ref=e174]: Tasks
+        - link "Audit Log" [ref=e175] [cursor=pointer]:
+          - /url: http://local.host/audit
+          - img [ref=e176]
+          - generic [ref=e179]: Audit Log
+        - link "Users" [ref=e180] [cursor=pointer]:
+          - /url: http://local.host/users
+          - img [ref=e181]
+          - generic [ref=e185]: Users
+        - link "Transaction Imports" [ref=e186] [cursor=pointer]:
+          - /url: http://local.host/transactions/batch-upload
+          - img [ref=e187]
+          - generic [ref=e190]: Transaction Imports
+        - link "Data Breach Alerts" [ref=e191] [cursor=pointer]:
+          - /url: http://local.host/data-breach-alerts
+          - img [ref=e192]
+          - generic [ref=e194]: Data Breach Alerts
+    - button "Logout" [ref=e197] [cursor=pointer]:
+      - img [ref=e198]
+      - generic [ref=e201]: Logout
+  - main "Main content" [ref=e202]:
+    - generic [ref=e203]:
+      - navigation "Breadcrumb" [ref=e204]:
+        - list [ref=e205]:
+          - listitem [ref=e206]:
+            - link "Dashboard" [ref=e207] [cursor=pointer]:
+              - /url: http://local.host/dashboard
+            - img [ref=e208]
+          - listitem [ref=e210]:
+            - link "Accounting" [ref=e211] [cursor=pointer]:
+              - /url: http://local.host/accounting
+            - img [ref=e212]
+          - listitem [ref=e214]:
+            - generic [ref=e215]: Ledger
+      - generic [ref=e217]:
+        - heading "Chart of Accounts / Ledger" [level=1] [ref=e218]
+        - paragraph [ref=e219]: View all accounts and drill down to individual ledgers
+      - generic [ref=e220]:
+        - generic [ref=e221]:
+          - generic [ref=e222]: "8"
+          - generic [ref=e223]: Total Accounts
+        - generic [ref=e224]:
+          - generic [ref=e225]: RM 0.00
+          - generic [ref=e226]: Total Debits
+        - generic [ref=e227]:
+          - generic [ref=e228]: RM 0.00
+          - generic [ref=e229]: Total Credits
+        - generic [ref=e230]:
+          - generic [ref=e231]: RM 0.00
+          - generic [ref=e232]: Net Balance
+      - generic [ref=e233]:
+        - heading "All Accounts" [level=3] [ref=e235]
+        - table [ref=e237]:
+          - rowgroup [ref=e238]:
+            - row "Code Account Name Type Debit Balance Credit Balance Actions" [ref=e239]:
+              - columnheader "Code" [ref=e240]
+              - columnheader "Account Name" [ref=e241]
+              - columnheader "Type" [ref=e242]
+              - columnheader "Debit Balance" [ref=e243]
+              - columnheader "Credit Balance" [ref=e244]
+              - columnheader "Actions" [ref=e245]
+          - rowgroup [ref=e246]:
+            - row "1000 Cash - MYR Asset - - View Ledger" [ref=e247]:
+              - cell "1000" [ref=e248]:
+                - strong [ref=e249]: "1000"
+              - cell "Cash - MYR" [ref=e250]:
+                - link "Cash - MYR" [ref=e251] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/1000
+              - cell "Asset" [ref=e252]:
+                - generic [ref=e253]: Asset
+              - cell "-" [ref=e254]
+              - cell "-" [ref=e255]
+              - cell "View Ledger" [ref=e256]:
+                - link "View Ledger" [ref=e257] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/1000
+            - row "1100 Cash - USD Asset - - View Ledger" [ref=e258]:
+              - cell "1100" [ref=e259]:
+                - strong [ref=e260]: "1100"
+              - cell "Cash - USD" [ref=e261]:
+                - link "Cash - USD" [ref=e262] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/1100
+              - cell "Asset" [ref=e263]:
+                - generic [ref=e264]: Asset
+              - cell "-" [ref=e265]
+              - cell "-" [ref=e266]
+              - cell "View Ledger" [ref=e267]:
+                - link "View Ledger" [ref=e268] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/1100
+            - row "1200 Cash - EUR Asset - - View Ledger" [ref=e269]:
+              - cell "1200" [ref=e270]:
+                - strong [ref=e271]: "1200"
+              - cell "Cash - EUR" [ref=e272]:
+                - link "Cash - EUR" [ref=e273] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/1200
+              - cell "Asset" [ref=e274]:
+                - generic [ref=e275]: Asset
+              - cell "-" [ref=e276]
+              - cell "-" [ref=e277]
+              - cell "View Ledger" [ref=e278]:
+                - link "View Ledger" [ref=e279] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/1200
+            - row "2000 Foreign Currency Inventory Asset - - View Ledger" [ref=e280]:
+              - cell "2000" [ref=e281]:
+                - strong [ref=e282]: "2000"
+              - cell "Foreign Currency Inventory" [ref=e283]:
+                - link "Foreign Currency Inventory" [ref=e284] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/2000
+              - cell "Asset" [ref=e285]:
+                - generic [ref=e286]: Asset
+              - cell "-" [ref=e287]
+              - cell "-" [ref=e288]
+              - cell "View Ledger" [ref=e289]:
+                - link "View Ledger" [ref=e290] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/2000
+            - row "4000 Revenue - Forex Revenue - - View Ledger" [ref=e291]:
+              - cell "4000" [ref=e292]:
+                - strong [ref=e293]: "4000"
+              - cell "Revenue - Forex" [ref=e294]:
+                - link "Revenue - Forex" [ref=e295] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/4000
+              - cell "Revenue" [ref=e296]:
+                - generic [ref=e297]: Revenue
+              - cell "-" [ref=e298]
+              - cell "-" [ref=e299]
+              - cell "View Ledger" [ref=e300]:
+                - link "View Ledger" [ref=e301] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/4000
+            - row "5000 Revenue - Forex Trading Revenue - - View Ledger" [ref=e302]:
+              - cell "5000" [ref=e303]:
+                - strong [ref=e304]: "5000"
+              - cell "Revenue - Forex Trading" [ref=e305]:
+                - link "Revenue - Forex Trading" [ref=e306] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/5000
+              - cell "Revenue" [ref=e307]:
+                - generic [ref=e308]: Revenue
+              - cell "-" [ref=e309]
+              - cell "-" [ref=e310]
+              - cell "View Ledger" [ref=e311]:
+                - link "View Ledger" [ref=e312] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/5000
+            - row "5100 Revenue - Revaluation Gain Revenue - - View Ledger" [ref=e313]:
+              - cell "5100" [ref=e314]:
+                - strong [ref=e315]: "5100"
+              - cell "Revenue - Revaluation Gain" [ref=e316]:
+                - link "Revenue - Revaluation Gain" [ref=e317] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/5100
+              - cell "Revenue" [ref=e318]:
+                - generic [ref=e319]: Revenue
+              - cell "-" [ref=e320]
+              - cell "-" [ref=e321]
+              - cell "View Ledger" [ref=e322]:
+                - link "View Ledger" [ref=e323] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/5100
+            - row "6000 Expense - Forex Loss Expense - - View Ledger" [ref=e324]:
+              - cell "6000" [ref=e325]:
+                - strong [ref=e326]: "6000"
+              - cell "Expense - Forex Loss" [ref=e327]:
+                - link "Expense - Forex Loss" [ref=e328] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/6000
+              - cell "Expense" [ref=e329]:
+                - generic [ref=e330]: Expense
+              - cell "-" [ref=e331]
+              - cell "-" [ref=e332]
+              - cell "View Ledger" [ref=e333]:
+                - link "View Ledger" [ref=e334] [cursor=pointer]:
+                  - /url: http://local.host/accounting/ledger/6000
+          - rowgroup [ref=e335]:
+            - row "TOTAL 0.00 0.00" [ref=e336]:
+              - cell "TOTAL" [ref=e337]
+              - cell "0.00" [ref=e338]
+              - cell "0.00" [ref=e339]
+              - cell [ref=e340]
+      - generic [ref=e341]:
+        - heading "Quick Links" [level=3] [ref=e343]
+        - generic [ref=e345]:
+          - link "Trial Balance" [ref=e346] [cursor=pointer]:
+            - /url: http://local.host/accounting/trial-balance
+          - link "Profit & Loss" [ref=e347] [cursor=pointer]:
+            - /url: http://local.host/accounting/profit-loss
+          - link "Balance Sheet" [ref=e348] [cursor=pointer]:
+            - /url: http://local.host/accounting/balance-sheet
+    - paragraph [ref=e350]: CEMS-MY v1.0 - Bank Negara Malaysia Compliant MSB Management System

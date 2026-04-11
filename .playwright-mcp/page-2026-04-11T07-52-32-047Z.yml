@@ -1,0 +1,311 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: CEMS
+        - generic [ref=e7]: CEMS-MY
+      - paragraph [ref=e8]: Currency Exchange MSB
+    - navigation "Main menu" [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: Operations
+        - link "Dashboard" [ref=e12] [cursor=pointer]:
+          - /url: http://local.host/dashboard
+          - img [ref=e13]
+          - generic [ref=e18]: Dashboard
+        - link "Transactions" [ref=e19] [cursor=pointer]:
+          - /url: http://local.host/transactions
+          - img [ref=e20]
+          - generic [ref=e22]: Transactions
+        - link "Customers" [ref=e23] [cursor=pointer]:
+          - /url: http://local.host/customers
+          - img [ref=e24]
+          - generic [ref=e28]: Customers
+      - generic [ref=e29]:
+        - generic [ref=e30]: Counter Management
+        - link "Counters" [ref=e31] [cursor=pointer]:
+          - /url: http://local.host/counters
+          - img [ref=e32]
+          - generic [ref=e35]: Counters
+        - link "Branches" [ref=e36] [cursor=pointer]:
+          - /url: http://local.host/branches
+          - img [ref=e37]
+          - generic [ref=e40]: Branches
+      - generic [ref=e41]:
+        - generic [ref=e42]: Stock Management
+        - link "Stock & Cash" [ref=e43] [cursor=pointer]:
+          - /url: http://local.host/stock-cash
+          - img [ref=e44]
+          - generic [ref=e46]: Stock & Cash
+        - link "Stock Transfers" [ref=e47] [cursor=pointer]:
+          - /url: http://local.host/stock-transfers
+          - img [ref=e48]
+          - generic [ref=e50]: Stock Transfers
+      - generic [ref=e51]:
+        - generic [ref=e52]: Compliance & AML
+        - link "Compliance" [ref=e53] [cursor=pointer]:
+          - /url: http://local.host/compliance
+          - img [ref=e54]
+          - generic [ref=e56]: Compliance
+        - link "Alert Triage" [ref=e57] [cursor=pointer]:
+          - /url: http://local.host/compliance/alerts
+          - img [ref=e58]
+          - generic [ref=e61]: Alert Triage
+        - link "Compliance Workspace" [ref=e62] [cursor=pointer]:
+          - /url: http://local.host/compliance/workspace
+          - img [ref=e63]
+          - generic [ref=e66]: Compliance Workspace
+        - link "EDD Records" [ref=e67] [cursor=pointer]:
+          - /url: http://local.host/compliance/edd
+          - img [ref=e68]
+          - generic [ref=e71]: EDD Records
+        - link "Risk Dashboard" [ref=e72] [cursor=pointer]:
+          - /url: http://local.host/compliance/risk-dashboard
+          - img [ref=e73]
+          - generic [ref=e76]: Risk Dashboard
+        - link "STR Studio" [ref=e77] [cursor=pointer]:
+          - /url: http://local.host/compliance/str-studio
+          - img [ref=e78]
+          - generic [ref=e80]: STR Studio
+        - link "Cases" [ref=e81] [cursor=pointer]:
+          - /url: http://local.host/compliance/cases
+          - img [ref=e82]
+          - generic [ref=e84]: Cases
+        - link "STR Reports" [ref=e85] [cursor=pointer]:
+          - /url: http://local.host/str
+          - img [ref=e86]
+          - generic [ref=e88]: STR Reports
+      - generic [ref=e89]:
+        - generic [ref=e90]: Accounting
+        - link "Accounting" [ref=e91] [cursor=pointer]:
+          - /url: http://local.host/accounting
+          - img [ref=e92]
+          - generic [ref=e94]: Accounting
+        - link "Journal" [ref=e95] [cursor=pointer]:
+          - /url: http://local.host/accounting/journal
+          - img [ref=e96]
+          - generic [ref=e99]: Journal
+        - link "Ledger" [ref=e100] [cursor=pointer]:
+          - /url: http://local.host/accounting/ledger
+          - img [ref=e101]
+          - generic [ref=e104]: Ledger
+        - link "Trial Balance" [ref=e105] [cursor=pointer]:
+          - /url: http://local.host/accounting/trial-balance
+          - img [ref=e106]
+          - generic [ref=e108]: Trial Balance
+        - link "Profit & Loss" [ref=e109] [cursor=pointer]:
+          - /url: http://local.host/accounting/profit-loss
+          - img [ref=e110]
+          - generic [ref=e112]: Profit & Loss
+        - link "Balance Sheet" [ref=e113] [cursor=pointer]:
+          - /url: http://local.host/accounting/balance-sheet
+          - img [ref=e114]
+          - generic [ref=e116]: Balance Sheet
+        - link "Cash Flow" [ref=e117] [cursor=pointer]:
+          - /url: http://local.host/accounting/cash-flow
+          - img [ref=e118]
+          - generic [ref=e120]: Cash Flow
+        - link "Financial Ratios" [ref=e121] [cursor=pointer]:
+          - /url: http://local.host/accounting/ratios
+          - img [ref=e122]
+          - generic [ref=e124]: Financial Ratios
+        - link "Revaluation" [ref=e125] [cursor=pointer]:
+          - /url: http://local.host/accounting/revaluation
+          - img [ref=e126]
+          - generic [ref=e128]: Revaluation
+        - link "Reconciliation" [ref=e129] [cursor=pointer]:
+          - /url: http://local.host/accounting/reconciliation
+          - img [ref=e130]
+          - generic [ref=e132]: Reconciliation
+        - link "Budget" [ref=e133] [cursor=pointer]:
+          - /url: http://local.host/accounting/budget
+          - img [ref=e134]
+          - generic [ref=e136]: Budget
+        - link "Periods" [ref=e137] [cursor=pointer]:
+          - /url: http://local.host/accounting/periods
+          - img [ref=e138]
+          - generic [ref=e140]: Periods
+        - link "Fiscal Years" [ref=e141] [cursor=pointer]:
+          - /url: http://local.host/accounting/fiscal-years
+          - img [ref=e142]
+          - generic [ref=e144]: Fiscal Years
+      - generic [ref=e145]:
+        - generic [ref=e146]: Reports
+        - link "Reports" [ref=e147] [cursor=pointer]:
+          - /url: http://local.host/reports
+          - img [ref=e148]
+          - generic [ref=e149]: Reports
+        - link "MSB2 Report" [ref=e150] [cursor=pointer]:
+          - /url: http://local.host/reports/msb2
+          - img [ref=e151]
+          - generic [ref=e152]: MSB2 Report
+        - link "LCTR" [ref=e153] [cursor=pointer]:
+          - /url: http://local.host/reports/lctr
+          - img [ref=e154]
+          - generic [ref=e155]: LCTR
+        - link "LMCA" [ref=e156] [cursor=pointer]:
+          - /url: http://local.host/reports/lmca
+          - img [ref=e157]
+          - generic [ref=e158]: LMCA
+        - link "Quarterly LVR" [ref=e159] [cursor=pointer]:
+          - /url: http://local.host/reports/quarterly-lvr
+          - img [ref=e160]
+          - generic [ref=e161]: Quarterly LVR
+        - link "Position Limits" [ref=e162] [cursor=pointer]:
+          - /url: http://local.host/reports/position-limit
+          - img [ref=e163]
+          - generic [ref=e164]: Position Limits
+        - link "Report History" [ref=e165] [cursor=pointer]:
+          - /url: http://local.host/reports/history
+          - img [ref=e166]
+          - generic [ref=e167]: Report History
+      - generic [ref=e168]:
+        - generic [ref=e169]: System
+        - link "Tasks" [ref=e170] [cursor=pointer]:
+          - /url: http://local.host/tasks
+          - img [ref=e171]
+          - generic [ref=e174]: Tasks
+        - link "Audit Log" [ref=e175] [cursor=pointer]:
+          - /url: http://local.host/audit
+          - img [ref=e176]
+          - generic [ref=e179]: Audit Log
+        - link "Users" [ref=e180] [cursor=pointer]:
+          - /url: http://local.host/users
+          - img [ref=e181]
+          - generic [ref=e185]: Users
+        - link "Transaction Imports" [ref=e186] [cursor=pointer]:
+          - /url: http://local.host/transactions/batch-upload
+          - img [ref=e187]
+          - generic [ref=e190]: Transaction Imports
+        - link "Data Breach Alerts" [ref=e191] [cursor=pointer]:
+          - /url: http://local.host/data-breach-alerts
+          - img [ref=e192]
+          - generic [ref=e194]: Data Breach Alerts
+    - button "Logout" [ref=e197] [cursor=pointer]:
+      - img [ref=e198]
+      - generic [ref=e201]: Logout
+  - main "Main content" [ref=e202]:
+    - generic [ref=e203]:
+      - navigation "Breadcrumb" [ref=e204]:
+        - list [ref=e205]:
+          - listitem [ref=e206]:
+            - link "Dashboard" [ref=e207] [cursor=pointer]:
+              - /url: http://local.host/dashboard
+            - img [ref=e208]
+          - listitem [ref=e210]:
+            - link "Compliance" [ref=e211] [cursor=pointer]:
+              - /url: http://local.host/compliance
+            - img [ref=e212]
+          - listitem [ref=e214]:
+            - generic [ref=e215]: Workspace
+      - heading "Compliance Workspace" [level=1] [ref=e218]
+      - generic [ref=e219]:
+        - generic [ref=e220]:
+          - generic [ref=e221]: "0"
+          - generic [ref=e222]: Open Alerts
+          - generic [ref=e223]: 0 overdue
+        - generic [ref=e224]:
+          - generic [ref=e225]: "0"
+          - generic [ref=e226]: Open Cases
+          - generic [ref=e227]: 0 overdue
+        - generic [ref=e228]:
+          - generic [ref=e229]: "0"
+          - generic [ref=e230]: High Risk Customers
+          - generic [ref=e231]: 0 deteriorating
+        - generic [ref=e232]:
+          - generic [ref=e233]: "0"
+          - generic [ref=e234]: STR Pending
+          - generic [ref=e235]: 0 overdue
+      - generic [ref=e236]:
+        - generic [ref=e237]:
+          - generic [ref=e238]: "0"
+          - generic [ref=e239]: Critical
+        - generic [ref=e240]:
+          - generic [ref=e241]: "0"
+          - generic [ref=e242]: High
+        - generic [ref=e243]:
+          - generic [ref=e244]: "0"
+          - generic [ref=e245]: Medium
+        - generic [ref=e246]:
+          - generic [ref=e247]: "0"
+          - generic [ref=e248]: Low
+      - generic [ref=e249]:
+        - generic [ref=e250]:
+          - generic [ref=e251]:
+            - heading "Alert Queue" [level=3] [ref=e252]
+            - link "View All" [ref=e253] [cursor=pointer]:
+              - /url: http://local.host/compliance/alerts
+          - generic [ref=e254]:
+            - paragraph [ref=e255]: Unassigned alerts requiring review
+            - generic [ref=e256]: "0"
+            - paragraph [ref=e257]: unassigned
+        - generic [ref=e258]:
+          - generic [ref=e259]:
+            - heading "Case Management" [level=3] [ref=e260]
+            - link "View All" [ref=e261] [cursor=pointer]:
+              - /url: http://local.host/compliance/cases
+          - generic [ref=e262]:
+            - paragraph [ref=e263]: Active cases by status
+            - generic [ref=e264]:
+              - generic [ref=e265]:
+                - generic [ref=e266]: "0"
+                - paragraph [ref=e267]: Pending Review
+              - generic [ref=e268]:
+                - generic [ref=e269]: "0"
+                - paragraph [ref=e270]: High/Critical
+      - generic [ref=e271]:
+        - generic [ref=e272]:
+          - generic [ref=e273]:
+            - heading "Risk Dashboard" [level=3] [ref=e274]
+            - link "View All" [ref=e275] [cursor=pointer]:
+              - /url: http://local.host/compliance/risk-dashboard
+          - generic [ref=e276]:
+            - paragraph [ref=e277]: Customer risk overview
+            - generic [ref=e278]:
+              - generic [ref=e279]:
+                - generic [ref=e280]: "0"
+                - generic [ref=e281]: Critical
+              - generic [ref=e282]:
+                - generic [ref=e283]: "0"
+                - generic [ref=e284]: High
+              - generic [ref=e285]:
+                - generic [ref=e286]: "0"
+                - generic [ref=e287]: Medium
+        - generic [ref=e288]:
+          - generic [ref=e289]:
+            - heading "Reporting" [level=3] [ref=e290]
+            - link "View All" [ref=e291] [cursor=pointer]:
+              - /url: http://local.host/compliance/reporting
+          - generic [ref=e292]:
+            - paragraph [ref=e293]: Report generation and schedules
+            - generic [ref=e294]:
+              - generic [ref=e295]:
+                - generic [ref=e296]: "0"
+                - generic [ref=e297]: Total Runs
+              - generic [ref=e298]:
+                - generic [ref=e299]: 100%
+                - generic [ref=e300]: Success Rate
+              - generic [ref=e301]:
+                - generic [ref=e302]: "0"
+                - generic [ref=e303]: Scheduled
+      - generic [ref=e304]:
+        - heading "Compliance KPIs (Last 30 Days)" [level=3] [ref=e306]
+        - generic [ref=e307]:
+          - generic [ref=e308]:
+            - generic [ref=e309]: 0h
+            - generic [ref=e310]: Avg Flag Resolution
+          - generic [ref=e311]:
+            - generic [ref=e312]: 100%
+            - generic [ref=e313]: STR On-Time
+          - generic [ref=e314]:
+            - generic [ref=e315]: 100%
+            - generic [ref=e316]: EDD Completion
+          - generic [ref=e317]:
+            - generic [ref=e318]: 100%
+            - generic [ref=e319]: Reports On Schedule
+      - generic [ref=e320]:
+        - generic [ref=e321]:
+          - heading "Upcoming Deadlines" [level=3] [ref=e322]
+          - link "View Calendar" [ref=e323] [cursor=pointer]:
+            - /url: http://local.host/compliance/reporting/deadlines
+        - paragraph [ref=e325]: No upcoming deadlines
+    - paragraph [ref=e327]: CEMS-MY v1.0 - Bank Negara Malaysia Compliant MSB Management System

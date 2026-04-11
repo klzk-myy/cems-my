@@ -29,6 +29,7 @@ class TransactionService
         protected AccountingService $accountingService,
         protected AuditService $auditService,
         protected TransactionMonitoringService $monitoringService,
+        protected CtosReportService $ctosReportService,
     ) {}
 
     /**
@@ -204,6 +205,11 @@ class TransactionService
                 'INFO'
             );
 
+            // Generate CTOS report if transaction qualifies (>= RM 10,000 cash transaction)
+            if ($this->ctosReportService->qualifiesForCtos($transaction)) {
+                $this->ctosReportService->createFromTransaction($transaction, $userId);
+            }
+
             // Dispatch event for async processing
             Event::dispatch(new TransactionCreated($transaction));
 
@@ -213,19 +219,25 @@ class TransactionService
 
     /**
      * Update till balance after transaction.
+     * Uses lockForUpdate to prevent race conditions on concurrent transactions.
      */
     protected function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
     {
-        $currentTotal = $tillBalance->transaction_total ?? '0';
-        $foreignTotal = $tillBalance->foreign_total ?? '0';
+        // Re-fetch with lock to prevent race conditions
+        $lockedBalance = TillBalance::where('id', $tillBalance->id)
+            ->lockForUpdate()
+            ->first();
+
+        $currentTotal = $lockedBalance->transaction_total ?? '0';
+        $foreignTotal = $lockedBalance->foreign_total ?? '0';
 
         if ($type === TransactionType::Buy->value) {
-            $tillBalance->update([
+            $lockedBalance->update([
                 'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
                 'foreign_total' => $this->mathService->add($foreignTotal, $amountForeign),
             ]);
         } else {
-            $tillBalance->update([
+            $lockedBalance->update([
                 'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
                 'foreign_total' => $this->mathService->subtract($foreignTotal, $amountForeign),
             ]);
