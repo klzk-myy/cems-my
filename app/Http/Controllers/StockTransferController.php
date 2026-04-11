@@ -3,24 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\StockTransfer;
+use App\Services\AuditService;
 use App\Services\StockTransferService;
 use Illuminate\Http\Request;
 
 class StockTransferController extends Controller
 {
     protected StockTransferService $stockTransferService;
+    protected AuditService $auditService;
 
     public function __construct()
     {
-        // Service will be instantiated on first use to avoid auth issues during construction
+        $this->stockTransferService = new StockTransferService(auth()->user());
+        $this->auditService = app(AuditService::class);
     }
 
     protected function getService(): StockTransferService
     {
-        if (! isset($this->stockTransferService)) {
-            $this->stockTransferService = new StockTransferService(auth()->user());
-        }
-
         return $this->stockTransferService;
     }
 
@@ -66,6 +65,15 @@ class StockTransferController extends Controller
 
         $transfer = $this->getService()->createRequest($validated);
 
+        $this->auditService->logStockTransferEvent('stock_transfer_created', $transfer->id, [
+            'new' => [
+                'transfer_number' => $transfer->transfer_number,
+                'source_branch' => $transfer->source_branch_name,
+                'destination_branch' => $transfer->destination_branch_name,
+                'type' => $transfer->type,
+            ],
+        ]);
+
         return redirect()->route('stock-transfers.show', $transfer->id)
             ->with('success', 'Transfer request created');
     }
@@ -81,6 +89,10 @@ class StockTransferController extends Controller
     {
         $this->getService()->approveByBranchManager($stockTransfer);
 
+        $this->auditService->logStockTransferEvent('stock_transfer_approved_bm', $stockTransfer->id, [
+            'new' => ['approved_by' => auth()->user()->username],
+        ]);
+
         return redirect()->back()->with('success', 'Transfer approved by branch manager');
     }
 
@@ -88,12 +100,18 @@ class StockTransferController extends Controller
     {
         $this->getService()->approveByHQ($stockTransfer);
 
+        $this->auditService->logStockTransferEvent('stock_transfer_approved_hq', $stockTransfer->id, [
+            'new' => ['approved_by' => auth()->user()->username],
+        ]);
+
         return redirect()->back()->with('success', 'Transfer approved by HQ');
     }
 
     public function dispatch(StockTransfer $stockTransfer)
     {
         $this->getService()->dispatch($stockTransfer);
+
+        $this->auditService->logStockTransferEvent('stock_transfer_dispatched', $stockTransfer->id);
 
         return redirect()->back()->with('success', 'Transfer dispatched');
     }
@@ -108,12 +126,18 @@ class StockTransferController extends Controller
 
         $this->getService()->receiveItems($stockTransfer, $request->items);
 
+        $this->auditService->logStockTransferEvent('stock_transfer_partially_received', $stockTransfer->id, [
+            'new' => ['received_items' => $request->items],
+        ]);
+
         return redirect()->back()->with('success', 'Items received');
     }
 
     public function complete(StockTransfer $stockTransfer)
     {
         $this->getService()->complete($stockTransfer);
+
+        $this->auditService->logStockTransferEvent('stock_transfer_completed', $stockTransfer->id);
 
         return redirect()->back()->with('success', 'Transfer completed');
     }
@@ -125,6 +149,10 @@ class StockTransferController extends Controller
         ]);
 
         $this->getService()->cancel($stockTransfer, $request->reason);
+
+        $this->auditService->logStockTransferEvent('stock_transfer_cancelled', $stockTransfer->id, [
+            'new' => ['reason' => $request->reason, 'cancelled_by' => auth()->user()->username],
+        ]);
 
         return redirect()->back()->with('success', 'Transfer cancelled');
     }
