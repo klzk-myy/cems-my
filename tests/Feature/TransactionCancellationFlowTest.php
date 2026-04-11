@@ -49,9 +49,9 @@ class TransactionCancellationFlowTest extends TestCase
 
         // Create users with different roles (similar to TransactionTest.php)
         $this->adminUser = User::create([
-            'username' => 'admin_test',
+            'username' => 'admin',
             'email' => 'admin@test.com',
-            'password_hash' => Hash::make('Admin@1234'),
+            'password_hash' => Hash::make('Admin@123456'),
             'role' => 'admin',
             'mfa_enabled' => false,
             'is_active' => true,

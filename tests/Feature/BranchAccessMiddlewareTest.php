@@ -54,7 +54,7 @@ class BranchAccessMiddlewareTest extends TestCase
         $this->adminUser = User::create([
             'username' => 'admin',
             'email' => 'admin@cems.my',
-            'password_hash' => bcrypt('Admin@123'),
+            'password_hash' => bcrypt('Admin@123456'),
             'role' => UserRole::Admin,
             'mfa_enabled' => false,
             'is_active' => true,

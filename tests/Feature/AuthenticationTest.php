@@ -27,7 +27,7 @@ class AuthenticationTest extends TestCase
         $this->adminUser = User::create([
             'username' => 'admin',
             'email' => 'admin@cems.my',
-            'password_hash' => Hash::make('Admin@1234'),
+            'password_hash' => Hash::make('Admin@123456'),
             'role' => 'admin',
             'mfa_enabled' => false,
             'is_active' => true,
@@ -80,7 +80,7 @@ class AuthenticationTest extends TestCase
     {
         $response = $this->post('/login', [
             'username' => 'admin',
-            'password' => 'Admin@1234',
+            'password' => 'Admin@123456',
         ]);
 
         $response->assertRedirect('/dashboard');
@@ -254,8 +254,8 @@ class AuthenticationTest extends TestCase
     {
         $user = User::where('email', 'admin@cems.my')->first();
 
-        $this->assertNotEquals('Admin@1234', $user->password_hash);
-        $this->assertTrue(Hash::check('Admin@1234', $user->password_hash));
+        $this->assertNotEquals('Admin@123456', $user->password_hash);
+        $this->assertTrue(Hash::check('Admin@123456', $user->password_hash));
     }
 
     /**
@@ -406,7 +406,7 @@ class AuthenticationTest extends TestCase
     {
         $this->post('/login', [
             'username' => 'admin',
-            'password' => 'Admin@1234',
+            'password' => 'Admin@123456',
         ]);
 
         $this->assertDatabaseHas('system_logs', [

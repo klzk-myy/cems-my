@@ -397,7 +397,7 @@ SESSION_LIFETIME=480  # 8 hours
 
 ```
 1. Navigate to http://192.168.1.132/login
-2. Enter: admin@cems.my / Admin@1234
+2. Enter: admin@cems.my / Admin@123456
 3. Redirected to: /dashboard
 4. Can Access:
    ✅ Everything (full system access)

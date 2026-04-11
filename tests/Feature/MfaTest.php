@@ -28,7 +28,7 @@ class MfaTest extends TestCase
         $this->adminUser = User::create([
             'username' => 'admin',
             'email' => 'admin@cems.my',
-            'password_hash' => Hash::make('Admin@1234'),
+            'password_hash' => Hash::make('Admin@123456'),
             'role' => 'admin',
             'mfa_enabled' => false,
             'is_active' => true,

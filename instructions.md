@@ -185,7 +185,7 @@ $user->isComplianceOfficer(); // Returns: true/false
 
 #### Admin Authentication
 ```
-1. Login: admin@cems.my / Admin@1234
+1. Login: admin@cems.my / Admin@123456
 2. Redirect: /dashboard
 3. Can Access: Everything (full system access)
 4. Cannot Access: Nothing
@@ -271,7 +271,7 @@ The system maintains comprehensive audit logs for BNM compliance:
 
 | Role | Email | Password | Primary Functions |
 |------|-------|----------|-------------------|
-| **Admin** | admin@cems.my | Admin@1234 | Full system access, user management |
+| **Admin** | admin@cems.my | Admin@123456 | Full system access, user management |
 | **Manager** | manager1@cems.my | manager1@1234 | Approve transactions, run reports, stock management |
 | **Compliance Officer** | compliance1@cems.my | compliance1@1234 | Review flags, sanction screening, investigations |
 | **Teller** | teller1@cems.my | teller1@1234 | Create transactions, manage till |
@@ -777,7 +777,7 @@ User Management provides role-based access control (RBAC) ensuring staff only ac
 
 **Step 1: Login as Admin**
 - Navigate to http://local.host/login
-- Enter: admin@cems.my / Admin@1234
+- Enter: admin@cems.my / Admin@123456
 - Click "Sign In"
 
 **Step 2: Access User Management**
@@ -1119,7 +1119,7 @@ chmod +x /www/wwwroot/local.host/run-tests.sh
 ```bash
 # Test login as different roles
 curl -s -c cookies.txt -X POST http://192.168.1.132/login \
-  -d "email=admin@cems.my&password=Admin@1234" \
+  -d "email=admin@cems.my&password=Admin@123456" \
   -L | grep "Welcome"
 
 # Test access control
