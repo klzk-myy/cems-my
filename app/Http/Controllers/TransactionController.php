@@ -16,8 +16,11 @@ use App\Services\ComplianceService;
 use App\Services\CurrencyPositionService;
 use App\Services\MathService;
 use App\Services\TransactionMonitoringService;
+use App\Services\TransactionService;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TransactionController extends Controller
 {
@@ -28,7 +31,9 @@ class TransactionController extends Controller
         protected ComplianceService $complianceService,
         protected TransactionMonitoringService $monitoringService,
         protected MathService $mathService,
-        protected AccountingService $accountingService
+        protected AccountingService $accountingService,
+        protected TransactionService $transactionService,
+        protected AuditService $auditService
     ) {}
 
     /**
@@ -75,197 +80,48 @@ class TransactionController extends Controller
             'idempotency_key' => 'nullable|string|max:100',
         ]);
 
-        // Duplicate transaction prevention: Check for recent similar transaction
-        // This prevents double-submit and network retry issues
-        $recentWindow = now()->subSeconds(30);
-        $duplicateQuery = Transaction::where('user_id', auth()->id())
-            ->where('customer_id', $validated['customer_id'])
-            ->where('type', $validated['type'])
-            ->where('currency_code', $validated['currency_code'])
-            ->where('created_at', '>=', $recentWindow);
-
-        // If idempotency key provided, check that specifically
-        if (! empty($validated['idempotency_key'])) {
-            $existingByKey = Transaction::where('idempotency_key', $validated['idempotency_key'])->first();
-            if ($existingByKey) {
-                return redirect()->route('transactions.show', $existingByKey)
-                    ->with('info', 'Transaction already processed.');
-            }
-        }
-
-        // Check for similar transactions (same amount within recent window)
-        $recentAmount = Transaction::where('user_id', auth()->id())
-            ->where('created_at', '>=', $recentWindow)
-            ->where('amount_foreign', $validated['amount_foreign'])
-            ->where('currency_code', $validated['currency_code'])
-            ->first();
-
-        if ($recentAmount) {
-            // Log potential duplicate for audit
-            SystemLog::create([
-                'user_id' => auth()->id(),
-                'action' => 'potential_duplicate_detected',
-                'entity_type' => 'Transaction',
-                'description' => "Similar transaction {$recentAmount->id} found within 30 seconds",
-                'ip_address' => $request->ip(),
-            ]);
-        }
-
         // Sanitize text inputs to prevent XSS
         $validated['purpose'] = strip_tags($validated['purpose']);
         $validated['source_of_funds'] = strip_tags($validated['source_of_funds']);
 
-        $tillBalance = TillBalance::where('till_id', $validated['till_id'])
-            ->whereDate('date', today())
-            ->whereNull('closed_at')
-            ->first();
-
-        if (! $tillBalance) {
-            return back()->with('error', 'Till is not open for this currency. Please open the till first.')
-                ->withInput();
-        }
-
-        $customer = Customer::find($validated['customer_id']);
-        $amountForeign = (string) $validated['amount_foreign'];
-        $rate = (string) $validated['rate'];
-        $amountLocal = $this->mathService->multiply($amountForeign, $rate);
-
-        // Use string amounts for precision (BCMath)
-        $cddLevel = $this->complianceService->determineCDDLevel($amountLocal, $customer);
-        $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
-
-        // Log CDD decision for compliance audit trail
-        $cddTriggers = [];
-        if ($customer->pep_status) {
-            $cddTriggers[] = 'PEP customer';
-        }
-        if ($this->mathService->compare($amountLocal, '50000') >= 0) {
-            $cddTriggers[] = 'Large amount >= RM 50,000';
-        } elseif ($this->mathService->compare($amountLocal, '3000') >= 0) {
-            $cddTriggers[] = 'Standard amount >= RM 3,000';
-        }
-        if ($customer->risk_rating === 'High') {
-            $cddTriggers[] = 'High risk customer';
-        }
-
-        SystemLog::create([
-            'user_id' => auth()->id(),
-            'action' => 'cdd_decision',
-            'entity_type' => 'Transaction',
-            'entity_id' => null, // Will be updated after creation
-            'new_values' => [
-                'customer_id' => $customer->id,
-                'customer_name' => $customer->full_name,
-                'cdd_level' => $cddLevel->value,
-                'triggers' => $cddTriggers,
-                'amount_local' => $amountLocal,
-            ],
-            'ip_address' => $request->ip(),
-        ]);
-
-        $status = TransactionStatus::Completed;
-        $holdReason = null;
-        $approvedBy = null;
-
-        if ($holdCheck['requires_hold']) {
-            // Check if amount >= 50,000 using BCMath for precision
-            if ($this->mathService->compare($amountLocal, '50000') >= 0) {
-                $status = TransactionStatus::Pending;
-                $holdReason = ComplianceFlagType::EddRequired->label().': '.implode(', ', $holdCheck['reasons']);
-            } else {
-                $status = TransactionStatus::OnHold;
-                $holdReason = implode(', ', $holdCheck['reasons']);
-            }
-        }
-
-        if ($validated['type'] === TransactionType::Sell->value) {
-            $position = $this->positionService->getPosition($validated['currency_code'], $validated['till_id']);
-            if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
-                $availableBalance = $position ? $position->balance : '0';
-
-                return back()->with('error', "Insufficient stock. Available: {$availableBalance} {$validated['currency_code']}")
-                    ->withInput();
-            }
-        }
-
-        DB::beginTransaction();
         try {
-            $transaction = Transaction::create([
-                'customer_id' => $validated['customer_id'],
-                'user_id' => auth()->id(),
-                'till_id' => $validated['till_id'],
-                'type' => $validated['type'],
-                'currency_code' => $validated['currency_code'],
-                'amount_foreign' => $amountForeign,
-                'amount_local' => $amountLocal,
-                'rate' => $rate,
-                'purpose' => $validated['purpose'],
-                'source_of_funds' => $validated['source_of_funds'],
-                'status' => $status,
-                'hold_reason' => $holdReason,
-                'approved_by' => $approvedBy,
-                'cdd_level' => $cddLevel,
-                'idempotency_key' => $validated['idempotency_key'] ?? null,
-                'version' => 0,
-            ]);
+            $transaction = $this->transactionService->createTransaction(
+                $validated,
+                auth()->id(),
+                $request->ip()
+            );
 
-            if ($status === TransactionStatus::Completed) {
-                $this->positionService->updatePosition(
-                    $validated['currency_code'],
-                    $amountForeign,
-                    $rate,
-                    $validated['type'],
-                    $validated['till_id']
-                );
-                $this->updateTillBalance($tillBalance, $validated['type'], $amountLocal, $amountForeign);
-                $this->createAccountingEntries($transaction);
-            }
-
-            SystemLog::create([
-                'user_id' => auth()->id(),
-                'action' => 'transaction_created',
-                'entity_type' => 'Transaction',
-                'entity_id' => $transaction->id,
-                'new_values' => [
-                    'type' => $transaction->type,
-                    'amount_local' => $transaction->amount_local,
-                    'amount_foreign' => $transaction->amount_foreign,
-                    'currency' => $transaction->currency_code,
-                    'status' => $transaction->status,
-                    'cdd_level' => $cddLevel,
-                ],
-                'ip_address' => $request->ip(),
-            ]);
-
-            // Transaction monitoring is handled via TransactionCreated event
-            // to avoid duplicate processing
-
-            DB::commit();
-
-            // Dispatch event for async processing
-            \App\Events\TransactionCreated::dispatch($transaction);
-
-            if ($status === TransactionStatus::Pending) {
+            if ($transaction->status === TransactionStatus::PendingApproval || $transaction->status === TransactionStatus::Pending) {
                 return redirect()->route('transactions.show', $transaction)
                     ->with('warning', 'Transaction created and pending manager approval (≥ RM 50,000).');
-            } elseif ($status === TransactionStatus::OnHold) {
+            } elseif ($transaction->status === TransactionStatus::OnHold) {
                 return redirect()->route('transactions.show', $transaction)
-                    ->with('warning', 'Transaction on hold: '.$holdReason);
+                    ->with('warning', 'Transaction on hold: ' . $transaction->hold_reason);
             }
 
             return redirect()->route('transactions.show', $transaction)
-                ->with('success', 'Transaction completed successfully. Receipt #'.$transaction->id);
+                ->with('success', 'Transaction completed successfully. Receipt #' . $transaction->id);
 
+        } catch (\InvalidArgumentException $e) {
+            // These are expected validation/business rule exceptions (like duplicate, insufficient stock)
+            return back()->with('error', $e->getMessage())->withInput();
         } catch (\Exception $e) {
-            DB::rollBack();
-            SystemLog::create([
-                'user_id' => auth()->id(),
-                'action' => 'transaction_failed',
-                'description' => $e->getMessage(),
-                'ip_address' => $request->ip(),
+            Log::error('Transaction creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id()
             ]);
 
-            return back()->with('error', 'Transaction failed: '.$e->getMessage())->withInput();
+            $this->auditService->logWithSeverity(
+                'transaction_failed',
+                [
+                    'user_id' => auth()->id(),
+                    'description' => $e->getMessage(),
+                ],
+                'ERROR'
+            );
+
+            return back()->with('error', 'Transaction failed: ' . $e->getMessage())->withInput();
         }
     }
 

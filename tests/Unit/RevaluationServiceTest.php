@@ -10,6 +10,7 @@ use App\Services\AccountingService;
 use App\Services\MathService;
 use App\Services\RateApiService;
 use App\Services\RevaluationService;
+use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -36,7 +37,8 @@ class RevaluationServiceTest extends TestCase
         $mathService = new MathService;
         $rateApiService = new RateApiService;
         $accountingService = new AccountingService($mathService);
-        $this->service = new RevaluationService($mathService, $rateApiService, $accountingService);
+        $auditService = new AuditService;
+        $this->service = new RevaluationService($mathService, $rateApiService, $accountingService, $auditService);
 
         // Seed currency
         Currency::firstOrCreate(

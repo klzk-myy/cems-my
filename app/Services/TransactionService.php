@@ -26,6 +26,7 @@ class TransactionService
         protected ComplianceService $complianceService,
         protected CurrencyPositionService $positionService,
         protected AccountingService $accountingService,
+        protected AuditService $auditService,
     ) {}
 
     /**
@@ -60,13 +61,18 @@ class TransactionService
             ->first();
 
         if ($recentAmount) {
-            SystemLog::create([
-                'user_id' => $userId,
-                'action' => 'potential_duplicate_detected',
-                'entity_type' => 'Transaction',
-                'description' => "Similar transaction {$recentAmount->id} found within 30 seconds",
-                'ip_address' => $ipAddress,
-            ]);
+            $this->auditService->logWithSeverity(
+                'potential_duplicate_detected',
+                [
+                    'user_id' => $userId,
+                    'entity_type' => 'Transaction',
+                    'entity_id' => $recentAmount->id,
+                    'description' => "Similar transaction {$recentAmount->id} found within 30 seconds",
+                ],
+                'WARNING'
+            );
+
+            throw new \InvalidArgumentException('Potential duplicate transaction detected. Please wait 30 seconds before submitting again or check your recent transactions.');
         }
 
         // Verify till is open for this currency
@@ -104,20 +110,21 @@ class TransactionService
             $cddTriggers[] = 'High risk customer';
         }
 
-        SystemLog::create([
-            'user_id' => $userId,
-            'action' => 'cdd_decision',
-            'entity_type' => 'Transaction',
-            'entity_id' => null, // Will be updated after creation
-            'new_values' => [
-                'customer_id' => $customer->id,
-                'customer_name' => $customer->full_name,
-                'cdd_level' => $cddLevel->value,
-                'triggers' => $cddTriggers,
-                'amount_local' => $amountLocal,
+        $this->auditService->logWithSeverity(
+            'cdd_decision',
+            [
+                'user_id' => $userId,
+                'entity_type' => 'Transaction',
+                'new_values' => [
+                    'customer_id' => $customer->id,
+                    'customer_name' => $customer->full_name,
+                    'cdd_level' => $cddLevel->value,
+                    'triggers' => $cddTriggers,
+                    'amount_local' => $amountLocal,
+                ],
             ],
-            'ip_address' => $ipAddress,
-        ]);
+            'INFO'
+        );
 
         // Determine initial status
         $status = TransactionStatus::Completed;
@@ -126,7 +133,7 @@ class TransactionService
 
         if ($holdCheck['requires_hold']) {
             if ($this->mathService->compare($amountLocal, '50000') >= 0) {
-                $status = TransactionStatus::PendingApproval;
+                $status = TransactionStatus::Pending;
                 $holdReason = ComplianceFlagType::EddRequired->label().': '.implode(', ', $holdCheck['reasons']);
             } else {
                 $status = TransactionStatus::OnHold;
@@ -177,21 +184,23 @@ class TransactionService
                 $this->createAccountingEntries($transaction);
             }
 
-            SystemLog::create([
-                'user_id' => $userId,
-                'action' => 'transaction_created',
-                'entity_type' => 'Transaction',
-                'entity_id' => $transaction->id,
-                'new_values' => [
-                    'type' => $transaction->type,
-                    'amount_local' => $transaction->amount_local,
-                    'amount_foreign' => $transaction->amount_foreign,
-                    'currency' => $transaction->currency_code,
-                    'status' => $transaction->status,
-                    'cdd_level' => $cddLevel,
+            $this->auditService->logWithSeverity(
+                'transaction_created',
+                [
+                    'user_id' => $userId,
+                    'entity_type' => 'Transaction',
+                    'entity_id' => $transaction->id,
+                    'new_values' => [
+                        'type' => $transaction->type,
+                        'amount_local' => $transaction->amount_local,
+                        'amount_foreign' => $transaction->amount_foreign,
+                        'currency' => $transaction->currency_code,
+                        'status' => $transaction->status,
+                        'cdd_level' => $cddLevel,
+                    ],
                 ],
-                'ip_address' => $ipAddress,
-            ]);
+                'INFO'
+            );
 
             // Dispatch event for async processing
             Event::dispatch(new TransactionCreated($transaction));

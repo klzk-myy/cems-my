@@ -524,7 +524,7 @@ class TransactionControllerTest extends TestCase
         $response->assertJson([
             'success' => true,
             'data' => [
-                'status' => 'PendingApproval',
+                'status' => 'Pending',
             ],
         ]);
     }

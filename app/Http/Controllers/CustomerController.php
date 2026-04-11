@@ -9,6 +9,7 @@ use App\Services\RiskRatingService;
 use App\Services\SanctionScreeningService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * CustomerController
@@ -70,6 +71,8 @@ class CustomerController extends Controller
         $sortBy = $request->get('sort_by', 'created_at');
         $sortDir = $request->get('sort_dir', 'desc');
         $query->orderBy($sortBy, $sortDir);
+
+        $query->withCount(['documents', 'transactions']);
 
         $customers = $query->paginate(20)->withQueryString();
 
@@ -186,11 +189,12 @@ class CustomerController extends Controller
             $sanctionMatches = $this->sanctionService->screenName($validated['full_name']);
             $hasSanctionHit = ! empty($sanctionMatches);
 
-            // Update sanction status and risk rating if hit found
+            // Update sanction status, risk rating, AND deactivate if hit found
             if ($hasSanctionHit) {
                 $customer->update([
                     'risk_rating' => 'High',
                     'sanction_hit' => true,
+                    'is_active' => false, // Require Manager/Compliance approval to activate
                 ]);
                 // Log sanction hit
                 SystemLog::create([
@@ -239,6 +243,12 @@ class CustomerController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
+            Log::error('Customer creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id()
+            ]);
 
             SystemLog::create([
                 'user_id' => auth()->id(),
@@ -438,6 +448,23 @@ class CustomerController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+
+            Log::error('Customer update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'customer_id' => $customer->id,
+                'user_id' => auth()->id()
+            ]);
+
+            SystemLog::create([
+                'user_id' => auth()->id(),
+                'action' => 'customer_update_failed',
+                'severity' => 'ERROR',
+                'entity_type' => 'Customer',
+                'entity_id' => $customer->id,
+                'new_values' => ['error' => $e->getMessage()],
+                'ip_address' => $request->ip(),
+            ]);
 
             return back()->with('error', 'Failed to update customer: '.$e->getMessage())
                 ->withInput();

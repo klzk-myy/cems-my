@@ -13,6 +13,7 @@ use App\Services\AccountingService;
 use App\Services\MathService;
 use App\Services\RateApiService;
 use App\Services\RevaluationService;
+use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -56,7 +57,8 @@ class RevaluationServiceFixTest extends TestCase
         $this->mathService = new MathService;
         $this->rateApiService = new RateApiService;
         $this->accountingService = new AccountingService($this->mathService);
-        $this->service = new RevaluationService($this->mathService, $this->rateApiService, $this->accountingService);
+        $auditService = new AuditService;
+        $this->service = new RevaluationService($this->mathService, $this->rateApiService, $this->accountingService, $auditService);
 
         // Disable account validation for tests
         Config::set('accounting.validate_accounts', false);
