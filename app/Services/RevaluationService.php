@@ -516,31 +516,26 @@ class RevaluationService
     protected function checkPositionLimitBreach(array $result): void
     {
         $currencyCode = $result['currency'] ?? null;
-        $gainLoss = $result['gain_loss'] ?? '0';
+        $gainLossAmount = $result['gain_loss'] ?? '0';
 
         // Only log if there's a gain (position increase)
-        if ($this->mathService->compare($gainLoss, '0') <= 0) {
+        if ($this->mathService->compare($gainLossAmount, '0') <= 0) {
             return;
         }
 
         $limits = config('cems.position_limits', []);
 
         // Check if this currency has a configured limit
-        foreach ($limits as $limit) {
-            if (($limit['currency'] ?? null) === $currencyCode) {
-                $positionLimit = $limit['limit'] ?? null;
-                if ($positionLimit && $this->mathService->compare($gainLoss, (string) $positionLimit) > 0) {
-                    $this->auditService->logPositionEvent('position_limit_breach', [
-                        'new' => [
-                            'currency_code' => $currencyCode,
-                            'gain_loss' => $gainLoss,
-                            'limit' => $positionLimit,
-                            'breach_amount' => $this->mathService->subtract($gainLoss, (string) $positionLimit),
-                        ],
-                    ]);
-                }
-                break;
-            }
+        if (isset($limits[$currencyCode]) && bccomp($gainLossAmount, (string) $limits[$currencyCode], 2) > 0) {
+            $positionLimit = $limits[$currencyCode];
+            $this->auditService->logPositionEvent('position_limit_breach', [
+                'new' => [
+                    'currency_code' => $currencyCode,
+                    'gain_loss' => $gainLossAmount,
+                    'limit' => $positionLimit,
+                    'breach_amount' => $this->mathService->subtract($gainLossAmount, (string) $positionLimit),
+                ],
+            ]);
         }
     }
 }
