@@ -85,7 +85,7 @@ Standard/Simplified CDD → No automatic hold
 ```
 
 ### Transaction Status Values
-The transaction state machine has 13 states (11 active + 2 legacy):
+The transaction state machine has 12 states (10 active + 2 legacy):
 - `Draft` - Initial state, transaction being created, not yet submitted
 - `PendingApproval` - Submitted and awaiting approval based on amount/role rules
 - `Approved` - Approved and ready for processing
