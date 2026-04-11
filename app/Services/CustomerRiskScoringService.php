@@ -15,6 +15,7 @@ class CustomerRiskScoringService
     public function __construct(
         protected SanctionScreeningService $sanctionService,
         protected ComplianceService $complianceService,
+        protected AuditService $auditService,
     ) {}
 
     /**
@@ -81,6 +82,22 @@ class CustomerRiskScoringService
         $scoreChange = $previousSnapshot
             ? abs($newSnapshot->overall_score - $previousSnapshot->overall_score)
             : $newSnapshot->overall_score;
+
+        // Log score change
+        $this->auditService->logCustomerRiskEvent('customer_risk_score_changed', $customerId, [
+            'old' => ['score' => $previousSnapshot?->overall_score],
+            'new' => ['score' => $newSnapshot->overall_score],
+        ]);
+
+        // Log risk level upgrade (e.g., low->medium, medium->high, high->critical)
+        $oldLevel = $this->getRiskLevel($previousSnapshot?->overall_score);
+        $newLevel = $this->getRiskLevel($newSnapshot->overall_score);
+        if ($this->isRiskLevelHigher($oldLevel, $newLevel)) {
+            $this->auditService->logCustomerRiskEvent('customer_risk_level_upgraded', $customerId, [
+                'old' => ['risk_level' => $oldLevel],
+                'new' => ['risk_level' => $newLevel],
+            ]);
+        }
 
         return [
             'customer_id' => $customerId,
@@ -303,5 +320,26 @@ class CustomerRiskScoringService
         };
 
         return now()->addDays($days);
+    }
+
+    protected function getRiskLevel(?int $score): string
+    {
+        if ($score === null) {
+            return 'Unknown';
+        }
+
+        return match (true) {
+            $score >= 80 => 'Critical',
+            $score >= 60 => 'High',
+            $score >= 30 => 'Medium',
+            default => 'Low',
+        };
+    }
+
+    protected function isRiskLevelHigher(string $oldLevel, string $newLevel): bool
+    {
+        $levels = ['Unknown' => 0, 'Low' => 1, 'Medium' => 2, 'High' => 3, 'Critical' => 4];
+
+        return ($levels[$newLevel] ?? 0) > ($levels[$oldLevel] ?? 0);
     }
 }
