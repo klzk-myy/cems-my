@@ -614,6 +614,90 @@ class AuditService
     }
 
     /**
+     * Log sanctions screening events.
+     *
+     * @param  string  $action  Sanction action (sanction_screening_hit,
+     *                          sanction_screening_passed, sanction_manual_override,
+     *                          sanction_block_overridden)
+     * @param  int|null  $entityId  Entity ID (customer, transaction)
+     * @param  array  $data  Sanction data
+     */
+    public function logSanctionEvent(string $action, ?int $entityId = null, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'sanction_screening_hit' => 'ERROR',
+            'sanction_manual_override' => 'WARNING',
+            'sanction_block_overridden' => 'CRITICAL',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => $data['entity_type'] ?? 'Sanction',
+                'entity_id' => $entityId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log currency position events.
+     *
+     * @param  string  $action  Position action (position_revaluation_run,
+     *                          position_limit_breach, position_manual_adjustment)
+     * @param  array  $data  Position data
+     */
+    public function logPositionEvent(string $action, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'position_limit_breach', 'position_manual_adjustment' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'CurrencyPosition',
+                'entity_id' => $data['position_id'] ?? null,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log report access events.
+     *
+     * @param  string  $action  Access action (report_customer_history_viewed,
+     *                          report_ctos_exported, report_audit_log_viewed,
+     *                          report_data_export)
+     * @param  array  $data  Access data
+     */
+    public function logReportAccessEvent(string $action, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'report_ctos_exported', 'report_audit_log_viewed',
+            'report_data_export' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'user_id' => auth()->id(),
+                'entity_type' => $data['entity_type'] ?? 'Report',
+                'entity_id' => $data['entity_id'] ?? null,
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
      * Export audit log to CSV or PDF
      */
     public function exportAuditLog(string $dateFrom, string $dateTo, string $format = 'CSV')
