@@ -610,7 +610,7 @@ class ComprehensiveViewsTest extends TestCase
         $response = $this->actingAs($complianceOfficer)
             ->get(route('compliance'));
         $response->assertStatus(200);
-        $response->assertSee('No flagged transactions found');
+        $response->assertSee('No Flagged Transactions');
 
         // LCTR with no transactions
         $response = $this->actingAs($manager)

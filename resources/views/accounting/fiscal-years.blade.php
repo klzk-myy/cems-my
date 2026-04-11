@@ -46,7 +46,7 @@
 <!-- Summary Cards -->
 <div class="stats-grid mb-6">
     <div class="stat-card stat-card--primary">
-        <div class="stat-card__value">{{ $fiscalYears->total() }}</div>
+        <div class="stat-card__value">{{ $fiscalYears->count() }}</div>
         <div class="stat-card__label">Total Fiscal Years</div>
     </div>
     <div class="stat-card stat-card--success">
@@ -160,11 +160,6 @@
         </div>
         @endif
     </div>
-    @if($fiscalYears->hasPages())
-    <div class="p-4 border-t border-gray-200">
-        {{ $fiscalYears->links() }}
-    </div>
-    @endif
 </div>
 
 <!-- Year-End Report -->
