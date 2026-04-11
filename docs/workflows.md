@@ -8,11 +8,12 @@ Complete workflow documentation for the Currency Exchange Management System (CEM
 2. [User Authentication Flow](#2-user-authentication-flow)
 3. [Compliance/AML Workflow](#3-complianceaml-workflow)
 4. [Counter Management Workflow](#4-counter-management-workflow)
-5. [Accounting Workflow](#5-accounting-workflow)
-6. [Budget Workflow](#6-budget-workflow)
-7. [Reconciliation Workflow](#7-reconciliation-workflow)
-8. [User Management Workflow](#8-user-management-workflow)
-9. [Reporting Workflow (BNM Reports)](#9-reporting-workflow-bnm-reports)
+5. [Stock Transfer Workflow](#5-stock-transfer-workflow)
+6. [Accounting Workflow](#6-accounting-workflow)
+7. [Budget Workflow](#7-budget-workflow)
+8. [Reconciliation Workflow](#8-reconciliation-workflow)
+9. [User Management Workflow](#9-user-management-workflow)
+10. [Reporting Workflow (BNM Reports)](#10-reporting-workflow-bnm-reports)
 
 ---
 
@@ -43,21 +44,23 @@ Transactions represent currency buy/sell operations. All transactions require MF
 ### Decision Points
 
 #### CDD Level Determination
+
 ```
-Enhanced CDD (>= RM 50,000 OR PEP OR Sanction OR High Risk)
-    ↓
-Standard CDD (>= RM 3,000 AND < RM 50,000)
-    ↓
-Simplified CDD (< RM 3,000)
+Enhanced CDD: amount >= RM 50,000 OR isPep OR hasSanctionMatch OR riskRating === 'High'
+Standard CDD: amount >= RM 3,000 AND amount < RM 50,000 (AND not PEP, no sanctions, not High Risk)
+Simplified CDD: amount < RM 3,000 (AND not PEP, no sanctions, not High Risk)
 ```
 
 #### Hold Decision Logic
+
 ```
-IF amount >= RM 50,000 → Hold (Pending status)
-IF customer is PEP → Hold (OnHold status)
-IF sanctions match → Hold (OnHold status)
-IF high risk customer → Hold (OnHold status)
-ELSE → No hold required (Completed status)
+Enhanced CDD triggers hold:
+  - amount >= RM 50,000 → Hold
+  - customer is PEP → Hold
+  - sanctions match → Hold
+  - riskRating === 'High' → Hold
+
+Standard/Simplified CDD → No automatic hold
 ```
 
 ### Status Transitions
@@ -82,10 +85,19 @@ ELSE → No hold required (Completed status)
 ```
 
 ### Transaction Status Values
-- `Completed` - Normal flow, no holds required
-- `Pending` - Amount >= RM 50,000 requires manager approval
-- `OnHold` - Compliance holds, requires compliance review
-- `Cancelled` - Terminated by manager/admin, creates refund
+The transaction state machine has 12 states:
+- `Draft` - Initial state, transaction being created, not yet submitted
+- `PendingApproval` - Submitted and awaiting approval based on amount/role rules
+- `Approved` - Approved and ready for processing
+- `Processing` - Stock movements, accounting, compliance are running
+- `Completed` - All side effects completed
+- `Finalized` - Day-end processed, cannot be modified
+- `Cancelled` - Cancelled before completion (requires manager approval)
+- `Reversed` - Reversed after completion with compensating transactions
+- `Failed` - Processing failed, awaiting recovery
+- `Rejected` - Rejected during approval (distinct from cancelled)
+- `Pending` - Legacy pending state
+- `OnHold` - On hold (legacy support, currently returns false)
 
 ### Required Permissions
 
@@ -229,6 +241,20 @@ AML compliance includes Customer Due Diligence (CDD) levels, transaction flaggin
 - `StrReportService::generateFromAlert()` - Generate STR from flagged transaction
 - `StrReportService::submitToGoAML()` - Submit to goAML system
 
+### Compliance Monitors (TransactionMonitoringService)
+
+Automated compliance monitoring runs via background jobs:
+
+| Monitor | Purpose | Detection |
+| ------- | ------- | -------- |
+| `VelocityMonitor` | 24-hour velocity threshold | RM 50,000+ in 24h (High), RM 45,000+ warning |
+| `StructuringMonitor` | Transaction aggregation | 3+ transactions under RM 3,000 within 1 hour |
+| `SanctionsRescreeningMonitor` | Weekly sanctions rescreening | Customers not screened since latest sanction update |
+| `StrDeadlineMonitor` | STR filing deadline | Flags approaching 3 working day deadline |
+| `CustomerLocationAnomalyMonitor` | Geographic anomalies | Foreign nationals with multiple currencies or high frequency |
+| `CurrencyFlowMonitor` | Round-tripping patterns | Same currency sold then bought within 72 hours (>= RM 5,000) |
+| `CounterfeitAlertMonitor` | Counterfeit currency | 30-day lookback for counterfeit flags |
+
 ### CDD Levels
 
 ```
@@ -236,27 +262,10 @@ AML compliance includes Customer Due Diligence (CDD) levels, transaction flaggin
 │                    CDD LEVEL DETERMINATION                       │
 └─────────────────────────────────────────────────────────────────┘
 
-                         amount >= RM 50,000?
-                              │      │
-                            Yes      No
-                              │      │
-                              ▼      ▼
-                      [Enhanced]    customer is PEP?
-                                     │      │
-                                   Yes      No
-                                     │      │
-                                     ▼      ▼
-                               [Enhanced]   customer is High Risk?
-                                              │      │
-                                            Yes      No
-                                              │      │
-                                              ▼      ▼
-                                        [Enhanced]  amount >= RM 3,000?
-                                                     │      │
-                                                   Yes      No
-                                                     │      │
-                                                     ▼      ▼
-                                              [Standard] [Simplified]
+    IF isPep OR hasSanctionMatch → Enhanced CDD
+    ELSE IF amount >= RM 50,000 OR riskRating === 'High' → Enhanced CDD
+    ELSE IF amount >= RM 3,000 → Standard CDD
+    ELSE → Simplified CDD
 ```
 
 ### Compliance Flag Types (ComplianceFlagType Enum)
@@ -393,7 +402,88 @@ Counters (tills) manage daily cash operations including opening, closing, and ha
 
 ---
 
-## 5. Accounting Workflow
+## 5. Stock Transfer Workflow
+
+### Overview
+Inter-branch stock transfers with multi-stage approval workflow. Transfer requests originate from branches and require sequential approvals before stock is dispatched and received.
+
+### Entry Points
+
+| Route | Method | Controller | Description |
+|-------|--------|------------|-------------|
+| `/stock-transfers` | GET | StockTransferController@index | List transfers |
+| `/stock-transfers/create` | GET | StockTransferController@create | Create transfer form |
+| `/stock-transfers` | POST | StockTransferController@store | Store new transfer |
+| `/stock-transfers/{id}` | GET | StockTransferController@show | View transfer |
+| `/stock-transfers/{id}/approve-bm` | POST | StockTransferController@approveBm | Branch manager approval |
+| `/stock-transfers/{id}/approve-hq` | POST | StockTransferController@approveHq | HQ approval |
+| `/stock-transfers/{id}/dispatch` | POST | StockTransferController@dispatch | Dispatch stock |
+| `/stock-transfers/{id}/receive` | POST | StockTransferController@receive | Receive stock |
+| `/stock-transfers/{id}/complete` | POST | StockTransferController@complete | Complete transfer |
+
+### Transfer Status Values
+
+| Status | Description |
+| ------ | ----------- |
+| `Requested` | Initial state, created by branch manager |
+| `BranchManagerApproved` | Approved by branch manager |
+| `HQApproved` | Approved by HQ admin |
+| `InTransit` | Stock dispatched and in transit |
+| `PartiallyReceived` | Some items received |
+| `Completed` | All items received, transfer complete |
+| `Cancelled` | Transfer cancelled |
+| `Rejected` | Transfer rejected |
+
+### Transfer Types
+- `Standard` - Regular scheduled transfer
+- `Emergency` - Urgent transfer
+- `Scheduled` - Pre-planned transfer
+- `Return` - Return transfer
+
+### Stock Transfer Lifecycle
+
+```
+    ┌─────────────────────────────────────────────────────────────┐
+    │                 STOCK TRANSFER LIFECYCLE                     │
+    └─────────────────────────────────────────────────────────────┘
+
+    [Requested] ──► [BranchManagerApproved] ──► [HQApproved]
+         │                   │                       │
+         ▼                   ▼                       ▼
+    [Cancelled]        [Rejected]              [InTransit]
+                                                    │
+                                        ┌───────────┴───────────┐
+                                        │                       │
+                                        ▼                       ▼
+                              [PartiallyReceived]         [Completed]
+                                        │
+                                        ▼
+                                  [Completed]
+```
+
+### Stage Details
+
+| Stage | Actor | Action |
+| ----- | ----- | ------ |
+| 1. Create | Manager | Creates transfer request with items and quantities |
+| 2. BM Approval | Manager | Branch manager approves transfer |
+| 3. HQ Approval | Admin | HQ admin approves transfer |
+| 4. Dispatch | Admin | Admin marks stock as dispatched |
+| 5. Receive | Admin | Admin receives stock at destination |
+| 6. Complete | Admin | Finalizes transfer after all items received |
+
+### Required Permissions
+
+- Create transfer: `Manager` or `Admin`
+- BM approval: `Manager` or `Admin`
+- HQ approval: `Admin` only
+- Dispatch: `Admin` only
+- Receive: `Admin` only
+- Complete: `Admin` only
+
+---
+
+## 6. Accounting Workflow
 
 ### Overview
 Double-entry accounting with journal entries, period management, currency revaluation, and financial statements.
