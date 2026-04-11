@@ -134,4 +134,77 @@ class AuditServiceTest extends TestCase
         $this->assertEquals('Customer', $entry->entity_type);
         $this->assertEquals(456, $entry->entity_id);
     }
+
+    public function test_log_mfa_event_creates_entry()
+    {
+        $entry = $this->service->logMfaEvent('mfa_verification_success', null, [
+            'new' => ['method' => 'totp'],
+        ]);
+
+        $this->assertNotEmpty($entry->entry_hash);
+        $this->assertEquals('MfaEvent', $entry->entity_type);
+        $this->assertEquals('mfa_verification_success', $entry->action);
+    }
+
+    public function test_log_mfa_event_failed_sets_warning_severity()
+    {
+        $entry = $this->service->logMfaEvent('mfa_verification_failed', null);
+        $this->assertEquals('WARNING', $entry->severity);
+    }
+
+    public function test_log_stock_transfer_event_creates_entry()
+    {
+        $entry = $this->service->logStockTransferEvent('stock_transfer_created', 1, [
+            'new' => ['transfer_number' => 'ST-001'],
+        ]);
+
+        $this->assertNotEmpty($entry->entry_hash);
+        $this->assertEquals('StockTransfer', $entry->entity_type);
+        $this->assertEquals('stock_transfer_created', $entry->action);
+    }
+
+    public function test_log_compliance_alert_event_creates_entry()
+    {
+        $entry = $this->service->logComplianceAlertEvent('compliance_alert_created', 1);
+
+        $this->assertEquals('Alert', $entry->entity_type);
+        $this->assertEquals('WARNING', $entry->severity);
+    }
+
+    public function test_log_customer_risk_event_creates_entry()
+    {
+        $entry = $this->service->logCustomerRiskEvent('customer_risk_score_changed', 1, [
+            'old' => ['score' => 50],
+            'new' => ['score' => 75],
+        ]);
+
+        $this->assertEquals('Customer', $entry->entity_type);
+        $this->assertEquals('customer_risk_score_changed', $entry->action);
+    }
+
+    public function test_log_aml_monitor_event_creates_entry()
+    {
+        $entry = $this->service->logAmlMonitorEvent('aml_velocity_alert_triggered', 123, [
+            'entity_type' => 'Transaction',
+            'new' => ['amount' => 50000],
+        ]);
+
+        $this->assertEquals('ERROR', $entry->severity);
+    }
+
+    public function test_log_data_breach_event_creates_entry()
+    {
+        $entry = $this->service->logDataBreachEvent('data_breach_detected', 1);
+
+        $this->assertEquals('DataBreachAlert', $entry->entity_type);
+        $this->assertEquals('CRITICAL', $entry->severity);
+    }
+
+    public function test_log_permission_denied_creates_entry()
+    {
+        $entry = $this->service->logPermissionDenied('Transaction', 'delete', 'Insufficient role');
+
+        $this->assertEquals('permission_denied', $entry->action);
+        $this->assertEquals('WARNING', $entry->severity);
+    }
 }
