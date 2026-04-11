@@ -26,6 +26,9 @@ class StrReport extends Model
         'approved_by',
         'suspicion_date',
         'filing_deadline',
+        'retry_count',
+        'last_error',
+        'last_retry_at',
     ];
 
     protected $casts = [
@@ -35,6 +38,8 @@ class StrReport extends Model
         'submitted_at' => 'datetime',
         'suspicion_date' => 'datetime',
         'filing_deadline' => 'datetime',
+        'last_retry_at' => 'datetime',
+        'retry_count' => 'integer',
     ];
 
     public function customer()
@@ -90,6 +95,16 @@ class StrReport extends Model
     public function isAcknowledged(): bool
     {
         return $this->status === StrStatus::Acknowledged;
+    }
+
+    public function isFailed(): bool
+    {
+        return $this->status === StrStatus::Failed;
+    }
+
+    public function canRetry(): bool
+    {
+        return $this->status->canRetry();
     }
 
     /**

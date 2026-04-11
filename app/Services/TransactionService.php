@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\SystemLog;
 use App\Models\TillBalance;
 use App\Models\Transaction;
+use App\Services\TransactionMonitoringService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
@@ -27,6 +28,7 @@ class TransactionService
         protected CurrencyPositionService $positionService,
         protected AccountingService $accountingService,
         protected AuditService $auditService,
+        protected TransactionMonitoringService $monitoringService,
     ) {}
 
     /**
@@ -297,5 +299,141 @@ class TransactionService
             $transaction->id,
             "Transaction #{$transaction->id} - {$transaction->type->value} {$transaction->currency_code}"
         );
+    }
+
+    /**
+     * Approve a pending transaction and complete its side effects.
+     *
+     * This method handles the full approval workflow for transactions that were
+     * created with 'Pending' status (typically >= RM 50,000).
+     *
+     * @param  Transaction  $transaction  The pending transaction to approve
+     * @param  int  $approverId  The user ID of the manager/admin approving
+     * @param  string|null  $ipAddress  IP address for audit logging
+     * @return array{success: bool, message: string, transaction?: Transaction}
+     *
+     * @throws \InvalidArgumentException If transaction is not pending
+     * @throws \RuntimeException If transaction was already processed
+     */
+    public function approveTransaction(Transaction $transaction, int $approverId, ?string $ipAddress = null): array
+    {
+        $ipAddress = $ipAddress ?? request()->ip();
+
+        // Validate transaction is in pending status
+        if ($transaction->status !== TransactionStatus::Pending) {
+            throw new \InvalidArgumentException(
+                'Transaction is not pending approval. Current status: '.$transaction->status->label()
+            );
+        }
+
+        // Re-run compliance monitoring before approval
+        // If high-priority AML flags are generated, approval is blocked
+        $amlResult = $this->monitoringService->monitorTransaction($transaction);
+        $highPriorityFlags = array_filter(
+            $amlResult['flags'],
+            fn ($flag) => $flag->flag_type->isHighPriority()
+        );
+
+        if (! empty($highPriorityFlags)) {
+            $flagTypes = implode(', ', array_map(
+                fn ($f) => $f->flag_type->label(),
+                $highPriorityFlags
+            ));
+
+            $this->auditService->logWithSeverity(
+                'transaction_approval_blocked',
+                [
+                    'user_id' => $approverId,
+                    'entity_type' => 'Transaction',
+                    'entity_id' => $transaction->id,
+                    'new_values' => [
+                        'reason' => 'High-priority AML flags',
+                        'flags' => $flagTypes,
+                    ],
+                ],
+                'WARNING'
+            );
+
+            return [
+                'success' => false,
+                'message' => "Approval blocked: High-priority AML flags generated ({$flagTypes}). Transaction remains pending for compliance review.",
+            ];
+        }
+
+        return DB::transaction(function () use ($transaction, $approverId, $ipAddress, $amlResult) {
+            // Optimistic locking: Prevent race conditions
+            $updated = Transaction::where('id', $transaction->id)
+                ->where('status', TransactionStatus::Pending)
+                ->where('version', $transaction->version)
+                ->update([
+                    'status' => TransactionStatus::Completed,
+                    'approved_by' => $approverId,
+                    'approved_at' => now(),
+                    'version' => DB::raw('version + 1'),
+                ]);
+
+            if (! $updated) {
+                throw new \RuntimeException(
+                    'Transaction was already processed or modified by another user.'
+                );
+            }
+
+            // Refresh the model to get updated version
+            $transaction->refresh();
+
+            // Get the till balance for today
+            $tillBalance = TillBalance::where('till_id', $transaction->till_id ?? 'MAIN')
+                ->where('currency_code', $transaction->currency_code)
+                ->whereDate('date', today())
+                ->whereNull('closed_at')
+                ->first();
+
+            if (! $tillBalance) {
+                throw new \RuntimeException(
+                    'Till balance not found for today. Cannot complete transaction.'
+                );
+            }
+
+            // Execute position and till balance updates
+            $this->positionService->updatePosition(
+                $transaction->currency_code,
+                (string) $transaction->amount_foreign,
+                (string) $transaction->rate,
+                $transaction->type->value,
+                $transaction->till_id ?? 'MAIN'
+            );
+            $this->updateTillBalance(
+                $tillBalance,
+                $transaction->type->value,
+                (string) $transaction->amount_local,
+                (string) $transaction->amount_foreign
+            );
+
+            // Create double-entry accounting journal entries
+            $this->createAccountingEntries($transaction);
+
+            // Audit logging for the approval action
+            $this->auditService->logTransaction('transaction_approved', $transaction->id, [
+                'old' => [
+                    'status' => TransactionStatus::Pending->value,
+                    'approved_by' => null,
+                ],
+                'new' => [
+                    'status' => TransactionStatus::Completed->value,
+                    'approved_by' => $approverId,
+                    'approved_at' => $transaction->approved_at->toIso8601String(),
+                    'aml_flags_checked' => $amlResult['flags_created'] ?? 0,
+                ],
+            ]);
+
+            // Dispatch event for async compliance processing
+            Event::dispatch(new \App\Events\TransactionCreated($transaction));
+
+            return [
+                'success' => true,
+                'message' => 'Transaction approved and completed successfully.',
+                'transaction' => $transaction->fresh(),
+            ];
+        });
     }
 }

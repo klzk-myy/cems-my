@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $reference_type
  * @property int|null $reference_id
  * @property string|null $description
- * @property string $status Draft, Pending, Posted, Reversed
+ * @property string $status Draft, Pending, Posted, Reversed, Rejected
  * @property int|null $posted_by
  * @property \Illuminate\Support\Carbon|null $posted_at
  * @property int|null $reversed_by
@@ -146,6 +146,30 @@ class JournalEntry extends Model
     public function isPosted(): bool
     {
         return $this->status === 'Posted';
+    }
+
+    /**
+     * Check if this journal entry is in draft status.
+     */
+    public function isDraft(): bool
+    {
+        return $this->status === 'Draft';
+    }
+
+    /**
+     * Check if this journal entry is pending approval.
+     */
+    public function isPending(): bool
+    {
+        return $this->status === 'Pending';
+    }
+
+    /**
+     * Check if this journal entry has been rejected.
+     */
+    public function isRejected(): bool
+    {
+        return $this->status === 'Rejected';
     }
 
     /**

@@ -36,6 +36,7 @@ class AccountLedger extends Model
         'account_code',
         'entry_date',
         'journal_entry_id',
+        'branch_id',
         'debit',
         'credit',
         'running_balance',

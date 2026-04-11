@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\SystemLog;
+use App\Services\AuditService;
 use App\Services\EncryptionService;
 use App\Services\RiskRatingService;
 use App\Services\SanctionScreeningService;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\Log;
 class CustomerController extends Controller
 {
     public function __construct(
+        protected AuditService $auditService,
         protected EncryptionService $encryptionService,
         protected SanctionScreeningService $sanctionService,
         protected RiskRatingService $riskRatingService
@@ -214,13 +216,9 @@ class CustomerController extends Controller
             // Initial risk assessment using RiskRatingService
             $riskAssessment = $this->riskRatingService->assessCustomer($customer, auth()->id());
 
-            // Log customer creation
-            SystemLog::create([
-                'user_id' => auth()->id(),
-                'action' => 'customer_created',
-                'entity_type' => 'Customer',
-                'entity_id' => $customer->id,
-                'new_values' => [
+            // Log customer creation with AuditService (hash-chained)
+            $this->auditService->logCustomer('customer_created', $customer->id, [
+                'new' => [
                     'full_name' => $customer->full_name,
                     'id_type' => $customer->id_type,
                     'nationality' => $customer->nationality,
@@ -228,7 +226,6 @@ class CustomerController extends Controller
                     'pep_status' => $customer->pep_status,
                     'sanction_hit' => $hasSanctionHit,
                 ],
-                'ip_address' => $request->ip(),
             ]);
 
             DB::commit();
@@ -423,14 +420,10 @@ class CustomerController extends Controller
             // Re-assess risk
             $this->riskRatingService->assessCustomer($customer, auth()->id());
 
-            // Log customer update
-            SystemLog::create([
-                'user_id' => auth()->id(),
-                'action' => 'customer_updated',
-                'entity_type' => 'Customer',
-                'entity_id' => $customer->id,
-                'old_values' => $oldValues,
-                'new_values' => [
+            // Log customer update with AuditService (hash-chained)
+            $this->auditService->logCustomer('customer_updated', $customer->id, [
+                'old' => $oldValues,
+                'new' => [
                     'full_name' => $customer->full_name,
                     'id_type' => $customer->id_type,
                     'nationality' => $customer->nationality,
@@ -438,7 +431,6 @@ class CustomerController extends Controller
                     'pep_status' => $customer->pep_status,
                     'is_active' => $customer->is_active,
                 ],
-                'ip_address' => $request->ip(),
             ]);
 
             DB::commit();
@@ -502,14 +494,9 @@ class CustomerController extends Controller
         // For compliance, we typically soft delete. Using regular delete for now.
         $customer->delete();
 
-        // Log customer deletion
-        SystemLog::create([
-            'user_id' => auth()->id(),
-            'action' => 'customer_deleted',
-            'entity_type' => 'Customer',
-            'entity_id' => $customerId,
-            'old_values' => ['full_name' => $customerName],
-            'ip_address' => $request->ip(),
+        // Log customer deletion with AuditService (hash-chained)
+        $this->auditService->logCustomer('customer_deleted', $customerId, [
+            'old' => ['full_name' => $customerName],
         ]);
 
         return redirect()->route('customers.index')

@@ -9,6 +9,7 @@ enum StrStatus: string
     case PendingApproval = 'pending_approval';
     case Submitted = 'submitted';
     case Acknowledged = 'acknowledged';
+    case Failed = 'failed';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum StrStatus: string
             self::PendingApproval => 'Pending Approval',
             self::Submitted => 'Submitted',
             self::Acknowledged => 'Acknowledged',
+            self::Failed => 'Failed',
         };
     }
 
@@ -29,6 +31,7 @@ enum StrStatus: string
             self::PendingApproval => 'info',
             self::Submitted => 'primary',
             self::Acknowledged => 'success',
+            self::Failed => 'danger',
         };
     }
 
@@ -45,6 +48,11 @@ enum StrStatus: string
     public function canReview(): bool
     {
         return $this === self::Draft;
+    }
+
+    public function canRetry(): bool
+    {
+        return in_array($this, [self::Failed, self::PendingApproval]);
     }
 
     public function isActive(): bool

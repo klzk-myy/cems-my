@@ -142,35 +142,151 @@ class StrReportService
 
             $submitted = $this->callGoAMLApi($goAmlPayload);
 
-            // Always update status when submission is attempted
-            // Even if API fails, we mark it as submitted for tracking
-            $updateData = [
-                'status' => StrStatus::Submitted,
-                'submitted_at' => now(),
-            ];
-            $report->update($updateData);
-
             if ($submitted) {
+                // Only mark as Submitted when API call actually succeeds
+                $report->update([
+                    'status' => StrStatus::Submitted,
+                    'submitted_at' => now(),
+                ]);
+
                 Log::info('STR submitted successfully', [
                     'str_id' => $report->id,
                     'str_no' => $report->str_no,
                 ]);
-            } else {
-                Log::warning('STR submission API call failed', [
-                    'str_id' => $report->id,
+
+                // Audit log for successful submission
+                $auditService = app(AuditService::class);
+                $auditService->logStrAction('str_submitted', $report->id, [
                     'str_no' => $report->str_no,
+                    'submitted_at' => now()->toDateTimeString(),
                 ]);
+
+                return true;
             }
 
-            return $submitted;
+            // API call returned false - mark as Failed with error details
+            $errorMessage = 'goAML API returned non-success response';
+            $report->update([
+                'status' => StrStatus::Failed,
+                'retry_count' => ($report->retry_count ?? 0) + 1,
+                'last_error' => $errorMessage,
+                'last_retry_at' => now(),
+            ]);
+
+            Log::error('STR submission failed - marked as Failed', [
+                'str_id' => $report->id,
+                'str_no' => $report->str_no,
+                'retry_count' => $report->retry_count,
+                'error' => $errorMessage,
+            ]);
+
+            // Audit log for failed submission
+            $auditService = app(AuditService::class);
+            $auditService->logStrAction('str_submission_failed', $report->id, [
+                'str_no' => $report->str_no,
+                'retry_count' => $report->retry_count,
+                'error' => $errorMessage,
+            ]);
+
+            return false;
         } catch (\Exception $e) {
-            Log::error('STR submission failed', [
+            Log::error('STR submission exception', [
                 'str_id' => $report->id,
                 'error' => $e->getMessage(),
             ]);
 
+            // Mark as Failed on exception
+            $report->update([
+                'status' => StrStatus::Failed,
+                'retry_count' => ($report->retry_count ?? 0) + 1,
+                'last_error' => $e->getMessage(),
+                'last_retry_at' => now(),
+            ]);
+
             return false;
         }
+    }
+
+    /**
+     * Retry a failed STR submission.
+     * Can be called manually by compliance officer or via scheduled job.
+     *
+     * @param StrReport $report
+     * @return bool True if submission succeeds, false otherwise
+     */
+    public function retrySubmission(StrReport $report): bool
+    {
+        if (! $report->status->canRetry()) {
+            Log::warning('STR cannot be retried: invalid status', [
+                'str_id' => $report->id,
+                'status' => $report->status->value,
+            ]);
+
+            return false;
+        }
+
+        $maxRetries = config('services.goaml.max_retries', 5);
+
+        if ($report->retry_count >= $maxRetries) {
+            Log::warning('STR retry limit exceeded - escalation required', [
+                'str_id' => $report->id,
+                'str_no' => $report->str_no,
+                'retry_count' => $report->retry_count,
+                'max_retries' => $maxRetries,
+            ]);
+
+            // TODO: Trigger supervisor escalation notification
+            // This could be a job sent to compliance supervisors
+            $this->escalateToSupervisor($report);
+
+            return false;
+        }
+
+        Log::info('Retrying STR submission', [
+            'str_id' => $report->id,
+            'str_no' => $report->str_no,
+            'attempt' => ($report->retry_count ?? 0) + 1,
+        ]);
+
+        // Revert status to PendingApproval so submitToGoAML will accept it
+        // Failed STRs need to be re-submitted as they were originally in PendingApproval
+        $report->update(['status' => StrStatus::PendingApproval]);
+        $report->refresh();
+
+        // Attempt submission again
+        return $this->submitToGoAML($report);
+    }
+
+    /**
+     * Escalate a repeatedly failed STR to supervisor for manual intervention.
+     */
+    protected function escalateToSupervisor(StrReport $report): void
+    {
+        // Log escalation for supervisor attention
+        Log::critical('STR submission escalated to supervisor', [
+            'str_id' => $report->id,
+            'str_no' => $report->str_no,
+            'retry_count' => $report->retry_count,
+            'filing_deadline' => $report->filing_deadline?->toDateTimeString(),
+            'is_overdue' => $report->isOverdue(),
+        ]);
+
+        // Update status to reflect escalation (could add a new Escalated status if needed)
+        $report->update([
+            'last_error' => 'Escalated to supervisor after ' . $report->retry_count . ' failed attempts',
+        ]);
+
+        // Audit log for escalation
+        $auditService = app(AuditService::class);
+        $auditService->logStrAction('str_escalated', $report->id, [
+            'str_no' => $report->str_no,
+            'retry_count' => $report->retry_count,
+            'filing_deadline' => $report->filing_deadline?->toDateTimeString(),
+            'is_overdue' => $report->isOverdue(),
+        ]);
+
+        // TODO: Send notification to compliance supervisors
+        // This could dispatch a job to notify supervisors via email/SMS
     }
 
     public function trackSubmission(StrReport $report, string $bnmRef): void

@@ -270,13 +270,14 @@ class StrWorkflowTest extends TestCase
     }
 
     /**
-     * Test manager can submit STR to goAML (mock)
+     * Test that failed STR submission is marked as Failed, not Submitted
+     * This verifies the BNM compliance fix - API failures must not create false submissions
      */
-    public function test_manager_can_submit_str_to_goaml(): void
+    public function test_failed_str_submission_is_marked_as_failed(): void
     {
         // Create STR in pending approval status
         $strReport = StrReport::create([
-            'str_no' => 'STR-20260400003',
+            'str_no' => 'STR-20260400005',
             'branch_id' => 1,
             'customer_id' => $this->customer->id,
             'alert_id' => $this->flag->id,
@@ -288,14 +289,55 @@ class StrWorkflowTest extends TestCase
             'approved_by' => $this->managerUser->id,
         ]);
 
-        $response = $this->actingAs($this->managerUser)
-            ->post("/str/{$strReport->id}/submit");
+        // Call the actual service - the API call will fail (no real goAML endpoint)
+        // This is the expected behavior - API failure should NOT mark as Submitted
+        $strService = $this->app->make(\App\Services\StrReportService::class);
+        $result = $strService->submitToGoAML($strReport);
 
-        $response->assertRedirect();
+        $this->assertFalse($result);
+        $strReport->refresh();
+
+        // Critical BNM compliance check: Failed submissions must NOT be marked as Submitted
+        $this->assertEquals(StrStatus::Failed, $strReport->status);
+        $this->assertNull($strReport->submitted_at);
+        $this->assertEquals(1, $strReport->retry_count);
+        $this->assertNotNull($strReport->last_error);
+        $this->assertNotNull($strReport->last_retry_at);
+    }
+
+    /**
+     * Test that retrySubmission correctly retries a failed STR
+     */
+    public function test_retry_submission_retries_failed_str(): void
+    {
+        // Create STR in failed status (from a previous failed attempt)
+        $strReport = StrReport::create([
+            'str_no' => 'STR-20260400006',
+            'branch_id' => 1,
+            'customer_id' => $this->customer->id,
+            'alert_id' => $this->flag->id,
+            'transaction_ids' => [$this->flaggedTransaction->id],
+            'reason' => 'Suspicious transaction narrative',
+            'status' => StrStatus::Failed,
+            'retry_count' => 1,
+            'last_error' => 'Previous failed attempt',
+            'created_by' => $this->complianceOfficer->id,
+            'reviewed_by' => $this->managerUser->id,
+            'approved_by' => $this->managerUser->id,
+        ]);
 
         $strReport->refresh();
-        $this->assertEquals(StrStatus::Submitted, $strReport->status);
-        $this->assertNotNull($strReport->submitted_at);
+        $this->assertEquals(1, $strReport->retry_count);
+        $this->assertTrue($strReport->canRetry());
+
+        // Note: This will fail again since there's no real API, but it tests the retry logic
+        $strService = $this->app->make(\App\Services\StrReportService::class);
+        $result = $strService->retrySubmission($strReport);
+
+        // The retry will fail (no real API), so it returns false
+        $this->assertFalse($result);
+        $strReport->refresh();
+        $this->assertEquals(2, $strReport->retry_count);
     }
 
     /**
