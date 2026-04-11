@@ -747,7 +747,7 @@ class AuditService
                 'new_values' => [
                     'accessed_branch_id' => $accessedBranchId,
                     'accessed_branch_name' => $data['branch_name'] ?? null,
-                    'user_branch_id' => auth()->user()->branch_id ?? null,
+                    'user_branch_id' => auth()->user()?->branch_id ?? null,
                 ],
             ],
             'WARNING'
