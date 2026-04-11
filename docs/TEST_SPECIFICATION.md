@@ -28,11 +28,11 @@ This document specifies the test suites for CEMS-MY (Currency Exchange Managemen
 
 | Category | Count |
 |----------|-------|
-| Feature Tests | 24 test files |
-| Unit Tests | 30 test files |
-| Total Tests | 1,061 |
-| Total Assertions | 3,153 |
-| Duration (full suite) | ~45 seconds |
+| Feature Tests | 34 test files |
+| Unit Tests | 39 test files |
+| Total Tests | ~1,100+ |
+| Total Assertions | ~3,500+ |
+| Duration (full suite) | ~45-60 seconds |
 
 ### 1.3 Test Philosophy
 
