@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\RiskTrend;
 use App\Events\RiskScoreUpdated;
 use App\Models\Customer;
+use App\Models\CustomerRiskProfile;
 use App\Models\HighRiskCountry;
 use App\Models\RiskScoreSnapshot;
 use App\Models\Transaction;
@@ -171,6 +172,23 @@ class CustomerRiskScoringService
             'deteriorating_trend' => $todaySnapshots->where('trend', RiskTrend::Deteriorating)->count(),
             'needs_rescreening' => $this->getCustomersNeedingRescreening()->count(),
         ];
+    }
+
+    /**
+     * Lock a customer's risk profile.
+     */
+    public function lockCustomerRisk(int $customerId, int $userId, string $reason): CustomerRiskProfile
+    {
+        $profile = CustomerRiskProfile::where('customer_id', $customerId)->firstOrFail();
+
+        $profile->lock($userId, $reason);
+
+        $this->auditService->logCustomerRiskEvent('customer_risk_locked', $customerId, [
+            'locked_by' => $userId,
+            'reason' => $reason,
+        ]);
+
+        return $profile;
     }
 
     protected function getRecentTransactions(int $customerId): Collection
