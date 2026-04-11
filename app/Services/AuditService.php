@@ -354,6 +354,92 @@ class AuditService
     }
 
     /**
+     * Log compliance alert events.
+     *
+     * @param  string  $action  Alert action (compliance_alert_created,
+     *                          compliance_alert_triaged, compliance_alert_assigned,
+     *                          compliance_alert_dismissed, compliance_alert_escalated,
+     *                          compliance_alert_resolved, compliance_alert_bulk_dismissed)
+     * @param  int  $alertId  Alert ID
+     * @param  array  $data  Alert data
+     */
+    public function logComplianceAlertEvent(string $action, int $alertId, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'compliance_alert_created', 'compliance_alert_escalated' => 'WARNING',
+            'compliance_alert_bulk_dismissed' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'Alert',
+                'entity_id' => $alertId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log compliance case events.
+     *
+     * @param  string  $action  Case action (compliance_case_created,
+     *                          compliance_case_status_changed, compliance_case_assigned,
+     *                          compliance_case_note_added, compliance_case_document_linked,
+     *                          compliance_case_linked_to_transaction,
+     *                          compliance_case_linked_to_customer,
+     *                          compliance_case_priority_changed)
+     * @param  int  $caseId  Case ID
+     * @param  array  $data  Case data
+     */
+    public function logComplianceCaseEvent(string $action, int $caseId, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'compliance_case_priority_changed' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'ComplianceCase',
+                'entity_id' => $caseId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log EDD template events.
+     *
+     * @param  string  $action  Template action (edd_template_created,
+     *                          edd_template_updated, edd_template_deleted,
+     *                          edd_template_duplicated)
+     * @param  int  $templateId  Template ID
+     * @param  array  $data  Template data
+     */
+    public function logEddTemplateEvent(string $action, int $templateId, array $data = []): SystemLog
+    {
+        $severity = $action === 'edd_template_deleted' ? 'WARNING' : 'INFO';
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'EddTemplate',
+                'entity_id' => $templateId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
      * Export audit log to CSV or PDF
      */
     public function exportAuditLog(string $dateFrom, string $dateTo, string $format = 'CSV')
