@@ -30,7 +30,7 @@ class RouteServiceProvider extends ServiceProvider
 
         // Rate limiter for login/authentication endpoints
         RateLimiter::for('login', function (Request $request) {
-            return Limit::perMinute(5)->by($request->ip())->response(function () {
+            return Limit::perMinute(30)->by($request->ip())->response(function () {
                 return response('Too many login attempts. Please try again later.', 429);
             });
         });

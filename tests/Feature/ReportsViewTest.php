@@ -87,7 +87,7 @@ class ReportsViewTest extends TestCase
         $response->assertSee('LCTR Report');
         $response->assertSee('MSB(2) Report');
         $response->assertSee('Trial Balance');
-        $response->assertSee('Profit & Loss');
+        $response->assertSee('Profit & Loss', false);
         $response->assertSee('Balance Sheet');
         $response->assertSee('Currency Position');
         $response->assertSee('Customer Risk Report');
