@@ -267,6 +267,38 @@ class AuditService
     }
 
     /**
+     * Log MFA (Multi-Factor Authentication) events.
+     *
+     * @param  string  $action  MFA action (mfa_setup_started, mfa_setup_completed,
+     *                          mfa_verification_success, mfa_verification_failed,
+     *                          mfa_disable_requested, mfa_disable_completed,
+     *                          mfa_recovery_code_used, mfa_trusted_device_added,
+     *                          mfa_trusted_device_removed)
+     * @param  int|null  $userId  User ID (null if not authenticated)
+     * @param  array  $data  Additional context data
+     */
+    public function logMfaEvent(string $action, ?int $userId = null, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'mfa_verification_failed', 'mfa_disable_requested', 'mfa_recovery_code_used',
+            'mfa_trusted_device_removed' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'user_id' => $userId ?? auth()->id(),
+                'entity_type' => 'MfaEvent',
+                'entity_id' => $data['entity_id'] ?? null,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
      * Export audit log to CSV or PDF
      */
     public function exportAuditLog(string $dateFrom, string $dateTo, string $format = 'CSV')
