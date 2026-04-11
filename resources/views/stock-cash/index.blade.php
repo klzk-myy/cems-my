@@ -17,96 +17,104 @@
 @endsection
 
 @section('content')
-<div class="mb-6">
-    <h2 class="text-xl font-semibold text-gray-800 mb-1">Stock & Cash Management</h2>
-    <p class="text-gray-500 text-sm">Manage foreign currency inventory and till operations</p>
+<div class="page-header">
+    <div class="page-header__content">
+        <h1 class="page-header__title">Stock & Cash Management</h1>
+    </div>
 </div>
 
 <!-- Statistics -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-    <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-6 text-white text-center">
-        <div class="text-3xl font-bold">{{ $stats['total_currencies'] ?? 0 }}</div>
-        <div class="text-sm opacity-90 mt-1">Active Currencies</div>
+<div class="stats-grid mb-6">
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">{{ $stats['total_currencies'] ?? 0 }}</div>
+        <div class="stat-card__label">Active Currencies</div>
     </div>
-    <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white text-center">
-        <div class="text-3xl font-bold">{{ $stats['active_positions'] ?? 0 }}</div>
-        <div class="text-sm opacity-90 mt-1">Currency Positions</div>
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__value">{{ $stats['active_positions'] ?? 0 }}</div>
+        <div class="stat-card__label">Currency Positions</div>
     </div>
-    <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-6 text-white text-center">
-        <div class="text-3xl font-bold">{{ $stats['open_tills'] ?? 0 }}</div>
-        <div class="text-sm opacity-90 mt-1">Open Tills</div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">{{ $stats['open_tills'] ?? 0 }}</div>
+        <div class="stat-card__label">Open Tills</div>
     </div>
-    <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-6 text-white text-center">
-        <div class="text-3xl font-bold">{{ number_format($stats['total_variance'] ?? 0, 2) }}</div>
-        <div class="text-sm opacity-90 mt-1">Total Variance (MYR)</div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ number_format($stats['total_variance'] ?? 0, 2) }}</div>
+        <div class="stat-card__label">Total Variance (MYR)</div>
     </div>
 </div>
 
 <!-- Till Operations -->
-<div class="card">
-    <h2>Till Operations</h2>
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Till Operations</h3>
+    </div>
+    <div class="card-body">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Open Till Form -->
+            <form action="/stock-cash/open" method="POST">
+                @csrf
+                <h4 class="text-base font-semibold text-gray-700 mb-4">Open Till</h4>
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm font-semibold text-gray-600">Till ID</label>
+                    <input type="text" name="till_id" placeholder="e.g., TILL-001" required class="form-input">
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm font-semibold text-gray-600">Currency</label>
+                    <select name="currency_code" required class="form-select">
+                        @foreach($currencies as $currency)
+                            <option value="{{ $currency->code }}">{{ $currency->code }} - {{ $currency->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm font-semibold text-gray-600">Opening Balance</label>
+                    <input type="number" step="0.0001" name="opening_balance" required class="form-input">
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm font-semibold text-gray-600">Notes</label>
+                    <input type="text" name="notes" placeholder="Optional" class="form-input">
+                </div>
+                <button type="submit" class="btn btn--success btn--full">Open Till</button>
+            </form>
 
-    <div class="flex flex-wrap gap-6 mb-6">
-        <form action="/stock-cash/open" method="POST" class="flex-1 min-w-64">
-            @csrf
-            <h3 class="text-base font-semibold text-gray-800 mb-4">Open Till</h3>
-            <div class="mb-4">
-                <label class="block mb-1 text-sm font-semibold text-gray-700">Till ID</label>
-                <input type="text" name="till_id" placeholder="e.g., TILL-001" required class="w-full p-2 border border-gray-200 rounded text-sm">
-            </div>
-            <div class="mb-4">
-                <label class="block mb-1 text-sm font-semibold text-gray-700">Currency</label>
-                <select name="currency_code" required class="w-full p-2 border border-gray-200 rounded text-sm">
-                    @foreach($currencies as $currency)
-                        <option value="{{ $currency->code }}">{{ $currency->code }} - {{ $currency->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="mb-4">
-                <label class="block mb-1 text-sm font-semibold text-gray-700">Opening Balance</label>
-                <input type="number" step="0.0001" name="opening_balance" required class="w-full p-2 border border-gray-200 rounded text-sm">
-            </div>
-            <div class="mb-4">
-                <label class="block mb-1 text-sm font-semibold text-gray-700">Notes</label>
-                <input type="text" name="notes" placeholder="Optional" class="w-full p-2 border border-gray-200 rounded text-sm">
-            </div>
-            <button type="submit" class="btn btn-success">Open Till</button>
-        </form>
-
-        <form action="/stock-cash/close" method="POST" class="flex-1 min-w-64">
-            @csrf
-            <h3 class="text-base font-semibold text-gray-800 mb-4">Close Till</h3>
-            <div class="mb-4">
-                <label class="block mb-1 text-sm font-semibold text-gray-700">Till ID</label>
-                <input type="text" name="till_id" placeholder="e.g., TILL-001" required class="w-full p-2 border border-gray-200 rounded text-sm">
-            </div>
-            <div class="mb-4">
-                <label class="block mb-1 text-sm font-semibold text-gray-700">Currency</label>
-                <select name="currency_code" required class="w-full p-2 border border-gray-200 rounded text-sm">
-                    @foreach($currencies as $currency)
-                        <option value="{{ $currency->code }}">{{ $currency->code }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="mb-4">
-                <label class="block mb-1 text-sm font-semibold text-gray-700">Closing Balance</label>
-                <input type="number" step="0.0001" name="closing_balance" required class="w-full p-2 border border-gray-200 rounded text-sm">
-            </div>
-            <div class="mb-4">
-                <label class="block mb-1 text-sm font-semibold text-gray-700">Notes</label>
-                <input type="text" name="notes" placeholder="Optional" class="w-full p-2 border border-gray-200 rounded text-sm">
-            </div>
-            <button type="submit" class="btn btn-warning">Close Till</button>
-        </form>
+            <!-- Close Till Form -->
+            <form action="/stock-cash/close" method="POST">
+                @csrf
+                <h4 class="text-base font-semibold text-gray-700 mb-4">Close Till</h4>
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm font-semibold text-gray-600">Till ID</label>
+                    <input type="text" name="till_id" placeholder="e.g., TILL-001" required class="form-input">
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm font-semibold text-gray-600">Currency</label>
+                    <select name="currency_code" required class="form-select">
+                        @foreach($currencies as $currency)
+                            <option value="{{ $currency->code }}">{{ $currency->code }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm font-semibold text-gray-600">Closing Balance</label>
+                    <input type="number" step="0.0001" name="closing_balance" required class="form-input">
+                </div>
+                <div class="mb-4">
+                    <label class="block mb-1 text-sm font-semibold text-gray-600">Notes</label>
+                    <input type="text" name="notes" placeholder="Optional" class="form-input">
+                </div>
+                <button type="submit" class="btn btn--warning btn--full">Close Till</button>
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- Currency Positions -->
-<div class="card">
-    <h2>Currency Positions</h2>
-
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Currency Positions</h3>
+    </div>
+    <div class="card-body p-0">
     @if(count($positions) > 0)
-        <table>
+        <table class="data-table">
             <thead>
                 <tr>
                     <th>Currency</th>
@@ -125,33 +133,45 @@
                     <td>{{ number_format($position->balance, 4) }}</td>
                     <td>{{ number_format($position->avg_cost_rate, 6) }}</td>
                     <td>{{ $position->last_valuation_rate ? number_format($position->last_valuation_rate, 6) : 'N/A' }}</td>
-                    <td class="{{ ($position->unrealized_pnl ?? 0) >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }}">
-                        {{ $position->unrealized_pnl ? number_format($position->unrealized_pnl, 2) : '0.00' }}
+                    <td>
+                        @php
+                            $pnlClass = ($position->unrealized_pnl ?? 0) >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+                        @endphp
+                        <span class="{{ $pnlClass }}">{{ $position->unrealized_pnl ? number_format($position->unrealized_pnl, 2) : '0.00' }}</span>
                     </td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
-
-        <div class="mt-4 p-4 bg-gray-50 rounded text-sm">
+        <div class="p-4 border-t border-gray-200 bg-gray-50">
             <strong>Total Unrealized P&L: </strong>
-            <span class="{{ ($totalPnl ?? 0) >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold' }} text-lg">
-                MYR {{ number_format($totalPnl ?? 0, 2) }}
-            </span>
+            @php
+                $totalPnlClass = ($totalPnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600';
+            @endphp
+            <span class="{{ $totalPnlClass }} font-semibold text-lg">MYR {{ number_format($totalPnl ?? 0, 2) }}</span>
         </div>
     @else
-        <div class="alert alert-success">
-            No currency positions recorded yet. Positions will be created automatically when transactions are processed.
+        <div class="p-6 text-center">
+            <div class="text-5xl mb-4 text-gray-300">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">No Currency Positions</h3>
+            <p class="text-gray-500">Positions will be created automatically when transactions are processed.</p>
         </div>
     @endif
+    </div>
 </div>
 
 <!-- Today's Till Balances -->
 <div class="card">
-    <h2>Today's Till Balances</h2>
-
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Today's Till Balances</h3>
+    </div>
+    <div class="card-body p-0">
     @if($todayBalances->count() > 0)
-        <table>
+        <table class="data-table">
             <thead>
                 <tr>
                     <th>Till ID</th>
@@ -170,14 +190,18 @@
                     <td>{{ $balance->currency_code }}</td>
                     <td>{{ number_format($balance->opening_balance, 4) }}</td>
                     <td>{{ $balance->closing_balance ? number_format($balance->closing_balance, 4) : '-' }}</td>
-                    <td class="{{ ($balance->variance ?? 0) == 0 ? 'text-green-600' : 'text-red-600' }}">
-                        {{ $balance->variance ? number_format($balance->variance, 2) : '-' }}
+                    <td>
+                        @if(($balance->variance ?? 0) == 0)
+                            <span class="text-green-600">{{ $balance->variance ? number_format($balance->variance, 2) : '-' }}</span>
+                        @else
+                            <span class="text-red-600">{{ $balance->variance ? number_format($balance->variance, 2) : '-' }}</span>
+                        @endif
                     </td>
                     <td>
                         @if($balance->closed_at)
-                            <span class="text-green-600">Closed</span>
+                            <span class="status-badge status-badge--active">Closed</span>
                         @else
-                            <span class="text-red-600">Open</span>
+                            <span class="status-badge status-badge--danger">Open</span>
                         @endif
                     </td>
                     <td>{{ $balance->opener->username ?? 'N/A' }}</td>
@@ -186,9 +210,16 @@
             </tbody>
         </table>
     @else
-        <div class="alert alert-success">
-            No tills opened today. Use the "Open Till" form above to get started.
+        <div class="p-6 text-center">
+            <div class="text-5xl mb-4 text-gray-300">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">No Tills Opened Today</h3>
+            <p class="text-gray-500">Use the "Open Till" form above to get started.</p>
         </div>
     @endif
+    </div>
 </div>
 @endsection

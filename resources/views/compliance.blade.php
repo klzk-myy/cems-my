@@ -17,35 +17,37 @@
 @endsection
 
 @section('content')
-<div class="mb-6">
-    <h2 class="text-xl font-semibold text-gray-800 mb-2">Compliance Portal</h2>
-    <p class="text-gray-500 text-sm">Review and resolve suspicious transaction flags for AML monitoring</p>
+<div class="page-header">
+    <div class="page-header__content">
+        <h1 class="page-header__title">Compliance Portal</h1>
+        <p class="page-header__subtitle">Review and resolve suspicious transaction flags for AML monitoring</p>
+    </div>
 </div>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-    <div class="bg-white rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-red-600">{{ $stats['open'] ?? 0 }}</div>
-        <div class="text-sm text-gray-500 mt-2">Open Flags</div>
+<div class="stats-grid mb-6">
+    <div class="stat-card stat-card--danger">
+        <div class="stat-card__value">{{ $stats['open'] ?? 0 }}</div>
+        <div class="stat-card__label">Open Flags</div>
     </div>
-    <div class="bg-white rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-orange-500">{{ $stats['under_review'] ?? 0 }}</div>
-        <div class="text-sm text-gray-500 mt-2">Under Review</div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">{{ $stats['under_review'] ?? 0 }}</div>
+        <div class="stat-card__label">Under Review</div>
     </div>
-    <div class="bg-white rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-green-600">{{ $stats['resolved_today'] ?? 0 }}</div>
-        <div class="text-sm text-gray-500 mt-2">Resolved Today</div>
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__value">{{ $stats['resolved_today'] ?? 0 }}</div>
+        <div class="stat-card__label">Resolved Today</div>
     </div>
-    <div class="bg-white rounded-lg p-6 text-center">
-        <div class="text-4xl font-bold text-red-600">{{ $stats['high_priority'] ?? 0 }}</div>
-        <div class="text-sm text-gray-500 mt-2">High Priority</div>
+    <div class="stat-card stat-card--danger">
+        <div class="stat-card__value">{{ $stats['high_priority'] ?? 0 }}</div>
+        <div class="stat-card__label">High Priority</div>
     </div>
 </div>
 
 <!-- STR Deadline Warning -->
 @if(isset($strStats) && ($strStats['overdue'] > 0 || $strStats['near_deadline'] > 0))
-<div class="mt-6 p-4 rounded-lg bg-yellow-100 border border-yellow-400">
-    <h4 class="mb-2 text-yellow-800 font-semibold">STR Filing Deadline Warning</h4>
+<div class="alert alert-warning mb-6">
+    <h4 class="mb-2 font-semibold">STR Filing Deadline Warning</h4>
     @if($strStats['overdue'] > 0)
     <p class="text-red-700">
         <strong>{{ $strStats['overdue'] }} STR(s) overdue</strong> - Filing deadline (3 working days from suspicion) has passed. Immediate action required.
@@ -60,109 +62,110 @@
 @endif
 
 <!-- Filter Bar -->
-<div class="bg-gray-50 rounded-lg p-4 mb-6 flex flex-wrap gap-4 items-center">
-    <label for="status-filter" class="font-semibold text-gray-600 text-sm">Status:</label>
-    <select id="status-filter" onchange="window.location.href='?status='+this.value+'&flag_type={{ request('flag_type', 'all') }}'" class="p-2 border border-gray-200 rounded text-sm bg-white cursor-pointer">
-        <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>All Status</option>
-        <option value="Open" {{ request('status') == 'Open' ? 'selected' : '' }}>Open</option>
-        <option value="Under_Review" {{ request('status') == 'Under_Review' ? 'selected' : '' }}>Under Review</option>
-        <option value="Resolved" {{ request('status') == 'Resolved' ? 'selected' : '' }}>Resolved</option>
-    </select>
+<div class="card mb-6">
+    <div class="flex gap-4 items-center p-4">
+        <label class="text-sm font-semibold text-gray-600">Status:</label>
+        <select onchange="window.location.href='?status='+this.value+'&flag_type={{ request('flag_type', 'all') }}'" class="form-select" style="max-width: 200px;">
+            <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>All Status</option>
+            <option value="Open" {{ request('status') == 'Open' ? 'selected' : '' }}>Open</option>
+            <option value="Under_Review" {{ request('status') == 'Under_Review' ? 'selected' : '' }}>Under Review</option>
+            <option value="Resolved" {{ request('status') == 'Resolved' ? 'selected' : '' }}>Resolved</option>
+        </select>
 
-    <label for="type-filter" class="font-semibold text-gray-600 text-sm">Flag Type:</label>
-    <select id="type-filter" onchange="window.location.href='?status={{ request('status', 'all') }}&flag_type='+this.value" class="p-2 border border-gray-200 rounded text-sm bg-white cursor-pointer">
-        <option value="all" {{ request('flag_type') == 'all' ? 'selected' : '' }}>All Types</option>
-        <option value="Velocity" {{ request('flag_type') == 'Velocity' ? 'selected' : '' }}>Velocity</option>
-        <option value="Structuring" {{ request('flag_type') == 'Structuring' ? 'selected' : '' }}>Structuring</option>
-        <option value="Large_Amount" {{ request('flag_type') == 'Large_Amount' ? 'selected' : '' }}>Large Amount</option>
-        <option value="EDD_Required" {{ request('flag_type') == 'EDD_Required' ? 'selected' : '' }}>EDD Required</option>
-        <option value="Sanction_Match" {{ request('flag_type') == 'Sanction_Match' ? 'selected' : '' }}>Sanction Match</option>
-        <option value="Pep_Status" {{ request('flag_type') == 'Pep_Status' ? 'selected' : '' }}>PEP Status</option>
-        <option value="High_Risk_Customer" {{ request('flag_type') == 'High_Risk_Customer' ? 'selected' : '' }}>High Risk Customer</option>
-        <option value="High_Risk_Country" {{ request('flag_type') == 'High_Risk_Country' ? 'selected' : '' }}>High Risk Country</option>
-        <option value="Round_Amount" {{ request('flag_type') == 'Round_Amount' ? 'selected' : '' }}>Round Amount</option>
-        <option value="Profile_Deviation" {{ request('flag_type') == 'Profile_Deviation' ? 'selected' : '' }}>Profile Deviation</option>
-        <option value="Manual_Review" {{ request('flag_type') == 'Manual_Review' ? 'selected' : '' }}>Manual Review</option>
-    </select>
+        <label class="text-sm font-semibold text-gray-600">Flag Type:</label>
+        <select onchange="window.location.href='?status={{ request('status', 'all') }}&flag_type='+this.value" class="form-select" style="max-width: 200px;">
+            <option value="all" {{ request('flag_type') == 'all' ? 'selected' : '' }}>All Types</option>
+            <option value="Velocity" {{ request('flag_type') == 'Velocity' ? 'selected' : '' }}>Velocity</option>
+            <option value="Structuring" {{ request('flag_type') == 'Structuring' ? 'selected' : '' }}>Structuring</option>
+            <option value="Large_Amount" {{ request('flag_type') == 'Large_Amount' ? 'selected' : '' }}>Large Amount</option>
+            <option value="EDD_Required" {{ request('flag_type') == 'EDD_Required' ? 'selected' : '' }}>EDD Required</option>
+            <option value="Sanction_Match" {{ request('flag_type') == 'Sanction_Match' ? 'selected' : '' }}>Sanction Match</option>
+            <option value="Pep_Status" {{ request('flag_type') == 'Pep_Status' ? 'selected' : '' }}>PEP Status</option>
+            <option value="High_Risk_Customer" {{ request('flag_type') == 'High_Risk_Customer' ? 'selected' : '' }}>High Risk Customer</option>
+            <option value="High_Risk_Country" {{ request('flag_type') == 'High_Risk_Country' ? 'selected' : '' }}>High Risk Country</option>
+            <option value="Round_Amount" {{ request('flag_type') == 'Round_Amount' ? 'selected' : '' }}>Round Amount</option>
+            <option value="Profile_Deviation" {{ request('flag_type') == 'Profile_Deviation' ? 'selected' : '' }}>Profile Deviation</option>
+            <option value="Manual_Review" {{ request('flag_type') == 'Manual_Review' ? 'selected' : '' }}>Manual Review</option>
+        </select>
 
-    <a href="{{ route('compliance') }}" class="ml-auto px-4 py-2 bg-blue-600 text-white no-underline rounded text-sm font-semibold hover:bg-blue-700 transition-colors">Clear Filters</a>
+        @if(request()->has('status') || request()->has('flag_type'))
+        <a href="{{ route('compliance') }}" class="btn btn-secondary">Clear Filters</a>
+        @endif
+    </div>
 </div>
 
 <!-- Flags Table -->
-<div class="bg-white rounded-lg shadow-sm p-6">
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">Flagged Transactions</h2>
-
+<div class="card">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Flagged Transactions</h3>
+    </div>
+    <div class="card-body p-0">
     @if($flags->count() > 0)
-    <div class="overflow-x-auto">
-        <table class="w-full border-collapse">
+        <table class="data-table">
             <thead>
                 <tr>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Flag ID</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Transaction</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Customer</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Type</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Reason</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Status</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Assigned To</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Created</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Actions</th>
+                    <th>Flag ID</th>
+                    <th>Transaction</th>
+                    <th>Customer</th>
+                    <th>Type</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                    <th>Assigned To</th>
+                    <th>Created</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($flags as $flag)
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 border-b border-gray-100">#{{ $flag->id }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100">
+                <tr>
+                    <td>#{{ $flag->id }}</td>
+                    <td>
                         @if($flag->transaction)
-                        <a href="{{ route('transactions.show', $flag->transaction) }}" class="text-blue-600 no-underline font-semibold hover:underline">
+                        <a href="{{ route('transactions.show', $flag->transaction) }}" class="text-blue-600 hover:underline">
                             #{{ $flag->transaction->id }}
                         </a>
                         @else
                         <span class="text-gray-500">N/A</span>
                         @endif
                     </td>
-                    <td class="px-4 py-3 border-b border-gray-100">{{ $flag->transaction?->customer?->full_name ?? 'N/A' }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100">
+                    <td>{{ $flag->transaction?->customer?->full_name ?? 'N/A' }}</td>
+                    <td>
                         @php
                         $typeClass = match($flag->flag_type->value) {
-                            'Velocity' => 'bg-blue-100 text-blue-800',
-                            'Structuring' => 'bg-orange-100 text-orange-800',
-                            'Large_Amount' => 'bg-purple-100 text-purple-800',
-                            'EDD_Required' => 'bg-purple-100 text-purple-800',
-                            'Sanction_Match', 'Sanctions_Hit' => 'bg-red-100 text-red-800',
-                            'Pep_Status' => 'bg-yellow-100 text-yellow-800',
-                            'High_Risk_Customer', 'High_Risk_Country' => 'bg-red-100 text-red-800',
-                            'Round_Amount', 'Profile_Deviation', 'Unusual_Pattern' => 'bg-gray-100 text-gray-800',
-                            default => 'bg-gray-100 text-gray-800'
+                            'Velocity' => 'status-badge--active',
+                            'Structuring' => 'status-badge--flagged',
+                            'Large_Amount', 'EDD_Required' => 'status-badge--pending',
+                            'Sanction_Match', 'Sanctions_Hit' => 'status-badge--danger',
+                            'Pep_Status' => 'status-badge--warning',
+                            'High_Risk_Customer', 'High_Risk_Country' => 'status-badge--danger',
+                            default => 'status-badge--inactive'
                         };
-                        $typeLabel = $flag->flag_type->value;
                         @endphp
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $typeClass }}">{{ $typeLabel }}</span>
+                        <span class="status-badge {{ $typeClass }}">{{ $flag->flag_type->value }}</span>
                     </td>
-                    <td class="px-4 py-3 border-b border-gray-100 max-w-xs overflow-hidden text-ellipsis">{{ $flag->flag_reason }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100">
+                    <td class="max-w-xs truncate">{{ $flag->flag_reason }}</td>
+                    <td>
                         @php
                         $statusClass = match($flag->status->value) {
-                            'Open' => 'bg-red-100 text-red-800',
-                            'Under_Review' => 'bg-orange-100 text-orange-800',
-                            'Resolved' => 'bg-green-100 text-green-800',
-                            default => 'bg-red-100 text-red-800'
+                            'Open' => 'status-badge--danger',
+                            'Under_Review' => 'status-badge--flagged',
+                            'Resolved' => 'status-badge--active',
+                            default => 'status-badge--danger'
                         };
-                        $statusLabel = str_replace('_', ' ', $flag->status->value);
                         @endphp
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $statusLabel }}</span>
+                        <span class="status-badge {{ $statusClass }}">{{ str_replace('_', ' ', $flag->status->value) }}</span>
                     </td>
-                    <td class="px-4 py-3 border-b border-gray-100">{{ $flag->assignedTo->username ?? 'Unassigned' }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-sm text-gray-500">{{ $flag->created_at->diffForHumans() }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100">
+                    <td>{{ $flag->assignedTo->username ?? 'Unassigned' }}</td>
+                    <td class="text-gray-500">{{ $flag->created_at->diffForHumans() }}</td>
+                    <td>
                         <div class="flex gap-2">
                             @if($flag->transaction)
-                            <a href="{{ route('transactions.show', $flag->transaction) }}" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white no-underline rounded hover:bg-blue-700 transition-colors">View</a>
+                            <a href="{{ route('transactions.show', $flag->transaction) }}" class="btn btn--primary btn--sm">View</a>
                             @endif
                             @if(!$flag->alert)
                             <form action="{{ route('compliance.flags.generate-str', $flag) }}" method="POST">
                                 @csrf
-                                <button type="submit" class="px-3 py-1.5 text-xs font-semibold bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">Generate STR</button>
+                                <button type="submit" class="btn btn--warning btn--sm">Generate STR</button>
                             </form>
                             @endif
                             @if(!$flag->status->isResolved())
@@ -170,14 +173,14 @@
                                 <form action="{{ route('compliance.flags.assign', $flag) }}" method="POST">
                                     @csrf
                                     @method('PATCH')
-                                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors">Assign</button>
+                                    <button type="submit" class="btn btn--warning btn--sm">Assign</button>
                                 </form>
                                 @endif
                                 @if($flag->assigned_to === auth()->id())
                                 <form action="{{ route('compliance.flags.resolve', $flag) }}" method="POST">
                                     @csrf
                                     @method('PATCH')
-                                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold bg-green-600 text-white rounded hover:bg-green-700 transition-colors">Resolve</button>
+                                    <button type="submit" class="btn btn--success btn--sm">Resolve</button>
                                 </form>
                                 @endif
                             @endif
@@ -187,21 +190,24 @@
                 @endforeach
             </tbody>
         </table>
+    @else
+        <div class="text-center py-12">
+            <div class="text-5xl mb-4 text-gray-300">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">No Flagged Transactions</h3>
+            <p class="text-gray-500">Great! Your compliance monitoring is working effectively.</p>
+            @if(request()->has('status') || request()->has('flag_type'))
+            <a href="{{ route('compliance') }}" class="btn btn-primary mt-4">Clear Filters</a>
+            @endif
+        </div>
+    @endif
     </div>
-
-    <div class="flex justify-center mt-6">
+    @if($flags->hasPages())
+    <div class="p-4 border-t border-gray-200">
         {{ $flags->appends(request()->query())->links() }}
-    </div>
-@else
-    <div class="text-center p-12 text-gray-500">
-        <div class="text-5xl mb-4">🛡️</div>
-        <h3 class="text-lg font-semibold text-gray-700 mb-2">No Flagged Transactions</h3>
-        <p><strong>No flagged transactions found.</strong><br>
-        Great! Your compliance monitoring is working effectively.
-        @if(request()->has('status') || request()->has('flag_type'))
-            <br><a href="{{ route('compliance') }}" class="text-blue-600 no-underline hover:underline">Clear filters</a>
-        @endif
-        </p>
     </div>
     @endif
 </div>

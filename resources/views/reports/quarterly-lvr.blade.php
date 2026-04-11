@@ -22,15 +22,13 @@
 
 @section('content')
 <div class="page-header">
-    <h1>Quarterly Large Value Transaction Report</h1>
-    <p>Quarterly summary of transactions ≥ RM50,000 for BNM regulatory compliance</p>
-</div>
-
-<div class="control-card">
-    <form method="GET" action="{{ route('reports.quarterly-lvr') }}" id="qlvr-form">
-        <div class="form-group">
-            <label for="quarter">Select Quarter</label>
-            <select id="quarter" name="quarter" class="form-control" onchange="document.getElementById('qlvr-form').submit()">
+    <div class="page-header__content">
+        <h1 class="page-header__title">Quarterly Large Value Transaction Report</h1>
+        <p class="page-header__subtitle">Quarterly summary of transactions ≥ RM50,000 for BNM regulatory compliance</p>
+    </div>
+    <div class="page-header__actions">
+        <form method="GET" class="flex items-center gap-2">
+            <select name="quarter" id="quarter" class="form-select" onchange="document.getElementById('qlvr-form').submit()">
                 @php
                 $currentYear = now()->year;
                 for ($y = $currentYear; $y >= $currentYear - 2; $y--) {
@@ -42,87 +40,106 @@
                 }
                 @endphp
             </select>
-        </div>
-    </form>
-
-    <div class="status-info">
-        @php
-        $status = $reportGenerated ? ($reportGenerated->status === 'Submitted' ? 'Submitted' : 'Generated') : 'Not Generated';
-        $statusClass = $reportGenerated ? ($reportGenerated->status === 'Submitted' ? 'status-submitted' : 'status-generated') : 'status-not-generated';
-        @endphp
-        <span class="status-badge {{ $statusClass }}">{{ $status }}</span>
-    </div>
-
-    <div class="button-group">
-        <button type="button" class="btn btn-primary" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
-            Generate Report
-        </button>
-        <button type="button" class="btn btn-success" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
-            Download CSV
-        </button>
+        </form>
     </div>
 </div>
 
-<div class="info-card">
-    <div class="info-grid">
-        <div class="info-item">
-            <span class="info-label">Period</span>
-            <span class="info-value">{{ $reportData['period_start'] }} to {{ $reportData['period_end'] }}</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Total Transactions</span>
-            <span class="info-value">{{ number_format($reportData['total_transactions']) }}</span>
-        </div>
-        <div class="info-item">
-            <span class="info-label">Total Amount</span>
-            <span class="info-value">RM {{ number_format($reportData['total_amount'], 2) }}</span>
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Report Controls</h3>
+    </div>
+    <div class="card-body">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex flex-wrap items-center gap-3">
+                @php
+                $status = $reportGenerated ? ($reportGenerated->status === 'Submitted' ? 'Submitted' : 'Generated') : 'Not Generated';
+                @endphp
+                <span class="status-badge status-badge--{{ strtolower($status) }}">{{ $status }}</span>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <button type="button" class="btn btn--primary" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
+                    Generate Report
+                </button>
+                <button type="button" class="btn btn--success" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
+                    Download CSV
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="table-card">
-    <h2>Monthly Breakdown</h2>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Month</th>
-                <th>Transaction Count</th>
-                <th>Total Amount (MYR)</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($reportData['monthly_breakdown'] as $month)
-            <tr>
-                <td>{{ $month['month'] }}</td>
-                <td>{{ number_format($month['count']) }}</td>
-                <td>RM {{ number_format($month['total_amount'], 2) }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+<!-- Summary Cards -->
+<div class="stats-grid mb-6">
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">{{ $reportData['period_start'] }} to {{ $reportData['period_end'] }}</div>
+        <div class="stat-card__label">Period</div>
+    </div>
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__value">{{ number_format($reportData['total_transactions']) }}</div>
+        <div class="stat-card__label">Total Transactions</div>
+    </div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">RM {{ number_format($reportData['total_amount'], 2) }}</div>
+        <div class="stat-card__label">Total Amount</div>
+    </div>
 </div>
 
-<div class="table-card">
-    <h2>By Currency</h2>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Currency</th>
-                <th>Transaction Count</th>
-                <th>Total Amount (MYR)</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($reportData['by_currency'] as $currency)
-            <tr>
-                <td>{{ $currency['currency'] }}</td>
-                <td>{{ number_format($currency['count']) }}</td>
-                <td>RM {{ number_format($currency['total_amount'], 2) }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Monthly Breakdown</h3>
+    </div>
+    <div class="card-body p-0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th class="text-right">Transaction Count</th>
+                    <th class="text-right">Total Amount (MYR)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($reportData['monthly_breakdown'] as $month)
+                <tr>
+                    <td>{{ $month['month'] }}</td>
+                    <td class="text-right">{{ number_format($month['count']) }}</td>
+                    <td class="text-right">RM {{ number_format($month['total_amount'], 2) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
 </div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">By Currency</h3>
+    </div>
+    <div class="card-body p-0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th class="text-right">Transaction Count</th>
+                    <th class="text-right">Total Amount (MYR)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($reportData['by_currency'] as $currency)
+                <tr>
+                    <td>{{ $currency['currency'] }}</td>
+                    <td class="text-right">{{ number_format($currency['count']) }}</td>
+                    <td class="text-right">RM {{ number_format($currency['total_amount'], 2) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<form id="qlvr-form" method="GET" action="{{ route('reports.quarterly-lvr') }}" class="hidden">
+    @csrf
+</form>
 @endsection
 
 @section('scripts')

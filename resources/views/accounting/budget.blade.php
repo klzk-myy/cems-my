@@ -21,104 +21,136 @@
 @endsection
 
 @section('content')
-<div class="accounting-header">
-    <h2>Budget vs Actual Report</h2>
-    <p>Compare budgeted amounts with actual expenditures</p>
+<div class="page-header">
+    <div class="page-header__content">
+        <h1 class="page-header__title">Budget vs Actual Report</h1>
+        <p class="page-header__subtitle">Compare budgeted amounts with actual expenditures</p>
+    </div>
 </div>
 
-<div class="card">
-    <h2>Select Period</h2>
-    <form method="GET" action="{{ route('accounting.budget') }}">
-        <div style="display: flex; gap: 1rem; align-items: flex-end;">
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Select Period</h3>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ route('accounting.budget') }}" class="flex items-end gap-4">
             <div>
-                <label for="period">Accounting Period</label>
-                <input type="month" name="period" id="period" value="{{ $periodCode }}" class="form-control">
+                <label for="period" class="form-label">Accounting Period</label>
+                <input type="month" name="period" id="period" value="{{ $periodCode }}" class="form-input">
             </div>
-            <button type="submit" class="btn btn-primary">View Report</button>
-        </div>
-    </form>
+            <button type="submit" class="btn btn--primary">View Report</button>
+        </form>
+    </div>
 </div>
 
 @if(isset($report) && isset($report['items']) && count($report['items']) > 0)
-<div class="card">
-    <h2>Budget Report - {{ $report['period_code'] ?? $periodCode }}</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Account Code</th>
-                <th>Account Name</th>
-                <th style="text-align: right;">Budget</th>
-                <th style="text-align: right;">Actual</th>
-                <th style="text-align: right;">Variance</th>
-                <th style="text-align: right;">% Used</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($report['items'] as $item)
-            <tr>
-                <td><strong>{{ $item['account_code'] }}</strong></td>
-                <td>{{ $item['account_name'] }}</td>
-                <td style="text-align: right;">{{ number_format((float) $item['budget'], 2) }}</td>
-                <td style="text-align: right;">{{ number_format((float) $item['actual'], 2) }}</td>
-                <td style="text-align: right;" class="{{ (float) $item['variance'] >= 0 ? 'pnl-positive' : 'pnl-negative' }}">
-                    {{ (float) $item['variance'] >= 0 ? '+' : '' }}{{ number_format((float) $item['variance'], 2) }}
-                </td>
-                <td style="text-align: right;">
-                    @php
-                        $percent = (float) $item['budget'] != 0 ? ((float) $item['actual'] / (float) $item['budget']) * 100 : 0;
-                        $color = $percent > 100 ? '#e53e3e' : ($percent > 80 ? '#dd6b20' : '#38a169');
-                    @endphp
-                    <span style="color: {{ $color }};">{{ number_format($percent, 1) }}%</span>
-                </td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
-
-    @if(isset($report['total_budget']))
-    <div class="budget-totals" style="margin-top: 1rem; padding-top: 1rem; border-top: 2px solid #ddd; display: flex; gap: 2rem; justify-content: flex-end;">
-        <div><strong>Total Budget:</strong> <span id="total_budget">{{ number_format((float) $report['total_budget'], 2) }}</span></div>
-        <div><strong>Total Actual:</strong> <span id="total_actual">{{ number_format((float) $report['total_actual'], 2) }}</span></div>
-        <div><strong>Total Variance:</strong> <span id="total_variance">{{ number_format((float) $report['total_variance'], 2) }}</span></div>
-        <div><strong>Over Budget:</strong> <span id="over_budget_count">{{ $report['over_budget_count'] }}</span></div>
+<!-- Summary Cards -->
+<div class="stats-grid mb-6">
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">RM {{ number_format((float) ($report['total_budget'] ?? 0), 2) }}</div>
+        <div class="stat-card__label">Total Budget</div>
     </div>
-    @endif
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__value">RM {{ number_format((float) ($report['total_actual'] ?? 0), 2) }}</div>
+        <div class="stat-card__label">Total Actual</div>
+    </div>
+    <div class="stat-card {{ ($report['total_variance'] ?? 0) >= 0 ? 'stat-card--success' : 'stat-card--danger' }}">
+        <div class="stat-card__value">{{ ($report['total_variance'] ?? 0) >= 0 ? '+' : '' }}RM {{ number_format((float) ($report['total_variance'] ?? 0), 2) }}</div>
+        <div class="stat-card__label">Total Variance</div>
+    </div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">{{ $report['over_budget_count'] ?? 0 }}</div>
+        <div class="stat-card__label">Over Budget</div>
+    </div>
+</div>
+
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Budget Report - {{ $report['period_code'] ?? $periodCode }}</h3>
+    </div>
+    <div class="card-body p-0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Account Code</th>
+                    <th>Account Name</th>
+                    <th class="text-right">Budget</th>
+                    <th class="text-right">Actual</th>
+                    <th class="text-right">Variance</th>
+                    <th class="text-right">% Used</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($report['items'] as $item)
+                <tr>
+                    <td><strong>{{ $item['account_code'] }}</strong></td>
+                    <td>{{ $item['account_name'] }}</td>
+                    <td class="text-right">RM {{ number_format((float) $item['budget'], 2) }}</td>
+                    <td class="text-right">RM {{ number_format((float) $item['actual'], 2) }}</td>
+                    <td class="text-right">
+                        @php
+                            $varClass = (float) $item['variance'] >= 0 ? 'text-green-600' : 'text-red-600';
+                        @endphp
+                        <span class="{{ $varClass }}">
+                            {{ (float) $item['variance'] >= 0 ? '+' : '' }}{{ number_format((float) $item['variance'], 2) }}
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        @php
+                            $percent = (float) $item['budget'] != 0 ? ((float) $item['actual'] / (float) $item['budget']) * 100 : 0;
+                            $color = $percent > 100 ? 'text-red-600' : ($percent > 80 ? 'text-yellow-600' : 'text-green-600');
+                        @endphp
+                        <span class="{{ $color }}">{{ number_format($percent, 1) }}%</span>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
 </div>
 @else
 <div class="card">
-    <div class="alert alert-info">
-        No budget data available for this period. Run <code>php artisan db:seed --class=BudgetSeeder</code> to create sample budgets.
+    <div class="card-body text-center">
+        <div class="text-5xl mb-4 text-gray-300">
+            <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">No Budget Data</h3>
+        <p class="text-gray-500">No budget data available for this period.</p>
+        <p class="text-sm text-gray-400 mt-2">Run <code>php artisan db:seed --class=BudgetSeeder</code> to create sample budgets.</p>
     </div>
 </div>
 @endif
 
 @if(isset($unbudgeted) && count($unbudgeted) > 0)
 <div class="card">
-    <h2 style="color: #dd6b20;">Accounts Without Budget</h2>
-    <div class="alert alert-warning">
-        The following accounts have transactions but no budget allocated for {{ $periodCode }}.
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-yellow-600">Accounts Without Budget</h3>
     </div>
-    <table>
-        <thead>
-            <tr>
-                <th>Account Code</th>
-                <th>Account Name</th>
-                <th>Account Type</th>
-                <th style="text-align: right;">Actual Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($unbudgeted as $account)
-            <tr>
-                <td>{{ $account->account_code }}</td>
-                <td>{{ $account->account_name }}</td>
-                <td>{{ $account->account_type }}</td>
-                <td style="text-align: right;">{{ number_format((float) $account->actual_amount, 2) }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+    <div class="card-body p-0">
+        <div class="alert alert-warning mb-4">The following accounts have transactions but no budget allocated for {{ $periodCode }}.</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Account Code</th>
+                    <th>Account Name</th>
+                    <th>Account Type</th>
+                    <th class="text-right">Actual Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($unbudgeted as $account)
+                <tr>
+                    <td>{{ $account->account_code }}</td>
+                    <td>{{ $account->account_name }}</td>
+                    <td>{{ $account->account_type }}</td>
+                    <td class="text-right">RM {{ number_format((float) $account->actual_amount, 2) }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
 </div>
 @endif
 @endsection

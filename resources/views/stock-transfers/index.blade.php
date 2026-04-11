@@ -17,14 +17,17 @@
 @endsection
 
 @section('content')
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold">Stock Transfers</h1>
-    @can('create', App\Models\StockTransfer::class)
-    <a href="{{ route('stock-transfers.create') }}" class="btn btn-primary">New Transfer</a>
-    @endcan
+<div class="page-header">
+    <h1 class="page-header__title">Stock Transfers</h1>
 </div>
 
 <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>All Stock Transfers</span>
+        @can('create', App\Models\StockTransfer::class)
+        <a href="{{ route('stock-transfers.create') }}" class="btn btn-primary">New Transfer</a>
+        @endcan
+    </div>
     <div class="card-body">
         <form method="GET" class="flex gap-4 mb-6">
             <select name="status" class="form-select">
@@ -42,7 +45,7 @@
             <button type="submit" class="btn btn-secondary">Filter</button>
         </form>
 
-        <table class="table">
+        <table class="table table-striped">
             <thead>
                 <tr>
                     <th>Transfer #</th>
@@ -65,7 +68,7 @@
                     <td>{{ $transfer->destination_branch_name }}</td>
                     <td>{{ number_format($transfer->total_value_myr, 2) }}</td>
                     <td>{{ $transfer->requested_at?->format('Y-m-d') }}</td>
-                    <td><a href="{{ route('stock-transfers.show', $transfer) }}">View</a></td>
+                    <td><a href="{{ route('stock-transfers.show', $transfer) }}" class="btn btn-sm btn-info">View</a></td>
                 </tr>
                 @empty
                 <tr><td colspan="8" class="text-center">No transfers found</td></tr>

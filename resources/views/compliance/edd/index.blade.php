@@ -21,18 +21,43 @@
 @endsection
 
 @section('content')
-<div class="compliance-header">
-    <h2>Enhanced Due Diligence (EDD)</h2>
-    <p>Document source of funds and transaction purpose for high-risk customers</p>
+<div class="page-header">
+    <div class="page-header__content">
+        <h1 class="page-header__title">Enhanced Due Diligence (EDD)</h1>
+        <p class="page-header__subtitle">Document source of funds and transaction purpose for high-risk customers</p>
+    </div>
+    <div class="page-header__actions">
+        <a href="{{ route('compliance.edd.create') }}" class="btn btn-primary">+ New EDD Record</a>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="stats-grid mb-6">
+    <div class="stat-card stat-card--danger">
+        <div class="stat-card__value">{{ $records->where('risk_level', 'Critical')->count() }}</div>
+        <div class="stat-card__label">Critical Risk</div>
+    </div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">{{ $records->where('risk_level', 'High')->count() }}</div>
+        <div class="stat-card__label">High Risk</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ $records->whereIn('risk_level', ['Medium', 'Low'])->count() }}</div>
+        <div class="stat-card__label">Medium/Low Risk</div>
+    </div>
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__value">{{ $records->where('status', 'Approved')->count() }}</div>
+        <div class="stat-card__label">Approved</div>
+    </div>
 </div>
 
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h4>EDD Records</h4>
-        <a href="{{ route('compliance.edd.create') }}" class="btn btn-primary">New EDD Record</a>
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">All EDD Records</h3>
     </div>
-    <div class="card-body">
-        <table>
+    <div class="card-body p-0">
+        @if($records->count() > 0)
+        <table class="data-table">
             <thead>
                 <tr>
                     <th>EDD Reference</th>
@@ -44,33 +69,51 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($records as $record)
+                @foreach($records as $record)
                 <tr>
                     <td><strong>{{ $record->edd_reference }}</strong></td>
                     <td>{{ $record->customer->name ?? 'N/A' }}</td>
                     <td>
-                        <span class="badge bg-{{ $record->risk_level === 'Critical' ? 'danger' : ($record->risk_level === 'High' ? 'warning' : 'info') }}">
-                            {{ $record->risk_level }}
-                        </span>
+                        @php
+                            $riskClass = match($record->risk_level) {
+                                'Critical' => 'status-badge--danger',
+                                'High' => 'status-badge--flagged',
+                                'Medium' => 'status-badge--pending',
+                                default => 'status-badge--active'
+                            };
+                        @endphp
+                        <span class="status-badge {{ $riskClass }}">{{ $record->risk_level }}</span>
                     </td>
                     <td>
-                        <span class="badge bg-{{ $record->status->color() }}">
+                        <span class="status-badge status-badge--{{ $record->status->color() }}">
                             {{ $record->status->label() }}
                         </span>
                     </td>
-                    <td>{{ $record->created_at->format('Y-m-d') }}</td>
+                    <td class="text-gray-500">{{ $record->created_at->format('Y-m-d') }}</td>
                     <td>
-                        <a href="{{ route('compliance.edd.show', $record) }}" class="btn btn-sm btn-info">View</a>
+                        <a href="{{ route('compliance.edd.show', $record) }}" class="btn btn--primary btn--sm">View</a>
                     </td>
                 </tr>
-                @empty
-                <tr>
-                    <td colspan="6" class="text-muted">No EDD records found.</td>
-                </tr>
-                @endforelse
+                @endforeach
             </tbody>
         </table>
+        @else
+        <div class="text-center py-12">
+            <div class="text-5xl mb-4 text-gray-300">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">No EDD Records</h3>
+            <p class="text-gray-500 mb-6">No Enhanced Due Diligence records found.</p>
+            <a href="{{ route('compliance.edd.create') }}" class="btn btn-primary">+ Create First EDD Record</a>
+        </div>
+        @endif
+    </div>
+    @if($records->hasPages())
+    <div class="p-4 border-t border-gray-200">
         {{ $records->links() }}
     </div>
+    @endif
 </div>
 @endsection

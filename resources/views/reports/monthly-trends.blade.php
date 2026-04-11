@@ -3,130 +3,122 @@
 @section('title', 'Monthly Trends Report - CEMS-MY')
 
 @section('content')
-<!-- Breadcrumb -->
-<nav class="flex items-center gap-2 mb-4 text-sm text-gray-500">
-    <a href="{{ route('reports.index') }}" class="text-blue-600 no-underline hover:underline">Reports</a>
-    <span>›</span>
-    <span>Monthly Trends</span>
-</nav>
-
-<!-- Header -->
-<div class="mb-6">
-    <h1 class="text-2xl font-bold text-blue-900 mb-1">Monthly Transaction Trends</h1>
-    <p class="text-gray-500 text-sm">Analyze transaction patterns and volume trends over time</p>
+<div class="page-header">
+    <div class="page-header__content">
+        <h1 class="page-header__title">Monthly Transaction Trends</h1>
+        <p class="page-header__subtitle">Analyze transaction patterns and volume trends over time</p>
+    </div>
 </div>
 
-<!-- Control Card -->
-<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <h2 class="text-base font-semibold text-gray-800 mb-4">Report Filters</h2>
-    <form method="GET" action="{{ route('reports.monthly-trends') }}" class="flex flex-wrap items-end gap-4">
-        <div class="flex flex-col gap-1">
-            <label for="year" class="text-sm font-medium text-gray-600">Year</label>
-            <select name="year" id="year" class="p-2 border border-gray-200 rounded text-sm min-w-32">
-                @for($y = now()->year; $y >= now()->year - 5; $y--)
-                    <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
-                @endfor
-            </select>
-        </div>
-        <div class="flex flex-col gap-1">
-            <label for="currency" class="text-sm font-medium text-gray-600">Currency</label>
-            <select name="currency" id="currency" class="p-2 border border-gray-200 rounded text-sm min-w-40">
-                <option value="all" {{ $currency === 'all' ? 'selected' : '' }}>All Currencies</option>
-                @foreach($currencies as $curr)
-                    <option value="{{ $curr }}" {{ $currency === $curr ? 'selected' : '' }}>{{ $curr }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="flex flex-col gap-1 self-end">
-            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700 transition-colors">Update Report</button>
-        </div>
-        <div class="flex flex-col gap-1 self-end">
-            <button type="button" class="px-4 py-2 bg-green-600 text-white rounded font-semibold text-sm hover:bg-green-700 transition-colors" onclick="exportCSV()">Export CSV</button>
-        </div>
-    </form>
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Report Filters</h3>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ route('reports.monthly-trends') }}" class="flex flex-wrap items-end gap-4">
+            <div>
+                <label for="year" class="form-label">Year</label>
+                <select name="year" id="year" class="form-select">
+                    @for($y = now()->year; $y >= now()->year - 5; $y--)
+                        <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
+                    @endfor
+                </select>
+            </div>
+            <div>
+                <label for="currency" class="form-label">Currency</label>
+                <select name="currency" id="currency" class="form-select">
+                    <option value="all" {{ $currency === 'all' ? 'selected' : '' }}>All Currencies</option>
+                    @foreach($currencies as $curr)
+                        <option value="{{ $curr }}" {{ $currency === $curr ? 'selected' : '' }}>{{ $curr }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <button type="submit" class="btn btn--primary">Update Report</button>
+            <button type="button" class="btn btn--success" onclick="exportCSV()">Export CSV</button>
+        </form>
+    </div>
 </div>
 
 @if($monthlyData->isEmpty())
-<div class="text-center py-12 text-gray-500">
-    <div class="text-5xl mb-4">📊</div>
-    <h3 class="text-lg font-semibold text-gray-700 mb-2">No Data Available</h3>
-    <p>No completed transactions found for the selected filters.</p>
+<div class="card">
+    <div class="card-body text-center">
+        <div class="text-5xl mb-4 text-gray-300">
+            <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+            </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-800 mb-2">No Data Available</h3>
+        <p class="text-gray-500">No completed transactions found for the selected filters.</p>
+    </div>
 </div>
 @else
-<!-- Summary Cards -->
 @php
-    $totalTransactions = $monthlyData->sum('count');
-    $totalVolume = $monthlyData->sum('total_volume');
-    $avgMonthlyVolume = $monthlyData->count() > 0 ? $totalVolume / $monthlyData->count() : 0;
-    $peakMonth = $monthlyData->sortByDesc('total_volume')->first();
+$totalTransactions = $monthlyData->sum('count');
+$totalVolume = $monthlyData->sum('total_volume');
+$avgMonthlyVolume = $monthlyData->count() > 0 ? $totalVolume / $monthlyData->count() : 0;
+$peakMonth = $monthlyData->sortByDesc('total_volume')->first();
 @endphp
-<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-    <div class="bg-white rounded-lg shadow-sm p-5">
-        <div class="text-sm text-gray-500 mb-2">Total Transactions ({{ $year }})</div>
-        <div class="text-2xl font-bold text-gray-800">{{ number_format($totalTransactions) }}</div>
+
+<!-- Summary Cards -->
+<div class="stats-grid mb-6">
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">{{ number_format($totalTransactions) }}</div>
+        <div class="stat-card__label">Total Transactions ({{ $year }})</div>
     </div>
-    <div class="bg-white rounded-lg shadow-sm p-5">
-        <div class="text-sm text-gray-500 mb-2">Total Volume (MYR)</div>
-        <div class="text-2xl font-bold text-gray-800">RM {{ number_format($totalVolume, 2) }}</div>
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__value">RM {{ number_format($totalVolume, 2) }}</div>
+        <div class="stat-card__label">Total Volume (MYR)</div>
     </div>
-    <div class="bg-white rounded-lg shadow-sm p-5">
-        <div class="text-sm text-gray-500 mb-2">Avg Monthly Volume</div>
-        <div class="text-2xl font-bold text-gray-800">RM {{ number_format($avgMonthlyVolume, 2) }}</div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">RM {{ number_format($avgMonthlyVolume, 2) }}</div>
+        <div class="stat-card__label">Avg Monthly Volume</div>
     </div>
-    <div class="bg-white rounded-lg shadow-sm p-5">
-        <div class="text-sm text-gray-500 mb-2">Peak Month</div>
-        <div class="text-2xl font-bold text-gray-800">
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">
             @if($peakMonth)
                 {{ date('M', mktime(0, 0, 0, $peakMonth->month, 1)) }}
-                (RM {{ number_format($peakMonth->total_volume, 0) }})
             @else
                 -
             @endif
         </div>
+        <div class="stat-card__label">Peak Month</div>
     </div>
 </div>
 
-<!-- Chart Card -->
-<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">Monthly Volume Trends (Buy vs Sell)</h2>
-    <div class="h-96 relative">
-        <canvas id="trendsChart"></canvas>
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Monthly Breakdown</h3>
     </div>
-</div>
-
-<!-- Data Table -->
-<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">Monthly Breakdown</h2>
-    <div class="overflow-x-auto -mx-6 px-6">
-        <table class="w-full border-collapse text-sm">
+    <div class="card-body p-0">
+        <table class="data-table">
             <thead>
                 <tr>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Month</th>
-                    <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Transactions</th>
-                    <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Buy Volume (MYR)</th>
-                    <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Sell Volume (MYR)</th>
-                    <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Total Volume (MYR)</th>
-                    <th class="text-right px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">MoM Trend</th>
+                    <th>Month</th>
+                    <th class="text-right">Transactions</th>
+                    <th class="text-right">Buy Volume (MYR)</th>
+                    <th class="text-right">Sell Volume (MYR)</th>
+                    <th class="text-right">Total Volume (MYR)</th>
+                    <th class="text-right">MoM Trend</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($monthlyData as $row)
                 @php
                     $trend = $trends[$row->month] ?? ['trend' => null, 'direction' => 'neutral'];
-                    $trendClass = $trend['direction'] === 'up' ? 'text-green-600 font-semibold' : ($trend['direction'] === 'down' ? 'text-red-600 font-semibold' : 'text-gray-500');
+                    $trendClass = $trend['direction'] === 'up' ? 'text-green-600' : ($trend['direction'] === 'down' ? 'text-red-600' : 'text-gray-500');
                     $trendIcon = $trend['direction'] === 'up' ? '↑' : ($trend['direction'] === 'down' ? '↓' : '→');
                 @endphp
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 border-b border-gray-100 text-gray-700">{{ date('F Y', mktime(0, 0, 0, $row->month, 1, $year)) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-gray-700 text-right">{{ number_format($row->count) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-gray-700 text-right">{{ number_format($row->buy_volume, 2) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-gray-700 text-right">{{ number_format($row->sell_volume, 2) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-gray-700 text-right">{{ number_format($row->total_volume, 2) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-right {{ $trendClass }}">
+                <tr>
+                    <td>{{ date('F Y', mktime(0, 0, 0, $row->month, 1, $year)) }}</td>
+                    <td class="text-right">{{ number_format($row->count) }}</td>
+                    <td class="text-right">{{ number_format($row->buy_volume, 2) }}</td>
+                    <td class="text-right">{{ number_format($row->sell_volume, 2) }}</td>
+                    <td class="text-right">{{ number_format($row->total_volume, 2) }}</td>
+                    <td class="text-right {{ $trendClass }}">
                         @if($trend['trend'] !== null)
-                            <span class="mr-1">{{ $trendIcon }}</span>{{ number_format(abs($trend['trend']), 1) }}%
+                            <span>{{ $trendIcon }} {{ number_format(abs($trend['trend']), 1) }}%</span>
                         @else
-                            <span class="text-gray-500">-</span>
+                            <span>-</span>
                         @endif
                     </td>
                 </tr>

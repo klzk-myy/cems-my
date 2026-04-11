@@ -22,85 +22,97 @@
 
 @section('content')
 <div class="page-header">
-    <h1>Position Limit Utilization Report</h1>
-    <p>Monitor currency position limits and exposure levels</p>
-</div>
-
-<div class="control-card">
-    <div class="button-group">
-        <button type="button" class="btn btn-primary" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
-            Generate Report
-        </button>
-        <button type="button" class="btn btn-success" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
-            Download CSV
-        </button>
+    <div class="page-header__content">
+        <h1 class="page-header__title">Position Limit Utilization Report</h1>
+        <p class="page-header__subtitle">Monitor currency position limits and exposure levels</p>
     </div>
 </div>
 
-<div class="summary-grid">
-    <div class="summary-card">
-        <div class="summary-card-label">Total Currencies</div>
-        <div class="summary-card-value">{{ $reportData['summary']['total_currencies'] }}</div>
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Report Controls</h3>
     </div>
-    <div class="summary-card">
-        <div class="summary-card-label">Total Exposure (MYR)</div>
-        <div class="summary-card-value">RM {{ number_format((float)$reportData['total_exposure_myr'], 2) }}</div>
-    </div>
-    <div class="summary-card">
-        <div class="summary-card-label">At Warning (≥75%)</div>
-        <div class="summary-card-value" style="color: #d69e2e;">{{ $reportData['summary']['currencies_at_warning'] }}</div>
-    </div>
-    <div class="summary-card">
-        <div class="summary-card-label">At Critical (≥90%)</div>
-        <div class="summary-card-value" style="color: #e53e3e;">{{ $reportData['summary']['currencies_at_critical'] }}</div>
+    <div class="card-body">
+        <div class="flex flex-wrap gap-2">
+            <button type="button" class="btn btn--primary" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
+                Generate Report
+            </button>
+            <button type="button" class="btn btn--success" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
+                Download CSV
+            </button>
+        </div>
     </div>
 </div>
 
-<div class="table-card">
-    <h2>Currency Positions</h2>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Currency</th>
-                <th>Current Balance</th>
-                <th>Position Limit</th>
-                <th>Utilization</th>
-                <th>Avg Cost Rate</th>
-                <th>Valuation Rate</th>
-                <th>Exposure (MYR)</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($reportData['positions'] as $position)
-            <tr>
-                <td><strong>{{ $position['currency_code'] }}</strong><br><small style="color: #718096;">{{ $position['currency_name'] }}</small></td>
-                <td>{{ number_format((float)$position['current_balance'], 4) }}</td>
-                <td>{{ $position['position_limit'] ? number_format((float)$position['position_limit'], 4) : 'N/A' }}</td>
-                <td>
-                    @if($position['position_limit'])
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <div style="width: 100px; background: #e2e8f0; border-radius: 4px; height: 8px;">
-                                <div style="width: {{ min($position['utilization_percent'], 100) }}%; background: {{ $position['status'] === 'Critical' ? '#e53e3e' : ($position['status'] === 'Warning' ? '#d69e2e' : '#38a169') }}; height: 100%; border-radius: 4px;"></div>
+<!-- Summary Cards -->
+<div class="stats-grid mb-6">
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">{{ $reportData['summary']['total_currencies'] }}</div>
+        <div class="stat-card__label">Total Currencies</div>
+    </div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">RM {{ number_format((float)$reportData['total_exposure_myr'], 2) }}</div>
+        <div class="stat-card__label">Total Exposure (MYR)</div>
+    </div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">{{ $reportData['summary']['currencies_at_warning'] }}</div>
+        <div class="stat-card__label">At Warning (≥75%)</div>
+    </div>
+    <div class="stat-card stat-card--danger">
+        <div class="stat-card__value">{{ $reportData['summary']['currencies_at_critical'] }}</div>
+        <div class="stat-card__label">At Critical (≥90%)</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Currency Positions</h3>
+    </div>
+    <div class="card-body p-0">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th class="text-right">Current Balance</th>
+                    <th class="text-right">Position Limit</th>
+                    <th>Utilization</th>
+                    <th class="text-right">Avg Cost Rate</th>
+                    <th class="text-right">Valuation Rate</th>
+                    <th class="text-right">Exposure (MYR)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($reportData['positions'] as $position)
+                <tr>
+                    <td><strong>{{ $position['currency_code'] }}</strong><br><small class="text-gray-500">{{ $position['currency_name'] }}</small></td>
+                    <td class="text-right">{{ number_format((float)$position['current_balance'], 4) }}</td>
+                    <td class="text-right">{{ $position['position_limit'] ? number_format((float)$position['position_limit'], 4) : 'N/A' }}</td>
+                    <td>
+                        @if($position['position_limit'])
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="width: 100px; background: #e2e8f0; border-radius: 4px; height: 8px;">
+                                    <div style="width: {{ min($position['utilization_percent'], 100) }}%; background: {{ $position['status'] === 'Critical' ? '#e53e3e' : ($position['status'] === 'Warning' ? '#d69e2e' : '#38a169') }}; height: 100%; border-radius: 4px;"></div>
+                                </div>
+                                <span>{{ $position['utilization_percent'] }}%</span>
                             </div>
-                            <span>{{ $position['utilization_percent'] }}%</span>
-                        </div>
-                    @else
-                        N/A
-                    @endif
-                </td>
-                <td>{{ number_format((float)$position['avg_cost_rate'], 4) }}</td>
-                <td>{{ number_format((float)$position['last_valuation_rate'], 4) }}</td>
-                <td>RM {{ number_format((float)$position['exposure_myr'], 2) }}</td>
-                <td>
-                    <span class="status-badge" style="background: {{ $position['status'] === 'Critical' ? '#fed7d7' : ($position['status'] === 'Warning' ? '#feebc8' : '#c6f6d5') }}; color: {{ $position['status'] === 'Critical' ? '#c53030' : ($position['status'] === 'Warning' ? '#c05621' : '#276749') }};">
-                        {{ $position['status'] }}
-                    </span>
-                </td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+                        @else
+                            N/A
+                        @endif
+                    </td>
+                    <td class="text-right">{{ number_format((float)$position['avg_cost_rate'], 4) }}</td>
+                    <td class="text-right">{{ number_format((float)$position['last_valuation_rate'], 4) }}</td>
+                    <td class="text-right">RM {{ number_format((float)$position['exposure_myr'], 2) }}</td>
+                    <td>
+                        <span class="status-badge status-badge--{{ strtolower($position['status']) }}">
+                            {{ $position['status'] }}
+                        </span>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
 </div>
 @endsection
 

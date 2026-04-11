@@ -2,15 +2,31 @@
 
 @section('title', 'EDD Templates')
 
+@section('breadcrumbs')
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumbs__list">
+        <li class="breadcrumbs__item">
+            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item">
+            <a href="{{ route('compliance') }}" class="breadcrumbs__link">Compliance</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
+            <span class="breadcrumbs__text">EDD Templates</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
 <div class="page-header">
-    <div class="page-header__content">
-        <h1 class="page-header__title">EDD Workflow Templates</h1>
-    </div>
+    <h1 class="page-header__title">EDD Workflow Templates</h1>
 </div>
 
 <div class="card">
-    <table class="data-table">
+    <table class="table table-striped">
         <thead>
             <tr>
                 <th>Name</th>
@@ -38,7 +54,7 @@
                 <td>{{ $template->getTotalQuestions() }}</td>
                 <td>{{ $template->enhanced_diligence_records_count ?? 0 }}</td>
                 <td>
-                    <a href="{{ route('compliance.edd-templates.show', $template->id) }}" class="btn btn--primary btn--sm">View</a>
+                    <a href="{{ route('compliance.edd-templates.show', $template->id) }}" class="btn btn-primary btn-sm">View</a>
                 </td>
             </tr>
             @empty

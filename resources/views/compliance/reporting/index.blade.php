@@ -2,11 +2,27 @@
 
 @section('title', 'Compliance Reporting')
 
+@section('breadcrumbs')
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumbs__list">
+        <li class="breadcrumbs__item">
+            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item">
+            <a href="{{ route('compliance') }}" class="breadcrumbs__link">Compliance</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
+            <span class="breadcrumbs__text">Reporting</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
 <div class="page-header">
-    <div class="page-header__content">
-        <h1 class="page-header__title">Compliance Reporting</h1>
-    </div>
+    <h1 class="page-header__title">Compliance Reporting</h1>
 </div>
 
 <div class="stats-grid mb-6">
@@ -32,14 +48,12 @@
 <div class="grid grid-cols-2 gap-4 mb-6">
     <div class="card">
         <div class="p-4">
-            <h3 class="font-semibold mb-3">Generate Report</h3>
-            <a href="{{ route('compliance.reporting.generate') }}" class="btn btn--primary">Generate New Report</a>
+            <a href="{{ route('compliance.reporting.generate') }}" class="btn btn-primary">Generate New Report</a>
         </div>
     </div>
     <div class="card">
         <div class="p-4">
-            <h3 class="font-semibold mb-3">Report Schedules</h3>
-            <a href="{{ route('compliance.reporting.schedule') }}" class="btn btn--secondary">Manage Schedules</a>
+            <a href="{{ route('compliance.reporting.schedule') }}" class="btn btn-secondary">Manage Schedules</a>
         </div>
     </div>
 </div>
@@ -47,7 +61,7 @@
 <!-- KPI Metrics -->
 <div class="card mb-6">
     <div class="p-4 border-b">
-        <h3 class="text-lg font-semibold">Key Performance Indicators (Last 30 Days)</h3>
+        <span class="text-lg font-semibold">Key Performance Indicators (Last 30 Days)</span>
     </div>
     <div class="p-4 grid grid-cols-4 gap-4">
         <div class="text-center">
@@ -72,14 +86,14 @@
 <!-- Upcoming Deadlines -->
 <div class="card">
     <div class="p-4 border-b flex justify-between items-center">
-        <h3 class="text-lg font-semibold">Upcoming Deadlines</h3>
+        <span class="text-lg font-semibold">Upcoming Deadlines</span>
         <a href="{{ route('compliance.reporting.deadlines') }}" class="text-blue-600 text-sm hover:underline">View Calendar</a>
     </div>
     <div class="p-4">
         @if(empty($deadlines))
             <p class="text-gray-500 text-sm">No upcoming deadlines</p>
         @else
-            <table class="data-table">
+            <table class="table table-striped">
                 <thead>
                     <tr>
                         <th>Type</th>

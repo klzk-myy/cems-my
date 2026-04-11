@@ -2,6 +2,24 @@
 
 @section('title', 'AML Rules - CEMS-MY')
 
+@section('breadcrumbs')
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+    <ol class="breadcrumbs__list">
+        <li class="breadcrumbs__item">
+            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item">
+            <a href="{{ route('compliance') }}" class="breadcrumbs__link">Compliance</a>
+            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </li>
+        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
+            <span class="breadcrumbs__text">AML Rules</span>
+        </li>
+    </ol>
+</nav>
+@endsection
+
 @section('content')
 <div class="page-header">
     <div class="page-header__content">
@@ -9,7 +27,7 @@
         <p class="page-header__subtitle">Configure Anti-Money Laundering rules for transaction monitoring</p>
     </div>
     <div class="page-header__actions">
-        <a href="{{ route('compliance.rules.create') }}" class="btn btn--primary">+ Create Rule</a>
+        <a href="{{ route('compliance.rules.create') }}" class="btn btn-primary">+ Create Rule</a>
     </div>
 </div>
 
@@ -46,16 +64,21 @@
             @endforeach
         </select>
         @if(request('type'))
-            <a href="{{ route('compliance.rules.index') }}" class="btn btn--secondary btn--sm">Clear Filter</a>
+            <a href="{{ route('compliance.rules.index') }}" class="btn btn-secondary">Clear Filter</a>
         @endif
     </div>
 </div>
 
 <div class="card">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4">AML Rules</h3>
-
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>AML Rules</span>
+        @if($rules->count() > 0)
+        <span class="text-muted">{{ $rules->total() }} rules</span>
+        @endif
+    </div>
+    <div class="card-body">
     @if($rules->count() > 0)
-    <table class="data-table">
+    <table class="table table-striped">
         <thead>
             <tr>
                 <th>Code</th>
@@ -111,12 +134,12 @@
                 <td class="text-gray-500">{{ $rule->created_at->format('Y-m-d') }}</td>
                 <td>
                     <div class="flex gap-2">
-                        <a href="{{ route('compliance.rules.show', $rule) }}" class="btn btn--primary btn--sm">View</a>
-                        <a href="{{ route('compliance.rules.edit', $rule) }}" class="btn btn--warning btn--sm">Edit</a>
+                        <a href="{{ route('compliance.rules.show', $rule) }}" class="btn btn-primary btn-sm">View</a>
+                        <a href="{{ route('compliance.rules.edit', $rule) }}" class="btn btn-warning btn-sm">Edit</a>
                         <form action="{{ route('compliance.rules.toggle', $rule) }}" method="POST" class="inline">
                             @csrf
                             @method('PATCH')
-                            <button type="submit" class="btn btn--sm {{ $rule->is_active ? 'btn--danger' : 'btn--success' }}">
+                            <button type="submit" class="btn btn-sm {{ $rule->is_active ? 'btn-danger' : 'btn-success' }}">
                                 {{ $rule->is_active ? 'Deactivate' : 'Activate' }}
                             </button>
                         </form>
@@ -139,7 +162,7 @@
         </div>
         <h3 class="text-lg font-semibold text-gray-800 mb-2">No AML Rules Configured</h3>
         <p class="text-gray-500 mb-6">No AML rules have been created yet. Create your first rule to start monitoring transactions.</p>
-        <a href="{{ route('compliance.rules.create') }}" class="btn btn--primary">+ Create Rule</a>
+        <a href="{{ route('compliance.rules.create') }}" class="btn btn-primary">+ Create Rule</a>
     </div>
     @endif
 </div>

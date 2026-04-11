@@ -21,123 +21,112 @@
 @endsection
 
 @section('content')
-<div class="mb-6">
-    <h1 class="text-2xl font-bold text-blue-900 mb-1">BNM Form LMCA</h1>
-    <p class="text-gray-500 text-sm">Monthly Regulatory Report for Bank Negara Malaysia</p>
-</div>
-
-<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <h2 class="text-base font-semibold text-gray-800 mb-4">Report Controls</h2>
-    <div class="flex flex-wrap items-center gap-4">
-        <form method="GET" action="{{ route('reports.lmca') }}" id="lmca-form">
-            <div class="flex flex-col gap-1">
-                <label for="month" class="text-sm font-medium text-gray-600">Select Month</label>
-                <input type="month" id="month" name="month" value="{{ $month }}" class="p-2 border border-gray-200 rounded text-sm min-w-48">
-            </div>
+<div class="page-header">
+    <div class="page-header__content">
+        <h1 class="page-header__title">BNM Form LMCA</h1>
+        <p class="page-header__subtitle">Monthly Regulatory Report for Bank Negara Malaysia</p>
+    </div>
+    <div class="page-header__actions">
+        <form method="GET" class="flex items-center gap-2">
+            <input type="month" name="month" id="month" value="{{ $month }}" class="form-input" style="width: auto;" form="lmca-form">
+            <button type="button" class="btn btn--secondary btn--sm" onclick="document.getElementById('lmca-form').submit()">Update View</button>
         </form>
+    </div>
+</div>
 
-        <div class="flex flex-wrap items-center gap-3">
-            @php
-            if ($reportGenerated) {
-                if ($reportGenerated->status === 'Submitted') {
-                    $status = 'Submitted';
-                    $statusClass = 'bg-green-100 text-green-800';
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Report Controls</h3>
+    </div>
+    <div class="card-body">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex flex-wrap items-center gap-3">
+                @php
+                if ($reportGenerated) {
+                    if ($reportGenerated->status === 'Submitted') {
+                        $status = 'Submitted';
+                        $statusClass = 'stat-card--success';
+                    } else {
+                        $status = 'Generated';
+                        $statusClass = 'stat-card--primary';
+                    }
                 } else {
-                    $status = 'Generated';
-                    $statusClass = 'bg-blue-100 text-blue-800';
+                    $status = 'Not Generated';
+                    $statusClass = 'stat-card--warning';
                 }
-            } else {
-                $status = 'Not Generated';
-                $statusClass = 'bg-gray-200 text-gray-600';
-            }
-            @endphp
+                @endphp
 
-            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $status }}</span>
+                <span class="status-badge status-badge--{{ strtolower($status) }}">{{ $status }}</span>
 
-            @if($reportGenerated)
-            <span class="text-sm text-gray-500">
-                Generated: {{ $reportGenerated->generated_at->format('M d, Y H:i') }}
-            </span>
-            @endif
-        </div>
+                @if($reportGenerated)
+                <span class="text-sm text-gray-500">
+                    Generated: {{ $reportGenerated->generated_at->format('M d, Y H:i') }}
+                </span>
+                @endif
+            </div>
 
-        <div class="flex flex-wrap gap-2">
-            <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700 transition-colors" onclick="document.getElementById('lmca-form').submit()">
-                Update View
-            </button>
-            <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded font-semibold text-sm hover:bg-blue-700 transition-colors" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
-                Generate Report
-            </button>
-            <button type="button" class="px-4 py-2 bg-green-600 text-white rounded font-semibold text-sm hover:bg-green-700 transition-colors" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
-                Download CSV
-            </button>
-            <button type="button" class="px-4 py-2 bg-yellow-500 text-white rounded font-semibold text-sm hover:bg-yellow-600 transition-colors" onclick="markSubmitted()" {{ !$reportGenerated || $status === 'Submitted' ? 'disabled' : '' }}>
-                Mark as Submitted
-            </button>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" class="btn btn--primary" onclick="generateReport()" {{ $reportGenerated ? 'disabled' : '' }}>
+                    Generate Report
+                </button>
+                <button type="button" class="btn btn--success" onclick="downloadCSV()" {{ !$reportGenerated ? 'disabled' : '' }}>
+                    Download CSV
+                </button>
+                <button type="button" class="btn btn--warning" onclick="markSubmitted()" {{ !$reportGenerated || $status === 'Submitted' ? 'disabled' : '' }}>
+                    Mark as Submitted
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="flex flex-col">
-            <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">License Number</span>
-            <span class="text-base font-semibold text-gray-800">{{ $reportData['license_number'] }}</span>
-        </div>
-        <div class="flex flex-col">
-            <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Reporting Period</span>
-            <span class="text-base font-semibold text-gray-800">{{ $reportData['reporting_period'] }}</span>
-        </div>
-        <div class="flex flex-col">
-            <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Report Generated</span>
-            <span class="text-base font-semibold text-gray-800">{{ $reportData['generated_at'] }}</span>
-        </div>
+<!-- Info Cards -->
+<div class="stats-grid mb-6">
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">{{ $reportData['license_number'] }}</div>
+        <div class="stat-card__label">License Number</div>
+    </div>
+    <div class="stat-card stat-card--primary">
+        <div class="stat-card__value">{{ $reportData['reporting_period'] }}</div>
+        <div class="stat-card__label">Reporting Period</div>
+    </div>
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__value">{{ number_format($reportData['customer_count']) }}</div>
+        <div class="stat-card__label">Customers Served</div>
+    </div>
+    <div class="stat-card stat-card--warning">
+        <div class="stat-card__value">{{ number_format($reportData['staff_count']) }}</div>
+        <div class="stat-card__label">Active Staff</div>
     </div>
 </div>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-    <div class="bg-gray-50 rounded-lg p-5">
-        <div class="text-sm text-gray-500 mb-2">Total Customers Served</div>
-        <div class="text-2xl font-bold text-gray-800">{{ number_format($reportData['customer_count']) }}</div>
+<div class="card mb-6">
+    <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-800">Currency Summary</h3>
     </div>
-    <div class="bg-gray-50 rounded-lg p-5">
-        <div class="text-sm text-gray-500 mb-2">Total Active Staff</div>
-        <div class="text-2xl font-bold text-gray-800">{{ number_format($reportData['staff_count']) }}</div>
-    </div>
-    <div class="bg-gray-50 rounded-lg p-5">
-        <div class="text-sm text-gray-500 mb-2">Currencies Traded</div>
-        <div class="text-2xl font-bold text-gray-800">{{ count($reportData['currencies']) }}</div>
-    </div>
-    <div class="bg-gray-50 rounded-lg p-5">
-        <div class="text-sm text-gray-500 mb-2">Submission Deadline</div>
-        <div class="text-2xl font-bold text-gray-800">10th of Next Month</div>
-    </div>
-</div>
-
-<div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-    <h2 class="text-lg font-semibold text-gray-800 mb-4">Currency Summary</h2>
-
-    @if(empty($reportData['currencies']))
-    <p class="text-gray-500">No transaction data available for this period.</p>
-    @else
-    <div class="overflow-x-auto -mx-6 px-6">
-        <table class="w-full border-collapse text-sm">
+    <div class="card-body p-0">
+        @if(empty($reportData['currencies']))
+        <div class="text-center py-12 text-gray-500">
+            <p>No transaction data available for this period.</p>
+        </div>
+        @else
+        <table class="data-table">
             <thead>
                 <tr>
-                    <th rowspan="2" class="align-middle bg-gray-50 text-left px-4 py-3 font-semibold text-gray-700">Currency</th>
-                    <th colspan="3" class="text-center px-4 py-3 bg-green-50/50 font-semibold text-green-800">Buy Transactions</th>
-                    <th colspan="3" class="text-center px-4 py-3 bg-red-50/50 font-semibold text-red-800">Sell Transactions</th>
-                    <th colspan="2" class="text-center px-4 py-3 bg-blue-50/50 font-semibold text-blue-800">Stock Position</th>
+                    <th rowspan="2">Currency</th>
+                    <th colspan="3" class="text-center">Buy Transactions</th>
+                    <th colspan="3" class="text-center">Sell Transactions</th>
+                    <th colspan="2" class="text-center">Stock Position</th>
                 </tr>
                 <tr>
-                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800">Count</th>
-                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800">Volume (Foreign)</th>
-                    <th class="text-left px-4 py-2 bg-green-50/50 text-green-800">Value (MYR)</th>
-                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800">Count</th>
-                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800">Volume (Foreign)</th>
-                    <th class="text-left px-4 py-2 bg-red-50/50 text-red-800">Value (MYR)</th>
-                    <th class="text-left px-4 py-2 bg-blue-50/50 text-blue-800">Opening</th>
-                    <th class="text-left px-4 py-2 bg-blue-50/50 text-blue-800">Closing</th>
+                    <th class="text-right">Count</th>
+                    <th class="text-right">Volume (Foreign)</th>
+                    <th class="text-right">Value (MYR)</th>
+                    <th class="text-right">Count</th>
+                    <th class="text-right">Volume (Foreign)</th>
+                    <th class="text-right">Value (MYR)</th>
+                    <th class="text-right">Opening</th>
+                    <th class="text-right">Closing</th>
                 </tr>
             </thead>
             <tbody>
@@ -161,48 +150,33 @@
                 $totals['sell_volume'] += $currency['sell_volume'];
                 $totals['sell_value'] += $currency['sell_value_myr'];
                 @endphp
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 border-b border-gray-100"><strong>{{ $currency['currency_code'] }}</strong><br><small class="text-gray-500">{{ $currency['currency_name'] }}</small></td>
-                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">{{ number_format($currency['buy_count']) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">{{ number_format($currency['buy_volume'], 4) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 bg-green-50/25">RM {{ number_format($currency['buy_value_myr'], 2) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">{{ number_format($currency['sell_count']) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">{{ number_format($currency['sell_volume'], 4) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 bg-red-50/25">RM {{ number_format($currency['sell_value_myr'], 2) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 bg-blue-50/25">{{ number_format($currency['opening_stock'], 4) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 bg-blue-50/25">{{ number_format($currency['closing_stock'], 4) }}</td>
+                <tr>
+                    <td><strong>{{ $currency['currency_code'] }}</strong><br><small class="text-gray-500">{{ $currency['currency_name'] }}</small></td>
+                    <td class="text-right">{{ number_format($currency['buy_count']) }}</td>
+                    <td class="text-right">{{ number_format($currency['buy_volume'], 4) }}</td>
+                    <td class="text-right">RM {{ number_format($currency['buy_value_myr'], 2) }}</td>
+                    <td class="text-right">{{ number_format($currency['sell_count']) }}</td>
+                    <td class="text-right">{{ number_format($currency['sell_volume'], 4) }}</td>
+                    <td class="text-right">RM {{ number_format($currency['sell_value_myr'], 2) }}</td>
+                    <td class="text-right">{{ number_format($currency['opening_stock'], 4) }}</td>
+                    <td class="text-right">{{ number_format($currency['closing_stock'], 4) }}</td>
                 </tr>
                 @endforeach
 
-                <tr class="bg-gray-100 font-semibold">
-                    <td class="px-4 py-3 border-t-2 border-gray-300"><strong>Grand Total</strong></td>
-                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">{{ number_format($totals['buy_count']) }}</td>
-                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">{{ number_format($totals['buy_volume'], 4) }}</td>
-                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-green-50/50">RM {{ number_format($totals['buy_value'], 2) }}</td>
-                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">{{ number_format($totals['sell_count']) }}</td>
-                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">{{ number_format($totals['sell_volume'], 4) }}</td>
-                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-red-50/50">RM {{ number_format($totals['sell_value'], 2) }}</td>
-                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-blue-50/50">-</td>
-                    <td class="px-4 py-3 border-t-2 border-gray-300 bg-blue-50/50">-</td>
+                <tr class="bg-gray-50 font-semibold">
+                    <td><strong>Grand Total</strong></td>
+                    <td class="text-right">{{ number_format($totals['buy_count']) }}</td>
+                    <td class="text-right">{{ number_format($totals['buy_volume'], 4) }}</td>
+                    <td class="text-right">RM {{ number_format($totals['buy_value'], 2) }}</td>
+                    <td class="text-right">{{ number_format($totals['sell_count']) }}</td>
+                    <td class="text-right">{{ number_format($totals['sell_volume'], 4) }}</td>
+                    <td class="text-right">RM {{ number_format($totals['sell_value'], 2) }}</td>
+                    <td class="text-right">-</td>
+                    <td class="text-right">-</td>
                 </tr>
             </tbody>
         </table>
-    </div>
-    @endif
-</div>
-
-<div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 rounded-lg p-5 mt-6">
-    <div class="flex flex-col">
-        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Regulatory Requirement</span>
-        <span class="text-sm font-semibold text-gray-800">BNM MSB Licensing & Operations</span>
-    </div>
-    <div class="flex flex-col">
-        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Submission Method</span>
-        <span class="text-sm font-semibold text-gray-800">BNM Portal (Manual or API)</span>
-    </div>
-    <div class="flex flex-col">
-        <span class="text-xs uppercase tracking-wide text-gray-500 mb-1">Record Retention</span>
-        <span class="text-sm font-semibold text-gray-800">7 Years</span>
+        @endif
     </div>
 </div>
 @endsection
