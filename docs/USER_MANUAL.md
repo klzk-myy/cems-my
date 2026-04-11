@@ -57,14 +57,59 @@ CEMS-MY is a Laravel-based Currency Exchange Management System designed for Mala
 
 ```
 Top Navigation Bar
-├── Dashboard
-├── Transactions
-├── Customers
-├── Counters (Stock & Cash)
-├── Compliance
+├── Main
+│   └── Dashboard
+├── Operations
+│   ├── Transactions
+│   └── Customers
+├── Counter Management
+│   ├── Counters
+│   └── Branches (Admin only)
+├── Stock Management
+│   ├── Stock & Cash
+│   └── Stock Transfers
+├── Compliance & AML
+│   ├── Compliance Dashboard
+│   ├── Compliance Workspace
+│   ├── Alert Triage
+│   ├── Cases
+│   ├── Flagged Transactions
+│   ├── EDD Records
+│   ├── EDD Templates
+│   ├── AML Rules
+│   ├── Risk Dashboard
+│   ├── STR Studio
+│   ├── Compliance Reporting
+│   └── STR Reports
 ├── Accounting
+│   ├── Accounting Dashboard
+│   ├── Journal Entries
+│   ├── Ledger
+│   ├── Trial Balance
+│   ├── Profit & Loss
+│   ├── Balance Sheet
+│   ├── Cash Flow
+│   ├── Financial Ratios
+│   ├── Revaluation
+│   ├── Reconciliation
+│   ├── Budget
+│   ├── Periods
+│   └── Fiscal Years
 ├── Reports
-└── User Menu (Profile, Settings, Logout)
+│   ├── Reports Dashboard
+│   ├── MSB2 Report
+│   ├── LCTR
+│   ├── LMCA
+│   ├── Quarterly LVR
+│   ├── Position Limits
+│   └── Report History
+└── System
+    ├── Tasks
+    ├── Transaction Imports
+    ├── Audit Log
+    ├── Test Results
+    ├── Users (Admin only)
+    └── Data Breach Alerts (Admin only)
 ```
 
 ---
@@ -111,13 +156,14 @@ After login, the dashboard displays:
 | View All Transactions | No | Yes | Yes | Yes |
 | Open/Close Own Counter | Yes | Yes | No | Yes |
 | Open/Close Any Counter | No | Yes | No | Yes |
-| Counter Handover | Yes (initiate) | Yes (approve) | No | Yes |
-| View Compliance Reports | No | No | Yes | Yes |
+| Counter Handover | No | Yes (approve) | No | Yes |
+| View Compliance Reports | No | Yes | Yes | Yes |
 | Review Flagged Transactions | No | No | Yes | Yes |
 | Manage STR Reports | No | No | Yes | Yes |
 | Manage Users | No | No | No | Yes |
 | System Configuration | No | No | No | Yes |
 | View Audit Logs | No | No | Yes | Yes |
+| Cancel Any Transaction | No | Yes | No | Yes |
 
 ### 3.3 Rate Override Limits
 
@@ -216,6 +262,44 @@ Navigate to **Counters > Status** to view:
 - Currency and balance information
 - Session start time
 
+### 4.6 Stock Transfers
+
+Stock transfers move currency inventory between branches.
+
+**Stock Transfer Workflow** (6 stages):
+
+```
+[Create (Manager)] --> [Approve BM (Manager)] --> [Approve HQ (Admin)] --> [Dispatch (Admin)] --> [Receive (Admin)] --> [Complete (Admin)]
+        |                    |                          |                    |                   |                    |
+        v                    v                          v                    v                   v                    v
+   [Cancelled]          [Rejected]                  [Rejected]           [Cancelled]        [Cancelled]         [Finalized]
+```
+
+| Stage | Role Required | Description |
+|-------|--------------|-------------|
+| **Create** | Manager | Initiator creates transfer request with items |
+| **Approve BM** | Manager | Branch Manager approves the transfer |
+| **Approve HQ** | Admin | HQ/Principal Officer final approval |
+| **Dispatch** | Admin | Stock is dispatched from source branch |
+| **Receive** | Admin | Destination branch receives and confirms items |
+| **Complete** | Admin | Transfer is finalized and closed |
+
+**Creating a Stock Transfer**:
+
+1. Navigate to **Stock Transfers**
+2. Click **"Create Transfer"**
+3. Select **Source Branch** and **Destination Branch**
+4. Select **Transfer Type** (Standard, Emergency, Scheduled, Return)
+5. Add transfer items (currency, quantity, rate, value)
+6. Add notes if needed
+7. Click **"Create Transfer"**
+
+**Transfer Types**:
+- **Standard**: Normal inter-branch transfer
+- **Emergency**: Urgent transfer with expedited approval
+- **Scheduled**: Pre-planned transfer at specific time
+- **Return**: Return of stock to source branch
+
 ---
 
 ## 5. Transaction Management
@@ -256,23 +340,28 @@ The system automatically:
 ### 5.3 Transaction Workflow
 
 ```
-[Create] --> [Pending] --> [Completed]
-              |              |
-              v              v
-           [OnHold]    [Cancelled]
-              |
-              v
-        [Under Review] --> [Resolved]
+[Draft] --> [PendingApproval] --> [Approved] --> [Processing] --> [Completed] --> [Finalized]
+    |              |                  |              |               |
+    v              v                  v              v               v
+[Cancelled]   [Rejected]         [OnHold]     [Failed]        [Reversed]
 ```
 
-**Status Definitions**:
+**Status Definitions** (12 total states):
 
 | Status | Description | Next Actions |
 |--------|-------------|--------------|
-| **Pending** | Awaiting manager approval (>=RM 50k or Enhanced CDD) | Manager approves or rejects |
+| **Draft** | Initial state, transaction being created, not yet submitted | Submit for approval |
+| **PendingApproval** | Awaiting manager approval (>=RM 50k or Enhanced CDD) | Manager approves or rejects |
+| **Approved** | Approved and ready for processing | Proceeds to processing |
+| **Processing** | Stock movements, accounting, compliance running | Completes or fails |
+| **Completed** | All side effects completed, funds exchanged | Can be finalized or refunded |
+| **Finalized** | Day-end processed, cannot be modified | No further action |
+| **Cancelled** | Cancelled before completion | No further action |
+| **Reversed** | Reversed after completion with compensating entries | No further action |
+| **Failed** | Processing failed, awaiting recovery | Retry or cancel |
+| **Rejected** | Rejected during approval (distinct from cancelled) | No further action |
+| **Pending** | Legacy state, awaiting action | Varies |
 | **OnHold** | Compliance flag applied, transaction blocked | Compliance review required |
-| **Completed** | Transaction finalized, funds exchanged | Can be refunded within 24h |
-| **Cancelled** | Transaction cancelled | No further action |
 
 ### 5.4 Large Transaction Approval (>=RM 50,000)
 
@@ -384,7 +473,7 @@ System automatically assigns risk levels:
 
 | Level | Trigger Condition | Requirements |
 |-------|-------------------|--------------|
-| **Simplified** | Amount < RM 3,000 AND Low risk | Basic verification |
+| **Simplified** | Amount < RM 3,000 AND not PEP/High risk | Basic verification |
 | **Standard** | Amount RM 3,000 - RM 49,999 AND not PEP/High risk | Full verification, ID document |
 | **Enhanced** | Amount >= RM 50,000 OR PEP OR Sanction match OR High risk | Extended verification, additional docs, senior approval |
 
