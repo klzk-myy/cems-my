@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuditService;
 use App\Services\MfaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
@@ -9,7 +10,8 @@ use Illuminate\Support\Facades\Session;
 class MfaController extends Controller
 {
     public function __construct(
-        protected MfaService $mfaService
+        protected MfaService $mfaService,
+        protected AuditService $auditService
     ) {}
 
     /**
@@ -72,6 +74,10 @@ class MfaController extends Controller
 
         // Enable MFA
         $this->mfaService->enableMfa($user);
+
+        $this->auditService->logMfaEvent('mfa_setup_completed', $user->id, [
+            'new' => ['method' => 'totp'],
+        ]);
 
         // Clear setup session
         Session::forget('mfa_setup_started_at');
@@ -140,12 +146,18 @@ class MfaController extends Controller
         }
 
         if (! $valid) {
+            $this->auditService->logMfaEvent('mfa_verification_failed', $user->id, [
+                'new' => ['reason' => 'invalid_code'],
+            ]);
+
             return back()->withErrors(['code' => 'Invalid code. Please try again.']);
         }
 
         // Mark session as verified
         $request->session()->put('mfa_verified', true);
         $request->session()->put('mfa_verified_at', now()->timestamp);
+
+        $this->auditService->logMfaEvent('mfa_verification_success', $user->id);
 
         // Remember device if checkbox checked
         if ($request->boolean('remember_device')) {
@@ -195,6 +207,8 @@ class MfaController extends Controller
         // Disable MFA
         $this->mfaService->disableMfa($user);
 
+        $this->auditService->logMfaEvent('mfa_disable_completed', $user->id);
+
         // Clear MFA session
         $request->session()->forget('mfa_verified');
         $request->session()->forget('mfa_verified_at');
@@ -224,6 +238,10 @@ class MfaController extends Controller
         $user = auth()->user();
 
         if ($this->mfaService->removeTrustedDevice($user, $deviceId)) {
+            $this->auditService->logMfaEvent('mfa_trusted_device_removed', $user->id, [
+                'new' => ['device_id' => $deviceId],
+            ]);
+
             return redirect()->back()
                 ->with('status', 'Device removed successfully.');
         }
