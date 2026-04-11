@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Services\AuditService;
 use App\Services\EncryptionService;
 use App\Services\RiskRatingService;
 use App\Services\SanctionScreeningService;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 class CustomerController extends Controller
 {
     public function __construct(
+        protected AuditService $auditService,
         protected EncryptionService $encryptionService,
         protected SanctionScreeningService $sanctionService,
         protected RiskRatingService $riskRatingService
@@ -105,6 +107,15 @@ class CustomerController extends Controller
                 $customer->update([
                     'risk_rating' => 'High',
                     'sanction_hit' => true,
+                ]);
+
+                // Log sanction hit for compliance audit trail
+                $this->auditService->logCustomer('sanction_match_detected', $customer->id, [
+                    'new' => [
+                        'risk_rating' => 'High',
+                        'sanction_hit' => true,
+                        'matches' => array_map(fn($m) => $m['name'] ?? 'Unknown', $sanctionMatches),
+                    ],
                 ]);
             }
 
@@ -245,7 +256,15 @@ class CustomerController extends Controller
             ], 400);
         }
 
+        $customerName = $customer->full_name;
+        $customerId = $customer->id;
+
         $customer->delete();
+
+        // Log customer deletion with AuditService (hash-chained for compliance)
+        $this->auditService->logCustomer('customer_deleted', $customerId, [
+            'old' => ['full_name' => $customerName],
+        ]);
 
         return response()->json([
             'success' => true,

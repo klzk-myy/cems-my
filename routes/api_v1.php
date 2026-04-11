@@ -36,7 +36,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::middleware('auth:sanctum')->group(function () {
     // Transactions API
     Route::get('/transactions', [TransactionController::class, 'index']);
-    Route::post('/transactions', [TransactionController::class, 'store']);
+    Route::post('/transactions', [TransactionController::class, 'store'])
+        ->middleware('mfa.verified'); // MFA required for transaction creation (BNM compliance)
     Route::get('/transactions/{transaction}', [TransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/approve', [TransactionApprovalController::class, 'approve'])
         ->middleware(['role:manager', 'mfa.verified']);
