@@ -440,6 +440,94 @@ class AuditService
     }
 
     /**
+     * Log regulatory report events.
+     *
+     * @param  string  $action  Report action (regulatory_report_msb2_generated,
+     *                          regulatory_report_lctr_generated,
+     *                          regulatory_report_lmca_generated,
+     *                          regulatory_report_qlvr_generated,
+     *                          regulatory_report_position_limit_generated,
+     *                          regulatory_report_submitted,
+     *                          regulatory_report_acknowledged)
+     * @param  int  $reportId  Report ID
+     * @param  array  $data  Report data
+     */
+    public function logRegulatoryReportEvent(string $action, int $reportId, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'regulatory_report_submitted' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'ReportGenerated',
+                'entity_id' => $reportId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log data breach events.
+     *
+     * @param  string  $action  Breach action (data_breach_detected,
+     *                          data_breach_acknowledged, data_breach_investigation_started,
+     *                          data_breach_resolved, data_breach_false_positive)
+     * @param  int  $breachId  Data breach alert ID
+     * @param  array  $data  Breach data
+     */
+    public function logDataBreachEvent(string $action, int $breachId, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'data_breach_detected', 'data_breach_acknowledged' => 'CRITICAL',
+            'data_breach_investigation_started' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'DataBreachAlert',
+                'entity_id' => $breachId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log session events.
+     *
+     * @param  string  $action  Session action (session_timeout,
+     *                          session_extended, session_concurrent_blocked)
+     * @param  array  $data  Session data
+     */
+    public function logSessionEvent(string $action, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'session_concurrent_blocked' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'user_id' => $data['user_id'] ?? auth()->id(),
+                'entity_type' => 'Session',
+                'entity_id' => $data['session_id'] ?? null,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
      * Export audit log to CSV or PDF
      */
     public function exportAuditLog(string $dateFrom, string $dateTo, string $format = 'CSV')
