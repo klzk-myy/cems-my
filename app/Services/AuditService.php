@@ -534,6 +534,7 @@ class AuditService
      * @param  string  $action  Action attempted
      * @param  string  $reason  Reason for denial
      * @param  array  $data  Additional context
+     * @return SystemLog
      */
     public function logPermissionDenied(string $resource, string $action, string $reason, array $data = []): SystemLog
     {
