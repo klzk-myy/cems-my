@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\JournalEntry;
+use App\Services\AuditService;
 use App\Services\JournalEntryWorkflowService;
 use App\Services\MathService;
 use Illuminate\Http\Request;
@@ -11,8 +12,10 @@ class JournalEntryWorkflowController extends Controller
 {
     protected JournalEntryWorkflowService $workflowService;
 
-    public function __construct(JournalEntryWorkflowService $workflowService)
-    {
+    public function __construct(
+        JournalEntryWorkflowService $workflowService,
+        protected AuditService $auditService
+    ) {
         $this->workflowService = $workflowService;
     }
 
@@ -53,6 +56,9 @@ class JournalEntryWorkflowController extends Controller
     {
         try {
             $entry = $this->workflowService->submitForApproval($entry);
+            $this->auditService->logJournalWorkflowEvent('journal_entry_submitted', $entry->id, [
+                'new' => ['submitted_by' => auth()->user()->username],
+            ]);
 
             return redirect()->back()->with('success', 'Entry submitted for approval.');
         } catch (\InvalidArgumentException $e) {
@@ -76,9 +82,15 @@ class JournalEntryWorkflowController extends Controller
                     return redirect()->back()->with('error', 'Rejection notes are required.');
                 }
                 $entry = $this->workflowService->reject($entry, $notes);
+                $this->auditService->logJournalWorkflowEvent('journal_entry_rejected', $entry->id, [
+                    'new' => ['rejected_by' => auth()->user()->username, 'notes' => $notes],
+                ]);
                 return redirect()->back()->with('success', 'Entry rejected and returned to draft.');
             } else {
                 $entry = $this->workflowService->approve($entry, $notes);
+                $this->auditService->logJournalWorkflowEvent('journal_entry_approved', $entry->id, [
+                    'new' => ['approved_by' => auth()->user()->username, 'notes' => $notes],
+                ]);
                 return redirect()->back()->with('success', 'Entry approved and posted to ledger.');
             }
         } catch (\InvalidArgumentException $e) {
