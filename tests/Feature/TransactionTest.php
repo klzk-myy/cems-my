@@ -512,6 +512,7 @@ class TransactionTest extends TestCase
         $transaction = Transaction::create([
             'customer_id' => $this->customer->id,
             'user_id' => $this->tellerUser->id,
+            'till_id' => 'TILL-001',
             'type' => 'Buy',
             'currency_code' => 'USD',
             'amount_foreign' => '11000',
