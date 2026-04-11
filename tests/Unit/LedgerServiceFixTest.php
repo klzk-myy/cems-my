@@ -70,6 +70,27 @@ class LedgerServiceFixTest extends TestCase
     }
 
     /**
+     * Create a journal entry and approve it to post to the ledger.
+     * Journal entries start as Draft and must be approved before posting to ledger.
+     */
+    protected function createAndApproveEntry(array $lines, int $userId, string $description = 'Test entry'): \App\Models\JournalEntry
+    {
+        $entry = $this->accountingService->createJournalEntry(
+            $lines,
+            'TEST',
+            1,
+            $description,
+            now()->toDateString(),
+            $userId
+        );
+
+        $this->accountingService->submitForApproval($entry, $userId);
+        $this->accountingService->approveEntry($entry, $userId);
+
+        return $entry;
+    }
+
+    /**
      * FAULT #3: Test trial balance correctly handles credit-normal accounts (Liability, Equity, Revenue)
      *
      * For credit-normal accounts:
@@ -89,15 +110,8 @@ class LedgerServiceFixTest extends TestCase
         ];
 
         try {
-            $entry = $this->accountingService->createJournalEntry(
-                $lines,
-                'TEST',
-                1,
-                'Test entry for liability',
-                now()->toDateString(),
-                $user->id
-            );
-            echo PHP_EOL.'Journal entry created: '.$entry->id.PHP_EOL;
+            $entry = $this->createAndApproveEntry($lines, $user->id, 'Test entry for liability');
+            echo PHP_EOL.'Journal entry created and approved: '.$entry->id.PHP_EOL;
         } catch (\Exception $e) {
             echo PHP_EOL.'Error creating journal entry: '.$e->getMessage().PHP_EOL;
             throw $e;
@@ -161,14 +175,14 @@ class LedgerServiceFixTest extends TestCase
             ['account_code' => '1000', 'debit' => 500.00, 'credit' => 0],
             ['account_code' => '2000', 'debit' => 0, 'credit' => 500.00],
         ];
-        $this->accountingService->createJournalEntry($lines1, 'TEST', 1, 'Entry 1', now()->toDateString(), $user->id);
+        $this->createAndApproveEntry($lines1, $user->id, 'Entry 1');
 
         // Then reverse more than the original (creating negative liability balance)
         $lines2 = [
             ['account_code' => '2000', 'debit' => 800.00, 'credit' => 0],   // Pay liability
             ['account_code' => '1000', 'debit' => 0, 'credit' => 800.00],   // Cash out
         ];
-        $this->accountingService->createJournalEntry($lines2, 'TEST', 1, 'Entry 2', now()->toDateString(), $user->id);
+        $this->createAndApproveEntry($lines2, $user->id, 'Entry 2');
 
         $result = $this->ledgerService->getTrialBalance();
         $liabilityAccount = collect($result['accounts'])->first(fn ($a) => $a['account_code'] === '2000');
@@ -203,7 +217,7 @@ class LedgerServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00],
         ];
 
-        $this->accountingService->createJournalEntry($lines, 'TEST', 1, 'Test entry', now()->toDateString(), $user->id);
+        $this->createAndApproveEntry($lines, $user->id, 'Test entry');
 
         $result = $this->ledgerService->getTrialBalance();
         $assetAccount = collect($result['accounts'])->first(fn ($a) => $a['account_code'] === '1000');
@@ -232,30 +246,24 @@ class LedgerServiceFixTest extends TestCase
 
         // Entry 1: Revenue of $1000
         // Dr: Cash $1000, Cr: Revenue $1000
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '1000', 'debit' => 1000.00, 'credit' => 0],
                 ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00],
             ],
-            'REV',
-            1,
-            'Sales',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Sales'
         );
 
         // Entry 2: Revenue refund of $200 (debit to revenue)
         // Dr: Revenue $200, Cr: Cash $200
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '4000', 'debit' => 200.00, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 200.00],
             ],
-            'REFUND',
-            1,
-            'Refund',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Refund'
         );
 
         $fromDate = now()->subDay()->toDateString();
@@ -280,30 +288,24 @@ class LedgerServiceFixTest extends TestCase
 
         // Entry 1: Expense of $500
         // Dr: Expense $500, Cr: Cash $500
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '5000', 'debit' => 500.00, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 500.00],
             ],
-            'EXP',
-            1,
-            'Office supplies',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Office supplies'
         );
 
         // Entry 2: Expense refund of $100 (credit to expense)
         // Dr: Cash $100, Cr: Expense $100
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '1000', 'debit' => 100.00, 'credit' => 0],
                 ['account_code' => '5000', 'debit' => 0, 'credit' => 100.00],
             ],
-            'REBATE',
-            1,
-            'Expense rebate',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Expense rebate'
         );
 
         $fromDate = now()->subDay()->toDateString();
@@ -323,29 +325,23 @@ class LedgerServiceFixTest extends TestCase
         $user = User::factory()->create();
 
         // Revenue entry: $1000
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '1000', 'debit' => 1000.00, 'credit' => 0],
                 ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00],
             ],
-            'REV',
-            1,
-            'Sales',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Sales'
         );
 
         // Expense entry: $400
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '5000', 'debit' => 400.00, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 400.00],
             ],
-            'EXP',
-            1,
-            'Office supplies',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Office supplies'
         );
 
         $fromDate = now()->subDay()->toDateString();
@@ -366,16 +362,13 @@ class LedgerServiceFixTest extends TestCase
 
         // Initial equity investment
         // Dr: Cash $5000, Cr: Equity $5000
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '1000', 'debit' => 5000.00, 'credit' => 0],
                 ['account_code' => '3000', 'debit' => 0, 'credit' => 5000.00],
             ],
-            'INVEST',
-            1,
-            'Owner investment',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Owner investment'
         );
 
         $result = $this->ledgerService->getTrialBalance();

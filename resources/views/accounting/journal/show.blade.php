@@ -48,11 +48,11 @@
             </tr>
             <tr class="border-b border-gray-100">
                 <th class="py-3 pr-4 text-left text-gray-500 font-medium">Posted By</th>
-                <td class="py-3 text-gray-800">{{ $entry->postedBy->username ?? 'System' }}</td>
+                <td class="py-3 text-gray-800">{{ $entry->postedBy?->username ?? 'Not posted' }}</td>
             </tr>
             <tr class="border-b border-gray-100">
                 <th class="py-3 pr-4 text-left text-gray-500 font-medium">Posted At</th>
-                <td class="py-3 text-gray-800">{{ $entry->posted_at->format('Y-m-d H:i:s') }}</td>
+                <td class="py-3 text-gray-800">{{ $entry->posted_at?->format('Y-m-d H:i:s') ?? 'Not posted' }}</td>
             </tr>
             @if($entry->isReversed())
                 <tr class="border-b border-gray-100">

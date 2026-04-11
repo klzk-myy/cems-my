@@ -75,6 +75,27 @@ class BudgetAndReversalFixTest extends TestCase
     }
 
     /**
+     * Create a journal entry and approve it to post to the ledger.
+     * Journal entries start as Draft and must be approved before posting to ledger.
+     */
+    protected function createAndApproveEntry(array $lines, int $userId, string $description = 'Test entry', ?string $entryDate = null): \App\Models\JournalEntry
+    {
+        $entry = $this->accountingService->createJournalEntry(
+            $lines,
+            'Test',
+            1,
+            $description,
+            $entryDate ?? now()->toDateString(),
+            $userId
+        );
+
+        $this->accountingService->submitForApproval($entry, $userId);
+        $this->accountingService->approveEntry($entry, $userId);
+
+        return $entry;
+    }
+
+    /**
      * FAULT #9 TEST: Budget actuals should only include entries within the period date range
      */
     public function test_budget_actuals_respect_period_date_range()
@@ -91,42 +112,36 @@ class BudgetAndReversalFixTest extends TestCase
         ]);
 
         // Create entries BEFORE the period (December 2023)
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '7000', 'debit' => 500, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 500],
             ],
-            'Test',
-            1,
+            $user->id,
             'Pre-period expense',
-            '2023-12-15',
-            $user->id
+            '2023-12-15'
         );
 
         // Create entries WITHIN the period (January 2024)
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '7000', 'debit' => 300, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 300],
             ],
-            'Test',
-            2,
+            $user->id,
             'Period expense',
-            '2024-01-15',
-            $user->id
+            '2024-01-15'
         );
 
         // Create entries AFTER the period (February 2024)
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '7000', 'debit' => 200, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 200],
             ],
-            'Test',
-            3,
+            $user->id,
             'Post-period expense',
-            '2024-02-15',
-            $user->id
+            '2024-02-15'
         );
 
         // Create a budget for the expense account in this period
@@ -202,17 +217,14 @@ class BudgetAndReversalFixTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // Create an original entry
-        $originalEntry = $this->accountingService->createJournalEntry(
+        // Create and approve original entry
+        $originalEntry = $this->createAndApproveEntry(
             [
                 ['account_code' => '1000', 'debit' => 100, 'credit' => 0],
                 ['account_code' => '4000', 'debit' => 0, 'credit' => 100],
             ],
-            'Test',
-            1,
-            'Original',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Original'
         );
 
         // First reversal should succeed
@@ -271,17 +283,14 @@ class BudgetAndReversalFixTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // Create original entry
-        $originalEntry = $this->accountingService->createJournalEntry(
+        // Create and approve original entry
+        $originalEntry = $this->createAndApproveEntry(
             [
                 ['account_code' => '1000', 'debit' => 200, 'credit' => 0],
                 ['account_code' => '4000', 'debit' => 0, 'credit' => 200],
             ],
-            'Test',
-            1,
-            'Original with link test',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Original with link test'
         );
 
         // Reverse it
@@ -307,16 +316,14 @@ class BudgetAndReversalFixTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $originalEntry = $this->accountingService->createJournalEntry(
+        // Create and approve entry (creates as Draft, then Pending, then Posted)
+        $originalEntry = $this->createAndApproveEntry(
             [
                 ['account_code' => '1000', 'debit' => 150, 'credit' => 0],
                 ['account_code' => '4000', 'debit' => 0, 'credit' => 150],
             ],
-            'Test',
-            1,
-            'Status test',
-            now()->toDateString(),
-            $user->id
+            $user->id,
+            'Status test'
         );
 
         $this->assertEquals('Posted', $originalEntry->status);
@@ -357,42 +364,36 @@ class BudgetAndReversalFixTest extends TestCase
         ]);
 
         // Entry before period
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '7000', 'debit' => 100, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 100],
             ],
-            'Test',
-            1,
+            $user->id,
             'Before period',
-            '2024-02-28',
-            $user->id
+            '2024-02-28'
         );
 
         // Entry within period
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '7000', 'debit' => 250, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 250],
             ],
-            'Test',
-            2,
+            $user->id,
             'Within period',
-            '2024-03-15',
-            $user->id
+            '2024-03-15'
         );
 
         // Entry after period
-        $this->accountingService->createJournalEntry(
+        $this->createAndApproveEntry(
             [
                 ['account_code' => '7000', 'debit' => 50, 'credit' => 0],
                 ['account_code' => '1000', 'debit' => 0, 'credit' => 50],
             ],
-            'Test',
-            3,
+            $user->id,
             'After period',
-            '2024-04-01',
-            $user->id
+            '2024-04-01'
         );
 
         $this->budgetService->updateActuals('2024-03');

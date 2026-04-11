@@ -70,7 +70,7 @@ class FinancialRatioServiceTest extends TestCase
      */
     protected function createJournalEntry(array $lines, string $date, string $description = 'Test entry'): JournalEntry
     {
-        return $this->accountingService->createJournalEntry(
+        $entry = $this->accountingService->createJournalEntry(
             $lines,
             'Test',
             null,
@@ -78,6 +78,12 @@ class FinancialRatioServiceTest extends TestCase
             $date,
             $this->user->id
         );
+
+        // Approve the entry so it gets posted to the ledger
+        $this->accountingService->submitForApproval($entry, $this->user->id);
+        $this->accountingService->approveEntry($entry, $this->user->id);
+
+        return $entry;
     }
 
     // ============================================

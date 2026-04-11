@@ -72,7 +72,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00], // Revenue credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry1 = $this->service->createJournalEntry(
             $lines,
             'Transaction',
             1,
@@ -80,6 +80,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry1);
+        $this->service->approveEntry($entry1, $user->id);
 
         $balance1 = (float) $this->service->getAccountBalance('1000');
         $this->assertEqualsWithDelta(1000.00, $balance1, 0.01, 'Cash balance should be 1000 after initial debit');
@@ -90,7 +92,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '1000', 'debit' => 0, 'credit' => 300.00], // Cash credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry2 = $this->service->createJournalEntry(
             $lines2,
             'Transaction',
             2,
@@ -98,6 +100,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry2);
+        $this->service->approveEntry($entry2, $user->id);
 
         $balance2 = (float) $this->service->getAccountBalance('1000');
         $this->assertEqualsWithDelta(700.00, $balance2, 0.01, 'Cash balance should be 700 after credit of 300');
@@ -108,7 +112,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 500.00], // Revenue credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry3 = $this->service->createJournalEntry(
             $lines3,
             'Transaction',
             3,
@@ -116,6 +120,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry3);
+        $this->service->approveEntry($entry3, $user->id);
 
         $balance3 = (float) $this->service->getAccountBalance('1000');
         $this->assertEqualsWithDelta(1200.00, $balance3, 0.01, 'Cash balance should be 1200 after debit of 500');
@@ -135,7 +141,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '2000', 'debit' => 0, 'credit' => 1000.00], // Liability credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry1 = $this->service->createJournalEntry(
             $lines,
             'Transaction',
             1,
@@ -143,6 +149,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry1);
+        $this->service->approveEntry($entry1, $user->id);
 
         $balance1 = (float) $this->service->getAccountBalance('2000');
         $this->assertEqualsWithDelta(1000.00, $balance1, 0.01, 'AP balance should be 1000 after initial credit');
@@ -153,7 +161,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '1000', 'debit' => 0, 'credit' => 400.00], // Cash credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry2 = $this->service->createJournalEntry(
             $lines2,
             'Transaction',
             2,
@@ -161,6 +169,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry2);
+        $this->service->approveEntry($entry2, $user->id);
 
         $balance2 = (float) $this->service->getAccountBalance('2000');
         $this->assertEqualsWithDelta(600.00, $balance2, 0.01, 'AP balance should be 600 after debit of 400');
@@ -171,7 +181,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '2000', 'debit' => 0, 'credit' => 300.00], // Liability credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry3 = $this->service->createJournalEntry(
             $lines3,
             'Transaction',
             3,
@@ -179,6 +189,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry3);
+        $this->service->approveEntry($entry3, $user->id);
 
         $balance3 = (float) $this->service->getAccountBalance('2000');
         $this->assertEqualsWithDelta(900.00, $balance3, 0.01, 'AP balance should be 900 after credit of 300');
@@ -197,7 +209,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '1000', 'debit' => 0, 'credit' => 500.00], // Cash credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry1 = $this->service->createJournalEntry(
             $lines,
             'Transaction',
             1,
@@ -205,6 +217,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry1);
+        $this->service->approveEntry($entry1, $user->id);
 
         $balance = (float) $this->service->getAccountBalance('5000');
         $this->assertEqualsWithDelta(500.00, $balance, 0.01, 'Expense balance should be 500 after debit');
@@ -215,7 +229,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '1000', 'debit' => 0, 'credit' => 300.00], // Cash credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry2 = $this->service->createJournalEntry(
             $lines2,
             'Transaction',
             2,
@@ -223,6 +237,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry2);
+        $this->service->approveEntry($entry2, $user->id);
 
         $balance2 = (float) $this->service->getAccountBalance('5000');
         $this->assertEqualsWithDelta(800.00, $balance2, 0.01, 'Expense balance should be 800 after second debit');
@@ -241,7 +257,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00], // Revenue credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry1 = $this->service->createJournalEntry(
             $lines,
             'Transaction',
             1,
@@ -249,6 +265,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry1);
+        $this->service->approveEntry($entry1, $user->id);
 
         $balance = (float) $this->service->getAccountBalance('4000');
         $this->assertEqualsWithDelta(1000.00, $balance, 0.01, 'Revenue balance should be 1000 after credit');
@@ -259,7 +277,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 500.00], // Revenue credit
         ];
 
-        $this->service->createJournalEntry(
+        $entry2 = $this->service->createJournalEntry(
             $lines2,
             'Transaction',
             2,
@@ -267,6 +285,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry2);
+        $this->service->approveEntry($entry2, $user->id);
 
         $balance2 = (float) $this->service->getAccountBalance('4000');
         $this->assertEqualsWithDelta(1500.00, $balance2, 0.01, 'Revenue balance should be 1500 after second credit');
@@ -289,7 +309,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry1 = $this->service->createJournalEntry(
             $lines1,
             'Transaction',
             1,
@@ -297,6 +317,8 @@ class AccountingServiceFixTest extends TestCase
             $entryDate,
             $user->id
         );
+        $this->service->submitForApproval($entry1);
+        $this->service->approveEntry($entry1, $user->id);
 
         // Second entry: Credit 300 to Cash
         $lines2 = [
@@ -304,7 +326,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '1000', 'debit' => 0, 'credit' => 300.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry2 = $this->service->createJournalEntry(
             $lines2,
             'Transaction',
             2,
@@ -312,6 +334,8 @@ class AccountingServiceFixTest extends TestCase
             $entryDate,
             $user->id
         );
+        $this->service->submitForApproval($entry2);
+        $this->service->approveEntry($entry2, $user->id);
 
         // Third entry: Debit 200 to Cash
         $lines3 = [
@@ -319,7 +343,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 200.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry3 = $this->service->createJournalEntry(
             $lines3,
             'Transaction',
             3,
@@ -327,6 +351,8 @@ class AccountingServiceFixTest extends TestCase
             $entryDate,
             $user->id
         );
+        $this->service->submitForApproval($entry3);
+        $this->service->approveEntry($entry3, $user->id);
 
         // Balance should be: 1000 - 300 + 200 = 900
         $balance = (float) $this->service->getAccountBalance('1000');
@@ -366,7 +392,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry1 = $this->service->createJournalEntry(
             $lines1,
             'Transaction',
             1,
@@ -374,13 +400,15 @@ class AccountingServiceFixTest extends TestCase
             '2024-01-01',
             $user->id
         );
+        $this->service->submitForApproval($entry1);
+        $this->service->approveEntry($entry1, $user->id);
 
         $lines2 = [
             ['account_code' => '4000', 'debit' => 200.00, 'credit' => 0],
             ['account_code' => '1000', 'debit' => 0, 'credit' => 200.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry2 = $this->service->createJournalEntry(
             $lines2,
             'Transaction',
             2,
@@ -388,6 +416,8 @@ class AccountingServiceFixTest extends TestCase
             '2024-01-02',
             $user->id
         );
+        $this->service->submitForApproval($entry2);
+        $this->service->approveEntry($entry2, $user->id);
 
         // Get current balance - should show cumulative balance
         $balanceCurrent = (float) $this->service->getAccountBalance('1000');
@@ -420,7 +450,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '3000', 'debit' => 0, 'credit' => 10000.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry1 = $this->service->createJournalEntry(
             $lines1,
             'Transaction',
             1,
@@ -428,6 +458,8 @@ class AccountingServiceFixTest extends TestCase
             '2024-01-01',
             $user->id
         );
+        $this->service->submitForApproval($entry1);
+        $this->service->approveEntry($entry1, $user->id);
 
         // Transaction 2: Revenue earned
         $lines2 = [
@@ -435,7 +467,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 5000.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry2 = $this->service->createJournalEntry(
             $lines2,
             'Transaction',
             2,
@@ -443,6 +475,8 @@ class AccountingServiceFixTest extends TestCase
             '2024-01-02',
             $user->id
         );
+        $this->service->submitForApproval($entry2);
+        $this->service->approveEntry($entry2, $user->id);
 
         // Transaction 3: Expense paid
         $lines3 = [
@@ -450,7 +484,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '1000', 'debit' => 0, 'credit' => 1500.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry3 = $this->service->createJournalEntry(
             $lines3,
             'Transaction',
             3,
@@ -458,6 +492,8 @@ class AccountingServiceFixTest extends TestCase
             '2024-01-03',
             $user->id
         );
+        $this->service->submitForApproval($entry3);
+        $this->service->approveEntry($entry3, $user->id);
 
         // Transaction 4: Liability incurred
         $lines4 = [
@@ -465,7 +501,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '2000', 'debit' => 0, 'credit' => 800.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry4 = $this->service->createJournalEntry(
             $lines4,
             'Transaction',
             4,
@@ -473,6 +509,8 @@ class AccountingServiceFixTest extends TestCase
             '2024-01-04',
             $user->id
         );
+        $this->service->submitForApproval($entry4);
+        $this->service->approveEntry($entry4, $user->id);
 
         // Verify final balances
         $cashBalance = (float) $this->service->getAccountBalance('1000');
@@ -504,7 +542,7 @@ class AccountingServiceFixTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry = $this->service->createJournalEntry(
             $lines,
             'Transaction',
             1,
@@ -512,6 +550,8 @@ class AccountingServiceFixTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+        $this->service->submitForApproval($entry);
+        $this->service->approveEntry($entry, $user->id);
 
         $balance = (float) $this->service->getAccountBalance('1000');
         $this->assertEqualsWithDelta(1000.00, $balance, 0.01);

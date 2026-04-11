@@ -179,7 +179,7 @@ class AccountingWorkflowTest extends TestCase
         );
 
         $this->assertNotNull($entry);
-        $this->assertEquals('Posted', $entry->status);
+        $this->assertEquals('Draft', $entry->status); // Entry created in Draft status
         $this->assertEquals('Test journal entry', $entry->description);
         $this->assertEquals(2, $entry->lines->count());
 
@@ -211,6 +211,15 @@ class AccountingWorkflowTest extends TestCase
             'entity_type' => 'JournalEntry',
             'entity_id' => $entry->id,
         ]);
+
+        // Now submit for approval and approve
+        $entry = $this->accountingService->submitForApproval($entry, $this->managerUser->id);
+        $this->assertEquals('Pending', $entry->status);
+
+        $entry = $this->accountingService->approveEntry($entry, $this->managerUser->id, 'Approved');
+        $this->assertEquals('Posted', $entry->status);
+        $this->assertEquals($this->managerUser->id, $entry->approved_by);
+        $this->assertNotNull($entry->approved_at);
     }
 
     /**
@@ -244,7 +253,7 @@ class AccountingWorkflowTest extends TestCase
 
         $this->assertDatabaseHas('journal_entries', [
             'description' => 'API test journal entry',
-            'status' => 'Posted',
+            'status' => 'Draft', // Entry created in Draft status
         ]);
     }
 
@@ -309,6 +318,10 @@ class AccountingWorkflowTest extends TestCase
             $this->managerUser->id
         );
 
+        // Submit and approve the entry before reversal (Draft -> Pending -> Posted)
+        $this->accountingService->submitForApproval($originalEntry, $this->managerUser->id);
+        $this->accountingService->approveEntry($originalEntry, $this->managerUser->id);
+
         // Reverse the entry
         $reversalEntry = $this->accountingService->reverseJournalEntry(
             $originalEntry,
@@ -364,6 +377,10 @@ class AccountingWorkflowTest extends TestCase
             $this->managerUser->id
         );
 
+        // Submit and approve the entry before reversal (Draft -> Pending -> Posted)
+        $this->accountingService->submitForApproval($originalEntry, $this->managerUser->id);
+        $this->accountingService->approveEntry($originalEntry, $this->managerUser->id);
+
         // Reverse via API
         $response = $this->post("/accounting/journal/{$originalEntry->id}/reverse", [
             'reason' => 'API reversal test',
@@ -384,7 +401,7 @@ class AccountingWorkflowTest extends TestCase
     {
         $this->actingAs($this->managerUser);
 
-        // Create and reverse entry
+        // Create and approve entry
         $originalEntry = $this->accountingService->createJournalEntry(
             [
                 ['account_code' => '1000', 'debit' => '100.00', 'credit' => '0'],
@@ -396,6 +413,10 @@ class AccountingWorkflowTest extends TestCase
             now()->toDateString(),
             $this->managerUser->id
         );
+
+        // Submit and approve before reversal
+        $this->accountingService->submitForApproval($originalEntry, $this->managerUser->id);
+        $this->accountingService->approveEntry($originalEntry, $this->managerUser->id);
 
         $this->accountingService->reverseJournalEntry($originalEntry, 'First reversal');
 
@@ -415,8 +436,8 @@ class AccountingWorkflowTest extends TestCase
 
         $period = AccountingPeriod::where('period_code', now()->format('Y-m'))->first();
 
-        // Create some journal entries with revenue and expenses
-        $this->accountingService->createJournalEntry(
+        // Create and approve journal entries with revenue and expenses
+        $entry1 = $this->accountingService->createJournalEntry(
             [
                 ['account_code' => '1000', 'debit' => '5000.00', 'credit' => '0'],
                 ['account_code' => '5000', 'debit' => '0', 'credit' => '5000.00'],
@@ -427,8 +448,10 @@ class AccountingWorkflowTest extends TestCase
             now()->toDateString(),
             $this->managerUser->id
         );
+        $this->accountingService->submitForApproval($entry1, $this->managerUser->id);
+        $this->accountingService->approveEntry($entry1, $this->managerUser->id);
 
-        $this->accountingService->createJournalEntry(
+        $entry2 = $this->accountingService->createJournalEntry(
             [
                 ['account_code' => '6000', 'debit' => '2000.00', 'credit' => '0'],
                 ['account_code' => '1000', 'debit' => '0', 'credit' => '2000.00'],
@@ -439,6 +462,8 @@ class AccountingWorkflowTest extends TestCase
             now()->toDateString(),
             $this->managerUser->id
         );
+        $this->accountingService->submitForApproval($entry2, $this->managerUser->id);
+        $this->accountingService->approveEntry($entry2, $this->managerUser->id);
 
         // Close period
         $periodCloseService = new \App\Services\PeriodCloseService(
@@ -522,7 +547,7 @@ class AccountingWorkflowTest extends TestCase
         ]);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Cannot post to closed period');
+        $this->expectExceptionMessage('Cannot create entry in closed period');
 
         $this->accountingService->createJournalEntry(
             [
@@ -614,8 +639,8 @@ class AccountingWorkflowTest extends TestCase
     {
         $this->actingAs($this->managerUser);
 
-        // Create entry
-        $this->accountingService->createJournalEntry(
+        // Create and approve first entry
+        $entry1 = $this->accountingService->createJournalEntry(
             [
                 ['account_code' => '1000', 'debit' => '1000.00', 'credit' => '0'],
                 ['account_code' => '5000', 'debit' => '0', 'credit' => '1000.00'],
@@ -626,6 +651,8 @@ class AccountingWorkflowTest extends TestCase
             now()->toDateString(),
             $this->managerUser->id
         );
+        $this->accountingService->submitForApproval($entry1, $this->managerUser->id);
+        $this->accountingService->approveEntry($entry1, $this->managerUser->id);
 
         // Check balance
         $balance = $this->accountingService->getAccountBalance('1000');
@@ -634,8 +661,8 @@ class AccountingWorkflowTest extends TestCase
             "Expected 1000.00 but got {$balance}"
         );
 
-        // Create another entry
-        $this->accountingService->createJournalEntry(
+        // Create and approve another entry
+        $entry2 = $this->accountingService->createJournalEntry(
             [
                 ['account_code' => '1000', 'debit' => '500.00', 'credit' => '0'],
                 ['account_code' => '5000', 'debit' => '0', 'credit' => '500.00'],
@@ -646,6 +673,8 @@ class AccountingWorkflowTest extends TestCase
             now()->toDateString(),
             $this->managerUser->id
         );
+        $this->accountingService->submitForApproval($entry2, $this->managerUser->id);
+        $this->accountingService->approveEntry($entry2, $this->managerUser->id);
 
         // Check updated balance
         $balance = $this->accountingService->getAccountBalance('1000');

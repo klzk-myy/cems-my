@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\AccountingService;
 use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AccountingServiceTest extends TestCase
@@ -57,8 +58,18 @@ class AccountingServiceTest extends TestCase
         );
 
         $this->assertInstanceOf(JournalEntry::class, $entry);
+        // Entries are now created as Draft and must be approved
+        $this->assertEquals('Draft', $entry->status);
+        $this->assertNull($entry->posted_by);
+
+        // Submit for approval then approve (submitForApproval returns fresh model)
+        $entry = $this->service->submitForApproval($entry);
+        $this->assertEquals('Pending', $entry->status);
+
+        $this->service->approveEntry($entry, $user->id);
         $this->assertEquals('Posted', $entry->status);
         $this->assertEquals($user->id, $entry->posted_by);
+
         $this->assertDatabaseHas('journal_lines', ['journal_entry_id' => $entry->id, 'account_code' => '1000', 'debit' => 1000.00]);
         $this->assertDatabaseHas('journal_lines', ['journal_entry_id' => $entry->id, 'account_code' => '4000', 'credit' => 1000.00]);
     }
@@ -103,6 +114,12 @@ class AccountingServiceTest extends TestCase
             $user->id
         );
 
+        // Must submit and approve before reversing (submitForApproval returns fresh model)
+        $entry = $this->service->submitForApproval($entry);
+        $this->service->approveEntry($entry, $user->id);
+        // Refresh to get the Posted status
+        $entry->refresh();
+
         $reversal = $this->service->reverseJournalEntry($entry, 'Correction', $user->id);
 
         $this->assertInstanceOf(JournalEntry::class, $reversal);
@@ -140,7 +157,7 @@ class AccountingServiceTest extends TestCase
             ['account_code' => '4000', 'debit' => 0, 'credit' => 1000.00],
         ];
 
-        $this->service->createJournalEntry(
+        $entry = $this->service->createJournalEntry(
             $lines,
             'Transaction',
             1,
@@ -148,6 +165,10 @@ class AccountingServiceTest extends TestCase
             now()->toDateString(),
             $user->id
         );
+
+        // Must submit and approve for ledger to be updated
+        $this->service->submitForApproval($entry);
+        $this->service->approveEntry($entry, $user->id);
 
         $cashBalance = $this->service->getAccountBalance('1000');
         $this->assertEqualsWithDelta(1000.00, (float) $cashBalance, 0.01);

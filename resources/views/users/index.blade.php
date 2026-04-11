@@ -35,18 +35,13 @@
                 <td>{{ $user->email }}</td>
                 <td>
                     @php
-                        $roleClass = match($user->role) {
+                        $roleClass = match($user->role->value) {
                             'admin' => 'role-admin',
                             'manager' => 'role-manager',
                             'compliance_officer' => 'role-compliance',
                             default => 'role-teller'
                         };
-                        $roleLabel = match($user->role) {
-                            'admin' => 'Admin',
-                            'manager' => 'Manager',
-                            'compliance_officer' => 'Compliance',
-                            default => 'Teller'
-                        };
+                        $roleLabel = $user->role->label();
                     @endphp
                     <span class="role-badge {{ $roleClass }}">{{ $roleLabel }}</span>
                 </td>
