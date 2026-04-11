@@ -620,7 +620,8 @@ class AuditService
      *                          sanction_screening_passed, sanction_manual_override,
      *                          sanction_block_overridden)
      * @param  int|null  $entityId  Entity ID (customer, transaction)
-     * @param  array  $data  Sanction data
+     * @param  array  $data  Sanction data with old/new values
+     * @return SystemLog
      */
     public function logSanctionEvent(string $action, ?int $entityId = null, array $data = []): SystemLog
     {
@@ -648,7 +649,8 @@ class AuditService
      *
      * @param  string  $action  Position action (position_revaluation_run,
      *                          position_limit_breach, position_manual_adjustment)
-     * @param  array  $data  Position data
+     * @param  array  $data  Position data with old/new values
+     * @return SystemLog
      */
     public function logPositionEvent(string $action, array $data = []): SystemLog
     {
@@ -675,7 +677,8 @@ class AuditService
      * @param  string  $action  Access action (report_customer_history_viewed,
      *                          report_ctos_exported, report_audit_log_viewed,
      *                          report_data_export)
-     * @param  array  $data  Access data
+     * @param  array  $data  Report access data with old/new values
+     * @return SystemLog
      */
     public function logReportAccessEvent(string $action, array $data = []): SystemLog
     {
@@ -691,6 +694,7 @@ class AuditService
                 'user_id' => auth()->id(),
                 'entity_type' => $data['entity_type'] ?? 'Report',
                 'entity_id' => $data['entity_id'] ?? null,
+                'old_values' => $data['old'] ?? [],
                 'new_values' => $data['new'] ?? [],
             ],
             $severity
