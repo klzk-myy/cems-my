@@ -7,6 +7,7 @@ use App\Enums\FlagStatus;
 use App\Enums\TransactionStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
+use App\Services\AuditService;
 use Illuminate\Support\Facades\DB;
 
 class TransactionMonitoringService
@@ -17,7 +18,8 @@ class TransactionMonitoringService
 
     public function __construct(
         ComplianceService $complianceService,
-        MathService $mathService
+        MathService $mathService,
+        protected AuditService $auditService
     ) {
         $this->complianceService = $complianceService;
         $this->mathService = $mathService;
@@ -34,11 +36,28 @@ class TransactionMonitoringService
         );
         if ($velocityCheck['threshold_exceeded']) {
             $flags[] = $this->createFlag($transaction, ComplianceFlagType::Velocity, "24h velocity exceeded: RM {$velocityCheck['with_new_transaction']}");
+            $this->auditService->logAmlMonitorEvent('aml_velocity_alert_triggered', $transaction->id, [
+                'entity_type' => 'Transaction',
+                'new' => [
+                    'customer_id' => $transaction->customer_id,
+                    'velocity_amount' => $velocityCheck['with_new_transaction'],
+                    'transaction_count' => Transaction::where('customer_id', $transaction->customer_id)
+                        ->where('created_at', '>=', now()->subHours(24))
+                        ->count(),
+                ],
+            ]);
         }
 
         // Structuring detection - multiple small transactions
         if ($this->complianceService->checkStructuring($transaction->customer_id)) {
             $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, 'Potential structuring: 3+ transactions under RM 3,000 within 1 hour');
+            $this->auditService->logAmlMonitorEvent('aml_structuring_detected', $transaction->id, [
+                'entity_type' => 'Transaction',
+                'new' => [
+                    'customer_id' => $transaction->customer_id,
+                    'pattern' => 'aggregate_transactions',
+                ],
+            ]);
         }
 
         // Aggregate transaction check - related transactions exceeding threshold
