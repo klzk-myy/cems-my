@@ -307,7 +307,68 @@ Real-time foreign currency inventory tracking.
 
 ---
 
-## 7. Accounting
+## 7. Stock Transfers
+
+### stock_transfers
+
+Inter-branch stock transfers with multi-stage approval workflow.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Transfer ID |
+| `reference` | varchar(50) | unique, not null | Transfer reference number |
+| `from_branch_id` | bigint unsigned | FK, not null | Source branch |
+| `to_branch_id` | bigint unsigned | FK, not null | Destination branch |
+| `status` | enum | not null | Transfer status |
+| `requested_by` | bigint unsigned | FK, not null | Requesting user |
+| `approved_by_bm` | bigint unsigned | FK, nullable | Branch Manager approver |
+| `approved_at_bm` | timestamp | nullable | BM approval timestamp |
+| `approved_by_hq` | bigint unsigned | FK, nullable | HQ/Admin approver |
+| `approved_at_hq` | timestamp | nullable | HQ approval timestamp |
+| `dispatched_at` | timestamp | nullable | Dispatch timestamp |
+| `received_at` | timestamp | nullable | Receive timestamp |
+| `completed_at` | timestamp | nullable | Completion timestamp |
+| `notes` | text | nullable | Transfer notes |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+**Transfer Statuses:** Requested, BranchManagerApproved, HQApproved, InTransit, PartiallyReceived, Completed, Cancelled, Rejected
+
+**Transfer Types:** Standard, Emergency, Scheduled, Return
+
+### stock_transfer_items
+
+Line items for stock transfers.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Item ID |
+| `stock_transfer_id` | bigint unsigned | FK, not null | Parent transfer |
+| `currency_code` | varchar(3) | FK, not null | Currency code |
+| `denomination` | varchar(50) | nullable | Banknote denomination |
+| `quantity` | int | not null | Number of units |
+| `created_at` | timestamp | - | Record creation |
+
+### branches
+
+Branch management for multi-branch support.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | bigint unsigned | PK, auto-increment | Branch ID |
+| `code` | varchar(20) | unique, not null | Branch code |
+| `name` | varchar(255) | not null | Branch name |
+| `address` | text | nullable | Branch address |
+| `phone` | varchar(20) | nullable | Contact phone |
+| `email` | varchar(255) | nullable | Contact email |
+| `is_active` | tinyint(1) | default: 1 | Active status |
+| `is_hq` | tinyint(1) | default: 0 | HQ flag |
+| `created_at` | timestamp | - | Record creation |
+| `updated_at` | timestamp | - | Last update |
+
+---
+
+## 8. Accounting
 
 ### chart_of_accounts
 
@@ -401,7 +462,7 @@ Month-end revaluation entries.
 
 ---
 
-## 8. Compliance & Monitoring
+## 9. Compliance & Monitoring
 
 ### sanction_lists
 
@@ -647,7 +708,7 @@ EDD document request tracking.
 
 ---
 
-## 9. Reports & Audit
+## 10. Reports & Audit
 
 ### system_logs
 
@@ -710,7 +771,7 @@ Generated reports with download tracking.
 
 ---
 
-## 10. Counter Management
+## 11. Counter Management
 
 ### counters
 
@@ -765,7 +826,7 @@ Shift handover records between users.
 
 ---
 
-## 11. Database Indexes
+## 12. Database Indexes
 
 ### Performance Indexes
 
@@ -793,7 +854,7 @@ Shift handover records between users.
 
 ---
 
-## 12. ER Diagram
+## 13. ER Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
