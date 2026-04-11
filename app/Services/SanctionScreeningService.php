@@ -8,6 +8,10 @@ class SanctionScreeningService
 {
     protected float $matchThreshold = 0.80;
 
+    public function __construct(
+        protected AuditService $auditService,
+    ) {}
+
     public function screenName(string $name): array
     {
         $matches = [];
@@ -36,6 +40,16 @@ class SanctionScreeningService
                     'match_score' => round($maxScore, 2),
                     'match_type' => $score > $aliasScore ? 'Name' : 'Alias',
                 ];
+
+                // Log sanction hit
+                $this->auditService->logSanctionEvent('sanction_screening_hit', $entry->id, [
+                    'entity_type' => $entry->entity_type,
+                    'new' => [
+                        'entity_name' => $entry->entity_name,
+                        'match_score' => round($maxScore, 2),
+                        'match_type' => $score > $aliasScore ? 'Name' : 'Alias',
+                    ],
+                ]);
             }
         }
 
@@ -87,6 +101,23 @@ class SanctionScreeningService
         $count = $this->processCsvFile($filePath, $listId);
 
         return $count;
+    }
+
+    /**
+     * Log a sanction block override event.
+     *
+     * Called when a user overrides a sanction block/flag on a customer or transaction.
+     *
+     * @param  int  $entityId  Entity ID (customer or transaction ID)
+     * @param  string  $entityType  Entity type (Customer, Transaction, etc.)
+     * @param  array  $data  Override data including reason
+     */
+    public function logBlockOverride(int $entityId, string $entityType, array $data = []): void
+    {
+        $this->auditService->logSanctionEvent('sanction_block_overridden', $entityId, [
+            'entity_type' => $entityType,
+            'new' => $data,
+        ]);
     }
 
     protected function detectListType(string $filePath): string
