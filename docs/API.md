@@ -417,7 +417,85 @@ Display counter transaction history.
 
 ---
 
-## 5. Accounting
+## 5. Stock Transfers
+
+### Stock Transfer List
+
+**Route**: `GET /stock-transfers`
+
+Display stock transfer list with status filtering.
+
+---
+
+### Create Stock Transfer
+
+**Route**: `GET /stock-transfers/create`
+
+Display stock transfer creation form (Manager required).
+
+**Route**: `POST /stock-transfers`
+
+Create new stock transfer request (Manager required).
+
+---
+
+### View Stock Transfer
+
+**Route**: `GET /stock-transfers/{stockTransfer}`
+
+Display stock transfer details with item breakdown.
+
+---
+
+### Stock Transfer Approval - Branch Manager
+
+**Route**: `POST /stock-transfers/{stockTransfer}/approve-bm`
+
+Branch Manager approves stock transfer (Manager required).
+
+---
+
+### Stock Transfer Approval - HQ
+
+**Route**: `POST /stock-transfers/{stockTransfer}/approve-hq`
+
+HQ/Admin approves stock transfer after BM approval (Admin required).
+
+---
+
+### Stock Transfer Dispatch
+
+**Route**: `POST /stock-transfers/{stockTransfer}/dispatch`
+
+Dispatch stock transfer (Admin required).
+
+---
+
+### Stock Transfer Receive
+
+**Route**: `POST /stock-transfers/{stockTransfer}/receive`
+
+Receive stock transfer at destination branch (Admin required).
+
+---
+
+### Stock Transfer Complete
+
+**Route**: `POST /stock-transfers/{stockTransfer}/complete`
+
+Complete stock transfer after receiving (Admin required).
+
+---
+
+### Stock Transfer Cancel
+
+**Route**: `POST /stock-transfers/{stockTransfer}/cancel`
+
+Cancel stock transfer (Manager required).
+
+---
+
+## 6. Accounting
 
 ### Journal Entries
 
@@ -605,7 +683,7 @@ Display fiscal year report.
 
 ---
 
-## 6. Compliance & AML
+## 7. Compliance & AML
 
 ### Compliance Dashboard
 
@@ -711,6 +789,202 @@ Track STR acknowledgment from BNM.
 
 ---
 
+### Compliance Workspace
+
+**Route**: `GET /compliance/workspace`
+
+Display compliance workspace with consolidated workflow.
+
+---
+
+### Alert Triage
+
+**Route**: `GET /compliance/alerts`
+
+Display alert list requiring triage (Compliance Officer required).
+
+**Route**: `GET /compliance/alerts/{alert}`
+
+Display alert details.
+
+**Route**: `PATCH /compliance/alerts/{alert}/assign`
+
+Assign alert to a reviewer.
+
+**Route**: `PATCH /compliance/alerts/{alert}/resolve`
+
+Resolve an alert.
+
+---
+
+### Case Management
+
+**Route**: `GET /compliance/cases`
+
+Display compliance cases list.
+
+**Route**: `POST /compliance/cases`
+
+Create new compliance case.
+
+**Route**: `GET /compliance/cases/{case}`
+
+Display case details.
+
+**Route**: `PATCH /compliance/cases/{case}`
+
+Update case.
+
+**Route**: `POST /compliance/cases/{case}/merge`
+
+Merge multiple cases.
+
+**Route**: `POST /compliance/cases/{case}/link-alert`
+
+Link an alert to a case.
+
+**Route**: `POST /compliance/cases/{case}/escalate`
+
+Escalate a case.
+
+**Route**: `POST /compliance/cases/{case}/documents`
+
+Upload case document.
+
+**Route**: `POST /compliance/cases/{case}/links`
+
+Add link to a case.
+
+---
+
+### Risk Dashboard
+
+**Route**: `GET /compliance/risk-dashboard`
+
+Display customer risk portfolio overview (Compliance Officer required).
+
+**Route**: `GET /compliance/risk-dashboard/customer/{customer}`
+
+Display specific customer's risk details.
+
+**Route**: `GET /compliance/risk-dashboard/trends`
+
+Display risk trend analysis.
+
+**Route**: `POST /compliance/risk-dashboard/rescreen`
+
+Rescreen all customers.
+
+---
+
+### EDD Templates
+
+**Route**: `GET /compliance/edd-templates`
+
+Display EDD questionnaire templates list.
+
+**Route**: `POST /compliance/edd-templates`
+
+Create new EDD template.
+
+**Route**: `GET /compliance/edd-templates/{template}`
+
+Display EDD template details.
+
+**Route**: `PUT /compliance/edd-templates/{template}`
+
+Update EDD template.
+
+**Route**: `DELETE /compliance/edd-templates/{template}`
+
+Delete EDD template.
+
+**Route**: `POST /compliance/edd-templates/{template}/duplicate`
+
+Duplicate an EDD template.
+
+---
+
+### STR Studio
+
+**Route**: `GET /compliance/str-studio`
+
+Display STR studio for creating/editing STRs.
+
+**Route**: `GET /compliance/str-studio/create/{caseId}`
+
+Create STR from case.
+
+**Route**: `POST /compliance/str-studio/draft`
+
+Save STR draft.
+
+**Route**: `GET /compliance/str-studio/{draft}`
+
+Display STR draft details.
+
+**Route**: `POST /compliance/str-studio/{draft}/generate-narrative`
+
+Generate STR narrative using AI.
+
+**Route**: `POST /compliance/str-studio/{draft}/submit`
+
+Submit STR draft.
+
+**Route**: `POST /compliance/str-studio/{draft}/convert`
+
+Convert draft to final STR.
+
+**Route**: `GET /compliance/str-studio/deadlines`
+
+Display STR filing deadlines.
+
+---
+
+### Compliance Reporting
+
+**Route**: `GET /compliance/reporting`
+
+Display compliance reporting dashboard.
+
+**Route**: `GET /compliance/reporting/generate`
+
+Generate compliance report.
+
+**Route**: `POST /compliance/reporting/run`
+
+Run report generation.
+
+**Route**: `GET /compliance/reporting/history`
+
+Display report generation history.
+
+**Route**: `GET /compliance/reporting/history/{id}/download`
+
+Download generated report.
+
+**Route**: `GET /compliance/reporting/schedule`
+
+Display report schedules.
+
+**Route**: `POST /compliance/reporting/schedule`
+
+Create report schedule.
+
+**Route**: `PATCH /compliance/reporting/schedule/{id}`
+
+Update report schedule.
+
+**Route**: `DELETE /compliance/reporting/schedule/{id}`
+
+Delete report schedule.
+
+**Route**: `GET /compliance/reporting/deadlines`
+
+Display compliance deadlines.
+
+---
+
 ### Enhanced Due Diligence (EDD)
 
 **Route**: `GET /compliance/edd`
@@ -751,7 +1025,7 @@ Reject EDD (Manager or Compliance required).
 
 ---
 
-## 7. Tasks
+## 8. Tasks
 
 ### Tasks Dashboard
 
@@ -819,7 +1093,7 @@ Get task statistics (JSON API).
 
 ---
 
-## 8. Reports
+## 9. Reports
 
 ### Reports Dashboard
 
@@ -953,7 +1227,7 @@ Display monthly trend analysis.
 
 ---
 
-## 9. User Management
+## 10. User Management
 
 ### User List
 
@@ -987,35 +1261,99 @@ Display user edit form.
 
 ---
 
-### Toggle User Status
-
-**Route**: `POST /users/{user}/toggle`
-
-Activate/deactivate user.
+### Toggle user status (Admin only).
 
 ---
 
-### Audit Log
+### Delete User
 
-**Route**: `GET /audit`
+**Route**: `DELETE /users/{user}`
 
-Display system audit log.
+Delete user account (Admin only).
 
-**Route**: `GET /audit/dashboard`
+---
 
-Display audit dashboard.
+### Reset User Password
 
-**Route**: `GET /audit/{log}`
+**Route**: `POST /users/{user}/reset-password`
 
-Display audit log entry details.
+Reset user's password (Admin only).
 
-**Route**: `POST /audit/export`
+---
 
-Export audit log entries.
+## 11. Branch Management
 
-**Route**: `GET /audit/rotate`
+**Route**: `GET /branches`
 
-Display audit log rotation controls.
+Display branches list (Admin only).
+
+**Route**: `GET /branches/create`
+
+Display branch creation form (Admin only).
+
+**Route**: `POST /branches`
+
+Create new branch (Admin only).
+
+**Route**: `GET /branches/{branch}`
+
+Display branch details.
+
+**Route**: `GET /branches/{branch}/edit`
+
+Display branch edit form.
+
+**Route**: `PUT /branches/{branch}`
+
+Update branch.
+
+**Route**: `DELETE /branches/{branch}`
+
+Delete branch (Admin only).
+
+---
+
+## 12. Data Breach Alerts
+
+**Route**: `GET /data-breach-alerts`
+
+Display data breach alerts list (Admin only).
+
+**Route**: `GET /data-breach-alerts/{dataBreachAlert}`
+
+Display alert details.
+
+**Route**: `POST /data-breach-alerts/{dataBreachAlert}/resolve`
+
+Resolve data breach alert (Admin only).
+
+---
+
+## 13. Test Results
+
+**Route**: `GET /test-results`
+
+Display test results (Admin only).
+
+**Route**: `GET /test-results/statistics`
+
+Display test statistics.
+
+**Route**: `POST /test-results/run`
+
+Run test suite.
+
+**Route**: `GET /test-results/{testResult}`
+
+Display test result details.
+
+**Route**: `POST /test-results/cleanup`
+
+Clean up old test results.
+
+**Route**: `GET /test-results/{testResult}/output`
+
+Display test output.
 
 ---
 
