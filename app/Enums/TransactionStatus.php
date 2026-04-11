@@ -6,7 +6,7 @@ namespace App\Enums;
  * Transaction Status Enum
  *
  * Represents the various statuses a transaction can have in its lifecycle.
- * Implements a 10-state state machine for currency exchange transactions.
+ * Implements a 12-state state machine (10 active + 2 legacy) for currency exchange transactions.
  */
 enum TransactionStatus: string
 {
