@@ -85,7 +85,7 @@ Standard/Simplified CDD → No automatic hold
 ```
 
 ### Transaction Status Values
-The transaction state machine has 12 states:
+The transaction state machine has 13 states (11 active + 2 legacy):
 - `Draft` - Initial state, transaction being created, not yet submitted
 - `PendingApproval` - Submitted and awaiting approval based on amount/role rules
 - `Approved` - Approved and ready for processing
@@ -96,8 +96,8 @@ The transaction state machine has 12 states:
 - `Reversed` - Reversed after completion with compensating transactions
 - `Failed` - Processing failed, awaiting recovery
 - `Rejected` - Rejected during approval (distinct from cancelled)
-- `Pending` - Legacy pending state
-- `OnHold` - On hold (legacy support, currently returns false)
+- `Pending` - Legacy pending state (returns false in isPending())
+- `OnHold` - Legacy on-hold state (returns false in isOnHold())
 
 ### Required Permissions
 
