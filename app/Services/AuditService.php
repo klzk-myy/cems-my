@@ -528,6 +528,91 @@ class AuditService
     }
 
     /**
+     * Log permission denied events.
+     *
+     * @param  string  $resource  Resource being accessed
+     * @param  string  $action  Action attempted
+     * @param  string  $reason  Reason for denial
+     * @param  array  $data  Additional context
+     */
+    public function logPermissionDenied(string $resource, string $action, string $reason, array $data = []): SystemLog
+    {
+        return $this->logWithSeverity(
+            'permission_denied',
+            [
+                'user_id' => auth()->id(),
+                'entity_type' => $resource,
+                'entity_id' => $data['entity_id'] ?? null,
+                'new_values' => [
+                    'action' => $action,
+                    'reason' => $reason,
+                    'resource' => $resource,
+                    'attempted_at' => now()->toIso8601String(),
+                ],
+            ],
+            'WARNING'
+        );
+    }
+
+    /**
+     * Log customer risk events.
+     *
+     * @param  string  $action  Risk action (customer_risk_score_changed,
+     *                          customer_risk_level_upgraded,
+     *                          customer_risk_level_downgraded,
+     *                          customer_risk_locked, customer_risk_unlocked)
+     * @param  int  $customerId  Customer ID
+     * @param  array  $data  Risk data
+     */
+    public function logCustomerRiskEvent(string $action, int $customerId, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'customer_risk_level_upgraded', 'customer_risk_locked' => 'WARNING',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => 'Customer',
+                'entity_id' => $customerId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
+     * Log AML monitoring events.
+     *
+     * @param  string  $action  Monitor action (aml_velocity_alert_triggered,
+     *                          aml_structuring_detected,
+     *                          aml_sanctions_rescreen_completed, aml_rule_triggered)
+     * @param  int|null  $entityId  Entity ID (transaction, customer, etc.)
+     * @param  array  $data  Monitor data
+     */
+    public function logAmlMonitorEvent(string $action, ?int $entityId = null, array $data = []): SystemLog
+    {
+        $severity = match ($action) {
+            'aml_velocity_alert_triggered', 'aml_structuring_detected',
+            'aml_rule_triggered' => 'ERROR',
+            default => 'INFO',
+        };
+
+        return $this->logWithSeverity(
+            $action,
+            [
+                'entity_type' => $data['entity_type'] ?? 'AmlMonitor',
+                'entity_id' => $entityId,
+                'old_values' => $data['old'] ?? [],
+                'new_values' => $data['new'] ?? [],
+            ],
+            $severity
+        );
+    }
+
+    /**
      * Export audit log to CSV or PDF
      */
     public function exportAuditLog(string $dateFrom, string $dateTo, string $format = 'CSV')
