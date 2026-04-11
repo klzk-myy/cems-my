@@ -17,7 +17,9 @@ class CashFlowServiceTest extends TestCase
     use RefreshDatabase;
 
     protected CashFlowService $service;
+
     protected MathService $mathService;
+
     protected User $user;
 
     protected function setUp(): void

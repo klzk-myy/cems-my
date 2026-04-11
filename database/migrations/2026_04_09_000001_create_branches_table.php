@@ -32,21 +32,21 @@ return new class extends Migration
         });
 
         // Add branch_id to users if not exists
-        if (!Schema::hasColumn('users', 'branch_id')) {
+        if (! Schema::hasColumn('users', 'branch_id')) {
             Schema::table('users', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('id')->constrained('branches')->nullOnDelete();
             });
         }
 
         // Add branch_id to str_reports if not exists
-        if (!Schema::hasColumn('str_reports', 'branch_id')) {
+        if (! Schema::hasColumn('str_reports', 'branch_id')) {
             Schema::table('str_reports', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('id')->constrained('branches')->nullOnDelete();
             });
         }
 
         // Add branch_id to journal_entries if not exists
-        if (!Schema::hasColumn('journal_entries', 'branch_id')) {
+        if (! Schema::hasColumn('journal_entries', 'branch_id')) {
             Schema::table('journal_entries', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('id')->constrained('branches')->nullOnDelete();
             });

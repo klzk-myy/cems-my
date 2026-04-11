@@ -18,7 +18,7 @@ class StructuringMonitorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->monitor = new StructuringMonitor(new MathService());
+        $this->monitor = new StructuringMonitor(new MathService);
     }
 
     public function test_no_finding_when_no_structuring_pattern(): void

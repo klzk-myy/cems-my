@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\UserRole;
 use App\Models\ApprovalTask;
 use App\Models\Transaction;
 use App\Models\User;
@@ -53,7 +52,6 @@ class ApprovalWorkflowService
     /**
      * Check if a transaction requires approval based on amount.
      *
-     * @param Transaction $transaction
      * @return bool True if approval is required
      */
     public function requiresApproval(Transaction $transaction): bool
@@ -64,7 +62,6 @@ class ApprovalWorkflowService
     /**
      * Get the required role for approving a transaction.
      *
-     * @param Transaction $transaction
      * @return string 'supervisor', 'manager', 'admin', or 'none'
      */
     public function getRequiredRole(Transaction $transaction): string
@@ -95,7 +92,6 @@ class ApprovalWorkflowService
      *
      * Returns the lower bound of the tier the transaction falls into.
      *
-     * @param Transaction $transaction
      * @return string The threshold amount
      */
     public function getThresholdAmount(Transaction $transaction): string
@@ -124,7 +120,6 @@ class ApprovalWorkflowService
     /**
      * Create an approval task for a transaction.
      *
-     * @param Transaction $transaction
      * @return ApprovalTask|null Null if no approval required
      */
     public function createApprovalTask(Transaction $transaction): ?ApprovalTask
@@ -150,9 +145,6 @@ class ApprovalWorkflowService
     /**
      * Approve an approval task.
      *
-     * @param ApprovalTask $task
-     * @param User $approver
-     * @param string|null $notes
      * @return bool True if approval was successful
      */
     public function approve(ApprovalTask $task, User $approver, ?string $notes = null): bool
@@ -163,6 +155,7 @@ class ApprovalWorkflowService
                 'status' => $task->status,
                 'expires_at' => $task->expires_at,
             ]);
+
             return false;
         }
 
@@ -173,6 +166,7 @@ class ApprovalWorkflowService
                 'user_role' => $approver->role->value,
                 'required_role' => $task->required_role,
             ]);
+
             return false;
         }
 
@@ -182,9 +176,7 @@ class ApprovalWorkflowService
     /**
      * Reject an approval task.
      *
-     * @param ApprovalTask $task
-     * @param User $approver
-     * @param string $reason The reason for rejection
+     * @param  string  $reason  The reason for rejection
      * @return bool True if rejection was successful
      */
     public function reject(ApprovalTask $task, User $approver, string $reason): bool
@@ -195,6 +187,7 @@ class ApprovalWorkflowService
                 'status' => $task->status,
                 'expires_at' => $task->expires_at,
             ]);
+
             return false;
         }
 
@@ -205,6 +198,7 @@ class ApprovalWorkflowService
                 'user_role' => $approver->role->value,
                 'required_role' => $task->required_role,
             ]);
+
             return false;
         }
 
@@ -216,7 +210,6 @@ class ApprovalWorkflowService
     /**
      * Mark an approval task as expired.
      *
-     * @param ApprovalTask $task
      * @return bool True if expiration was successful
      */
     public function expireTask(ApprovalTask $task): bool
@@ -234,7 +227,6 @@ class ApprovalWorkflowService
     /**
      * Get pending approval tasks that a user can act on.
      *
-     * @param User $user
      * @return Collection<ApprovalTask>
      */
     public function getPendingTasksForUser(User $user): Collection
@@ -244,9 +236,6 @@ class ApprovalWorkflowService
 
     /**
      * Get the current approval status for a transaction.
-     *
-     * @param Transaction $transaction
-     * @return array
      */
     public function getTransactionApprovalStatus(Transaction $transaction): array
     {
@@ -274,7 +263,6 @@ class ApprovalWorkflowService
     /**
      * Auto-approve a transaction if it qualifies (amount below threshold).
      *
-     * @param Transaction $transaction
      * @return bool True if auto-approved, false if approval still required
      */
     public function autoApproveIfEligible(Transaction $transaction): bool
@@ -299,9 +287,7 @@ class ApprovalWorkflowService
     /**
      * Check if a user can approve a task with the required role.
      *
-     * @param User $user
-     * @param string $requiredRole 'supervisor', 'manager', 'admin'
-     * @return bool
+     * @param  string  $requiredRole  'supervisor', 'manager', 'admin'
      */
     protected function canApprove(User $user, string $requiredRole): bool
     {
@@ -315,12 +301,6 @@ class ApprovalWorkflowService
 
     /**
      * Process an approval/rejection decision.
-     *
-     * @param ApprovalTask $task
-     * @param User $approver
-     * @param string $status
-     * @param string|null $notes
-     * @return bool
      */
     protected function processDecision(
         ApprovalTask $task,

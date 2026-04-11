@@ -27,7 +27,7 @@ return new class extends Migration
     public function up(): void
     {
         // Chart of accounts table
-        if (!Schema::hasTable('chart_of_accounts')) {
+        if (! Schema::hasTable('chart_of_accounts')) {
             Schema::create('chart_of_accounts', function (Blueprint $table) {
                 $table->string('account_code', 20)->primary();
                 $table->string('account_name', 255);
@@ -57,7 +57,7 @@ return new class extends Migration
         }
 
         // Departments table
-        if (!Schema::hasTable('departments')) {
+        if (! Schema::hasTable('departments')) {
             Schema::create('departments', function (Blueprint $table) {
                 $table->id();
                 $table->string('code', 20)->unique();
@@ -70,7 +70,7 @@ return new class extends Migration
         }
 
         // Cost centers table
-        if (!Schema::hasTable('cost_centers')) {
+        if (! Schema::hasTable('cost_centers')) {
             Schema::create('cost_centers', function (Blueprint $table) {
                 $table->id();
                 $table->string('code', 20)->unique();
@@ -83,7 +83,7 @@ return new class extends Migration
         }
 
         // Fiscal years table
-        if (!Schema::hasTable('fiscal_years')) {
+        if (! Schema::hasTable('fiscal_years')) {
             Schema::create('fiscal_years', function (Blueprint $table) {
                 $table->id();
                 $table->string('year_code', 10)->unique();
@@ -98,7 +98,7 @@ return new class extends Migration
         }
 
         // Accounting periods table
-        if (!Schema::hasTable('accounting_periods')) {
+        if (! Schema::hasTable('accounting_periods')) {
             Schema::create('accounting_periods', function (Blueprint $table) {
                 $table->id();
                 $table->string('period_code', 10)->unique();
@@ -114,7 +114,7 @@ return new class extends Migration
         }
 
         // Journal entries table (full schema)
-        if (!Schema::hasTable('journal_entries')) {
+        if (! Schema::hasTable('journal_entries')) {
             Schema::create('journal_entries', function (Blueprint $table) {
                 $table->id();
                 $table->string('entry_number', 20)->unique()->nullable();
@@ -143,7 +143,7 @@ return new class extends Migration
         }
 
         // Journal lines table
-        if (!Schema::hasTable('journal_lines')) {
+        if (! Schema::hasTable('journal_lines')) {
             Schema::create('journal_lines', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('journal_entry_id')->constrained()->onDelete('cascade');
@@ -160,7 +160,7 @@ return new class extends Migration
         }
 
         // Account ledger table
-        if (!Schema::hasTable('account_ledger')) {
+        if (! Schema::hasTable('account_ledger')) {
             Schema::create('account_ledger', function (Blueprint $table) {
                 $table->id();
                 $table->string('account_code', 20);
@@ -183,7 +183,7 @@ return new class extends Migration
         }
 
         // Bank reconciliations table
-        if (!Schema::hasTable('bank_reconciliations')) {
+        if (! Schema::hasTable('bank_reconciliations')) {
             Schema::create('bank_reconciliations', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();

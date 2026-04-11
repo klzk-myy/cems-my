@@ -68,7 +68,7 @@ class ApprovalTaskFactory extends Factory
             'status' => ApprovalTask::STATUS_REJECTED,
             'approver_id' => $approver?->id ?? User::factory()->create()->id,
             'decided_at' => now(),
-            'notes' => 'Rejected: ' . fake()->sentence(),
+            'notes' => 'Rejected: '.fake()->sentence(),
         ]);
     }
 

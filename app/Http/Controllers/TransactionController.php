@@ -2,24 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ComplianceFlagType;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Http\Controllers\Transaction\Concerns\TransactionAccounting;
 use App\Models\Currency;
 use App\Models\Customer;
-use App\Models\SystemLog;
 use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Services\AccountingService;
+use App\Services\AuditService;
 use App\Services\ComplianceService;
 use App\Services\CurrencyPositionService;
 use App\Services\MathService;
 use App\Services\TransactionMonitoringService;
 use App\Services\TransactionService;
-use App\Services\AuditService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TransactionController extends Controller
@@ -111,11 +108,11 @@ class TransactionController extends Controller
                     ->with('warning', 'Transaction created and pending manager approval (≥ RM 50,000).');
             } elseif ($transaction->status === TransactionStatus::OnHold) {
                 return redirect()->route('transactions.show', $transaction)
-                    ->with('warning', 'Transaction on hold: ' . $transaction->hold_reason);
+                    ->with('warning', 'Transaction on hold: '.$transaction->hold_reason);
             }
 
             return redirect()->route('transactions.show', $transaction)
-                ->with('success', 'Transaction completed successfully. Receipt #' . $transaction->id);
+                ->with('success', 'Transaction completed successfully. Receipt #'.$transaction->id);
 
         } catch (\InvalidArgumentException $e) {
             // These are expected validation/business rule exceptions (like duplicate, insufficient stock)
@@ -124,7 +121,7 @@ class TransactionController extends Controller
             Log::error('Transaction creation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
             ]);
 
             $this->auditService->logWithSeverity(
@@ -136,7 +133,7 @@ class TransactionController extends Controller
                 'ERROR'
             );
 
-            return back()->with('error', 'Transaction failed: ' . $e->getMessage())->withInput();
+            return back()->with('error', 'Transaction failed: '.$e->getMessage())->withInput();
         }
     }
 

@@ -8,14 +8,14 @@ use App\Enums\ComplianceCasePriority;
 use App\Enums\ComplianceCaseStatus;
 use App\Enums\ComplianceCaseType;
 use App\Enums\FindingSeverity;
+use App\Models\Customer;
+use App\Models\FlaggedTransaction;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use App\Models\Customer;
-use App\Models\User;
-use App\Models\FlaggedTransaction;
 
 class ComplianceCase extends Model
 {
@@ -93,7 +93,7 @@ class ComplianceCase extends Model
             $nextSequence = 1;
         }
 
-        return $prefix . str_pad($nextSequence, 5, '0', STR_PAD_LEFT);
+        return $prefix.str_pad($nextSequence, 5, '0', STR_PAD_LEFT);
     }
 
     /**

@@ -2,8 +2,8 @@
 
 namespace Tests\Unit\Services\Compliance;
 
-use App\Services\Compliance\Monitors\BaseMonitor;
 use App\Services\Compliance\MonitoringEngine;
+use App\Services\Compliance\Monitors\BaseMonitor;
 use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -17,7 +17,7 @@ class MonitoringEngineTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->engine = new MonitoringEngine(new MathService());
+        $this->engine = new MonitoringEngine(new MathService);
     }
 
     public function test_register_monitor_adds_class_to_list(): void

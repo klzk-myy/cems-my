@@ -15,9 +15,13 @@ class BranchControllerTest extends TestCase
     use RefreshDatabase;
 
     protected User $adminUser;
+
     protected User $managerUser;
+
     protected User $tellerUser;
+
     protected Branch $branch1;
+
     protected Branch $branch2;
 
     protected function setUp(): void

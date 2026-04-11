@@ -6,7 +6,6 @@ use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
 use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
-use App\Services\MathService;
 use Carbon\Carbon;
 
 /**
@@ -16,6 +15,7 @@ use Carbon\Carbon;
 class StrDeadlineMonitor extends BaseMonitor
 {
     public const STR_DEADLINE_DAYS = 3;
+
     public const WARNING_DAYS_BEFORE = 1;
 
     protected function getFindingType(): FindingType
@@ -40,6 +40,7 @@ class StrDeadlineMonitor extends BaseMonitor
             }
         } catch (\Throwable $e) {
             Log::error('StrDeadlineMonitor run failed', ['exception' => $e->getMessage()]);
+
             return [];
         }
 

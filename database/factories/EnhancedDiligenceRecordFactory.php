@@ -15,7 +15,7 @@ class EnhancedDiligenceRecordFactory extends Factory
     {
         return [
             'customer_id' => Customer::factory(),
-            'edd_reference' => 'EDD-' . now()->format('Ym') . '-' . str_pad(fake()->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
+            'edd_reference' => 'EDD-'.now()->format('Ym').'-'.str_pad(fake()->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
             'status' => EddStatus::PendingQuestionnaire,
             'risk_level' => fake()->randomElement(['Low', 'Medium', 'High', 'Critical']),
             'source_of_funds' => fake()->randomElement(['Salary', 'Business', 'Investment', 'Inheritance', 'Gift', 'Other']),

@@ -61,7 +61,7 @@ class ReportRun extends Model
             return null;
         }
 
-        if (!Storage::exists($this->file_path)) {
+        if (! Storage::exists($this->file_path)) {
             return null;
         }
 
@@ -73,6 +73,7 @@ class ReportRun extends Model
         if ($this->started_at === null || $this->completed_at === null) {
             return null;
         }
+
         return $this->completed_at->diffInSeconds($this->started_at);
     }
 

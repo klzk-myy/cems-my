@@ -26,6 +26,7 @@ class EddController extends Controller
         }
 
         $records = $query->orderBy('created_at', 'desc')->paginate(20);
+
         return response()->json($records);
     }
 
@@ -36,6 +37,7 @@ class EddController extends Controller
     {
         $record = EnhancedDiligenceRecord::with(['customer', 'flaggedTransaction'])
             ->findOrFail($id);
+
         return response()->json(['data' => $record]);
     }
 
@@ -47,6 +49,7 @@ class EddController extends Controller
         $templates = EddQuestionnaireTemplate::getActiveTemplates()
             ->orderBy('name')
             ->get();
+
         return response()->json(['data' => $templates]);
     }
 
@@ -62,7 +65,7 @@ class EddController extends Controller
 
         $record = EnhancedDiligenceRecord::findOrFail($id);
 
-        if (!$record->status->canSubmitQuestionnaire()) {
+        if (! $record->status->canSubmitQuestionnaire()) {
             return response()->json(['message' => 'Cannot submit questionnaire in current status'], 422);
         }
 

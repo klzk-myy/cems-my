@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\ChartOfAccount;
 use App\Models\CostCenter;
+use Illuminate\Database\Seeder;
 
 class EnhancedChartOfAccountsSeeder extends Seeder
 {

@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\UserRole;
 use App\Models\StockTransfer;
 use App\Models\User;
-use App\Services\AuditService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -49,7 +48,7 @@ class StockTransferService
             throw new \RuntimeException('Only managers can approve transfers');
         }
 
-        if (!$transfer->isPending()) {
+        if (! $transfer->isPending()) {
             throw new \RuntimeException('Transfer is not in requested status');
         }
 
@@ -126,8 +125,8 @@ class StockTransferService
             }
         }
 
-        $allFullyReceived = $transfer->items->every(fn($item) => $item->isFullyReceived());
-        if (!$allFullyReceived) {
+        $allFullyReceived = $transfer->items->every(fn ($item) => $item->isFullyReceived());
+        if (! $allFullyReceived) {
             $transfer->update(['status' => StockTransfer::STATUS_PARTIALLY_RECEIVED]);
         }
     }
@@ -138,7 +137,7 @@ class StockTransferService
             throw new \RuntimeException('Only admin can complete transfers');
         }
 
-        if (!in_array($transfer->status, [StockTransfer::STATUS_IN_TRANSIT, StockTransfer::STATUS_PARTIALLY_RECEIVED])) {
+        if (! in_array($transfer->status, [StockTransfer::STATUS_IN_TRANSIT, StockTransfer::STATUS_PARTIALLY_RECEIVED])) {
             throw new \RuntimeException('Transfer must be in transit or partially received to complete');
         }
 

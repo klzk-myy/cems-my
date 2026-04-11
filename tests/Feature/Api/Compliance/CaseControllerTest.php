@@ -6,7 +6,6 @@ use App\Enums\CaseNoteType;
 use App\Enums\CaseResolution;
 use App\Enums\ComplianceCaseStatus;
 use App\Enums\ComplianceCaseType;
-use App\Enums\FindingSeverity;
 use App\Enums\FindingStatus;
 use App\Enums\UserRole;
 use App\Models\Compliance\ComplianceCase;

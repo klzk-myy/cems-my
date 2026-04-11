@@ -2,17 +2,11 @@
 
 namespace Tests\Unit;
 
-use App\Enums\ComplianceCasePriority;
-use App\Enums\ComplianceCaseStatus;
-use App\Enums\ComplianceCaseType;
-use App\Enums\FindingSeverity;
 use App\Models\Compliance\ComplianceCase;
-use App\Models\Compliance\ComplianceCaseDocument;
 use App\Models\Compliance\ComplianceCaseLink;
-use App\Models\Customer;
 use App\Models\User;
-use App\Services\CaseManagementService;
 use App\Services\AlertTriageService;
+use App\Services\CaseManagementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

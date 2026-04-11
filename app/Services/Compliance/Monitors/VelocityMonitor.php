@@ -6,7 +6,6 @@ use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
 use App\Models\Customer;
 use App\Models\Transaction;
-use App\Services\MathService;
 
 /**
  * Monitor for detecting customers exceeding transaction velocity thresholds.
@@ -15,7 +14,9 @@ use App\Services\MathService;
 class VelocityMonitor extends BaseMonitor
 {
     public const THRESHOLD = '50000';
+
     public const WARNING_THRESHOLD = '45000';
+
     public const LOOKBACK_HOURS = 24;
 
     protected function getFindingType(): FindingType
@@ -59,6 +60,7 @@ class VelocityMonitor extends BaseMonitor
 
         if ($this->math->compare((string) $totalAmount, self::THRESHOLD) >= 0) {
             $customer = Customer::find($customerId);
+
             return $this->createFinding(
                 type: FindingType::VelocityExceeded,
                 severity: FindingSeverity::High,
@@ -76,6 +78,7 @@ class VelocityMonitor extends BaseMonitor
 
         if ($this->math->compare((string) $totalAmount, self::WARNING_THRESHOLD) >= 0) {
             $customer = Customer::find($customerId);
+
             return $this->createFinding(
                 type: FindingType::VelocityExceeded,
                 severity: FindingSeverity::Medium,

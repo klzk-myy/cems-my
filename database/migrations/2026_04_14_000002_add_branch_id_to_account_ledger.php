@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasColumn('account_ledger', 'branch_id')) {
+        if (! Schema::hasColumn('account_ledger', 'branch_id')) {
             Schema::table('account_ledger', function (Blueprint $table) {
                 $table->foreignId('branch_id')->nullable()->after('journal_entry_id')->constrained('branches')->nullOnDelete();
                 $table->index('branch_id');

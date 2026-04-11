@@ -5,16 +5,11 @@ namespace App\Services;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
 
 class TaskService
 {
     /**
      * Get all tasks with optional filters and role-based access control.
-     *
-     * @param array $filters
-     * @param User|null $user
-     * @return LengthAwarePaginator
      */
     public function getAllTasks(array $filters, ?User $user = null): LengthAwarePaginator
     {
@@ -33,9 +28,6 @@ class TaskService
 
     /**
      * Get tasks assigned to a specific user.
-     *
-     * @param int $userId
-     * @return LengthAwarePaginator
      */
     public function getUserTasks(int $userId): LengthAwarePaginator
     {
@@ -49,8 +41,6 @@ class TaskService
 
     /**
      * Get all overdue tasks.
-     *
-     * @return LengthAwarePaginator
      */
     public function getOverdueTasks(): LengthAwarePaginator
     {
@@ -62,17 +52,13 @@ class TaskService
 
     /**
      * Create a new task.
-     *
-     * @param array $data
-     * @param int $createdByUserId
-     * @return Task
      */
     public function createTask(array $data, int $createdByUserId): Task
     {
         $data['created_by'] = $createdByUserId;
         $data['status'] = Task::STATUS_PENDING;
 
-        if (!isset($data['assigned_to']) && !isset($data['assigned_role'])) {
+        if (! isset($data['assigned_to']) && ! isset($data['assigned_role'])) {
             $data['assigned_to'] = $createdByUserId;
         }
 
@@ -82,9 +68,6 @@ class TaskService
     /**
      * Acknowledge a task.
      *
-     * @param Task $task
-     * @param int $userId
-     * @return Task
      * @throws \InvalidArgumentException
      */
     public function acknowledgeTask(Task $task, int $userId): Task
@@ -100,11 +83,6 @@ class TaskService
 
     /**
      * Complete a task.
-     *
-     * @param Task $task
-     * @param int $userId
-     * @param string|null $notes
-     * @return Task
      */
     public function completeTask(Task $task, int $userId, ?string $notes = null): Task
     {
@@ -115,11 +93,6 @@ class TaskService
 
     /**
      * Cancel a task.
-     *
-     * @param Task $task
-     * @param int $userId
-     * @param string|null $reason
-     * @return Task
      */
     public function cancelTask(Task $task, int $userId, ?string $reason = null): Task
     {
@@ -133,11 +106,6 @@ class TaskService
 
     /**
      * Escalate a task.
-     *
-     * @param Task $task
-     * @param int $userId
-     * @param string|null $reason
-     * @return Task
      */
     public function escalateTask(Task $task, int $userId, ?string $reason = null): Task
     {
@@ -148,8 +116,6 @@ class TaskService
 
     /**
      * Get task statistics for dashboard.
-     *
-     * @return array
      */
     public function getTaskStats(): array
     {
@@ -166,9 +132,7 @@ class TaskService
     /**
      * Apply role-based filtering based on user role.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param User $user
-     * @return void
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      */
     protected function applyRoleBasedFilter($query, User $user): void
     {
@@ -185,25 +149,23 @@ class TaskService
     /**
      * Apply filters to the query.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param array $filters
-     * @return void
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      */
     protected function applyFilters($query, array $filters): void
     {
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['priority'])) {
+        if (! empty($filters['priority'])) {
             $query->where('priority', $filters['priority']);
         }
 
-        if (!empty($filters['category'])) {
+        if (! empty($filters['category'])) {
             $query->where('category', $filters['category']);
         }
 
-        if (!empty($filters['assigned_to'])) {
+        if (! empty($filters['assigned_to'])) {
             $query->where('assigned_to', $filters['assigned_to']);
         }
     }

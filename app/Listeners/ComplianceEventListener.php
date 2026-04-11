@@ -40,7 +40,7 @@ class ComplianceEventListener implements ShouldQueue
         if ($case->priority && in_array($case->priority->value, ['critical', 'high'])) {
             $this->eddTemplateService->getRecommendedTemplate([
                 'transaction_amount' => $case->alerts->first()?->risk_score * 1000,
-                'high_risk_country' => $case->alerts->contains(fn($a) => $a->type && $a->type->value === 'high_risk_country'),
+                'high_risk_country' => $case->alerts->contains(fn ($a) => $a->type && $a->type->value === 'high_risk_country'),
             ]);
         }
     }
@@ -77,7 +77,7 @@ class ComplianceEventListener implements ShouldQueue
         $oldWasHighRisk = in_array($snapshot->previous_rating, $highRiskRatings);
         $newIsHighRisk = in_array($snapshot->overall_rating_label, $highRiskRatings);
 
-        if (!$oldWasHighRisk && $newIsHighRisk) {
+        if (! $oldWasHighRisk && $newIsHighRisk) {
             $this->alertOnRiskEscalation($snapshot);
         }
     }

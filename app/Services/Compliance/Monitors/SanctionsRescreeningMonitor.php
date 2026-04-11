@@ -7,7 +7,6 @@ use App\Enums\FindingType;
 use App\Models\Customer;
 use App\Models\SanctionEntry;
 use App\Models\SanctionList;
-use App\Services\MathService;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -29,6 +28,7 @@ class SanctionsRescreeningMonitor extends BaseMonitor
         $latestSanctionUpdate = $this->getLatestSanctionUpdate();
         if ($latestSanctionUpdate === null) {
             Log::info('SanctionsRescreeningMonitor: No sanction entries found');
+
             return $findings;
         }
 

@@ -43,6 +43,7 @@ class CaseController extends Controller
         }
 
         $cases = $query->orderBy('created_at', 'desc')->paginate(20);
+
         return response()->json($cases);
     }
 
@@ -52,6 +53,7 @@ class CaseController extends Controller
     public function show(int $id): JsonResponse
     {
         $case = ComplianceCase::with(['customer', 'assignee', 'notes.author', 'documents'])->findOrFail($id);
+
         return response()->json(['data' => $case]);
     }
 
@@ -170,6 +172,7 @@ class CaseController extends Controller
     {
         $case = ComplianceCase::findOrFail($id);
         $case = $this->caseService->escalateCase($case);
+
         return response()->json(['data' => $case]);
     }
 
@@ -214,7 +217,7 @@ class CaseController extends Controller
             $timeline->push([
                 'type' => 'closed',
                 'timestamp' => $case->resolved_at->toIso8601String(),
-                'description' => 'Case closed with resolution: ' . $case->resolution?->value,
+                'description' => 'Case closed with resolution: '.$case->resolution?->value,
             ]);
         }
 

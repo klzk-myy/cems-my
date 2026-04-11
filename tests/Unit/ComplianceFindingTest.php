@@ -17,7 +17,9 @@ class ComplianceFindingTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected Customer $customer;
+
     protected Transaction $transaction;
 
     protected function setUp(): void

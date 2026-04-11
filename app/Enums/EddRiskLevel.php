@@ -11,7 +11,7 @@ enum EddRiskLevel: string
 
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::Low => 'Low Risk',
             self::Medium => 'Medium Risk',
             self::High => 'High Risk',
@@ -21,7 +21,7 @@ enum EddRiskLevel: string
 
     public function color(): string
     {
-        return match($this) {
+        return match ($this) {
             self::Low => 'success',
             self::Medium => 'info',
             self::High => 'warning',

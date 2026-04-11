@@ -22,9 +22,13 @@ class BranchAccessMiddlewareTest extends TestCase
     use RefreshDatabase;
 
     protected Branch $branchA;
+
     protected Branch $branchB;
+
     protected User $adminUser;
+
     protected User $managerUserBranchA;
+
     protected User $managerUserBranchB;
 
     protected function setUp(): void

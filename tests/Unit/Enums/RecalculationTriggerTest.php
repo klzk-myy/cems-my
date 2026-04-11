@@ -11,7 +11,7 @@ class RecalculationTriggerTest extends TestCase
     {
         $expectedTriggers = ['Manual', 'Scheduled', 'EventDriven'];
         $actualCases = array_column(RecalculationTrigger::cases(), 'name');
-        
+
         foreach ($expectedTriggers as $trigger) {
             $this->assertContains($trigger, $actualCases, "RecalculationTrigger::$trigger should exist");
         }

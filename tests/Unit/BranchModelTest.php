@@ -3,11 +3,6 @@
 namespace Tests\Unit;
 
 use App\Models\Branch;
-use App\Models\Counter;
-use App\Models\CounterSession;
-use App\Models\CurrencyPosition;
-use App\Models\JournalEntry;
-use App\Models\TillBalance;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -384,5 +379,4 @@ class BranchModelTest extends TestCase
         $this->assertCount(1, $branch->users);
         $this->assertEquals($user->id, $branch->users->first()->id);
     }
-
 }

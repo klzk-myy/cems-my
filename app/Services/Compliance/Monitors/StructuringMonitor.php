@@ -6,7 +6,6 @@ use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
 use App\Models\Customer;
 use App\Models\Transaction;
-use App\Services\MathService;
 
 /**
  * Monitor for detecting structuring patterns.
@@ -15,7 +14,9 @@ use App\Services\MathService;
 class StructuringMonitor extends BaseMonitor
 {
     public const SUB_THRESHOLD = '3000';
+
     public const STRUCTURING_COUNT = 3;
+
     public const LOOKBACK_MINUTES = 60;
 
     protected function getFindingType(): FindingType

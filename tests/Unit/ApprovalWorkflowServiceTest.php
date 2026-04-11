@@ -16,12 +16,13 @@ class ApprovalWorkflowServiceTest extends TestCase
     use RefreshDatabase;
 
     protected ApprovalWorkflowService $service;
+
     protected MathService $mathService;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mathService = new MathService();
+        $this->mathService = new MathService;
         $this->service = new ApprovalWorkflowService($this->mathService);
     }
 

@@ -99,6 +99,7 @@ class CaseManagementService
     public function assignCase(ComplianceCase $case, int $officerId): ComplianceCase
     {
         $case->assignTo($officerId);
+
         return $case->fresh();
     }
 
@@ -111,6 +112,7 @@ class CaseManagementService
         ?string $notes = null
     ): ComplianceCase {
         $case->close($resolution, $notes);
+
         return $case->fresh();
     }
 
@@ -120,6 +122,7 @@ class CaseManagementService
     public function escalateCase(ComplianceCase $case): ComplianceCase
     {
         $case->escalate();
+
         return $case->fresh();
     }
 
@@ -172,6 +175,6 @@ class CaseManagementService
 
         $newNumber = $lastCase ? ((int) substr($lastCase->case_number, -5)) + 1 : 1;
 
-        return $prefix . str_pad($newNumber, 5, '0', STR_PAD_LEFT);
+        return $prefix.str_pad($newNumber, 5, '0', STR_PAD_LEFT);
     }
 }

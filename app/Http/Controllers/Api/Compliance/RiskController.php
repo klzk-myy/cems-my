@@ -23,6 +23,7 @@ class RiskController extends Controller
         $profile = CustomerRiskProfile::where('customer_id', (int) $customerId)
             ->with('customer')
             ->firstOrFail();
+
         return response()->json(['data' => $profile]);
     }
 
@@ -47,12 +48,14 @@ class RiskController extends Controller
                 ];
             }
         }
+
         return response()->json(['data' => $history]);
     }
 
     public function recalculate(string $customerId): JsonResponse
     {
         $profile = $this->engine->recalculateForCustomer((int) $customerId);
+
         return response()->json(['data' => $profile]);
     }
 
@@ -61,6 +64,7 @@ class RiskController extends Controller
         $validated = $request->validate(['reason' => 'required|string|max:500']);
         $profile = CustomerRiskProfile::where('customer_id', (int) $customerId)->firstOrFail();
         $profile->lock(auth()->id(), $validated['reason']);
+
         return response()->json(['data' => $profile]);
     }
 
@@ -68,6 +72,7 @@ class RiskController extends Controller
     {
         $profile = CustomerRiskProfile::where('customer_id', (int) $customerId)->firstOrFail();
         $profile->unlock();
+
         return response()->json(['data' => $profile]);
     }
 

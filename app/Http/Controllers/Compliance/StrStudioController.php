@@ -75,7 +75,7 @@ class StrStudioController extends Controller
                     $transactionIds[] = $alert->flaggedTransaction->transaction_id;
                 }
             }
-            if (!empty($transactionIds)) {
+            if (! empty($transactionIds)) {
                 $transactions = \App\Models\Transaction::whereIn('id', $transactionIds)->get();
                 $transactionPatterns = [
                     'total_amount' => $transactions->sum('amount_local'),
@@ -101,7 +101,7 @@ class StrStudioController extends Controller
 
     public function convert(StrDraft $draft)
     {
-        if (!$draft->canConvert()) {
+        if (! $draft->canConvert()) {
             return redirect()->back()->with('error', 'STR draft cannot be converted');
         }
 

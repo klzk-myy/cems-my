@@ -2,9 +2,9 @@
 
 namespace App\Models\Compliance;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
 class EddQuestionnaireTemplate extends Model
 {
@@ -34,7 +34,7 @@ class EddQuestionnaireTemplate extends Model
 
         foreach ($questions as $question) {
             $section = $question['section'] ?? 'general';
-            if (!isset($grouped[$section])) {
+            if (! isset($grouped[$section])) {
                 $grouped[$section] = [];
             }
             $grouped[$section][] = $question;
@@ -50,7 +50,7 @@ class EddQuestionnaireTemplate extends Model
         foreach ($questions as $question) {
             if (($question['required'] ?? false) === true) {
                 $questionId = $question['id'] ?? null;
-                if ($questionId === null || !isset($responses[$questionId]) || empty($responses[$questionId])) {
+                if ($questionId === null || ! isset($responses[$questionId]) || empty($responses[$questionId])) {
                     return false;
                 }
             }

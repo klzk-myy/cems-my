@@ -318,7 +318,7 @@ class ComplianceService
         $current = $from->copy();
 
         while ($current->lt($to)) {
-            if (!$current->isWeekend()) {
+            if (! $current->isWeekend()) {
                 $days++;
             }
             $current->addDay();

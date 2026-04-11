@@ -5,11 +5,10 @@ namespace App\Http\Controllers\Compliance;
 use App\Http\Controllers\Controller;
 use App\Services\AlertTriageService;
 use App\Services\CaseManagementService;
-use App\Services\CustomerRiskScoringService;
 use App\Services\ComplianceReportingService;
-use App\Services\StrAutomationService;
+use App\Services\CustomerRiskScoringService;
 use App\Services\EddTemplateService;
-use Illuminate\Http\Request;
+use App\Services\StrAutomationService;
 
 class ComplianceWorkspaceController extends Controller
 {

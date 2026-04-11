@@ -25,7 +25,7 @@ return new class extends Migration
     public function up(): void
     {
         // Compliance findings table
-        if (!Schema::hasTable('compliance_findings')) {
+        if (! Schema::hasTable('compliance_findings')) {
             Schema::create('compliance_findings', function (Blueprint $table) {
                 $table->id();
                 $table->string('finding_type');
@@ -44,7 +44,7 @@ return new class extends Migration
         }
 
         // Compliance cases table (created BEFORE alerts)
-        if (!Schema::hasTable('compliance_cases')) {
+        if (! Schema::hasTable('compliance_cases')) {
             Schema::create('compliance_cases', function (Blueprint $table) {
                 $table->id();
                 $table->string('case_number');
@@ -79,7 +79,7 @@ return new class extends Migration
         }
 
         // Compliance case notes table
-        if (!Schema::hasTable('compliance_case_notes')) {
+        if (! Schema::hasTable('compliance_case_notes')) {
             Schema::create('compliance_case_notes', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('case_id')->constrained('compliance_cases')->onDelete('cascade');
@@ -92,7 +92,7 @@ return new class extends Migration
         }
 
         // Compliance case documents table
-        if (!Schema::hasTable('compliance_case_documents')) {
+        if (! Schema::hasTable('compliance_case_documents')) {
             Schema::create('compliance_case_documents', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('case_id')->constrained('compliance_cases')->onDelete('cascade');
@@ -108,7 +108,7 @@ return new class extends Migration
         }
 
         // Compliance case links table
-        if (!Schema::hasTable('compliance_case_links')) {
+        if (! Schema::hasTable('compliance_case_links')) {
             Schema::create('compliance_case_links', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('case_id')->constrained('compliance_cases')->onDelete('cascade');
@@ -121,7 +121,7 @@ return new class extends Migration
         }
 
         // Customer risk profiles table
-        if (!Schema::hasTable('customer_risk_profiles')) {
+        if (! Schema::hasTable('customer_risk_profiles')) {
             Schema::create('customer_risk_profiles', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('customer_id')->constrained()->onDelete('cascade');
@@ -145,7 +145,7 @@ return new class extends Migration
         }
 
         // Customer behavioral baselines table
-        if (!Schema::hasTable('customer_behavioral_baselines')) {
+        if (! Schema::hasTable('customer_behavioral_baselines')) {
             Schema::create('customer_behavioral_baselines', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('customer_id')->constrained()->onDelete('cascade');
@@ -165,7 +165,7 @@ return new class extends Migration
         }
 
         // EDD questionnaire templates table
-        if (!Schema::hasTable('edd_questionnaire_templates')) {
+        if (! Schema::hasTable('edd_questionnaire_templates')) {
             Schema::create('edd_questionnaire_templates', function (Blueprint $table) {
                 $table->id();
                 $table->string('name');
@@ -181,7 +181,7 @@ return new class extends Migration
         }
 
         // EDD document requests table
-        if (!Schema::hasTable('edd_document_requests')) {
+        if (! Schema::hasTable('edd_document_requests')) {
             Schema::create('edd_document_requests', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('customer_id')->constrained()->onDelete('cascade');
@@ -200,7 +200,7 @@ return new class extends Migration
         }
 
         // Alerts table (references compliance_cases which was created above)
-        if (!Schema::hasTable('alerts')) {
+        if (! Schema::hasTable('alerts')) {
             Schema::create('alerts', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('flagged_transaction_id')->nullable()->constrained('flagged_transactions')->nullOnDelete();
@@ -222,7 +222,7 @@ return new class extends Migration
         }
 
         // STR drafts table
-        if (!Schema::hasTable('str_drafts')) {
+        if (! Schema::hasTable('str_drafts')) {
             Schema::create('str_drafts', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('case_id')->nullable()->constrained('compliance_cases')->nullOnDelete();
@@ -244,7 +244,7 @@ return new class extends Migration
         }
 
         // Risk score snapshots table
-        if (!Schema::hasTable('risk_score_snapshots')) {
+        if (! Schema::hasTable('risk_score_snapshots')) {
             Schema::create('risk_score_snapshots', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('customer_id')->constrained('customers')->cascadeOnDelete();
@@ -264,7 +264,7 @@ return new class extends Migration
         }
 
         // EDD templates table (additional)
-        if (!Schema::hasTable('edd_templates')) {
+        if (! Schema::hasTable('edd_templates')) {
             Schema::create('edd_templates', function (Blueprint $table) {
                 $table->id();
                 $table->string('name');
@@ -280,7 +280,7 @@ return new class extends Migration
         }
 
         // Report schedules table
-        if (!Schema::hasTable('report_schedules')) {
+        if (! Schema::hasTable('report_schedules')) {
             Schema::create('report_schedules', function (Blueprint $table) {
                 $table->id();
                 $table->string('report_type');
@@ -297,7 +297,7 @@ return new class extends Migration
         }
 
         // Report runs table
-        if (!Schema::hasTable('report_runs')) {
+        if (! Schema::hasTable('report_runs')) {
             Schema::create('report_runs', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('schedule_id')->nullable()->constrained('report_schedules')->nullOnDelete();

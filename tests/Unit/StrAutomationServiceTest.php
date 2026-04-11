@@ -4,16 +4,12 @@ namespace Tests\Unit;
 
 use App\Enums\ComplianceFlagType;
 use App\Enums\StrStatus;
-use App\Models\Alert;
-use App\Models\Compliance\ComplianceCase;
 use App\Models\Customer;
-use App\Models\FlaggedTransaction;
 use App\Models\StrDraft;
 use App\Models\StrReport;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\StrAutomationService;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

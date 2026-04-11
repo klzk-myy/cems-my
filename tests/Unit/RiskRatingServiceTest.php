@@ -2,11 +2,11 @@
 
 namespace Tests\Unit;
 
-use App\Models\Customer;
-use App\Models\Transaction;
-use App\Models\HighRiskCountry;
-use App\Models\User;
 use App\Models\Currency;
+use App\Models\Customer;
+use App\Models\HighRiskCountry;
+use App\Models\Transaction;
+use App\Models\User;
 use App\Services\RiskRatingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

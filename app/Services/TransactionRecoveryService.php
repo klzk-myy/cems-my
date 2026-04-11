@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\TransactionStatus;
 use App\Jobs\ProcessTransactionRetry;
 use App\Models\Transaction;
-use App\Models\TransactionError;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
@@ -26,13 +25,13 @@ class TransactionRecoveryService
      * If the transaction is ready for retry, dispatches a retry job.
      * If it has exceeded retries, moves it to the dead letter queue.
      *
-     * @param Transaction $transaction The transaction to recover
+     * @param  Transaction  $transaction  The transaction to recover
      * @return bool True if recovery was initiated
      */
     public function attemptRecovery(Transaction $transaction): bool
     {
         // Only recover from Failed status
-        if (!$transaction->status->isFailed()) {
+        if (! $transaction->status->isFailed()) {
             Log::warning('Cannot recover transaction - not in Failed status', [
                 'transaction_id' => $transaction->id,
                 'status' => $transaction->status->value,
@@ -64,7 +63,7 @@ class TransactionRecoveryService
      *
      * Marks the transaction as DLQ-ready by tagging it and setting appropriate status.
      *
-     * @param Transaction $transaction The transaction to move to DLQ
+     * @param  Transaction  $transaction  The transaction to move to DLQ
      * @return bool True if move was successful
      */
     public function moveToDeadLetterQueue(Transaction $transaction): bool
@@ -76,7 +75,7 @@ class TransactionRecoveryService
 
         // Update transaction with DLQ marker
         // We use the existing failure_reason to store DLQ info
-        $dlqReason = '[DLQ] ' . ($transaction->failure_reason ?? 'Max retries exceeded');
+        $dlqReason = '[DLQ] '.($transaction->failure_reason ?? 'Max retries exceeded');
 
         $transaction->failure_reason = $dlqReason;
 
@@ -139,13 +138,13 @@ class TransactionRecoveryService
      *
      * Resets the transaction for a new recovery attempt.
      *
-     * @param Transaction $transaction The DLQ transaction to retry
+     * @param  Transaction  $transaction  The DLQ transaction to retry
      * @return bool True if retry was dispatched
      */
     public function retryFromDLQ(Transaction $transaction): bool
     {
         // Verify this is actually a DLQ transaction
-        if (!$this->isInDeadLetterQueue($transaction)) {
+        if (! $this->isInDeadLetterQueue($transaction)) {
             Log::warning('Cannot retry from DLQ - transaction not in DLQ', [
                 'transaction_id' => $transaction->id,
             ]);
@@ -185,7 +184,7 @@ class TransactionRecoveryService
     /**
      * Check if a transaction is in the dead letter queue.
      *
-     * @param Transaction $transaction The transaction to check
+     * @param  Transaction  $transaction  The transaction to check
      * @return bool True if in DLQ
      */
     public function isInDeadLetterQueue(Transaction $transaction): bool
@@ -197,8 +196,7 @@ class TransactionRecoveryService
     /**
      * Get the next retry time for a transaction.
      *
-     * @param Transaction $transaction The transaction
-     * @return \Illuminate\Support\Carbon|null
+     * @param  Transaction  $transaction  The transaction
      */
     protected function getNextRetryTime(Transaction $transaction): ?\Illuminate\Support\Carbon
     {
@@ -213,7 +211,7 @@ class TransactionRecoveryService
     /**
      * Dispatch a retry job for a transaction.
      *
-     * @param Transaction $transaction The transaction to retry
+     * @param  Transaction  $transaction  The transaction to retry
      * @return bool True if job was dispatched
      */
     protected function dispatchRetryJob(Transaction $transaction): bool

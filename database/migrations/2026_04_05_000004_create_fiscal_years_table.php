@@ -4,8 +4,10 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
-    public function up(): void {
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('fiscal_years', function (Blueprint $table) {
             $table->id();
             $table->string('year_code', 10)->unique();
@@ -22,7 +24,8 @@ return new class extends Migration {
         });
     }
 
-    public function down(): void {
+    public function down(): void
+    {
         Schema::table('accounting_periods', function (Blueprint $table) {
             $table->dropForeign(['fiscal_year_id']);
             $table->dropColumn('fiscal_year_id');

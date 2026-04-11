@@ -19,7 +19,7 @@ return new class extends Migration
     public function up(): void
     {
         // Users table (combined with mfa_verified_at)
-        if (!Schema::hasTable('users')) {
+        if (! Schema::hasTable('users')) {
             Schema::create('users', function (Blueprint $table) {
                 $table->id();
                 $table->string('username', 50)->unique();
@@ -38,7 +38,7 @@ return new class extends Migration
         }
 
         // Customers table
-        if (!Schema::hasTable('customers')) {
+        if (! Schema::hasTable('customers')) {
             Schema::create('customers', function (Blueprint $table) {
                 $table->id();
                 $table->string('full_name', 255);
@@ -65,7 +65,7 @@ return new class extends Migration
         }
 
         // Currencies table with seed data
-        if (!Schema::hasTable('currencies')) {
+        if (! Schema::hasTable('currencies')) {
             Schema::create('currencies', function (Blueprint $table) {
                 $table->string('code', 3)->primary();
                 $table->string('name', 100);
@@ -92,7 +92,7 @@ return new class extends Migration
         }
 
         // Exchange rates table
-        if (!Schema::hasTable('exchange_rates')) {
+        if (! Schema::hasTable('exchange_rates')) {
             Schema::create('exchange_rates', function (Blueprint $table) {
                 $table->id();
                 $table->string('currency_code', 3);
@@ -107,7 +107,7 @@ return new class extends Migration
         }
 
         // Transactions table (full schema with all enhancements)
-        if (!Schema::hasTable('transactions')) {
+        if (! Schema::hasTable('transactions')) {
             Schema::create('transactions', function (Blueprint $table) {
                 $table->id();
                 $table->string('idempotency_key', 100)->nullable()->unique();
@@ -151,7 +151,7 @@ return new class extends Migration
         }
 
         // System logs table (full schema with all enhancements)
-        if (!Schema::hasTable('system_logs')) {
+        if (! Schema::hasTable('system_logs')) {
             Schema::create('system_logs', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->nullable()->constrained();
@@ -183,7 +183,7 @@ return new class extends Migration
         }
 
         // Sanction lists table
-        if (!Schema::hasTable('sanction_lists')) {
+        if (! Schema::hasTable('sanction_lists')) {
             Schema::create('sanction_lists', function (Blueprint $table) {
                 $table->id();
                 $table->string('name', 255);
@@ -199,7 +199,7 @@ return new class extends Migration
         }
 
         // Sanction entries table
-        if (!Schema::hasTable('sanction_entries')) {
+        if (! Schema::hasTable('sanction_entries')) {
             Schema::create('sanction_entries', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('list_id')->constrained('sanction_lists')->onDelete('cascade');
@@ -216,7 +216,7 @@ return new class extends Migration
         }
 
         // Flagged transactions table
-        if (!Schema::hasTable('flagged_transactions')) {
+        if (! Schema::hasTable('flagged_transactions')) {
             Schema::create('flagged_transactions', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('transaction_id')->nullable()->constrained()->onDelete('cascade');
@@ -242,7 +242,7 @@ return new class extends Migration
         }
 
         // High risk countries table
-        if (!Schema::hasTable('high_risk_countries')) {
+        if (! Schema::hasTable('high_risk_countries')) {
             Schema::create('high_risk_countries', function (Blueprint $table) {
                 $table->string('country_code', 2)->primary();
                 $table->string('country_name', 100);

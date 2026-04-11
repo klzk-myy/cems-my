@@ -18,7 +18,7 @@ class CustomerLocationAnomalyMonitorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->monitor = new CustomerLocationAnomalyMonitor(new MathService());
+        $this->monitor = new CustomerLocationAnomalyMonitor(new MathService);
     }
 
     public function test_no_findings_for_malaysian_customers(): void

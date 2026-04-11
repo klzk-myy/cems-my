@@ -17,7 +17,7 @@ return new class extends Migration
     public function up(): void
     {
         // Currency positions table
-        if (!Schema::hasTable('currency_positions')) {
+        if (! Schema::hasTable('currency_positions')) {
             Schema::create('currency_positions', function (Blueprint $table) {
                 $table->id();
                 $table->string('currency_code', 3);
@@ -38,7 +38,7 @@ return new class extends Migration
         }
 
         // Revaluation entries table
-        if (!Schema::hasTable('revaluation_entries')) {
+        if (! Schema::hasTable('revaluation_entries')) {
             Schema::create('revaluation_entries', function (Blueprint $table) {
                 $table->id();
                 $table->date('revaluation_date');
@@ -60,7 +60,7 @@ return new class extends Migration
         }
 
         // STR reports table
-        if (!Schema::hasTable('str_reports')) {
+        if (! Schema::hasTable('str_reports')) {
             Schema::create('str_reports', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
@@ -87,7 +87,7 @@ return new class extends Migration
         }
 
         // Branches table
-        if (!Schema::hasTable('branches')) {
+        if (! Schema::hasTable('branches')) {
             Schema::create('branches', function (Blueprint $table) {
                 $table->id();
                 $table->string('code', 20)->unique();

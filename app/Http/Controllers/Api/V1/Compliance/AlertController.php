@@ -59,7 +59,7 @@ class AlertController extends Controller
             'flaggedTransaction',
             'flaggedTransaction.transaction',
             'assignedTo',
-            'case'
+            'case',
         ])->findOrFail($id);
 
         return response()->json([
@@ -136,7 +136,7 @@ class AlertController extends Controller
         $alerts = Alert::with(['customer', 'flaggedTransaction'])
             ->whereNull('case_id')
             ->get()
-            ->filter(fn($alert) => $alert->isOverdue())
+            ->filter(fn ($alert) => $alert->isOverdue())
             ->values();
 
         return response()->json([

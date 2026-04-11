@@ -130,6 +130,7 @@ class CaseManagementController extends Controller
         }
 
         $this->caseManagementService->verifyDocument($document->id, auth()->id());
+
         return redirect()->back()->with('success', 'Document verified');
     }
 
@@ -141,6 +142,7 @@ class CaseManagementController extends Controller
         ]);
 
         $this->caseManagementService->addLink($case->id, $request->linked_type, $request->linked_id);
+
         return redirect()->back()->with('success', 'Link added');
     }
 
@@ -151,6 +153,7 @@ class CaseManagementController extends Controller
         }
 
         $this->caseManagementService->removeLink($link->id);
+
         return redirect()->back()->with('success', 'Link removed');
     }
 

@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!DB::connection()->getSchemaBuilder()->hasIndex('transactions', 'transactions_idempotency_key_unique')) {
+        if (! DB::connection()->getSchemaBuilder()->hasIndex('transactions', 'transactions_idempotency_key_unique')) {
             Schema::table('transactions', function (Blueprint $table) {
                 $table->unique('idempotency_key', 'transactions_idempotency_key_unique');
             });

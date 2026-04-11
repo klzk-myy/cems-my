@@ -18,6 +18,7 @@ class TransactionStateMachineTest extends TestCase
     use RefreshDatabase;
 
     protected Transaction $transaction;
+
     protected TransactionStateMachine $stateMachine;
 
     protected function setUp(): void

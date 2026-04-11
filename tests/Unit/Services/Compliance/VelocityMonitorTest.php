@@ -18,7 +18,7 @@ class VelocityMonitorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->monitor = new VelocityMonitor(new MathService());
+        $this->monitor = new VelocityMonitor(new MathService);
     }
 
     public function test_no_finding_when_under_threshold(): void

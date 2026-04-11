@@ -5,7 +5,6 @@ namespace Tests\Unit\Services\Compliance;
 use App\Enums\ComplianceCaseStatus;
 use App\Enums\EddStatus;
 use App\Enums\FindingSeverity;
-use App\Enums\StrStatus;
 use App\Models\Compliance\ComplianceCase;
 use App\Models\Compliance\ComplianceFinding;
 use App\Models\Compliance\CustomerRiskProfile;
@@ -15,7 +14,6 @@ use App\Models\ReportGenerated;
 use App\Models\StrReport;
 use App\Models\User;
 use App\Services\Compliance\ComplianceReportingService;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -28,7 +26,7 @@ class ComplianceReportingServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new ComplianceReportingService();
+        $this->service = new ComplianceReportingService;
     }
 
     /**
@@ -70,8 +68,8 @@ class ComplianceReportingServiceTest extends TestCase
         $totalCases = ComplianceCase::count();
         $openCount = ComplianceCase::where('status', ComplianceCaseStatus::Open->value)->count();
 
-        $this->assertEquals(6, $totalCases, "Should have 6 total cases");
-        $this->assertEquals(3, $openCount, "Should have 3 open cases");
+        $this->assertEquals(6, $totalCases, 'Should have 6 total cases');
+        $this->assertEquals(3, $openCount, 'Should have 3 open cases');
         $this->assertEquals(3, $kpis['case_summary']['open']);
         $this->assertEquals(1, $kpis['case_summary']['under_review']);
         $this->assertEquals(1, $kpis['case_summary']['escalated']);
@@ -139,9 +137,9 @@ class ComplianceReportingServiceTest extends TestCase
 
         $kpis = $this->service->getDashboardKpis();
 
-        $this->assertEquals(4, $totalStrs, "Should have 4 STRs");
+        $this->assertEquals(4, $totalStrs, 'Should have 4 STRs');
         // 2 pending: Draft + PendingApproval
-        $this->assertEquals(2, $pendingStrs, "Should have 2 pending STRs");
+        $this->assertEquals(2, $pendingStrs, 'Should have 2 pending STRs');
         $this->assertEquals(2, $kpis['str_status']['pending']);
         // Due today should be 0 (no deadlines set to today)
         $this->assertEquals(0, $kpis['str_status']['due_today']);

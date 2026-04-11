@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\AccountingPeriod;
-use App\Models\ChartOfAccount;
 use App\Models\FiscalYear;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -15,6 +14,7 @@ class FiscalYearControllerTest extends TestCase
     use RefreshDatabase;
 
     protected User $managerUser;
+
     protected User $adminUser;
 
     protected function setUp(): void
@@ -60,8 +60,8 @@ class FiscalYearControllerTest extends TestCase
             AccountingPeriod::create([
                 'period_code' => $month,
                 'fiscal_year_id' => $fiscalYear->id,
-                'start_date' => $month . '-01',
-                'end_date' => date('Y-m-t', strtotime($month . '-01')),
+                'start_date' => $month.'-01',
+                'end_date' => date('Y-m-t', strtotime($month.'-01')),
                 'status' => 'closed',
             ]);
         }
@@ -129,8 +129,8 @@ class FiscalYearControllerTest extends TestCase
             ]);
 
         // Debug: if redirect but no error, show what we got
-        if ($response->isRedirect() && !$response->getSession()->has('error')) {
-            $this->fail('Expected error message but got: success=' . ($response->getSession()->has('success') ? session('success') : 'none'));
+        if ($response->isRedirect() && ! $response->getSession()->has('error')) {
+            $this->fail('Expected error message but got: success='.($response->getSession()->has('success') ? session('success') : 'none'));
         }
 
         $response->assertRedirect();

@@ -21,7 +21,7 @@ class CounterfeitAlertMonitorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->monitor = new CounterfeitAlertMonitor(new MathService());
+        $this->monitor = new CounterfeitAlertMonitor(new MathService);
     }
 
     public function test_no_findings_when_no_counterfeit_flags(): void

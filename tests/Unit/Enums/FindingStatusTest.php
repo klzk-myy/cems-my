@@ -11,7 +11,7 @@ class FindingStatusTest extends TestCase
     {
         $expectedStatuses = ['New', 'Reviewed', 'Dismissed', 'CaseCreated'];
         $actualCases = array_column(FindingStatus::cases(), 'name');
-        
+
         foreach ($expectedStatuses as $status) {
             $this->assertContains($status, $actualCases, "FindingStatus::$status should exist");
         }

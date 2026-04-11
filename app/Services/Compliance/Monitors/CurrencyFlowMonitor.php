@@ -6,7 +6,6 @@ use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
 use App\Models\Customer;
 use App\Models\Transaction;
-use App\Services\MathService;
 
 /**
  * Monitor for detecting unusual currency round-tripping patterns.
@@ -15,7 +14,9 @@ use App\Services\MathService;
 class CurrencyFlowMonitor extends BaseMonitor
 {
     public const LOOKBACK_DAYS = 7;
+
     public const ROUND_TRIP_THRESHOLD = '5000';
+
     public const TIME_WINDOW_HOURS = 72;
 
     protected function getFindingType(): FindingType

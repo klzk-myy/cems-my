@@ -11,7 +11,6 @@ use App\Models\FlaggedTransaction;
 use App\Models\SystemLog;
 use App\Models\Transaction;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 /**
  * AML Rule Service

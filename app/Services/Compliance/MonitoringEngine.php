@@ -86,12 +86,13 @@ class MonitoringEngine
             $monitor = $this->getMonitor($monitorClass);
             try {
                 $findings = $monitor->execute();
-                Log::info("Monitor {$monitorClass} generated " . count($findings) . " findings");
+                Log::info("Monitor {$monitorClass} generated ".count($findings).' findings');
                 $results = $results->merge($findings);
             } catch (\Throwable $e) {
-                Log::error("Monitor {$monitorClass} failed: " . $e->getMessage());
+                Log::error("Monitor {$monitorClass} failed: ".$e->getMessage());
             }
         }
+
         return $results;
     }
 
@@ -105,10 +106,12 @@ class MonitoringEngine
         $monitor = $this->getMonitor($monitorClass);
         try {
             $findings = $monitor->execute();
-            Log::info("Monitor {$monitorClass} generated " . count($findings) . " findings");
+            Log::info("Monitor {$monitorClass} generated ".count($findings).' findings');
+
             return collect($findings);
         } catch (\Throwable $e) {
-            Log::error("Monitor {$monitorClass} failed: " . $e->getMessage());
+            Log::error("Monitor {$monitorClass} failed: ".$e->getMessage());
+
             return collect();
         }
     }

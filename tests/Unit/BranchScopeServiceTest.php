@@ -5,7 +5,6 @@ namespace Tests\Unit;
 use App\Models\Branch;
 use App\Models\User;
 use App\Services\BranchScopeService;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

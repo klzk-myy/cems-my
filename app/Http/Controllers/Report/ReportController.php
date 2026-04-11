@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Report;
 
-use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 
 abstract class ReportController extends Controller

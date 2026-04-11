@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Enums\TransactionStatus;
 use App\Models\Transaction;
 use App\Services\TransactionErrorHandler;
 use App\Services\TransactionRecoveryService;
@@ -47,7 +46,7 @@ class ProcessTransactionRetry implements ShouldQueue
     /**
      * Create a new job instance.
      *
-     * @param Transaction $transaction The transaction to retry
+     * @param  Transaction  $transaction  The transaction to retry
      */
     public function __construct(
         public Transaction $transaction
@@ -58,10 +57,6 @@ class ProcessTransactionRetry implements ShouldQueue
      *
      * Attempts to recover the transaction by transitioning it back to
      * PendingApproval and re-processing.
-     *
-     * @param TransactionErrorHandler $errorHandler
-     * @param TransactionRecoveryService $recoveryService
-     * @return void
      */
     public function handle(
         TransactionErrorHandler $errorHandler,
@@ -76,7 +71,7 @@ class ProcessTransactionRetry implements ShouldQueue
         $this->transaction->refresh();
 
         // Verify transaction is still in Failed status
-        if (!$this->transaction->status->isFailed()) {
+        if (! $this->transaction->status->isFailed()) {
             Log::info('Transaction no longer in Failed status, skipping retry', [
                 'transaction_id' => $this->transaction->id,
                 'current_status' => $this->transaction->status->value,
@@ -98,7 +93,7 @@ class ProcessTransactionRetry implements ShouldQueue
         // Attempt to transition back to PendingApproval for retry
         $stateMachine = new TransactionStateMachine($this->transaction);
 
-        if (!$stateMachine->retry()) {
+        if (! $stateMachine->retry()) {
             Log::error('Failed to transition transaction for retry', [
                 'transaction_id' => $this->transaction->id,
                 'current_status' => $this->transaction->status->value,
@@ -119,9 +114,6 @@ class ProcessTransactionRetry implements ShouldQueue
 
     /**
      * Handle a job failure.
-     *
-     * @param \Throwable $exception
-     * @return void
      */
     public function failed(\Throwable $exception): void
     {
@@ -140,11 +132,9 @@ class ProcessTransactionRetry implements ShouldQueue
      * Get the unique ID for the job.
      *
      * Ensures only one retry job runs per transaction at a time.
-     *
-     * @return string
      */
     public function uniqueId(): string
     {
-        return 'transaction_retry_' . $this->transaction->id;
+        return 'transaction_retry_'.$this->transaction->id;
     }
 }

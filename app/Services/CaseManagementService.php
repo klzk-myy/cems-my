@@ -9,8 +9,8 @@ use App\Models\Alert;
 use App\Models\Compliance\ComplianceCase;
 use App\Models\Compliance\ComplianceCaseDocument;
 use App\Models\Compliance\ComplianceCaseLink;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CaseManagementService
@@ -125,7 +125,7 @@ class CaseManagementService
      */
     public function resolveCase(ComplianceCase $case, int $resolvedBy, ?string $notes = null): ComplianceCase
     {
-        if (!$case->canBeResolved()) {
+        if (! $case->canBeResolved()) {
             throw new \RuntimeException('Cannot resolve case: not all alerts are linked');
         }
 
@@ -253,6 +253,7 @@ class CaseManagementService
             'verified_at' => now(),
             'verified_by' => $verifiedBy,
         ]);
+
         return $document->fresh();
     }
 
@@ -262,6 +263,7 @@ class CaseManagementService
     public function addLink(int $caseId, string $linkedType, int $linkedId): ComplianceCaseLink
     {
         $case = ComplianceCase::findOrFail($caseId);
+
         return $case->addLink($linkedType, $linkedId);
     }
 

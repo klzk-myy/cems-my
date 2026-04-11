@@ -81,6 +81,7 @@ class MonitorService
 
             if ($retrieved === $testValue) {
                 $driver = config('cache.default');
+
                 return [
                     'status' => SystemHealthCheck::STATUS_OK,
                     'message' => "Cache ({$driver}) operational ({$responseTime}ms)",

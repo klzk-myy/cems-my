@@ -70,7 +70,7 @@ class ComplianceReportingController extends Controller
 
     public function download(ReportRun $report)
     {
-        if (!$report->file_path || !Storage::exists($report->file_path)) {
+        if (! $report->file_path || ! Storage::exists($report->file_path)) {
             abort(404, 'Report file not found');
         }
 

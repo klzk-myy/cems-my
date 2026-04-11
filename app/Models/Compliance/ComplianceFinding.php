@@ -46,7 +46,7 @@ class ComplianceFinding extends Model
      */
     public function dismiss(string $reason): void
     {
-        if (!$this->status->canBeDismissed()) {
+        if (! $this->status->canBeDismissed()) {
             throw new \InvalidArgumentException(
                 "Finding cannot be dismissed in {$this->status->label()} status"
             );
@@ -63,7 +63,7 @@ class ComplianceFinding extends Model
      */
     public function markCaseCreated(): void
     {
-        if (!$this->status->canCreateCase()) {
+        if (! $this->status->canCreateCase()) {
             throw new \InvalidArgumentException(
                 "Case cannot be created from finding in {$this->status->label()} status"
             );

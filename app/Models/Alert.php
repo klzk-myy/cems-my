@@ -8,7 +8,6 @@ use App\Enums\FlagStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Alert extends Model
 {
@@ -84,6 +83,7 @@ class Alert extends Model
         if ($this->case_id) {
             return false;
         }
+
         return now()->isAfter($this->calculateSlaDeadline());
     }
 

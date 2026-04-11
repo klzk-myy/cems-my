@@ -18,7 +18,7 @@ return new class extends Migration
     public function up(): void
     {
         // AML rules table (final schema after create + alter)
-        if (!Schema::hasTable('aml_rules')) {
+        if (! Schema::hasTable('aml_rules')) {
             Schema::create('aml_rules', function (Blueprint $table) {
                 $table->id();
                 $table->string('rule_code', 50)->unique();

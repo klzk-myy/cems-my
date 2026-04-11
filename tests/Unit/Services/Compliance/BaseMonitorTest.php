@@ -5,7 +5,6 @@ namespace Tests\Unit\Services\Compliance;
 use App\Enums\FindingSeverity;
 use App\Enums\FindingStatus;
 use App\Enums\FindingType;
-use App\Models\Compliance\ComplianceFinding;
 use App\Services\Compliance\Monitors\BaseMonitor;
 use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,7 +19,7 @@ class BaseMonitorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->monitor = new TestableBaseMonitor(new MathService());
+        $this->monitor = new TestableBaseMonitor(new MathService);
     }
 
     public function test_create_finding_returns_correct_array_structure(): void

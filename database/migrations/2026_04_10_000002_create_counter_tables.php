@@ -17,7 +17,7 @@ return new class extends Migration
     public function up(): void
     {
         // Till balances table
-        if (!Schema::hasTable('till_balances')) {
+        if (! Schema::hasTable('till_balances')) {
             Schema::create('till_balances', function (Blueprint $table) {
                 $table->id();
                 $table->string('till_id', 50);
@@ -39,7 +39,7 @@ return new class extends Migration
         }
 
         // Counters table
-        if (!Schema::hasTable('counters')) {
+        if (! Schema::hasTable('counters')) {
             Schema::create('counters', function (Blueprint $table) {
                 $table->id();
                 $table->string('code', 10)->unique();
@@ -51,7 +51,7 @@ return new class extends Migration
         }
 
         // Counter sessions table
-        if (!Schema::hasTable('counter_sessions')) {
+        if (! Schema::hasTable('counter_sessions')) {
             Schema::create('counter_sessions', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('counter_id')->constrained('counters')->restrictOnDelete();
@@ -71,7 +71,7 @@ return new class extends Migration
         }
 
         // Counter handovers table
-        if (!Schema::hasTable('counter_handovers')) {
+        if (! Schema::hasTable('counter_handovers')) {
             Schema::create('counter_handovers', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('counter_session_id')->constrained('counter_sessions')->restrictOnDelete();

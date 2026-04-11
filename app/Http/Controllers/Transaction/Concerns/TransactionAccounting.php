@@ -6,9 +6,6 @@ use App\Enums\AccountCode;
 use App\Enums\TransactionType;
 use App\Models\TillBalance;
 use App\Models\Transaction;
-use App\Services\AccountingService;
-use App\Services\CurrencyPositionService;
-use App\Services\MathService;
 
 trait TransactionAccounting
 {

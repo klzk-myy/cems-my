@@ -61,16 +61,18 @@ class EddTemplate extends Model
         foreach ($sections as $section) {
             $count += count($section['questions'] ?? []);
         }
+
         return $count;
     }
 
     public function duplicate(): static
     {
         $clone = $this->replicate();
-        $clone->name = $this->name . ' (Copy)';
+        $clone->name = $this->name.' (Copy)';
         $clone->version = 1;
         $clone->is_active = false;
         $clone->save();
+
         return $clone;
     }
 }

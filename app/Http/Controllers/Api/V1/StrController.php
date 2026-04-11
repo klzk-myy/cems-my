@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
 use App\Services\AuditService;
 use App\Services\StrReportService;

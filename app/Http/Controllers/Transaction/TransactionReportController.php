@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Transaction;
 
-use App\Http\Controllers\Controller;
 use App\Enums\TransactionType;
+use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\MathService;
-use Illuminate\Support\Facades\DB;
 
 class TransactionReportController extends Controller
 {

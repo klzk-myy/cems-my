@@ -534,7 +534,6 @@ class AuditService
      * @param  string  $action  Action attempted
      * @param  string  $reason  Reason for denial
      * @param  array  $data  Additional context
-     * @return SystemLog
      */
     public function logPermissionDenied(string $resource, string $action, string $reason, array $data = []): SystemLog
     {
@@ -621,7 +620,6 @@ class AuditService
      *                          sanction_block_overridden)
      * @param  int|null  $entityId  Entity ID (customer, transaction)
      * @param  array  $data  Sanction data with old/new values
-     * @return SystemLog
      */
     public function logSanctionEvent(string $action, ?int $entityId = null, array $data = []): SystemLog
     {
@@ -650,7 +648,6 @@ class AuditService
      * @param  string  $action  Position action (position_revaluation_run,
      *                          position_limit_breach, position_manual_adjustment)
      * @param  array  $data  Position data with old/new values
-     * @return SystemLog
      */
     public function logPositionEvent(string $action, array $data = []): SystemLog
     {
@@ -678,7 +675,6 @@ class AuditService
      *                          report_ctos_exported, report_audit_log_viewed,
      *                          report_data_export)
      * @param  array  $data  Report access data with old/new values
-     * @return SystemLog
      */
     public function logReportAccessEvent(string $action, array $data = []): SystemLog
     {

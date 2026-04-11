@@ -116,6 +116,7 @@ class TransactionBatchUploadTest extends TestCase
         $response->assertSee('Batch Transaction Upload');
         $response->assertSee('CSV Format Requirements');
     }
+
     /**
      * @group skip
      * Test teller cannot access batch upload

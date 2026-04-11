@@ -4,8 +4,10 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
-    public function up(): void {
+return new class extends Migration
+{
+    public function up(): void
+    {
         Schema::create('enhanced_diligence_records', function (Blueprint $table) {
             $table->id();
             $table->foreignId('flagged_transaction_id')->nullable()->constrained('flagged_transactions');
@@ -59,7 +61,8 @@ return new class extends Migration {
         });
     }
 
-    public function down(): void {
+    public function down(): void
+    {
         Schema::dropIfExists('enhanced_diligence_records');
     }
 };

@@ -109,7 +109,7 @@ class BranchController extends Controller
         $user = Auth::user();
 
         // Check authorization: admin OR user's own branch
-        if (!$user->role->isAdmin() && $user->branch_id !== $id) {
+        if (! $user->role->isAdmin() && $user->branch_id !== $id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access to this branch',
@@ -261,7 +261,7 @@ class BranchController extends Controller
         $user = Auth::user();
 
         // Check authorization: admin OR user's own branch
-        if (!$user->role->isAdmin() && $user->branch_id !== $id) {
+        if (! $user->role->isAdmin() && $user->branch_id !== $id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access to this branch',
@@ -286,7 +286,7 @@ class BranchController extends Controller
         $user = Auth::user();
 
         // Check authorization: admin OR user's own branch
-        if (!$user->role->isAdmin() && $user->branch_id !== $id) {
+        if (! $user->role->isAdmin() && $user->branch_id !== $id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized access to this branch',

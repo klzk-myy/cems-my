@@ -2,14 +2,13 @@
 
 namespace App\Providers;
 
-use App\Events\TransactionCreated;
-use App\Listeners\TransactionCreatedListener;
 use App\Events\AlertCreated;
 use App\Events\CaseOpened;
-use App\Events\StrDraftGenerated;
 use App\Events\RiskScoreUpdated;
-use App\Events\ReportGenerated;
+use App\Events\StrDraftGenerated;
+use App\Events\TransactionCreated;
 use App\Listeners\ComplianceEventListener;
+use App\Listeners\TransactionCreatedListener;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;

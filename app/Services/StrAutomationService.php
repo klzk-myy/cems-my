@@ -114,7 +114,7 @@ class StrAutomationService
         $transactions = $this->getTransactions($strDraft->transaction_ids ?? []);
 
         $strReport = StrReport::create([
-            'str_no' => 'STR-' . now()->format('Ymd') . '-' . substr(uniqid(), -6),
+            'str_no' => 'STR-'.now()->format('Ymd').'-'.substr(uniqid(), -6),
             'customer_id' => $customer->id,
             'status' => StrStatus::Draft,
             'transaction_ids' => $strDraft->transaction_ids ?? [],

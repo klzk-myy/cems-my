@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\AccountLedger;
+use App\Enums\UserRole;
 use App\Models\AccountingPeriod;
+use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
 use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\SystemLog;
 use App\Models\User;
-use App\Enums\UserRole;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -40,7 +40,6 @@ class FiscalYearService
      * @param  string  $yearCode  Fiscal year code (e.g., 'FY2026')
      * @param  string  $startDate  Start date (YYYY-MM-DD)
      * @param  string  $endDate  End date (YYYY-MM-DD)
-     * @return FiscalYear
      */
     public function createFiscalYear(string $yearCode, string $startDate, string $endDate): FiscalYear
     {
@@ -60,9 +59,9 @@ class FiscalYearService
      * 2. Close all Expense accounts → Income Summary (4998)
      * 3. Close Income Summary → Retained Earnings (4999)
      *
-     * @param  FiscalYear  $year
      * @param  int|null  $userId  Optional user ID for testing (defaults to auth()->id())
      * @return array Year-end report data
+     *
      * @throws \InvalidArgumentException
      */
     public function closeFiscalYear(FiscalYear $year, ?int $userId = null): array
@@ -140,9 +139,6 @@ class FiscalYearService
 
     /**
      * Get year-end report for a fiscal year.
-     *
-     * @param  string  $yearCode
-     * @return array
      */
     public function getYearEndReport(string $yearCode): array
     {
@@ -171,9 +167,7 @@ class FiscalYearService
     /**
      * Open a new fiscal year with opening balances.
      *
-     * @param  FiscalYear  $year
      * @param  int|null  $userId  Optional user ID for testing (defaults to auth()->id())
-     * @return FiscalYear
      */
     public function openNewFiscalYear(FiscalYear $year, ?int $userId = null): FiscalYear
     {
@@ -190,14 +184,14 @@ class FiscalYearService
             $retainedEarnings = $this->getAccountBalance('4999', $year->end_date->toDateString());
 
             // Create opening entry
-            $entryNumber = 'OE-' . $year->year_code . '-0001';
+            $entryNumber = 'OE-'.$year->year_code.'-0001';
 
             $entry = JournalEntry::create([
                 'entry_number' => $entryNumber,
                 'entry_date' => $openingDate,
                 'period_id' => $this->getPeriodId($openingDate),
                 'reference_type' => 'FiscalYearOpening',
-                'description' => 'Opening balances for ' . $year->year_code,
+                'description' => 'Opening balances for '.$year->year_code,
                 'status' => 'Posted',
                 'created_by' => $userId,
                 'posted_by' => $userId,
@@ -264,7 +258,7 @@ class FiscalYearService
      */
     protected function closeRevenueToIncomeSummary(string $total, string $entryDate, int $userId): JournalEntry
     {
-        $entryNumber = 'CE-' . date('Ym', strtotime($entryDate)) . '-001';
+        $entryNumber = 'CE-'.date('Ym', strtotime($entryDate)).'-001';
 
         $entry = JournalEntry::create([
             'entry_number' => $entryNumber,
@@ -288,7 +282,7 @@ class FiscalYearService
                     'account_code' => $account->account_code,
                     'debit' => $balance,
                     'credit' => 0,
-                    'description' => 'Close ' . $account->account_name,
+                    'description' => 'Close '.$account->account_name,
                 ]);
             }
         }
@@ -313,7 +307,7 @@ class FiscalYearService
      */
     protected function closeExpensesToIncomeSummary(string $total, string $entryDate, int $userId): JournalEntry
     {
-        $entryNumber = 'CE-' . date('Ym', strtotime($entryDate)) . '-002';
+        $entryNumber = 'CE-'.date('Ym', strtotime($entryDate)).'-002';
 
         $entry = JournalEntry::create([
             'entry_number' => $entryNumber,
@@ -336,7 +330,7 @@ class FiscalYearService
                     'account_code' => $account->account_code,
                     'debit' => 0,
                     'credit' => $balance,
-                    'description' => 'Close ' . $account->account_name,
+                    'description' => 'Close '.$account->account_name,
                 ]);
             }
         }
@@ -361,7 +355,7 @@ class FiscalYearService
      */
     protected function closeIncomeSummaryToRetained(string $netIncome, string $entryDate, int $userId): JournalEntry
     {
-        $entryNumber = 'CE-' . date('Ym', strtotime($entryDate)) . '-003';
+        $entryNumber = 'CE-'.date('Ym', strtotime($entryDate)).'-003';
 
         $entry = JournalEntry::create([
             'entry_number' => $entryNumber,
@@ -489,6 +483,7 @@ class FiscalYearService
             $debits = AccountLedger::where('account_code', $accountCode)
                 ->whereRaw('DATE(entry_date) <= ?', [$asOfDate])
                 ->sum('debit');
+
             return $this->mathService->subtract((string) $credits, (string) $debits);
         } else {
             $debits = AccountLedger::where('account_code', $accountCode)
@@ -497,6 +492,7 @@ class FiscalYearService
             $credits = AccountLedger::where('account_code', $accountCode)
                 ->whereRaw('DATE(entry_date) <= ?', [$asOfDate])
                 ->sum('credit');
+
             return $this->mathService->subtract((string) $debits, (string) $credits);
         }
     }
@@ -534,6 +530,7 @@ class FiscalYearService
     protected function getPeriodId(string $date): ?int
     {
         $period = AccountingPeriod::forDate($date)->first();
+
         return $period?->id;
     }
 }

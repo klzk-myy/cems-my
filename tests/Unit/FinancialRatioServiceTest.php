@@ -2,16 +2,15 @@
 
 namespace Tests\Unit;
 
+use App\Models\AccountingPeriod;
 use App\Models\ChartOfAccount;
-use App\Models\AccountLedger;
 use App\Models\JournalEntry;
 use App\Models\User;
-use App\Models\AccountingPeriod;
+use App\Services\AccountingService;
 use App\Services\FinancialRatioService;
 use App\Services\MathService;
-use App\Services\AccountingService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class FinancialRatioServiceTest extends TestCase
@@ -19,8 +18,11 @@ class FinancialRatioServiceTest extends TestCase
     use RefreshDatabase;
 
     protected FinancialRatioService $service;
+
     protected MathService $mathService;
+
     protected AccountingService $accountingService;
+
     protected User $user;
 
     protected function setUp(): void

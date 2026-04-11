@@ -22,7 +22,7 @@ class FindingTypeTest extends TestCase
         ];
 
         $actualCases = array_column(FindingType::cases(), 'name');
-        
+
         foreach ($expectedTypes as $type) {
             $this->assertContains(
                 $type,

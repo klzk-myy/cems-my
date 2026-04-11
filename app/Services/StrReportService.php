@@ -5,8 +5,11 @@ namespace App\Services;
 use App\Enums\StrStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
+use App\Models\User;
+use App\Notifications\Compliance\StrEscalationNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class StrReportService
 {
@@ -55,7 +58,7 @@ class StrReportService
             }
 
             // Fall back to customer_id on alert
-            if (!$customer && $alert->getAttribute('customer_id')) {
+            if (! $customer && $alert->getAttribute('customer_id')) {
                 $custId = $alert->getAttribute('customer_id');
                 $customer = \App\Models\Customer::find($custId);
                 \Illuminate\Support\Facades\Log::info('Customer fallback lookup', [
@@ -64,7 +67,7 @@ class StrReportService
                 ]);
             }
 
-            if (!$customer) {
+            if (! $customer) {
                 throw new \Exception('Cannot generate STR: Alert has no associated customer');
             }
 
@@ -211,7 +214,6 @@ class StrReportService
      * Retry a failed STR submission.
      * Can be called manually by compliance officer or via scheduled job.
      *
-     * @param StrReport $report
      * @return bool True if submission succeeds, false otherwise
      */
     public function retrySubmission(StrReport $report): bool
@@ -235,8 +237,8 @@ class StrReportService
                 'max_retries' => $maxRetries,
             ]);
 
-            // TODO: Trigger supervisor escalation notification
-            // This could be a job sent to compliance supervisors
+            // Trigger supervisor escalation notification
+            // This dispatches a job to notify compliance supervisors
             $this->escalateToSupervisor($report);
 
             return false;
@@ -259,6 +261,7 @@ class StrReportService
 
     /**
      * Escalate a repeatedly failed STR to supervisor for manual intervention.
+     * Sends notifications to all compliance officers and managers.
      */
     protected function escalateToSupervisor(StrReport $report): void
     {
@@ -271,9 +274,9 @@ class StrReportService
             'is_overdue' => $report->isOverdue(),
         ]);
 
-        // Update status to reflect escalation (could add a new Escalated status if needed)
+        // Update status to reflect escalation
         $report->update([
-            'last_error' => 'Escalated to supervisor after ' . $report->retry_count . ' failed attempts',
+            'last_error' => 'Escalated to supervisor after '.$report->retry_count.' failed attempts',
         ]);
 
         // Audit log for escalation
@@ -285,8 +288,49 @@ class StrReportService
             'is_overdue' => $report->isOverdue(),
         ]);
 
-        // TODO: Send notification to compliance supervisors
-        // This could dispatch a job to notify supervisors via email/SMS
+        // Send notification to compliance supervisors
+        $this->sendEscalationNotification($report);
+    }
+
+    /**
+     * Send escalation notification to compliance officers and managers.
+     */
+    protected function sendEscalationNotification(StrReport $report): void
+    {
+        try {
+            // Get all compliance officers and managers
+            $supervisors = User::whereIn('role', ['compliance_officer', 'manager', 'admin'])
+                ->where('is_active', true)
+                ->get();
+
+            if ($supervisors->isEmpty()) {
+                Log::warning('No supervisors found for STR escalation notification', [
+                    'str_id' => $report->id,
+                    'str_no' => $report->str_no,
+                ]);
+
+                return;
+            }
+
+            // Send notification to supervisors
+            Notification::send(
+                $supervisors,
+                new StrEscalationNotification($report)
+            );
+
+            Log::info('STR escalation notifications sent', [
+                'str_id' => $report->id,
+                'str_no' => $report->str_no,
+                'supervisors_notified' => $supervisors->count(),
+                'supervisor_ids' => $supervisors->pluck('id')->toArray(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send STR escalation notifications', [
+                'str_id' => $report->id,
+                'str_no' => $report->str_no,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function trackSubmission(StrReport $report, string $bnmRef): void

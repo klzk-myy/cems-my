@@ -13,32 +13,33 @@ return new class extends Migration
         // Helper to check if index exists
         $indexExists = function (string $table, string $index): bool {
             $indexes = DB::select("SHOW INDEX FROM {$table} WHERE Key_name = ?", [$index]);
+
             return count($indexes) > 0;
         };
 
         // 1. transactions table - composite indexes for reporting
-        if (!$indexExists('transactions', 'transactions_currency_created_idx')) {
+        if (! $indexExists('transactions', 'transactions_currency_created_idx')) {
             DB::statement('CREATE INDEX transactions_currency_created_idx ON transactions (currency_code, created_at)');
         }
-        if (!$indexExists('transactions', 'transactions_status_created_idx')) {
+        if (! $indexExists('transactions', 'transactions_status_created_idx')) {
             DB::statement('CREATE INDEX transactions_status_created_idx ON transactions (status, created_at)');
         }
 
         // 2. currency_positions table - unique composite index
-        if (!$indexExists('currency_positions', 'currency_positions_currency_till_unique')) {
+        if (! $indexExists('currency_positions', 'currency_positions_currency_till_unique')) {
             DB::statement('CREATE UNIQUE INDEX currency_positions_currency_till_unique ON currency_positions (currency_code, till_id)');
         }
 
         // 3. flagged_transactions table - composite indexes for review queue
-        if (!$indexExists('flagged_transactions', 'flagged_transactions_flag_type_created_idx')) {
+        if (! $indexExists('flagged_transactions', 'flagged_transactions_flag_type_created_idx')) {
             DB::statement('CREATE INDEX flagged_transactions_flag_type_created_idx ON flagged_transactions (flag_type, created_at)');
         }
-        if (!$indexExists('flagged_transactions', 'flagged_transactions_status_created_idx')) {
+        if (! $indexExists('flagged_transactions', 'flagged_transactions_status_created_idx')) {
             DB::statement('CREATE INDEX flagged_transactions_status_created_idx ON flagged_transactions (status, created_at)');
         }
 
         // 4. system_logs table - composite index for user activity queries
-        if (!$indexExists('system_logs', 'system_logs_user_action_created_idx')) {
+        if (! $indexExists('system_logs', 'system_logs_user_action_created_idx')) {
             DB::statement('CREATE INDEX system_logs_user_action_created_idx ON system_logs (user_id, action, created_at)');
         }
     }

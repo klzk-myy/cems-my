@@ -30,12 +30,19 @@ class TransactionErrorHandler
      * Error types for transaction processing failures.
      */
     public const ERROR_TYPE_PROCESSING = 'processing_error';
+
     public const ERROR_TYPE_VALIDATION = 'validation_error';
+
     public const ERROR_TYPE_COMPLIANCE = 'compliance_error';
+
     public const ERROR_TYPE_ACCOUNTING = 'accounting_error';
+
     public const ERROR_TYPE_STOCK = 'stock_error';
+
     public const ERROR_TYPE_NETWORK = 'network_error';
+
     public const ERROR_TYPE_DEADLOCK = 'deadlock_error';
+
     public const ERROR_TYPE_TIMEOUT = 'timeout_error';
 
     /**
@@ -43,10 +50,10 @@ class TransactionErrorHandler
      *
      * Records the error, increments retry count, and schedules next retry if applicable.
      *
-     * @param Transaction $transaction The transaction that encountered an error
-     * @param string $errorType Type of error (use ERROR_TYPE_* constants)
-     * @param string $message Human-readable error message
-     * @param array $context Additional error context (stack trace, variables, etc.)
+     * @param  Transaction  $transaction  The transaction that encountered an error
+     * @param  string  $errorType  Type of error (use ERROR_TYPE_* constants)
+     * @param  string  $message  Human-readable error message
+     * @param  array  $context  Additional error context (stack trace, variables, etc.)
      * @return bool True if error was handled and can be retried
      */
     public function handleProcessingError(
@@ -64,7 +71,7 @@ class TransactionErrorHandler
 
         // Check if transaction already has an unresolved error with max retries exceeded
         $latestError = $this->getLatestError($transaction);
-        if ($latestError !== null && !$latestError->canRetry()) {
+        if ($latestError !== null && ! $latestError->canRetry()) {
             Log::warning('Transaction already has max retries exceeded', [
                 'transaction_id' => $transaction->id,
                 'retry_count' => $latestError->retry_count,
@@ -102,7 +109,7 @@ class TransactionErrorHandler
     /**
      * Check if a transaction should be retried.
      *
-     * @param Transaction $transaction The transaction to check
+     * @param  Transaction  $transaction  The transaction to check
      * @return bool True if transaction has errors that can be retried
      */
     public function shouldRetry(Transaction $transaction): bool
@@ -128,7 +135,7 @@ class TransactionErrorHandler
      *
      * Implements exponential backoff: 100ms, 200ms, 400ms
      *
-     * @param Transaction $transaction The transaction to check
+     * @param  Transaction  $transaction  The transaction to check
      * @return int Delay in milliseconds
      */
     public function getNextRetryDelay(Transaction $transaction): int
@@ -145,7 +152,7 @@ class TransactionErrorHandler
     /**
      * Calculate delay for a given retry count using exponential backoff.
      *
-     * @param int $retryCount Current retry count (0-based)
+     * @param  int  $retryCount  Current retry count (0-based)
      * @return int Delay in milliseconds
      */
     protected function getDelayForRetryCount(int $retryCount): int
@@ -156,9 +163,9 @@ class TransactionErrorHandler
     /**
      * Mark an error as resolved.
      *
-     * @param Transaction $transaction The transaction with the error
-     * @param int $resolvedBy User ID who resolved the error
-     * @param string|null $notes Resolution notes
+     * @param  Transaction  $transaction  The transaction with the error
+     * @param  int  $resolvedBy  User ID who resolved the error
+     * @param  string|null  $notes  Resolution notes
      * @return bool True if resolution was successful
      */
     public function markErrorResolved(
@@ -182,7 +189,7 @@ class TransactionErrorHandler
     /**
      * Get all errors for a transaction.
      *
-     * @param Transaction $transaction The transaction
+     * @param  Transaction  $transaction  The transaction
      * @return Collection Collection of TransactionError models
      */
     public function getTransactionErrors(Transaction $transaction): Collection
@@ -195,8 +202,7 @@ class TransactionErrorHandler
     /**
      * Get the latest unresolved error for a transaction.
      *
-     * @param Transaction $transaction The transaction
-     * @return TransactionError|null
+     * @param  Transaction  $transaction  The transaction
      */
     protected function getLatestError(Transaction $transaction): ?TransactionError
     {
@@ -213,13 +219,13 @@ class TransactionErrorHandler
      * - It has exceeded max retries
      * - Or it has an unresolved error that is not retryable
      *
-     * @param Transaction $transaction The transaction to check
+     * @param  Transaction  $transaction  The transaction to check
      * @return bool True if should be moved to DLQ
      */
     public function shouldMoveToDLQ(Transaction $transaction): bool
     {
         // Must be in Failed status
-        if (!$transaction->status->isFailed()) {
+        if (! $transaction->status->isFailed()) {
             return false;
         }
 
@@ -231,7 +237,7 @@ class TransactionErrorHandler
         }
 
         // Move to DLQ if max retries exceeded
-        if (!$latestError->canRetry()) {
+        if (! $latestError->canRetry()) {
             return true;
         }
 
@@ -251,7 +257,7 @@ class TransactionErrorHandler
     /**
      * Check if a transaction has any unresolved errors.
      *
-     * @param Transaction $transaction The transaction to check
+     * @param  Transaction  $transaction  The transaction to check
      * @return bool True if has unresolved errors
      */
     public function hasUnresolvedErrors(Transaction $transaction): bool
@@ -264,7 +270,7 @@ class TransactionErrorHandler
     /**
      * Get the count of retry attempts for a transaction.
      *
-     * @param Transaction $transaction The transaction
+     * @param  Transaction  $transaction  The transaction
      * @return int Current retry count
      */
     public function getRetryCount(Transaction $transaction): int
@@ -293,7 +299,7 @@ class TransactionErrorHandler
     /**
      * Record a successful retry and reset error tracking.
      *
-     * @param Transaction $transaction The transaction that was retried successfully
+     * @param  Transaction  $transaction  The transaction that was retried successfully
      * @return bool True if successful
      */
     public function recordSuccessfulRetry(Transaction $transaction): bool

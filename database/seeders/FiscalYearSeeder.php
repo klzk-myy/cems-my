@@ -11,7 +11,7 @@ class FiscalYearSeeder extends Seeder
     {
         $currentYear = now()->year;
         $fiscalYear = FiscalYear::firstOrCreate(
-            ['year_code' => 'FY' . $currentYear],
+            ['year_code' => 'FY'.$currentYear],
             [
                 'start_date' => "$currentYear-01-01",
                 'end_date' => "$currentYear-12-31",

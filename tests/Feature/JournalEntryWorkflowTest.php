@@ -15,8 +15,11 @@ class JournalEntryWorkflowTest extends TestCase
     use RefreshDatabase;
 
     protected User $managerUser;
+
     protected User $tellerUser;
+
     protected ChartOfAccount $cashAccount;
+
     protected ChartOfAccount $revenueAccount;
 
     protected function setUp(): void

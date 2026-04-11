@@ -50,8 +50,6 @@ class TransactionError extends Model
 
     /**
      * Get the transaction associated with this error.
-     *
-     * @return BelongsTo
      */
     public function transaction(): BelongsTo
     {
@@ -60,8 +58,6 @@ class TransactionError extends Model
 
     /**
      * Get the user who resolved this error.
-     *
-     * @return BelongsTo
      */
     public function resolver(): BelongsTo
     {
@@ -70,8 +66,6 @@ class TransactionError extends Model
 
     /**
      * Check if this error can be retried.
-     *
-     * @return bool
      */
     public function canRetry(): bool
     {
@@ -80,8 +74,6 @@ class TransactionError extends Model
 
     /**
      * Check if this error has been resolved.
-     *
-     * @return bool
      */
     public function isResolved(): bool
     {
@@ -91,8 +83,7 @@ class TransactionError extends Model
     /**
      * Increment retry count and set next retry time.
      *
-     * @param int $delayMs Delay in milliseconds
-     * @return bool
+     * @param  int  $delayMs  Delay in milliseconds
      */
     public function incrementRetry(int $delayMs): bool
     {

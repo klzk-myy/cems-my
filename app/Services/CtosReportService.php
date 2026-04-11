@@ -52,7 +52,7 @@ class CtosReportService
 
             // Mask ID number for privacy (store last 4 digits only)
             $idNumber = $customer->id_number_encrypted;
-            $maskedId = '****' . substr(decrypt($idNumber), -4);
+            $maskedId = '****'.substr(decrypt($idNumber), -4);
 
             $ctosReport = CtosReport::create([
                 'ctos_number' => $this->generateCtosNumber(),
@@ -106,6 +106,7 @@ class CtosReportService
 
         // Must be >= RM 10,000
         $mathService = new MathService;
+
         return $mathService->compare($transaction->amount_local, '10000') >= 0;
     }
 }

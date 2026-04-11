@@ -11,7 +11,7 @@ class FindingSeverityTest extends TestCase
     {
         $expectedLevels = ['Low', 'Medium', 'High', 'Critical'];
         $actualCases = array_column(FindingSeverity::cases(), 'name');
-        
+
         foreach ($expectedLevels as $level) {
             $this->assertContains($level, $actualCases, "FindingSeverity::$level should exist");
         }

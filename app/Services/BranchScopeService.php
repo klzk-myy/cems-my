@@ -20,7 +20,7 @@ class BranchScopeService
      *
      * @return array<int>|null
      */
-    public function getAccessibleBranchIds(User $user): array|null
+    public function getAccessibleBranchIds(User $user): ?array
     {
         // Admin can access all branches
         if ($user->role->isAdmin()) {

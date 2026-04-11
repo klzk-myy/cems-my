@@ -30,8 +30,11 @@ class ApprovalTask extends Model
     use HasFactory;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const STATUS_EXPIRED = 'expired';
 
     /**
@@ -63,8 +66,6 @@ class ApprovalTask extends Model
 
     /**
      * Get the transaction associated with this approval task.
-     *
-     * @return BelongsTo
      */
     public function transaction(): BelongsTo
     {
@@ -73,8 +74,6 @@ class ApprovalTask extends Model
 
     /**
      * Get the user who acted on this task (approved/rejected).
-     *
-     * @return BelongsTo
      */
     public function approver(): BelongsTo
     {
@@ -83,8 +82,6 @@ class ApprovalTask extends Model
 
     /**
      * Alias for approver relationship (for consistency with other models).
-     *
-     * @return BelongsTo
      */
     public function approverUser(): BelongsTo
     {
@@ -93,8 +90,6 @@ class ApprovalTask extends Model
 
     /**
      * Check if the task is pending.
-     *
-     * @return bool
      */
     public function isPending(): bool
     {
@@ -103,8 +98,6 @@ class ApprovalTask extends Model
 
     /**
      * Check if the task has been approved.
-     *
-     * @return bool
      */
     public function isApproved(): bool
     {
@@ -113,8 +106,6 @@ class ApprovalTask extends Model
 
     /**
      * Check if the task has been rejected.
-     *
-     * @return bool
      */
     public function isRejected(): bool
     {
@@ -123,8 +114,6 @@ class ApprovalTask extends Model
 
     /**
      * Check if the task has expired.
-     *
-     * @return bool
      */
     public function isExpired(): bool
     {
@@ -133,8 +122,6 @@ class ApprovalTask extends Model
 
     /**
      * Check if the task is still actionable (pending and not expired).
-     *
-     * @return bool
      */
     public function isActionable(): bool
     {
@@ -156,9 +143,6 @@ class ApprovalTask extends Model
      * - Admins can see supervisor, manager, and admin tasks
      * - Managers can see supervisor and manager tasks
      * - Tellers and Compliance Officers cannot approve anything (empty result)
-     *
-     * @param User $user
-     * @return Collection
      */
     public static function getPendingForUser(User $user): Collection
     {

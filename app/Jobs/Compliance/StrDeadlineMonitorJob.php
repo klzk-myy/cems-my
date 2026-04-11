@@ -16,6 +16,7 @@ class StrDeadlineMonitorJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public int $timeout = 3600;
 
     public function handle(MonitoringEngine $engine): void
@@ -27,7 +28,7 @@ class StrDeadlineMonitorJob implements ShouldQueue
 
     public function failed(\Throwable $exception): void
     {
-        Log::error(static::class . ' permanently failed', [
+        Log::error(static::class.' permanently failed', [
             'exception' => $exception->getMessage(),
         ]);
     }

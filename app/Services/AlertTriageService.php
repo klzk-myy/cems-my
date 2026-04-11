@@ -10,7 +10,6 @@ use App\Models\Compliance\ComplianceCase;
 use App\Models\Customer;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
-use Illuminate\Support\Facades\DB;
 
 class AlertTriageService
 {
@@ -129,6 +128,7 @@ class AlertTriageService
     public function assignToOfficer(Alert $alert, int $userId): Alert
     {
         $alert->update(['assigned_to' => $userId]);
+
         return $alert->fresh();
     }
 
@@ -146,7 +146,7 @@ class AlertTriageService
             return $assigned;
         }
 
-        $workloads = $officers->mapWithKeys(fn($o) => [$o->id => 0]);
+        $workloads = $officers->mapWithKeys(fn ($o) => [$o->id => 0]);
 
         foreach ($unassignedAlerts as $alert) {
             $minWorkloadOfficer = $workloads->sort()->keys()->first();
@@ -219,15 +219,15 @@ class AlertTriageService
     {
         return Alert::whereNull('case_id')
             ->get()
-            ->filter(fn($alert) => $alert->isOverdue())
+            ->filter(fn ($alert) => $alert->isOverdue())
             ->count();
     }
 
     /**
      * Bulk assign alerts to a compliance officer.
      *
-     * @param array $alertIds Array of alert IDs
-     * @param int $userId User ID to assign to
+     * @param  array  $alertIds  Array of alert IDs
+     * @param  int  $userId  User ID to assign to
      * @return array Results with success and failure counts
      */
     public function bulkAssign(array $alertIds, int $userId): array
@@ -237,15 +237,17 @@ class AlertTriageService
         foreach ($alertIds as $alertId) {
             try {
                 $alert = Alert::find($alertId);
-                if (!$alert) {
+                if (! $alert) {
                     $results['failed']++;
                     $results['errors'][] = "Alert {$alertId} not found";
+
                     continue;
                 }
 
                 if ($alert->case_id !== null) {
                     $results['failed']++;
                     $results['errors'][] = "Alert {$alertId} is already linked to a case";
+
                     continue;
                 }
 
@@ -263,9 +265,9 @@ class AlertTriageService
     /**
      * Bulk resolve multiple alerts.
      *
-     * @param array $alertIds Array of alert IDs
-     * @param int $resolvedBy User ID who is resolving
-     * @param string|null $notes Optional notes for all resolved alerts
+     * @param  array  $alertIds  Array of alert IDs
+     * @param  int  $resolvedBy  User ID who is resolving
+     * @param  string|null  $notes  Optional notes for all resolved alerts
      * @return array Results with success and failure counts
      */
     public function bulkResolve(array $alertIds, int $resolvedBy, ?string $notes = null): array
@@ -275,15 +277,17 @@ class AlertTriageService
         foreach ($alertIds as $alertId) {
             try {
                 $alert = Alert::find($alertId);
-                if (!$alert) {
+                if (! $alert) {
                     $results['failed']++;
                     $results['errors'][] = "Alert {$alertId} not found";
+
                     continue;
                 }
 
                 if ($alert->status === \App\Enums\FlagStatus::Resolved) {
                     $results['failed']++;
                     $results['errors'][] = "Alert {$alertId} is already resolved";
+
                     continue;
                 }
 
@@ -301,8 +305,8 @@ class AlertTriageService
     /**
      * Bulk link alerts to a case.
      *
-     * @param array $alertIds Array of alert IDs
-     * @param ComplianceCase $case The case to link alerts to
+     * @param  array  $alertIds  Array of alert IDs
+     * @param  ComplianceCase  $case  The case to link alerts to
      * @return array Results with success and failure counts
      */
     public function bulkLinkToCase(array $alertIds, ComplianceCase $case): array
@@ -312,9 +316,10 @@ class AlertTriageService
         foreach ($alertIds as $alertId) {
             try {
                 $alert = Alert::find($alertId);
-                if (!$alert) {
+                if (! $alert) {
                     $results['failed']++;
                     $results['errors'][] = "Alert {$alertId} not found";
+
                     continue;
                 }
 

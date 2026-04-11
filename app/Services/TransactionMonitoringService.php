@@ -7,7 +7,6 @@ use App\Enums\FlagStatus;
 use App\Enums\TransactionStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
-use App\Services\AuditService;
 use Illuminate\Support\Facades\DB;
 
 class TransactionMonitoringService

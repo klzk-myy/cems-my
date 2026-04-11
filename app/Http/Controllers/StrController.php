@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StrStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
 use App\Services\AuditService;
 use App\Services\ComplianceService;
 use App\Services\StrReportService;
-use App\Enums\StrStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -134,7 +134,7 @@ class StrController extends Controller
         ]);
 
         try {
-// Explicitly find the flag to ensure it's loaded from DB
+            // Explicitly find the flag to ensure it's loaded from DB
             $alert = FlaggedTransaction::with(['transaction.customer'])->findOrFail($flaggedTransaction->id);
 
             $strReport = $this->strService->generateFromAlert($alert);

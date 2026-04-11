@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\JournalEntry;
 use App\Services\AuditService;
 use App\Services\JournalEntryWorkflowService;
-use App\Services\MathService;
 use Illuminate\Http\Request;
 
 class JournalEntryWorkflowController extends Controller
@@ -21,7 +20,7 @@ class JournalEntryWorkflowController extends Controller
 
     protected function requireManagerOrAdmin(): void
     {
-        if (!auth()->user()->isManager()) {
+        if (! auth()->user()->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
         }
     }
@@ -85,12 +84,14 @@ class JournalEntryWorkflowController extends Controller
                 $this->auditService->logJournalWorkflowEvent('journal_entry_rejected', $entry->id, [
                     'new' => ['rejected_by' => auth()->user()->username, 'notes' => $notes],
                 ]);
+
                 return redirect()->back()->with('success', 'Entry rejected and returned to draft.');
             } else {
                 $entry = $this->workflowService->approve($entry, $notes);
                 $this->auditService->logJournalWorkflowEvent('journal_entry_approved', $entry->id, [
                     'new' => ['approved_by' => auth()->user()->username, 'notes' => $notes],
                 ]);
+
                 return redirect()->back()->with('success', 'Entry approved and posted to ledger.');
             }
         } catch (\InvalidArgumentException $e) {

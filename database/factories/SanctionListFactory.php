@@ -21,9 +21,9 @@ class SanctionListFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->company() . ' Sanctions List',
+            'name' => $this->faker->company().' Sanctions List',
             'list_type' => $this->faker->randomElement(['UNSCR', 'MOHA', 'Internal']),
-            'source_file' => $this->faker->word() . '.csv',
+            'source_file' => $this->faker->word().'.csv',
             'uploaded_by' => User::factory(),
             'is_active' => true,
         ];

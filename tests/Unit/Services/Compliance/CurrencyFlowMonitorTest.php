@@ -19,7 +19,7 @@ class CurrencyFlowMonitorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->monitor = new CurrencyFlowMonitor(new MathService());
+        $this->monitor = new CurrencyFlowMonitor(new MathService);
     }
 
     public function test_no_findings_with_single_transaction(): void

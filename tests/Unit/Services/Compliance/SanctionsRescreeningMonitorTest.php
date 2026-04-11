@@ -19,7 +19,7 @@ class SanctionsRescreeningMonitorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->monitor = new SanctionsRescreeningMonitor(new MathService());
+        $this->monitor = new SanctionsRescreeningMonitor(new MathService);
     }
 
     public function test_no_findings_when_no_sanction_entries(): void

@@ -20,7 +20,7 @@ class StrDeadlineMonitorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->monitor = new StrDeadlineMonitor(new MathService());
+        $this->monitor = new StrDeadlineMonitor(new MathService);
     }
 
     public function test_no_finding_when_flag_has_str_filed(): void
@@ -35,7 +35,7 @@ class StrDeadlineMonitorTest extends TestCase
 
         StrReport::create([
             'alert_id' => $flag->id,
-            'str_no' => 'STR-' . now()->format('YmdHis'),
+            'str_no' => 'STR-'.now()->format('YmdHis'),
             'branch_id' => 1,
             'customer_id' => $customer->id,
             'transaction_ids' => [$flag->transaction_id],

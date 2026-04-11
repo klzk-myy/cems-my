@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Transaction;
 
-use App\Http\Controllers\Controller;
 use App\Enums\AccountCode;
 use App\Enums\TransactionStatus;
-use App\Enums\TransactionType;
+use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\SystemLog;
 use App\Models\Transaction;

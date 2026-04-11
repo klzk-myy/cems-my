@@ -83,6 +83,7 @@ abstract class BaseMonitor
         foreach ($findings as $finding) {
             $stored[] = $this->storeFinding($finding);
         }
+
         return $stored;
     }
 }

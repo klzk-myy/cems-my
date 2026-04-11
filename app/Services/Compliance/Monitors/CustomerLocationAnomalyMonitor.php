@@ -6,7 +6,6 @@ use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
 use App\Models\Customer;
 use App\Models\Transaction;
-use App\Services\MathService;
 
 /**
  * Monitor for detecting transactions in locations far from customer's registered address.
@@ -15,6 +14,7 @@ use App\Services\MathService;
 class CustomerLocationAnomalyMonitor extends BaseMonitor
 {
     public const HIGH_VALUE_THRESHOLD = '10000';
+
     public const LOOKBACK_DAYS = 7;
 
     protected function getFindingType(): FindingType
@@ -72,7 +72,7 @@ class CustomerLocationAnomalyMonitor extends BaseMonitor
         // Multiple currencies in short period suggests location changes
         if ($currencies->count() >= 3) {
             $anomalyDetected = true;
-            $anomalyReasons[] = 'Multiple currencies (' . $currencies->implode(', ') . ') in ' . self::LOOKBACK_DAYS . ' days';
+            $anomalyReasons[] = 'Multiple currencies ('.$currencies->implode(', ').') in '.self::LOOKBACK_DAYS.' days';
         }
 
         // Check against annual volume estimate if available
@@ -90,10 +90,10 @@ class CustomerLocationAnomalyMonitor extends BaseMonitor
         // High frequency of transactions suggesting travel between locations
         if ($transactionCount >= 5) {
             $anomalyDetected = true;
-            $anomalyReasons[] = 'High transaction frequency (' . $transactionCount . ') in ' . self::LOOKBACK_DAYS . ' days';
+            $anomalyReasons[] = 'High transaction frequency ('.$transactionCount.') in '.self::LOOKBACK_DAYS.' days';
         }
 
-        if (!$anomalyDetected) {
+        if (! $anomalyDetected) {
             return null;
         }
 

@@ -17,7 +17,7 @@ return new class extends Migration
     public function up(): void
     {
         // Customer documents table (full schema with verification columns)
-        if (!Schema::hasTable('customer_documents')) {
+        if (! Schema::hasTable('customer_documents')) {
             Schema::create('customer_documents', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('customer_id')->constrained()->onDelete('cascade');
@@ -39,7 +39,7 @@ return new class extends Migration
         }
 
         // Customer risk history table
-        if (!Schema::hasTable('customer_risk_history')) {
+        if (! Schema::hasTable('customer_risk_history')) {
             Schema::create('customer_risk_history', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('customer_id')->constrained()->onDelete('cascade');
@@ -56,7 +56,7 @@ return new class extends Migration
         }
 
         // Enhanced diligence records table
-        if (!Schema::hasTable('enhanced_diligence_records')) {
+        if (! Schema::hasTable('enhanced_diligence_records')) {
             Schema::create('enhanced_diligence_records', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('customer_id')->constrained()->onDelete('cascade');

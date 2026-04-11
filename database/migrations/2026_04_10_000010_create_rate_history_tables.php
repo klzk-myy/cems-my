@@ -16,7 +16,7 @@ return new class extends Migration
     public function up(): void
     {
         // Exchange rate histories table
-        if (!Schema::hasTable('exchange_rate_histories')) {
+        if (! Schema::hasTable('exchange_rate_histories')) {
             Schema::create('exchange_rate_histories', function (Blueprint $table) {
                 $table->id();
                 $table->string('currency_code', 3);

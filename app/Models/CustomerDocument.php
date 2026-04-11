@@ -73,8 +73,6 @@ class CustomerDocument extends Model
 
     /**
      * Get the customer that owns the document.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function customer(): BelongsTo
     {
@@ -83,8 +81,6 @@ class CustomerDocument extends Model
 
     /**
      * Get the user who uploaded the document.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function uploader(): BelongsTo
     {
@@ -93,8 +89,6 @@ class CustomerDocument extends Model
 
     /**
      * Get the user who verified the document.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function verifier(): BelongsTo
     {

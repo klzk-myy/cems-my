@@ -23,7 +23,7 @@ return new class extends Migration
     public function up(): void
     {
         // Data breach alerts table
-        if (!Schema::hasTable('data_breach_alerts')) {
+        if (! Schema::hasTable('data_breach_alerts')) {
             Schema::create('data_breach_alerts', function (Blueprint $table) {
                 $table->id();
                 $table->string('alert_type', 50);
@@ -45,7 +45,7 @@ return new class extends Migration
         }
 
         // Report templates table
-        if (!Schema::hasTable('report_templates')) {
+        if (! Schema::hasTable('report_templates')) {
             Schema::create('report_templates', function (Blueprint $table) {
                 $table->id();
                 $table->string('name', 100);
@@ -61,7 +61,7 @@ return new class extends Migration
         }
 
         // Reports generated table
-        if (!Schema::hasTable('reports_generated')) {
+        if (! Schema::hasTable('reports_generated')) {
             Schema::create('reports_generated', function (Blueprint $table) {
                 $table->id();
                 $table->string('report_type', 50);
@@ -82,7 +82,7 @@ return new class extends Migration
         }
 
         // Tasks table
-        if (!Schema::hasTable('tasks')) {
+        if (! Schema::hasTable('tasks')) {
             Schema::create('tasks', function (Blueprint $table) {
                 $table->id();
                 $table->string('title', 200);
@@ -105,7 +105,7 @@ return new class extends Migration
         }
 
         // Stock transfers table
-        if (!Schema::hasTable('stock_transfers')) {
+        if (! Schema::hasTable('stock_transfers')) {
             Schema::create('stock_transfers', function (Blueprint $table) {
                 $table->id();
                 $table->string('transfer_number', 50)->unique();
@@ -125,7 +125,7 @@ return new class extends Migration
         }
 
         // Stock transfer items table
-        if (!Schema::hasTable('stock_transfer_items')) {
+        if (! Schema::hasTable('stock_transfer_items')) {
             Schema::create('stock_transfer_items', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('transfer_id')->constrained('stock_transfers')->onDelete('cascade');
@@ -140,7 +140,7 @@ return new class extends Migration
         }
 
         // Transaction confirmations table
-        if (!Schema::hasTable('transaction_confirmations')) {
+        if (! Schema::hasTable('transaction_confirmations')) {
             Schema::create('transaction_confirmations', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('transaction_id')->constrained()->onDelete('cascade');

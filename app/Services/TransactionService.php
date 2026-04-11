@@ -7,10 +7,8 @@ use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Events\TransactionCreated;
 use App\Models\Customer;
-use App\Models\SystemLog;
 use App\Models\TillBalance;
 use App\Models\Transaction;
-use App\Services\TransactionMonitoringService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
@@ -38,7 +36,6 @@ class TransactionService
      * @param  array  $data  Validated transaction data
      * @param  int|null  $userId  User creating the transaction (null for API context)
      * @param  string|null  $ipAddress  IP address for audit logging
-     * @return Transaction
      *
      * @throws \Exception If transaction creation fails
      */
@@ -153,7 +150,7 @@ class TransactionService
             }
         }
 
-        return DB::transaction(function () use ($data, $userId, $ipAddress, $tillBalance, $customer, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy) {
+        return DB::transaction(function () use ($data, $userId, $tillBalance, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy) {
             $transaction = Transaction::create([
                 'customer_id' => $data['customer_id'],
                 'user_id' => $userId,
@@ -372,7 +369,7 @@ class TransactionService
             ];
         }
 
-        return DB::transaction(function () use ($transaction, $approverId, $ipAddress, $amlResult) {
+        return DB::transaction(function () use ($transaction, $approverId, $amlResult) {
             // Optimistic locking: Prevent race conditions
             $updated = Transaction::where('id', $transaction->id)
                 ->where('status', TransactionStatus::Pending)

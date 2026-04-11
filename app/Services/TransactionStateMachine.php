@@ -56,8 +56,6 @@ class TransactionStateMachine
 
     /**
      * Transition history stored on the transaction.
-     *
-     * @var array
      */
     protected array $history = [];
 
@@ -187,7 +185,7 @@ class TransactionStateMachine
         $validTransitions = self::TRANSITIONS[$currentValue] ?? [];
 
         return array_map(
-            fn(string $value) => TransactionStatus::from($value),
+            fn (string $value) => TransactionStatus::from($value),
             $validTransitions
         );
     }

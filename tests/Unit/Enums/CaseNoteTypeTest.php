@@ -11,7 +11,7 @@ class CaseNoteTypeTest extends TestCase
     {
         $expectedTypes = ['Investigation', 'Update', 'Decision', 'Escalation'];
         $actualCases = array_column(CaseNoteType::cases(), 'name');
-        
+
         foreach ($expectedTypes as $type) {
             $this->assertContains($type, $actualCases, "CaseNoteType::$type should exist");
         }

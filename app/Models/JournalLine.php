@@ -55,8 +55,6 @@ class JournalLine extends Model
 
     /**
      * Get the branch associated with this journal line.
-     *
-     * @return BelongsTo
      */
     public function branch(): BelongsTo
     {

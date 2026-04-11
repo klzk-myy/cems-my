@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1\Compliance;
 
-use App\Http\Controllers\Controller;
 use App\Enums\CaseNoteType;
 use App\Enums\CaseResolution;
 use App\Enums\ComplianceCaseType;
 use App\Enums\FindingSeverity;
+use App\Http\Controllers\Controller;
 use App\Models\Compliance\ComplianceCase;
 use App\Models\Compliance\ComplianceFinding;
 use App\Services\Compliance\CaseManagementService;
@@ -238,7 +238,7 @@ class CaseController extends Controller
             $timeline->push([
                 'type' => 'closed',
                 'timestamp' => $case->resolved_at->toIso8601String(),
-                'description' => 'Case closed with resolution: ' . $case->resolution?->value,
+                'description' => 'Case closed with resolution: '.$case->resolution?->value,
             ]);
         }
 

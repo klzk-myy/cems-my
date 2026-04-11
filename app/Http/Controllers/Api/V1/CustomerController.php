@@ -114,7 +114,7 @@ class CustomerController extends Controller
                     'new' => [
                         'risk_rating' => 'High',
                         'sanction_hit' => true,
-                        'matches' => array_map(fn($m) => $m['name'] ?? 'Unknown', $sanctionMatches),
+                        'matches' => array_map(fn ($m) => $m['name'] ?? 'Unknown', $sanctionMatches),
                     ],
                 ]);
             }

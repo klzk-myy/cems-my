@@ -2,12 +2,8 @@
 
 namespace Tests\Unit\Services\Compliance;
 
-use App\Models\Compliance\CustomerBehavioralBaseline;
 use App\Models\Compliance\CustomerRiskProfile;
 use App\Models\Customer;
-use App\Models\FlaggedTransaction;
-use App\Models\EnhancedDiligenceRecord;
-use App\Models\Transaction;
 use App\Services\Compliance\RiskScoringEngine;
 use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,7 +18,7 @@ class RiskScoringEngineTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->engine = new RiskScoringEngine(new MathService());
+        $this->engine = new RiskScoringEngine(new MathService);
     }
 
     public function test_calculates_base_score_for_new_customer(): void

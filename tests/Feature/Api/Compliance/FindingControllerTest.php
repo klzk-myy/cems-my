@@ -18,6 +18,7 @@ class FindingControllerTest extends TestCase
     use RefreshDatabase;
 
     protected User $complianceUser;
+
     protected User $tellerUser;
 
     protected function setUp(): void

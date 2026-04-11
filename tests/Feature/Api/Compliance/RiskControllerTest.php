@@ -6,8 +6,6 @@ use App\Enums\UserRole;
 use App\Models\Compliance\CustomerRiskProfile;
 use App\Models\Customer;
 use App\Models\User;
-use App\Services\Compliance\RiskScoringEngine;
-use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;

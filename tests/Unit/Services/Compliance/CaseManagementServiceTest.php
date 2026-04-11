@@ -3,7 +3,6 @@
 namespace Tests\Unit\Services\Compliance;
 
 use App\Enums\CaseNoteType;
-use App\Enums\CaseResolution;
 use App\Enums\ComplianceCasePriority;
 use App\Enums\ComplianceCaseStatus;
 use App\Enums\ComplianceCaseType;
@@ -27,7 +26,7 @@ class CaseManagementServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new CaseManagementService();
+        $this->service = new CaseManagementService;
     }
 
     public function test_can_create_case_from_finding(): void
@@ -67,7 +66,7 @@ class CaseManagementServiceTest extends TestCase
         $this->assertNotNull($case->sla_deadline);
 
         // Assert case number was auto-generated
-        $this->assertStringStartsWith('CASE-' . now()->year . '-', $case->case_number);
+        $this->assertStringStartsWith('CASE-'.now()->year.'-', $case->case_number);
     }
 
     public function test_finding_marked_case_created_when_case_created(): void

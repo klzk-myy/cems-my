@@ -95,7 +95,7 @@ class EnhancedDiligenceController extends Controller
 
     public function edit(EnhancedDiligenceRecord $record)
     {
-        if (!$record->isComplete()) {
+        if (! $record->isComplete()) {
             return redirect()->route('compliance.edd.show', $record)
                 ->with('error', 'Cannot edit a pending review or approved record.');
         }
@@ -136,6 +136,7 @@ class EnhancedDiligenceController extends Controller
     {
         try {
             $record = $this->eddService->submitForReview($record);
+
             return redirect()->back()->with('success', 'EDD record submitted for review.');
         } catch (\InvalidArgumentException $e) {
             return redirect()->back()->with('error', $e->getMessage());
@@ -144,7 +145,7 @@ class EnhancedDiligenceController extends Controller
 
     public function approve(Request $request, EnhancedDiligenceRecord $record)
     {
-        if (!$record->isPendingReview()) {
+        if (! $record->isPendingReview()) {
             return redirect()->back()->with('error', 'Only pending records can be approved.');
         }
 
@@ -155,7 +156,7 @@ class EnhancedDiligenceController extends Controller
 
     public function reject(Request $request, EnhancedDiligenceRecord $record)
     {
-        if (!$record->isPendingReview()) {
+        if (! $record->isPendingReview()) {
             return redirect()->back()->with('error', 'Only pending records can be rejected.');
         }
 

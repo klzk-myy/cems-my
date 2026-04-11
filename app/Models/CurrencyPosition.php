@@ -33,8 +33,6 @@ class CurrencyPosition extends Model
 
     /**
      * Get the branch associated with this currency position.
-     *
-     * @return BelongsTo
      */
     public function branch(): BelongsTo
     {

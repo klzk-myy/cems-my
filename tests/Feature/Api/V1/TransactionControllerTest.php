@@ -29,10 +29,15 @@ class TransactionControllerTest extends TestCase
     use RefreshDatabase;
 
     protected User $tellerUser;
+
     protected User $managerUser;
+
     protected Customer $customer;
+
     protected Currency $currency;
+
     protected TillBalance $tillBalance;
+
     protected Branch $branch;
 
     protected function setUp(): void

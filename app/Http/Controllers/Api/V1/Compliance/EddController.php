@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1\Compliance;
 
-use App\Http\Controllers\Controller;
 use App\Enums\EddStatus;
+use App\Http\Controllers\Controller;
 use App\Models\Compliance\EddQuestionnaireTemplate;
 use App\Models\EnhancedDiligenceRecord;
 use Illuminate\Http\JsonResponse;
@@ -75,7 +75,7 @@ class EddController extends Controller
 
         $record = EnhancedDiligenceRecord::findOrFail($id);
 
-        if (!$record->status->canSubmitQuestionnaire()) {
+        if (! $record->status->canSubmitQuestionnaire()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Cannot submit questionnaire in current status.',

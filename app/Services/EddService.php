@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\EddStatus;
-use App\Models\Customer;
 use App\Models\EnhancedDiligenceRecord;
 use App\Models\FlaggedTransaction;
 use App\Models\User;
@@ -54,7 +53,7 @@ class EddService
 
     public function submitForReview(EnhancedDiligenceRecord $record): EnhancedDiligenceRecord
     {
-        if (!$this->isRecordComplete($record)) {
+        if (! $this->isRecordComplete($record)) {
             throw new \InvalidArgumentException('EDD record must be complete before submission');
         }
 
@@ -94,13 +93,13 @@ class EddService
             $record->purpose_of_transaction,
         ];
 
-        return !in_array(null, $required, true) && !empty($record->source_of_funds);
+        return ! in_array(null, $required, true) && ! empty($record->source_of_funds);
     }
 
     protected function generateEddReference(): string
     {
-        $prefix = 'EDD-' . date('Ym') . '-';
-        $lastRecord = EnhancedDiligenceRecord::where('edd_reference', 'like', $prefix . '%')
+        $prefix = 'EDD-'.date('Ym').'-';
+        $lastRecord = EnhancedDiligenceRecord::where('edd_reference', 'like', $prefix.'%')
             ->orderBy('edd_reference', 'desc')
             ->first();
 
@@ -111,6 +110,6 @@ class EddService
             $newNumber = 1;
         }
 
-        return $prefix . str_pad((string) $newNumber, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $newNumber, 4, '0', STR_PAD_LEFT);
     }
 }

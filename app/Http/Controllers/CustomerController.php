@@ -244,7 +244,7 @@ class CustomerController extends Controller
             Log::error('Customer creation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
             ]);
 
             SystemLog::create([
@@ -445,7 +445,7 @@ class CustomerController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'customer_id' => $customer->id,
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
             ]);
 
             SystemLog::create([
@@ -529,6 +529,7 @@ class CustomerController extends Controller
     {
         if (! preg_match('/^\d{6}-\d{2}-\d{4}$/', $value)) {
             $fail('MyKad ID must be in format XXXXXX-XX-XXXX (e.g., 900123-01-2345)');
+
             return;
         }
 
@@ -541,12 +542,14 @@ class CustomerController extends Controller
         // Validate month (01-12)
         if ($month < 1 || $month > 12) {
             $fail('MyKad ID contains invalid month in birthdate.');
+
             return;
         }
 
         // Validate day (01-31)
         if ($day < 1 || $day > 31) {
             $fail('MyKad ID contains invalid day in birthdate.');
+
             return;
         }
 
@@ -555,6 +558,7 @@ class CustomerController extends Controller
         // February validation (simplified - doesn't account for leap years perfectly but catches most errors)
         if ($month === 2 && $day > 29) {
             $fail('MyKad ID contains invalid day for February.');
+
             return;
         }
         if (isset($daysInMonth[$month]) && $day > $daysInMonth[$month]) {

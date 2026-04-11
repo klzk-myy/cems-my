@@ -126,7 +126,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
             'nationality' => 'Malaysian',
             'phone' => '012-345-6789',
             'email' => 'ahmad@example.com',
-'risk_rating' => 'Low', // Explicitly set to Low to avoid compliance hold
+            'risk_rating' => 'Low', // Explicitly set to Low to avoid compliance hold
             'pep_status' => false,
         ]);
 
@@ -137,7 +137,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
 
         // ============ STEP 3: Currency Purchase (Buy) ============
         // Use unique amount_foreign (1337) and idempotency key to avoid collisions
-        $buyIdempotencyKey = 'wf_buy_' . uniqid();
+        $buyIdempotencyKey = 'wf_buy_'.uniqid();
         $response = $this->actingAs($teller)
             ->post(route('transactions.store'), [
                 'customer_id' => $customer->id,
@@ -157,7 +157,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
         $buyTransaction = Transaction::where('idempotency_key', $buyIdempotencyKey)->first();
 
         $this->assertNotNull($buyTransaction, 'Buy transaction should exist with idempotency_key');
-        $this->assertTrue($buyTransaction->status->isCompleted(), 'Buy transaction should be Completed, got: ' . $buyTransaction->status->value);
+        $this->assertTrue($buyTransaction->status->isCompleted(), 'Buy transaction should be Completed, got: '.$buyTransaction->status->value);
         $this->assertEquals(6310.64, $buyTransaction->amount_local); // 1337 * 4.72
 
         // Check stock updated (Pending transactions don't update position until approved)
@@ -170,7 +170,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
 
         // ============ STEP 4: Currency Sale (Sell) ============
         // Use unique amount_foreign (751) and idempotency key to avoid collisions
-        $sellIdempotencyKey = 'wf_sell_' . uniqid();
+        $sellIdempotencyKey = 'wf_sell_'.uniqid();
         $response = $this->actingAs($teller)
             ->post(route('transactions.store'), [
                 'customer_id' => $customer->id,
@@ -189,7 +189,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
         $sellTransaction = Transaction::where('idempotency_key', $sellIdempotencyKey)->first();
 
         $this->assertNotNull($sellTransaction, 'Sell transaction should exist with idempotency_key');
-        $this->assertTrue($sellTransaction->status->isCompleted(), 'Sell transaction should be Completed, got: ' . $sellTransaction->status->value);
+        $this->assertTrue($sellTransaction->status->isCompleted(), 'Sell transaction should be Completed, got: '.$sellTransaction->status->value);
         $this->assertEquals(3567.25, $sellTransaction->amount_local); // 751 * 4.75
 
         // Check stock reduced
@@ -198,7 +198,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
 
         // ============ STEP 5: Large Transaction (Requires Approval) ============
         // Use unique amount_foreign (15000) and idempotency key to avoid collisions
-        $largeIdempotencyKey = 'wf_large_' . uniqid();
+        $largeIdempotencyKey = 'wf_large_'.uniqid();
 
         // Temporarily disable MFA middleware for this test since it causes payload errors in test environment
         $this->withoutMiddleware(\App\Http\Middleware\EnsureMfaVerified::class);
@@ -219,7 +219,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
         $response->assertRedirect();
         $largeTransaction = Transaction::where('idempotency_key', $largeIdempotencyKey)->first();
         $this->assertNotNull($largeTransaction, 'Large transaction should exist with idempotency_key');
-        $this->assertTrue($largeTransaction->status->isPending(), 'Large transaction should be Pending, got: ' . $largeTransaction->status->value);
+        $this->assertTrue($largeTransaction->status->isPending(), 'Large transaction should be Pending, got: '.$largeTransaction->status->value);
         $response->assertSessionHas('warning', 'Transaction created and pending manager approval (≥ RM 50,000).');
         $this->assertEquals(70800.00, $largeTransaction->amount_local); // 15000 * 4.72
 

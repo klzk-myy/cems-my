@@ -6,7 +6,6 @@ use App\Enums\ComplianceFlagType;
 use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
 use App\Models\FlaggedTransaction;
-use App\Services\MathService;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -43,6 +42,7 @@ class CounterfeitAlertMonitor extends BaseMonitor
             }
         } catch (\Throwable $e) {
             Log::error('CounterfeitAlertMonitor run failed', ['exception' => $e->getMessage()]);
+
             return [];
         }
 

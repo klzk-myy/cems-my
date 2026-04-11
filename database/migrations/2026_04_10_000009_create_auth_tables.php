@@ -18,7 +18,7 @@ return new class extends Migration
     public function up(): void
     {
         // MFA recovery codes table
-        if (!Schema::hasTable('mfa_recovery_codes')) {
+        if (! Schema::hasTable('mfa_recovery_codes')) {
             Schema::create('mfa_recovery_codes', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->onDelete('cascade');
@@ -31,7 +31,7 @@ return new class extends Migration
         }
 
         // Device computations table (TOTP/FIDO2)
-        if (!Schema::hasTable('device_computations')) {
+        if (! Schema::hasTable('device_computations')) {
             Schema::create('device_computations', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->onDelete('cascade');
@@ -51,7 +51,7 @@ return new class extends Migration
         }
 
         // Transaction imports table
-        if (!Schema::hasTable('transaction_imports')) {
+        if (! Schema::hasTable('transaction_imports')) {
             Schema::create('transaction_imports', function (Blueprint $table) {
                 $table->id();
                 $table->string('filename', 255);

@@ -3,16 +3,11 @@
 namespace Tests\Feature\Api\Compliance;
 
 use App\Enums\ComplianceCaseStatus;
-use App\Enums\EddStatus;
-use App\Enums\FindingSeverity;
 use App\Enums\UserRole;
 use App\Models\Compliance\ComplianceCase;
-use App\Models\Compliance\ComplianceFinding;
 use App\Models\Compliance\CustomerRiskProfile;
 use App\Models\Customer;
-use App\Models\EnhancedDiligenceRecord;
 use App\Models\ReportGenerated;
-use App\Models\StrReport;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;

@@ -12,7 +12,9 @@ class FinancialStatementControllerTest extends TestCase
     use RefreshDatabase;
 
     protected User $managerUser;
+
     protected User $tellerUser;
+
     protected User $complianceUser;
 
     protected function setUp(): void

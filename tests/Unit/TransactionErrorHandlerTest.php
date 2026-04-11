@@ -20,14 +20,16 @@ class TransactionErrorHandlerTest extends TestCase
     use RefreshDatabase;
 
     protected TransactionErrorHandler $errorHandler;
+
     protected Transaction $transaction;
+
     protected User $user;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->errorHandler = new TransactionErrorHandler();
+        $this->errorHandler = new TransactionErrorHandler;
 
         // Create minimal required related records
         $branch = Branch::factory()->create();

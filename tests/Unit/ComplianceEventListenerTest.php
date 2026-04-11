@@ -4,7 +4,6 @@ namespace Tests\Unit;
 
 use App\Events\RiskScoreUpdated;
 use App\Listeners\ComplianceEventListener;
-use App\Models\Alert;
 use App\Models\Customer;
 use App\Models\RiskScoreSnapshot;
 use App\Services\AuditService;

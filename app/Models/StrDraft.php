@@ -6,7 +6,6 @@ use App\Enums\StrStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class StrDraft extends Model
 {
@@ -61,7 +60,7 @@ class StrDraft extends Model
 
     public function canConvert(): bool
     {
-        return !$this->isConverted()
+        return ! $this->isConverted()
             && $this->confidence_score >= 80
             && $this->filing_deadline !== null
             && now()->diffInHours($this->filing_deadline) <= 48;

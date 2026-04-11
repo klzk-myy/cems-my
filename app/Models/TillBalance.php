@@ -40,8 +40,6 @@ class TillBalance extends Model
 
     /**
      * Get the branch associated with this till balance.
-     *
-     * @return BelongsTo
      */
     public function branch(): BelongsTo
     {

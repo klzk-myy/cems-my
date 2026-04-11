@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\SystemLog;
 use App\Models\User;
-use App\Enums\UserRole;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -40,7 +40,6 @@ class JournalEntryWorkflowService
      * @param  string|null  $entryDate  Entry date in YYYY-MM-DD format
      * @param  int|null  $costCenterId  Cost center ID
      * @param  int|null  $departmentId  Department ID
-     * @return JournalEntry
      */
     public function createDraft(
         array $lines,
@@ -93,8 +92,6 @@ class JournalEntryWorkflowService
     /**
      * Submit a draft entry for approval.
      *
-     * @param  JournalEntry  $entry
-     * @return JournalEntry
      * @throws \InvalidArgumentException
      */
     public function submitForApproval(JournalEntry $entry): JournalEntry
@@ -124,9 +121,8 @@ class JournalEntryWorkflowService
     /**
      * Approve a pending entry and post it to the ledger.
      *
-     * @param  JournalEntry  $entry
      * @param  string|null  $notes  Approval notes
-     * @return JournalEntry
+     *
      * @throws \InvalidArgumentException
      */
     public function approve(JournalEntry $entry, ?string $notes = null): JournalEntry
@@ -182,9 +178,8 @@ class JournalEntryWorkflowService
     /**
      * Reject a pending entry, returning it to draft status.
      *
-     * @param  JournalEntry  $entry
      * @param  string  $notes  Rejection reason
-     * @return JournalEntry
+     *
      * @throws \InvalidArgumentException
      */
     public function reject(JournalEntry $entry, string $notes): JournalEntry
@@ -220,9 +215,6 @@ class JournalEntryWorkflowService
     /**
      * Post an entry directly (bypassing approval).
      * Used for system-generated entries or entries created by authorized posters.
-     *
-     * @param  JournalEntry  $entry
-     * @return JournalEntry
      */
     public function postDirectly(JournalEntry $entry): JournalEntry
     {
@@ -264,10 +256,6 @@ class JournalEntryWorkflowService
 
     /**
      * Reverse a posted entry.
-     *
-     * @param  JournalEntry  $entry
-     * @param  string  $reason
-     * @return JournalEntry
      */
     public function reverse(JournalEntry $entry, string $reason = ''): JournalEntry
     {
@@ -289,7 +277,7 @@ class JournalEntryWorkflowService
                     'account_code' => $line->account_code,
                     'debit' => $line->credit,
                     'credit' => $line->debit,
-                    'description' => 'Reversal: ' . ($line->description ?? ''),
+                    'description' => 'Reversal: '.($line->description ?? ''),
                 ];
             }
 
@@ -391,8 +379,8 @@ class JournalEntryWorkflowService
      */
     protected function generateEntryNumber(string $date): string
     {
-        $prefix = 'JE-' . date('Ym', strtotime($date)) . '-';
-        $lastEntry = JournalEntry::where('entry_number', 'like', $prefix . '%')
+        $prefix = 'JE-'.date('Ym', strtotime($date)).'-';
+        $lastEntry = JournalEntry::where('entry_number', 'like', $prefix.'%')
             ->orderBy('entry_number', 'desc')
             ->first();
 
@@ -403,7 +391,7 @@ class JournalEntryWorkflowService
             $newNumber = 1;
         }
 
-        return $prefix . str_pad((string) $newNumber, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad((string) $newNumber, 4, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -412,6 +400,7 @@ class JournalEntryWorkflowService
     protected function getPeriodId(string $date): ?int
     {
         $period = \App\Models\AccountingPeriod::forDate($date)->first();
+
         return $period?->id;
     }
 

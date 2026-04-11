@@ -2,11 +2,10 @@
 
 namespace App\Services\Compliance;
 
-use App\Enums\RecalculationTrigger;
-use App\Enums\TransactionStatus;
 use App\Enums\ComplianceFlagType;
 use App\Enums\EddStatus;
-use App\Enums\FindingType;
+use App\Enums\RecalculationTrigger;
+use App\Enums\TransactionStatus;
 use App\Models\Compliance\CustomerBehavioralBaseline;
 use App\Models\Compliance\CustomerRiskProfile;
 use App\Models\Customer;
@@ -56,7 +55,6 @@ class RiskScoringEngine
     /**
      * Calculate risk score for a customer.
      *
-     * @param  int  $customerId
      * @return int Score (20-100)
      */
     public function calculateScore(int $customerId): int
@@ -66,13 +64,13 @@ class RiskScoringEngine
         foreach ($factors as $factor) {
             $total = $this->math->add((string) $total, (string) $factor['contribution']);
         }
+
         return min((int) $total, 100);
     }
 
     /**
      * Calculate risk score with full factor breakdown.
      *
-     * @param  int  $customerId
      * @return array{score: int, tier: string, factors: array}
      */
     public function calculateScoreWithFactors(int $customerId): array
@@ -85,6 +83,7 @@ class RiskScoringEngine
             $factorDetails[] = $factor;
         }
         $total = min((int) $total, 100);
+
         return [
             'score' => $total,
             'tier' => CustomerRiskProfile::getTierForScore($total),
@@ -94,9 +93,6 @@ class RiskScoringEngine
 
     /**
      * Recalculate and save risk profile for a customer.
-     *
-     * @param  int  $customerId
-     * @return CustomerRiskProfile
      */
     public function recalculateForCustomer(int $customerId): CustomerRiskProfile
     {
@@ -119,6 +115,7 @@ class RiskScoringEngine
                 'score_changed_at' => now(),
                 'recalculation_trigger' => RecalculationTrigger::EventDriven,
             ]);
+
             return $existingProfile->fresh();
         }
 
@@ -127,14 +124,11 @@ class RiskScoringEngine
 
     /**
      * Get factor contributions for a customer.
-     *
-     * @param  int  $customerId
-     * @return array
      */
     protected function getFactorContributions(int $customerId): array
     {
         $customer = Customer::with(['documents'])->find($customerId);
-        if (!$customer) {
+        if (! $customer) {
             return [];
         }
 
@@ -225,6 +219,7 @@ class RiskScoringEngine
         if ($customer->is_pep_associate ?? false) {
             return 15;  // PEP Associate
         }
+
         return 0;
     }
 
@@ -235,7 +230,7 @@ class RiskScoringEngine
     {
         // Get baseline
         $baseline = CustomerBehavioralBaseline::where('customer_id', $customerId)->first();
-        if (!$baseline) {
+        if (! $baseline) {
             return 0; // New customer, no baseline
         }
 
@@ -245,7 +240,7 @@ class RiskScoringEngine
             ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->avg('amount_local');
 
-        if (!$recentAvg || $baseline->avg_transaction_size_myr == 0) {
+        if (! $recentAvg || $baseline->avg_transaction_size_myr == 0) {
             return 0;
         }
 
@@ -261,6 +256,7 @@ class RiskScoringEngine
         if ($ratioFloat > 1.1) {
             return 5; // 10-25% above
         }
+
         return 0;
     }
 
@@ -281,6 +277,7 @@ class RiskScoringEngine
         if ($flagCount >= 1) {
             return 10;
         }
+
         return 0;
     }
 
@@ -301,6 +298,7 @@ class RiskScoringEngine
         if ($structuringCount >= 1) {
             return 25;
         }
+
         return 0;
     }
 
@@ -314,7 +312,7 @@ class RiskScoringEngine
             ->where('reviewed_at', '>=', $twelveMonthsAgo)
             ->first();
 
-        if (!$edd) {
+        if (! $edd) {
             return 0;
         }
         if ($edd->status === EddStatus::Rejected->value) {
@@ -323,6 +321,7 @@ class RiskScoringEngine
         if ($edd->status === EddStatus::Approved->value) {
             return 5;
         }
+
         return 0;
     }
 
@@ -332,7 +331,8 @@ class RiskScoringEngine
     protected function calculateDocumentScore(Customer $customer): int
     {
         $documents = $customer->documents ?? collect();
-        $unverified = $documents->filter(fn($doc) => !$doc->isVerified())->count();
+        $unverified = $documents->filter(fn ($doc) => ! $doc->isVerified())->count();
+
         return min($unverified * 5, 10); // Max 10
     }
 
@@ -347,6 +347,7 @@ class RiskScoringEngine
         if ($customer->sanction_possible ?? false) {
             return 30;
         }
+
         return 0;
     }
 }

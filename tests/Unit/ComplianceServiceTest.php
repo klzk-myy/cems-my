@@ -4,9 +4,8 @@ namespace Tests\Unit;
 
 use App\Enums\CddLevel;
 use App\Enums\ComplianceFlagType;
-use App\Enums\TransactionType;
 use App\Enums\TransactionStatus;
-use App\Models\Country;
+use App\Enums\TransactionType;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Transaction;
@@ -23,7 +22,9 @@ class ComplianceServiceTest extends TestCase
     use RefreshDatabase;
 
     protected ComplianceService $service;
+
     protected User $user;
+
     protected Currency $currency;
 
     protected function setUp(): void

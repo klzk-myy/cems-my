@@ -2,12 +2,10 @@
 
 namespace App\Models;
 
-use App\Enums\ReportStatus;
 use Cron\CronExpression;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Schedule;
 
 class ReportSchedule extends Model
 {
@@ -55,6 +53,7 @@ class ReportSchedule extends Model
 
         try {
             $cron = new CronExpression($this->cron_expression);
+
             return $cron->getNextRunDate();
         } catch (\Exception $e) {
             return null;

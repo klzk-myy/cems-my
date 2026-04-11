@@ -11,9 +11,9 @@ use App\Http\Controllers\Report\RegulatoryReportController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SanctionController;
 use App\Http\Controllers\StrController;
-use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\Transaction\TransactionApprovalController;
 use App\Http\Controllers\Transaction\TransactionCancellationController;
+use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 

@@ -3,10 +3,9 @@
 namespace Tests\Feature;
 
 use App\Enums\EddStatus;
-use App\Models\User;
 use App\Models\Customer;
 use App\Models\EnhancedDiligenceRecord;
-use App\Models\FlaggedTransaction;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -16,7 +15,9 @@ class EddWorkflowTest extends TestCase
     use RefreshDatabase;
 
     protected User $complianceUser;
+
     protected User $managerUser;
+
     protected Customer $customer;
 
     protected function setUp(): void

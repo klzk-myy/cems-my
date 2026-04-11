@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\CostCenter;
 use App\Models\Department;
+use Illuminate\Database\Seeder;
 
 class CostCenterSeeder extends Seeder
 {
