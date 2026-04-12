@@ -120,8 +120,9 @@ return [
         'block_duration_minutes' => env('SECURITY_IP_BLOCK_DURATION', 60),
         // Maximum block duration for repeat offenders (24 hours)
         'max_block_duration_minutes' => 1440,
-        // Whitelisted IPs (never blocked)
-        'whitelist' => explode(',', env('SECURITY_IP_WHITELIST', '')),
+        // Whitelisted IPs (never block) - supports exact IPs and CIDR notation
+        // Examples: 192.168.1.1, 10.0.0.0/8, 172.16.0.0/12
+        'whitelist' => array_filter(explode(',', env('SECURITY_IP_WHITELIST', '192.168.1.0/24'))),
         // Cache key prefix for Redis
         'cache_prefix' => 'ip_block:',
         'failed_attempts_prefix' => 'ip_failed:',

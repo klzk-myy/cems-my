@@ -38,9 +38,9 @@ class RateLimitService
             return false;
         }
 
-        // Check whitelist
+        // Check whitelist (supports both exact IP and CIDR notation)
         $whitelist = config('security.ip_blocking.whitelist', []);
-        if (in_array($ip, $whitelist, true)) {
+        if ($this->isIpWhitelisted($ip, $whitelist)) {
             return false;
         }
 
@@ -48,6 +48,61 @@ class RateLimitService
         $cacheKey = self::IP_BLOCK_PREFIX.$ip;
 
         return Cache::store('redis')->has($cacheKey);
+    }
+
+    /**
+     * Check if an IP is in the whitelist.
+     * Supports both exact IP addresses and CIDR notation (e.g., 192.168.1.0/24).
+     */
+    private function isIpWhitelisted(string $ip, array $whitelist): bool
+    {
+        foreach ($whitelist as $entry) {
+            $entry = trim($entry);
+            if (empty($entry)) {
+                continue;
+            }
+
+            // Check if CIDR notation
+            if (str_contains($entry, '/')) {
+                if ($this->ipInCidr($ip, $entry)) {
+                    return true;
+                }
+            } elseif ($entry === $ip) {
+                // Exact match
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if an IP is within a CIDR range.
+     */
+    private function ipInCidr(string $ip, string $cidr): bool
+    {
+        if (! str_contains($cidr, '/')) {
+            return $ip === $cidr;
+        }
+
+        [$subnet, $mask] = explode('/', $cidr);
+
+        // Validate IP addresses
+        if (! filter_var($ip, FILTER_VALIDATE_IP) || ! filter_var($subnet, FILTER_VALIDATE_IP)) {
+            return false;
+        }
+
+        // Convert IP to long integers
+        $ipLong = ip2long($ip);
+        $subnetLong = ip2long($subnet);
+        $maskLong = -1 << (32 - (int) $mask);
+
+        // Check if subnet is valid for the mask
+        if (($subnetLong & $maskLong) !== $subnetLong) {
+            return false;
+        }
+
+        return ($ipLong & $maskLong) === ($subnetLong & $maskLong);
     }
 
     /**

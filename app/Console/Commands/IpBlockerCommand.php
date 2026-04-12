@@ -109,8 +109,8 @@ class IpBlockerCommand extends Command
             $ip = $this->ask('Enter IP address to block');
         }
 
-        if (! filter_var($ip, FILTER_VALIDATE_IP)) {
-            $this->error("Invalid IP address: {$ip}");
+        if (! $this->isValidIpOrCidr($ip)) {
+            $this->error("Invalid IP address or CIDR: {$ip}");
 
             return self::FAILURE;
         }
@@ -166,8 +166,8 @@ class IpBlockerCommand extends Command
             $ip = $this->ask('Enter IP address to unblock');
         }
 
-        if (! filter_var($ip, FILTER_VALIDATE_IP)) {
-            $this->error("Invalid IP address: {$ip}");
+        if (! $this->isValidIpOrCidr($ip)) {
+            $this->error("Invalid IP address or CIDR: {$ip}");
 
             return self::FAILURE;
         }
@@ -204,8 +204,8 @@ class IpBlockerCommand extends Command
 
         if ($ip) {
             // Show stats for specific IP
-            if (! filter_var($ip, FILTER_VALIDATE_IP)) {
-                $this->error("Invalid IP address: {$ip}");
+            if (! $this->isValidIpOrCidr($ip)) {
+                $this->error("Invalid IP address or CIDR: {$ip}");
 
                 return self::FAILURE;
             }
@@ -304,8 +304,8 @@ class IpBlockerCommand extends Command
             $ip = $this->ask('Enter IP address to check');
         }
 
-        if (! filter_var($ip, FILTER_VALIDATE_IP)) {
-            $this->error("Invalid IP address: {$ip}");
+        if (! $this->isValidIpOrCidr($ip)) {
+            $this->error("Invalid IP address or CIDR: {$ip}");
 
             return self::FAILURE;
         }
@@ -331,5 +331,35 @@ class IpBlockerCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Validate IP address or CIDR notation.
+     */
+    private function isValidIpOrCidr(?string $value): bool
+    {
+        if (empty($value)) {
+            return false;
+        }
+
+        // Check if CIDR notation
+        if (str_contains($value, '/')) {
+            $parts = explode('/', $value);
+            if (count($parts) !== 2) {
+                return false;
+            }
+            [$ip, $mask] = $parts;
+            if (! filter_var($ip, FILTER_VALIDATE_IP)) {
+                return false;
+            }
+            $maskInt = (int) $mask;
+            if ($maskInt < 0 || $maskInt > 32) {
+                return false;
+            }
+
+            return true;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_IP) !== false;
     }
 }
