@@ -122,7 +122,7 @@ class CounterHandoverTest extends TestCase
             'status' => 'active',
         ]);
 
-        $response = $this->actingAs($this->managerUser)->post("/counters/{$newCounter->id}/open", [
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$newCounter->code}/open", [
             'opening_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '15000.00'],
             ],
@@ -151,7 +151,7 @@ class CounterHandoverTest extends TestCase
             ->whereDate('date', now()->toDateString())
             ->delete();
 
-        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->id}/open", [
+        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->code}/open", [
             'opening_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],
@@ -172,7 +172,7 @@ class CounterHandoverTest extends TestCase
      */
     public function test_teller_cannot_open_session_at_already_open_counter(): void
     {
-        $response = $this->actingAs($this->tellerTo)->post("/counters/{$this->counter->id}/open", [
+        $response = $this->actingAs($this->tellerTo)->post("/counters/{$this->counter->code}/open", [
             'opening_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],
@@ -200,10 +200,10 @@ class CounterHandoverTest extends TestCase
             ->delete();
 
         // First do a GET to show the handover form (this tests the showHandover route too)
-        $getResponse = $this->actingAs($this->managerUser)->get("/counters/{$this->counter->id}/handover");
+        $getResponse = $this->actingAs($this->managerUser)->get("/counters/{$this->counter->code}/handover");
         $this->assertEquals(200, $getResponse->status(), 'GET handover form should work');
 
-        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/handover", [
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->code}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
             'supervisor_id' => $this->managerUser->id,
@@ -247,7 +247,7 @@ class CounterHandoverTest extends TestCase
             ->whereDate('date', now()->toDateString())
             ->delete();
 
-        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/handover", [
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->code}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
             'supervisor_id' => $this->managerUser->id,
@@ -268,7 +268,7 @@ class CounterHandoverTest extends TestCase
      */
     public function test_teller_cannot_initiate_handover(): void
     {
-        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->id}/handover", [
+        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->code}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
             'supervisor_id' => $this->managerUser->id,
@@ -291,7 +291,7 @@ class CounterHandoverTest extends TestCase
             ->whereDate('date', now()->toDateString())
             ->delete();
 
-        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/handover", [
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->code}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
             'supervisor_id' => $this->managerUser->id,
@@ -336,7 +336,7 @@ class CounterHandoverTest extends TestCase
             ->whereDate('date', now()->toDateString())
             ->delete();
 
-        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/handover", [
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->code}/handover", [
             'from_user_id' => $this->tellerFrom->id,
             'to_user_id' => $this->tellerTo->id,
             'supervisor_id' => $this->managerUser->id,
@@ -357,7 +357,7 @@ class CounterHandoverTest extends TestCase
      */
     public function test_manager_can_close_session_with_acceptable_variance(): void
     {
-        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->id}/close", [
+        $response = $this->actingAs($this->managerUser)->post("/counters/{$this->counter->code}/close", [
             'closing_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '10050.00'], // Within yellow threshold
             ],
@@ -376,7 +376,7 @@ class CounterHandoverTest extends TestCase
     public function test_teller_cannot_approve_handover(): void
     {
         // Attempt to close via teller role
-        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->id}/close", [
+        $response = $this->actingAs($this->tellerFrom)->post("/counters/{$this->counter->code}/close", [
             'closing_floats' => [
                 ['currency_id' => 'MYR', 'amount' => '10000.00'],
             ],

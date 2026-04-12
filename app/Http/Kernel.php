@@ -31,6 +31,7 @@ class Kernel extends HttpKernel
      */
     protected $middlewareGroups = [
         'web' => [
+            \App\Http\Middleware\IpBlocker::class, // Check IP blocking first
             \App\Http\Middleware\LogRequests::class,
             \App\Http\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
@@ -41,6 +42,7 @@ class Kernel extends HttpKernel
         ],
 
         'api' => [
+            \App\Http\Middleware\IpBlocker::class, // Check IP blocking first
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
@@ -76,5 +78,13 @@ class Kernel extends HttpKernel
         'data.breach' => \App\Http\Middleware\DataBreachDetection::class,
         'query.monitor' => \App\Http\Middleware\QueryPerformanceMonitor::class,
         'security.headers' => \App\Http\Middleware\SecurityHeaders::class,
+        'ip.blocker' => \App\Http\Middleware\IpBlocker::class,
+        'rate.limit.strict' => \App\Http\Middleware\StrictRateLimit::class,
+        'throttle.login' => 'throttle:login',
+        'throttle.transactions' => 'throttle:transactions',
+        'throttle.str' => 'throttle:str-submission',
+        'throttle.bulk' => 'throttle:bulk',
+        'throttle.export' => 'throttle:export',
+        'throttle.sensitive' => 'throttle:sensitive',
     ];
 }

@@ -13,5 +13,8 @@
         "postcss": "^8.5.9",
         "tailwindcss": "^4.2.2",
         "vite": "^5.0.0"
+    },
+    "dependencies": {
+        "@playwright/test": "^1.59.1"
     }
 }

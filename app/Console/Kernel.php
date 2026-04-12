@@ -113,6 +113,51 @@ class Kernel extends ConsoleKernel
         $schedule->command('alert:cleanup --days=30')
             ->weeklyOn(0, '02:00')
             ->appendOutputTo(storage_path('logs/alert-cleanup.log'));
+
+        // ============ SANCTIONS AUTO-UPDATES ============
+
+        // Daily sanctions list update at 03:00 (BNM requires within 24 hours)
+        $schedule->command('sanctions:update')
+            ->dailyAt('03:00')
+            ->appendOutputTo(storage_path('logs/sanctions-update.log'));
+
+        // Check sanctions status and alert if failed
+        $schedule->command('sanctions:status')
+            ->dailyAt('08:00')
+            ->appendOutputTo(storage_path('logs/sanctions-status-check.log'));
+
+        // ============ BACKUP & RECOVERY ============
+        // https://github.com/spatie/laravel-backup
+
+        // Daily database backup at 02:00
+        $schedule->command('backup:run --type=database')
+            ->dailyAt('02:00')
+            ->appendOutputTo(storage_path('logs/backup-database.log'));
+
+        // Weekly full backup (files + database) on Sunday at 03:00
+        $schedule->command('backup:run --type=full')
+            ->weeklyOn(0, '03:00')
+            ->appendOutputTo(storage_path('logs/backup-full.log'));
+
+        // Monthly archive to S3 Glacier on 1st at 04:00 (BNM 7-year retention)
+        $schedule->command('backup:run --type=full --disk=s3')
+            ->monthlyOn(1, '04:00')
+            ->appendOutputTo(storage_path('logs/backup-archive.log'));
+
+        // Verify backups daily at 05:00
+        $schedule->command('backup:verify --all')
+            ->dailyAt('05:00')
+            ->appendOutputTo(storage_path('logs/backup-verify.log'));
+
+        // Clean old backups daily at 06:00
+        $schedule->command('backup:clean --force')
+            ->dailyAt('06:00')
+            ->appendOutputTo(storage_path('logs/backup-clean.log'));
+
+        // Monitor backup health daily at 07:00
+        $schedule->command('backup:monitor --notify')
+            ->dailyAt('07:00')
+            ->appendOutputTo(storage_path('logs/backup-monitor.log'));
     }
 
     protected function commands(): void

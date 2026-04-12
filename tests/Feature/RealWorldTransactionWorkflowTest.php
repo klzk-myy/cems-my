@@ -73,23 +73,23 @@ class RealWorldTransactionWorkflowTest extends TestCase
      * @group integration
      * @group slow
      *
-     * Note: This test is skipped due to MFA middleware "payload is invalid" error in test environment.
-     * The error occurs because Laravel's encrypted session cookies cannot be properly handled
-     * when using the 'array' session driver in PHPUnit tests with MFA middleware active.
-     * The MFA verification flow involves encrypting session data with the app key, and when
-     * combined with the array session driver, the encrypted payload validation fails.
-     *
-     * This is an environmental issue, not a code bug. The transaction workflow itself
-     * works correctly in production and in the simpler TransactionWorkflowTest.
+     * Tests the complete daily workflow:
+     * 1. Morning till opening
+     * 2. Customer registration
+     * 3. Currency purchase (Buy)
+     * 4. Currency sale (Sell)
+     * 5. Large transaction requiring manager approval
+     * 6. Manager approval workflow
+     * 7. Compliance monitoring verification
+     * 8. End of day till closing
+     * 9. Daily summary reporting
      */
     public function test_complete_daily_workflow()
     {
-        $this->markTestSkipped('Skipping - MFA middleware encrypted session payload issue in test environment');
-
         // ============ SETUP ============
-        // Create users
-        $teller = User::factory()->create(['role' => 'teller', 'username' => 'teller1']);
-        $manager = User::factory()->create(['role' => 'manager', 'username' => 'manager1']);
+        // Create users with MFA disabled for testing (avoids session encryption issues)
+        $teller = User::factory()->create(['role' => 'teller', 'username' => 'teller1', 'mfa_enabled' => false]);
+        $manager = User::factory()->create(['role' => 'manager', 'username' => 'manager1', 'mfa_enabled' => false]);
 
         // Create currency
         $currency = Currency::factory()->create([
@@ -122,7 +122,7 @@ class RealWorldTransactionWorkflowTest extends TestCase
         $customer = Customer::factory()->create([
             'full_name' => 'Ahmad Bin Abdullah',
             'id_type' => 'MyKad',
-            'id_number_encrypted' => '850612-14-5289',
+            'id_number_encrypted' => encrypt('850612-14-5289'),
             'nationality' => 'Malaysian',
             'phone' => '012-345-6789',
             'email' => 'ahmad@example.com',
@@ -199,9 +199,6 @@ class RealWorldTransactionWorkflowTest extends TestCase
         // ============ STEP 5: Large Transaction (Requires Approval) ============
         // Use unique amount_foreign (15000) and idempotency key to avoid collisions
         $largeIdempotencyKey = 'wf_large_'.uniqid();
-
-        // Temporarily disable MFA middleware for this test since it causes payload errors in test environment
-        $this->withoutMiddleware(\App\Http\Middleware\EnsureMfaVerified::class);
 
         $response = $this->actingAs($teller)
             ->post(route('transactions.store'), [

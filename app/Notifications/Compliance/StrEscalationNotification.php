@@ -3,8 +3,8 @@
 namespace App\Notifications\Compliance;
 
 use App\Models\StrReport;
+use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
-use Illuminate\Queue\Queueable;
 use Illuminate\Queue\SerializesModels;
 
 class StrEscalationNotification extends Notification
@@ -42,7 +42,7 @@ class StrEscalationNotification extends Notification
         ];
     }
 
-    public function toMail(object $notifiable): \Illuminate\Mail\Mailable
+    public function toMail(object $notifiable): \Illuminate\Notifications\Messages\MailMessage
     {
         $daysOverdue = $this->strReport->isOverdue()
             ? abs($this->strReport->daysUntilDeadline())

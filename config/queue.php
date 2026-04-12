@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'sync'),
+    'default' => env('QUEUE_CONNECTION', 'redis'),
 
     /*
     |--------------------------------------------------------------------------
@@ -66,9 +66,36 @@ return [
             'driver' => 'redis',
             'connection' => 'default',
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => 90,
+            'retry_after' => 3600,
             'block_for' => null,
-            'after_commit' => false,
+            'after_commit' => true,
+        ],
+
+        'high' => [
+            'driver' => 'redis',
+            'connection' => 'default',
+            'queue' => 'high',
+            'retry_after' => 3600,
+            'block_for' => null,
+            'after_commit' => true,
+        ],
+
+        'default' => [
+            'driver' => 'redis',
+            'connection' => 'default',
+            'queue' => 'default',
+            'retry_after' => 3600,
+            'block_for' => null,
+            'after_commit' => true,
+        ],
+
+        'low' => [
+            'driver' => 'redis',
+            'connection' => 'default',
+            'queue' => 'low',
+            'retry_after' => 3600,
+            'block_for' => null,
+            'after_commit' => true,
         ],
 
     ],
@@ -104,6 +131,7 @@ return [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
         'database' => env('DB_CONNECTION', 'mysql'),
         'table' => 'failed_jobs',
+        'expire' => 43200,
     ],
 
 ];

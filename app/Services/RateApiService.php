@@ -19,7 +19,7 @@ class RateApiService
     public function __construct(?MathService $mathService = null)
     {
         $this->mathService = $mathService ?? new MathService;
-        $this->apiKey = config('services.exchange_rate_api.key');
+        $this->apiKey = config('services.exchange_rate_api.key') ?? '';
         $this->baseUrl = 'https://api.exchangerate-api.com/v4';
     }
 

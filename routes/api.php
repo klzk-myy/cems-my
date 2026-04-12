@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Compliance\DashboardController;
 use App\Http\Controllers\Api\Compliance\EddController;
 use App\Http\Controllers\Api\Compliance\FindingController;
 use App\Http\Controllers\Api\Compliance\RiskController;
+use App\Http\Controllers\Api\SanctionsWebhookController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\Report\RegulatoryReportController;
 use App\Http\Controllers\ReportController;
@@ -35,6 +36,13 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+// Sanctions Webhook (for external list providers to trigger immediate updates)
+// Protected by token-based authentication, not session-based auth
+Route::post('/webhooks/sanctions/update', [SanctionsWebhookController::class, 'invoke'])
+    ->name('webhooks.sanctions.update');
+Route::get('/webhooks/sanctions/health', [SanctionsWebhookController::class, 'health'])
+    ->name('webhooks.sanctions.health');
 
 Route::middleware('auth:sanctum')->group(function () {
     // Transactions API

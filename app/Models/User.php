@@ -190,4 +190,58 @@ class User extends Authenticatable
         // The session expiry is handled by Laravel's session management
         return false;
     }
+
+    /**
+     * Get notification preferences for this user.
+     */
+    public function notificationPreferences(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserNotificationPreference::class);
+    }
+
+    /**
+     * Get notification preference for a specific notification type.
+     * Creates default preference if not exists.
+     */
+    public function getNotificationPreference(string $type): UserNotificationPreference
+    {
+        $preference = $this->notificationPreferences()
+            ->where('notification_type', $type)
+            ->first();
+
+        if (! $preference) {
+            $defaults = UserNotificationPreference::getDefaultPreferences()[$type] ?? [
+                'email_enabled' => true,
+                'sms_enabled' => false,
+                'in_app_enabled' => true,
+                'push_enabled' => false,
+            ];
+
+            $preference = $this->notificationPreferences()->create([
+                'notification_type' => $type,
+                'email_enabled' => $defaults['email_enabled'],
+                'sms_enabled' => $defaults['sms_enabled'],
+                'in_app_enabled' => $defaults['in_app_enabled'],
+                'push_enabled' => $defaults['push_enabled'],
+            ]);
+        }
+
+        return $preference;
+    }
+
+    /**
+     * Check if a notification channel is enabled for this user.
+     */
+    public function isNotificationChannelEnabled(string $type, string $channel): bool
+    {
+        $preference = $this->getNotificationPreference($type);
+
+        return match ($channel) {
+            'mail', 'email' => $preference->isEmailEnabled(),
+            'sms' => $preference->isSmsEnabled(),
+            'database', 'in_app' => $preference->isInAppEnabled(),
+            'broadcast', 'push' => $preference->isPushEnabled(),
+            default => true,
+        };
+    }
 }

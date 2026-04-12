@@ -51,14 +51,16 @@ class StrDeadlineMonitorTest extends TestCase
 
     public function test_generates_finding_when_str_deadline_approaching(): void
     {
-        // If today is Saturday April 11:
-        // - 3 days ago = Wednesday April 8
-        // - Deadline = Wednesday April 8 + 3 weekdays = Monday April 13
-        // - Warning threshold = Monday April 13 - 1 weekday = Friday April 10
-        // - Today Saturday April 11 is AFTER Friday April 10 (warning) but BEFORE Monday April 13 (deadline)
+        // Use fixed dates to ensure reliable weekday calculations
+        // Set "now" to Wednesday, flag created Monday (2 weekdays ago)
+        // Deadline = Monday + 3 weekdays = Thursday
+        // Warning starts = Thursday - 1 weekday = Wednesday (today)
+        \Carbon\Carbon::setTestNow('2026-04-15'); // Wednesday
+        $flagCreatedAt = '2026-04-13'; // Monday
+
         $flag = FlaggedTransaction::factory()->open()->create([
             'flag_type' => 'Structuring',
-            'created_at' => now()->subDays(3),
+            'created_at' => $flagCreatedAt,
         ]);
 
         $findings = $this->monitor->run();
@@ -67,5 +69,7 @@ class StrDeadlineMonitorTest extends TestCase
         $this->assertEquals('High', $findings[0]['severity']);
         $this->assertEquals($flag->id, $findings[0]['details']['flag_id']);
         $this->assertArrayHasKey('days_remaining', $findings[0]['details']);
+
+        \Carbon\Carbon::setTestNow(null); // Reset
     }
 }

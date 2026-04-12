@@ -23,6 +23,15 @@ class Counter extends Model
         'status' => 'string',
     ];
 
+    /**
+     * Get the route key for the model.
+     * This allows route model binding to use 'code' instead of 'id'.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'code';
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
