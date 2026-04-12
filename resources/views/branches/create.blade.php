@@ -3,154 +3,166 @@
 @section('title', 'Create Branch - CEMS-MY')
 
 @section('content')
-<div class="create-branch-header">
-    <h2>Create New Branch</h2>
-    <p>Add a new branch or head office to the system</p>
+<div class="page-header">
+    <h1 class="page-header__title">Create New Branch</h1>
+    <p class="page-header__subtitle">Add a new branch or head office to the system</p>
 </div>
 
 <div class="card">
     @if($errors->any())
-        <div class="alert alert-error mb-6">
-            <strong>Please fix the following errors:</strong>
-            <ul class="mt-2 ml-4">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+        <div class="alert alert--error mb-6" role="alert">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+                <p class="font-semibold">Please fix the following errors:</p>
+                <ul class="mt-2 ml-4 list-disc">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
         </div>
     @endif
 
     <form action="{{ route('branches.store') }}" method="POST">
         @csrf
 
-        <div class="form-row">
-            <div class="form-group">
-                <label for="code">Branch Code *</label>
-                <input type="text" id="code" name="code" value="{{ old('code') }}" required maxlength="20" placeholder="e.g., HQ, BR001, SB001" class="form-input">
-                @error('code')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+            @include('components.input', [
+                'name' => 'code',
+                'label' => 'Branch Code',
+                'required' => true,
+                'placeholder' => 'e.g., HQ, BR001, SB001',
+                'maxlength' => 20,
+                'error' => $errors->first('code'),
+            ])
 
-            <div class="form-group">
-                <label for="name">Branch Name *</label>
-                <input type="text" id="name" name="name" value="{{ old('name') }}" required maxlength="255" placeholder="e.g., Kuala Lumpur Branch" class="form-input">
-                @error('name')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+            @include('components.input', [
+                'name' => 'name',
+                'label' => 'Branch Name',
+                'required' => true,
+                'placeholder' => 'e.g., Kuala Lumpur Branch',
+                'maxlength' => 255,
+                'error' => $errors->first('name'),
+            ])
         </div>
 
-        <div class="form-row">
-            <div class="form-group">
-                <label for="type">Branch Type *</label>
-                <select id="type" name="type" required class="form-input">
-                    @foreach($branchTypes as $value => $label)
-                        <option value="{{ $value }}" {{ old('type') == $value ? 'selected' : '' }}>
-                            {{ $label }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('type')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+            @include('components.select', [
+                'name' => 'type',
+                'label' => 'Branch Type',
+                'required' => true,
+                'error' => $errors->first('type'),
+            ])
+                @foreach($branchTypes as $value => $label)
+                    <option value="{{ $value }}" {{ old('type') == $value ? 'selected' : '' }}>
+                        {{ $label }}
+                    </option>
+                @endforeach
+            @endinclude
 
-            <div class="form-group">
-                <label for="parent_id">Parent Branch</label>
-                <select id="parent_id" name="parent_id" class="form-input">
-                    <option value="">-- No Parent (Top Level) --</option>
-                    @foreach($parentBranches as $parent)
-                        <option value="{{ $parent->id }}" {{ old('parent_id') == $parent->id ? 'selected' : '' }}>
-                            {{ $parent->code }} - {{ $parent->name }}
-                        </option>
-                    @endforeach
-                </select>
-                <div class="hint">Select if this is a sub-branch of another branch</div>
-                @error('parent_id')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+            @include('components.select', [
+                'name' => 'parent_id',
+                'label' => 'Parent Branch',
+                'placeholder' => '-- No Parent (Top Level) --',
+                'error' => $errors->first('parent_id'),
+            ])
+                @foreach($parentBranches as $parent)
+                    <option value="{{ $parent->id }}" {{ old('parent_id') == $parent->id ? 'selected' : '' }}>
+                        {{ $parent->code }} - {{ $parent->name }}
+                    </option>
+                @endforeach
+            @endinclude
         </div>
 
-        <div class="form-group">
-            <label for="address">Address</label>
-            <textarea id="address" name="address" rows="2" maxlength="500" placeholder="Street address" class="form-input">{{ old('address') }}</textarea>
-            @error('address')
-                <div class="error">{{ $message }}</div>
-            @enderror
+        @include('components.textarea', [
+            'name' => 'address',
+            'label' => 'Address',
+            'rows' => 2,
+            'maxlength' => 500,
+            'placeholder' => 'Street address',
+            'error' => $errors->first('address'),
+        ])
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+            @include('components.input', [
+                'name' => 'city',
+                'label' => 'City',
+                'placeholder' => 'e.g., Kuala Lumpur',
+                'maxlength' => 100,
+                'error' => $errors->first('city'),
+            ])
+
+            @include('components.input', [
+                'name' => 'state',
+                'label' => 'State',
+                'placeholder' => 'e.g., Selangor',
+                'maxlength' => 100,
+                'error' => $errors->first('state'),
+            ])
         </div>
 
-        <div class="form-row">
-            <div class="form-group">
-                <label for="city">City</label>
-                <input type="text" id="city" name="city" value="{{ old('city') }}" maxlength="100" placeholder="e.g., Kuala Lumpur" class="form-input">
-                @error('city')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+            @include('components.input', [
+                'name' => 'postal_code',
+                'label' => 'Postal Code',
+                'placeholder' => 'e.g., 50000',
+                'maxlength' => 20,
+                'error' => $errors->first('postal_code'),
+            ])
 
-            <div class="form-group">
-                <label for="state">State</label>
-                <input type="text" id="state" name="state" value="{{ old('state') }}" maxlength="100" placeholder="e.g., Selangor" class="form-input">
-                @error('state')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+            @include('components.input', [
+                'name' => 'country',
+                'label' => 'Country',
+                'value' => old('country', 'Malaysia'),
+                'maxlength' => 50,
+                'error' => $errors->first('country'),
+            ])
         </div>
 
-        <div class="form-row">
-            <div class="form-group">
-                <label for="postal_code">Postal Code</label>
-                <input type="text" id="postal_code" name="postal_code" value="{{ old('postal_code') }}" maxlength="20" placeholder="e.g., 50000" class="form-input">
-                @error('postal_code')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+            @include('components.input', [
+                'name' => 'phone',
+                'label' => 'Phone',
+                'type' => 'tel',
+                'placeholder' => 'e.g., +603-12345678',
+                'maxlength' => 30,
+                'error' => $errors->first('phone'),
+            ])
 
-            <div class="form-group">
-                <label for="country">Country</label>
-                <input type="text" id="country" name="country" value="{{ old('country', 'Malaysia') }}" maxlength="50" class="form-input">
-                @error('country')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+            @include('components.input', [
+                'name' => 'email',
+                'label' => 'Email',
+                'type' => 'email',
+                'placeholder' => 'e.g., branch@cems-my.com',
+                'maxlength' => 100,
+                'error' => $errors->first('email'),
+            ])
         </div>
 
-        <div class="form-row">
-            <div class="form-group">
-                <label for="phone">Phone</label>
-                <input type="text" id="phone" name="phone" value="{{ old('phone') }}" maxlength="30" placeholder="e.g., +603-12345678" class="form-input">
-                @error('phone')
-                    <div class="error">{{ $message }}</div>
-                @enderror
-            </div>
+        <div class="mb-6">
+            <div class="flex items-center gap-6">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="hidden" name="is_active" value="0">
+                    <input type="checkbox" id="is_active" name="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}
+                           class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                    <span class="text-sm text-gray-700">Active</span>
+                </label>
 
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" value="{{ old('email') }}" maxlength="100" placeholder="e.g., branch@cems-my.com" class="form-input">
-                @error('email')
-                    <div class="error">{{ $message }}</div>
-                @enderror
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="hidden" name="is_main" value="0">
+                    <input type="checkbox" id="is_main" name="is_main" value="1" {{ old('is_main') ? 'checked' : '' }}
+                           class="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500">
+                    <span class="text-sm text-gray-700">Main Branch (Head Office)</span>
+                </label>
             </div>
+            <p class="mt-2 text-xs text-gray-500">Only one branch can be the main branch. Setting this will unset the current main branch.</p>
         </div>
 
-        <div class="form-group">
-            <div class="checkbox-group">
-                <input type="hidden" name="is_active" value="0">
-                <input type="checkbox" id="is_active" name="is_active" value="1" {{ old('is_active', true) ? 'checked' : '' }}>
-                <label for="is_active">Active</label>
-
-                <input type="hidden" name="is_main" value="0">
-                <input type="checkbox" id="is_main" name="is_main" value="1" {{ old('is_main') ? 'checked' : '' }}>
-                <label for="is_main">Main Branch (Head Office)</label>
-            </div>
-            <div class="hint">Only one branch can be the main branch. Setting this will unset the current main branch.</div>
-        </div>
-
-        <div class="actions">
-            <a href="{{ route('branches.index') }}" class="btn btn-secondary">Cancel</a>
-            <button type="submit" class="btn btn-primary">Create Branch</button>
+        <div class="flex items-center gap-3 pt-4 border-t border-gray-200">
+            <a href="{{ route('branches.index') }}" class="btn btn--secondary">Cancel</a>
+            <button type="submit" class="btn btn--primary">Create Branch</button>
         </div>
     </form>
 </div>

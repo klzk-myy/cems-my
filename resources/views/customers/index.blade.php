@@ -26,30 +26,31 @@
 </div>
 
 <!-- Filters -->
-<form method="GET" action="{{ route('customers.index') }}" class="card" style="margin-bottom: 1.5rem;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: end;">
-        <div class="form-group" style="margin-bottom: 0;">
-            <label for="search" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase;">Search by Name</label>
-            <input type="text" id="search" name="search" value="{{ e(request('search')) }}" placeholder="Customer name..." class="form-input" style="margin-bottom: 0;">
+<form method="GET" action="{{ route('customers.index') }}" class="card mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div class="mb-0">
+            <label for="search" class="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Search by Name</label>
+            <input type="text" id="search" name="search" value="{{ e(request('search')) }}" placeholder="Customer name..."
+                   class="form-input mb-0">
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
-            <label for="risk_rating" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase;">Risk Rating</label>
-            <select id="risk_rating" name="risk_rating" class="form-select" style="margin-bottom: 0;">
+        <div class="mb-0">
+            <label for="risk_rating" class="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Risk Rating</label>
+            <select id="risk_rating" name="risk_rating" class="form-select mb-0">
                 <option value="">All Ratings</option>
                 @foreach($riskRatings as $rating)
                     <option value="{{ $rating }}" {{ request('risk_rating') == $rating ? 'selected' : '' }}>{{ $rating }}</option>
                 @endforeach
             </select>
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
-            <label for="is_active" style="display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--color-gray-600); text-transform: uppercase;">Status</label>
-            <select id="is_active" name="is_active" class="form-select" style="margin-bottom: 0;">
+        <div class="mb-0">
+            <label for="is_active" class="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Status</label>
+            <select id="is_active" name="is_active" class="form-select mb-0">
                 <option value="">All</option>
                 <option value="1" {{ request('is_active') == '1' ? 'selected' : '' }}>Active</option>
                 <option value="0" {{ request('is_active') == '0' ? 'selected' : '' }}>Inactive</option>
             </select>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
+        <div class="flex gap-2">
             <button type="submit" class="btn btn--primary btn--sm">Filter</button>
             <a href="{{ route('customers.index') }}" class="btn btn--secondary btn--sm">Clear</a>
         </div>
@@ -58,11 +59,11 @@
 
 <!-- Customer List -->
 <div class="card">
-    <div style="font-size: 0.875rem; color: var(--color-gray-500); margin-bottom: 1rem;">
+    <div class="text-sm text-gray-500 mb-4">
         Showing {{ $customers->count() }} of {{ $customers->total() }} customers
     </div>
 
-    <div style="overflow-x: auto;">
+    <div class="overflow-x-auto">
         <table class="data-table">
             <thead>
                 <tr>
@@ -80,51 +81,54 @@
             <tbody>
                 @forelse($customers as $customer)
                 <tr>
-                    <td>{{ $customer->id }}</td>
+                    <td class="font-mono text-xs">{{ $customer->id }}</td>
                     <td>
-                        <strong>{{ e($customer->full_name) }}</strong>
-                        @if($customer->risk_rating === 'High')
-                        <span class="status-badge status-badge--flagged" style="margin-left: 0.5rem;">High Risk</span>
-                        @endif
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium">{{ e($customer->full_name) }}</span>
+                            @if($customer->risk_rating === 'High')
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                                High Risk
+                            </span>
+                            @endif
+                        </div>
                     </td>
-                    <td>{{ e($customer->id_type) }}</td>
-                    <td>{{ e($customer->nationality) }}</td>
+                    <td class="text-sm">{{ e($customer->id_type) }}</td>
+                    <td class="text-sm">{{ e($customer->nationality) }}</td>
                     <td>
-                        @php
-                            $riskClass = match($customer->risk_rating) {
-                                'Low' => 'status-badge--completed',
-                                'Medium' => 'status-badge--pending',
-                                'High' => 'status-badge--flagged',
-                                default => 'status-badge--pending'
-                            };
-                        @endphp
-                        <span class="status-badge {{ $riskClass }}">{{ e($customer->risk_rating) }}</span>
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full {{ match($customer->risk_rating) {
+                            'Low' => 'bg-green-100 text-green-800',
+                            'Medium' => 'bg-yellow-100 text-yellow-800',
+                            'High' => 'bg-orange-100 text-orange-800',
+                            default => 'bg-gray-100 text-gray-600'
+                        } }}">
+                            {{ e($customer->risk_rating) }}
+                        </span>
                     </td>
                     <td>
                         @if($customer->pep_status)
-                            <span class="status-badge status-badge--flagged">PEP</span>
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">PEP</span>
                         @else
-                            <span class="status-badge" style="background: var(--color-gray-100); color: var(--color-gray-600);">No</span>
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">No</span>
                         @endif
                     </td>
                     <td>
                         @if($customer->is_active ?? true)
-                            <span class="status-badge status-badge--active">Active</span>
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>
                         @else
-                            <span class="status-badge status-badge--inactive">Inactive</span>
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-500">Inactive</span>
                         @endif
                     </td>
-                    <td>{{ $customer->created_at->format('Y-m-d') }}</td>
+                    <td class="text-sm text-gray-500">{{ $customer->created_at->format('Y-m-d') }}</td>
                     <td>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <a href="{{ route('customers.show', $customer) }}" class="btn btn--sm btn--primary">View</a>
-                            <a href="{{ route('customers.edit', $customer) }}" class="btn btn--sm btn--secondary">Edit</a>
+                        <div class="flex gap-2">
+                            <a href="{{ route('customers.show', $customer) }}" class="btn btn--primary btn--sm">View</a>
+                            <a href="{{ route('customers.edit', $customer) }}" class="btn btn--secondary btn--sm">Edit</a>
                         </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 2rem; color: var(--color-gray-500);">
+                    <td colspan="9" class="text-center py-12 text-gray-500">
                         No customers found.
                     </td>
                 </tr>
@@ -133,13 +137,13 @@
         </table>
     </div>
 
-    <div style="margin-top: 1rem; display: flex; justify-content: center;">
+    <div class="mt-6 flex justify-center">
         {{ $customers->links() }}
     </div>
 </div>
 
 <!-- Quick Stats -->
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-top: 1.5rem;">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6">
     <div class="stat-card stat-card--primary">
         <div class="stat-card__value">{{ $customers->total() }}</div>
         <div class="stat-card__label">Total Customers</div>

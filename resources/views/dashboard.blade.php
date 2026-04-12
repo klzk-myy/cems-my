@@ -42,35 +42,35 @@
     </div>
 </div>
 
-<div class="grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Quick Actions -->
     <div class="card card--featured">
-        <h2 style="font-family: var(--font-heading); font-size: 1.125rem; margin-bottom: 1rem; color: var(--color-gray-800);">Quick Actions</h2>
-        <div class="quick-actions" style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <a href="{{ route('transactions.create') }}" class="btn btn--success btn--full">+ New Transaction</a>
-            <a href="{{ route('customers.create') }}" class="btn btn--primary btn--full">Register Customer</a>
-            <a href="{{ route('compliance.flagged') }}" class="btn btn--warning btn--full">View Flagged ({{ $stats['flagged'] ?? 0 }})</a>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+        <div class="flex flex-col gap-3">
+            <a href="{{ route('transactions.create') }}" class="btn btn--success btn--lg btn--full">+ New Transaction</a>
+            <a href="{{ route('customers.create') }}" class="btn btn--primary btn--lg btn--full">Register Customer</a>
+            <a href="{{ route('compliance.flagged') }}" class="btn btn--warning btn--lg btn--full">View Flagged ({{ $stats['flagged'] ?? 0 }})</a>
         </div>
     </div>
 
     <!-- System Status -->
     <div class="card">
-        <h2 style="font-family: var(--font-heading); font-size: 1.125rem; margin-bottom: 1rem; color: var(--color-gray-800);">System Status</h2>
-        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-gray-100);">
-                <span style="color: var(--color-gray-600);">Database</span>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">System Status</h2>
+        <div class="flex flex-col gap-2">
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Database</span>
                 <span class="status-badge status-badge--active">Connected</span>
             </div>
-            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-gray-100);">
-                <span style="color: var(--color-gray-600);">Redis Cache</span>
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Redis Cache</span>
                 <span class="status-badge status-badge--active">Active</span>
             </div>
-            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--color-gray-100);">
-                <span style="color: var(--color-gray-600);">Rate API</span>
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-sm text-gray-600">Rate API</span>
                 <span class="status-badge status-badge--active">Online</span>
             </div>
-            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
-                <span style="color: var(--color-gray-600);">Encryption</span>
+            <div class="flex justify-between items-center py-2">
+                <span class="text-sm text-gray-600">Encryption</span>
                 <span class="status-badge status-badge--active">AES-256</span>
             </div>
         </div>
@@ -79,7 +79,7 @@
 
 <!-- Recent Transactions -->
 <div class="card">
-    <h2 style="font-family: var(--font-heading); font-size: 1.125rem; margin-bottom: 1rem; color: var(--color-gray-800);">Recent Transactions</h2>
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h2>
     <table class="data-table">
         <thead>
             <tr>
@@ -96,27 +96,35 @@
         <tbody>
             @forelse($recent_transactions ?? [] as $tx)
             <tr>
-                <td>#{{ $tx->id }}</td>
+                <td class="font-mono text-xs">#{{ $tx->id }}</td>
                 <td>{{ $tx->customer->full_name ?? 'N/A' }}</td>
-                <td>{{ $tx->type->label() }}</td>
-                <td>{{ $tx->currency_code }}</td>
-                <td>{{ number_format($tx->amount_local, 2) }} MYR</td>
-                <td>{{ $tx->rate }}</td>
+                <td>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold {{ $tx->type->value === 'Buy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                        {{ $tx->type->label() }}
+                    </span>
+                </td>
+                <td class="font-mono">{{ $tx->currency_code }}</td>
+                <td class="font-mono">{{ number_format($tx->amount_local, 2) }} MYR</td>
+                <td class="font-mono">{{ $tx->rate }}</td>
                 <td>
                     @php
                         $badgeClass = match($tx->status->value) {
-                            'Completed' => 'status-badge--completed',
-                            'Pending' => 'status-badge--pending',
-                            default => 'status-badge--pending'
+                            'Completed' => 'bg-green-100 text-green-800',
+                            'Pending' => 'bg-yellow-100 text-yellow-800',
+                            'OnHold' => 'bg-orange-100 text-orange-800',
+                            'Cancelled' => 'bg-red-100 text-red-800',
+                            default => 'bg-gray-100 text-gray-600'
                         };
                     @endphp
-                    <span class="status-badge {{ $badgeClass }}">{{ $tx->status->label() }}</span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full {{ $badgeClass }}">
+                        {{ $tx->status->label() }}
+                    </span>
                 </td>
-                <td style="font-size: 0.75rem; color: var(--color-gray-500);">{{ $tx->created_at->diffForHumans() }}</td>
+                <td class="text-xs text-gray-500">{{ $tx->created_at->diffForHumans() }}</td>
             </tr>
             @empty
             <tr>
-                <td colspan="8" style="text-align: center; padding: 2rem; color: var(--color-gray-500);">No transactions yet</td>
+                <td colspan="8" class="text-center py-12 text-gray-500">No transactions yet</td>
             </tr>
             @endforelse
         </tbody>

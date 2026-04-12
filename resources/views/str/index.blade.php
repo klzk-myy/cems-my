@@ -50,10 +50,10 @@
 
 <!-- Filter Bar -->
 <div class="card mb-6">
-    <div class="card-body">
-        <form method="GET" class="flex items-center gap-4">
-            <label class="font-semibold">Status:</label>
-            <select onchange="window.location.href='?status='+this.value" class="form-select" style="width: auto;">
+    <div class="p-4">
+        <form method="GET" class="flex flex-wrap items-center gap-4">
+            <label class="text-sm font-semibold text-gray-600">Status:</label>
+            <select onchange="window.location.href='?status='+this.value" class="form-select w-auto">
                 <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>All Status</option>
                 <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Draft</option>
                 <option value="pending_review" {{ request('status') == 'pending_review' ? 'selected' : '' }}>Pending Review</option>
@@ -69,11 +69,11 @@
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <h3 class="text-lg font-semibold text-gray-800">All STR Reports</h3>
+    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">All STR Reports</h3>
         <a href="{{ route('str.create') }}" class="btn btn--danger btn--sm">+ Create STR</a>
     </div>
-    <div class="card-body p-0">
+    <div class="p-0">
         @if($strReports->count() > 0)
         <table class="data-table">
             <thead>
@@ -91,36 +91,45 @@
             <tbody>
                 @foreach($strReports as $str)
                 <tr>
-                    <td><strong>{{ $str->str_no }}</strong></td>
+                    <td><strong class="font-mono text-xs">{{ $str->str_no }}</strong></td>
                     <td>{{ $str->customer->full_name ?? 'N/A' }}</td>
                     <td>
-                        <span class="status-badge status-badge--{{ strtolower($str->status->value) }}">
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full {{ match($str->status->value) {
+                            'Draft' => 'bg-gray-100 text-gray-600',
+                            'PendingReview' => 'bg-yellow-100 text-yellow-800',
+                            'PendingApproval' => 'bg-orange-100 text-orange-800',
+                            'Submitted' => 'bg-blue-100 text-blue-800',
+                            'Acknowledged' => 'bg-green-100 text-green-800',
+                            default => 'bg-gray-100 text-gray-600'
+                        } }}">
                             {{ $str->status->label() }}
                         </span>
                     </td>
-                    <td>{{ $str->creator->full_name ?? 'N/A' }}</td>
-                    <td>{{ $str->created_at->format('Y-m-d H:i') }}</td>
-                    <td>{{ $str->submitted_at?->format('Y-m-d H:i') ?? '-' }}</td>
-                    <td>{{ $str->bnm_reference ?? '-' }}</td>
+                    <td class="text-sm">{{ $str->creator->full_name ?? 'N/A' }}</td>
+                    <td class="text-sm text-gray-600">{{ $str->created_at->format('Y-m-d H:i') }}</td>
+                    <td class="text-sm text-gray-600">{{ $str->submitted_at?->format('Y-m-d H:i') ?? '-' }}</td>
+                    <td class="font-mono text-sm">{{ $str->bnm_reference ?? '-' }}</td>
                     <td>
-                        <a href="{{ route('str.show', $str) }}" class="btn btn--primary btn--sm">View</a>
-                        @if($str->isDraft())
-                            <form action="{{ route('str.submit-review', $str) }}" method="POST" class="inline">
-                                @csrf
-                                <button type="submit" class="btn btn--primary btn--sm">Submit for Review</button>
-                            </form>
-                        @endif
+                        <div class="flex gap-2">
+                            <a href="{{ route('str.show', $str) }}" class="btn btn--primary btn--sm">View</a>
+                            @if($str->isDraft())
+                                <form action="{{ route('str.submit-review', $str) }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="btn btn--primary btn--sm">Submit for Review</button>
+                                </form>
+                            @endif
+                        </div>
                     </td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
 
-        <div class="p-4 border-t border-gray-200 flex justify-end">
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
             {{ $strReports->appends(request()->query())->links() }}
         </div>
         @else
-        <div class="card-body text-center">
+        <div class="p-8 text-center">
             <p class="text-gray-500">No suspicious transaction reports have been filed yet.</p>
         </div>
         @endif
