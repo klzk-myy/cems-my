@@ -1,8 +1,10 @@
 # PHPDoc Consistency Analysis Report
 
-**Date:** April 4, 2026  
-**Scope:** Complete codebase PHPDoc audit  
-**Status:** Analysis Complete
+**Date:** April 4, 2026
+**Version:** 1.1
+**Last Updated:** April 12, 2026
+**Scope:** Complete codebase PHPDoc audit
+**Status:** Analysis Complete - All Priority Items Completed
 
 ---
 
@@ -10,9 +12,26 @@
 
 A comprehensive PHPDoc analysis was performed across the CEMS-MY codebase. **Significant inconsistencies** were found with only **25.5% of service methods** and **40.7% of model methods** having proper PHPDoc coverage.
 
-### Status Update - April 4, 2026
+### Status Update - April 12, 2026
 
 ✅ **ALL HIGH PRIORITY ITEMS COMPLETED** - 9 files fully documented
+✅ **PHPDoc Coverage at ~98%** - All critical files documented
+
+### Backend Logical Inconsistency Fixes (April 12, 2026)
+
+The following code changes were made on April 12, 2026 (see `docs/logical-inconsistency-analysis.md`):
+
+| Service/Controller | Method Changed | PHPDoc Status |
+|---------------------|----------------|---------------|
+| StrReportService | `approve()` | ✅ Updated (line 558-570) |
+| TransactionStateMachine | `hold()`, `release()`, `approvePending()` | ✅ New methods added |
+| TransactionApprovalController | `approve()` | ✅ Role check added |
+| TransactionCancellationController | `createReversingJournalEntries()` | ✅ Updated |
+| CounterService | `initiateHandover()` | ✅ TillBalance fix |
+| ComplianceService | `determineCDDLevel()` | ✅ New parameters added |
+| CurrencyPositionService | `getPosition()`, `getPositionForTransaction()` | ✅ Updated signature |
+
+**PHPDoc Verification:** All modified methods have proper PHPDoc documentation. New methods in TransactionStateMachine have complete documentation.
 
 ### Key Findings
 
@@ -466,9 +485,13 @@ The CEMS-MY codebase has **significant PHPDoc deficiencies** with only 2 out of 
 | 2026-04-06 | **COMPLETED:** PeriodCloseService constructor and properties documented |
 | 2026-04-06 | **COMPLETED:** All model @return bool tags added (Transaction, Customer, User) |
 | 2026-04-06 | **Status:** PHPDoc coverage at ~98% |
+| 2026-04-12 | **VERIFIED:** All backend logical inconsistency fixes have proper PHPDoc |
+| 2026-04-12 | **CONFIRMED:** New TransactionStateMachine methods (hold, release, approvePending) documented |
+| 2026-04-12 | **CONFIRMED:** ComplianceService::determineCDDLevel() updated PHPDoc with new parameters |
+| 2026-04-12 | **CONFIRMED:** CurrencyPositionService::getPosition() signature update documented |
 
 ---
 
 **Analysis By:** Development Team
-**Last Updated:** 2026-04-06
+**Last Updated:** 2026-04-12
 **Next Review:** As part of code reviews

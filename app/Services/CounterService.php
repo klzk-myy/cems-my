@@ -240,6 +240,25 @@ class CounterService
             throw new Exception('Supervisor must be a manager or admin');
         }
 
+        // Validate session is open
+        if (! $session->isOpen()) {
+            throw new Exception('Session is not open');
+        }
+
+        // Validate fromUser is the session user
+        if ($session->user_id !== $fromUser->id) {
+            throw new Exception('Session does not belong to the specified user');
+        }
+
+        // Validate toUser is not already at another counter
+        $existingSession = CounterSession::where('user_id', $toUser->id)
+            ->where('status', CounterSessionStatus::Open->value)
+            ->first();
+
+        if ($existingSession && $existingSession->id !== $session->id) {
+            throw new Exception('User is already at another counter');
+        }
+
         $now = now();
         $today = $now->toDateString();
 
@@ -327,27 +346,90 @@ class CounterService
                 'status' => CounterSessionStatus::Open,
             ]);
 
-            // Delete any existing till balances for this counter/date/currency that were not closed
-            // (they belong to a stale session that shouldn't exist)
+            // Update existing till balances to transfer to new user (preserve audit trail)
+            // The handover details are captured in CounterHandover table (variance_myr, etc.)
+            // Note: Due to unique constraint on (till_id, date, currency_code), we cannot
+            // create new records - instead we update opened_by to reflect new session owner
             $newTillBalanceIds = [];
+            $now = now();
             foreach ($physicalCounts as $count) {
                 $currencyCode = $currencies[$count['currency_id']] ?? null;
                 if ($currencyCode) {
-                    // Delete any existing open balances for this counter/date/currency
-                    TillBalance::where('till_id', (string) $newSession->counter_id)
+                    // Check if there's an existing open balance for this till/date/currency
+                    $existingBalance = TillBalance::where('till_id', (string) $newSession->counter_id)
                         ->where('currency_code', $currencyCode)
                         ->where('date', $today)
                         ->whereNull('closed_at')
-                        ->delete();
+                        ->first();
 
-                    // Create new till balance
-                    TillBalance::create([
-                        'till_id' => (string) $newSession->counter_id,
-                        'currency_code' => $currencyCode,
-                        'opening_balance' => $count['amount'],
-                        'date' => $today,
-                        'opened_by' => $toUser->id,
-                    ]);
+                    if ($existingBalance) {
+                        // Calculate variance for audit (for CounterHandover record)
+                        $variance = bcsub((string) $count['amount'], $existingBalance->opening_balance, 4);
+
+                        // Record handover details in notes field before updating
+                        $handoverNotes = json_encode([
+                            'type' => 'handover',
+                            'from_user' => $fromUser->id,
+                            'to_user' => $toUser->id,
+                            'supervisor' => $supervisor->id,
+                            'handover_time' => $now->toIso8601String(),
+                            'physical_count' => $count['amount'],
+                            'previous_opening' => $existingBalance->opening_balance,
+                            'variance' => $variance,
+                        ]);
+
+                        // Use lockForUpdate to prevent race conditions
+                        $lockedBalance = TillBalance::where('id', $existingBalance->id)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if ($lockedBalance) {
+                            // Single atomic update: close and reopen in one transaction
+                            // The CounterHandover table captures the variance and audit details
+                            $lockedBalance->closing_balance = $count['amount'];
+                            $lockedBalance->variance = $variance;
+                            $lockedBalance->closed_at = $now;
+                            $lockedBalance->closed_by = $fromUser->id;
+                            $lockedBalance->notes = $handoverNotes;
+                            $lockedBalance->opened_by = $toUser->id;
+                            $lockedBalance->save();
+
+                            // Refresh and reset for new session
+                            $lockedBalance->closing_balance = null;
+                            $lockedBalance->variance = '0.0000';
+                            $lockedBalance->closed_at = null;
+                            $lockedBalance->closed_by = null;
+                            $lockedBalance->notes = null;
+                            $lockedBalance->save();
+                        }
+                    } else {
+                        // No existing balance - check if there's a closed one for today
+                        $closedBalance = TillBalance::where('till_id', (string) $newSession->counter_id)
+                            ->where('currency_code', $currencyCode)
+                            ->whereDate('date', $today)
+                            ->first();
+
+                        if ($closedBalance) {
+                            // Reopen the closed balance with new user
+                            $closedBalance->opened_by = $toUser->id;
+                            $closedBalance->opening_balance = $count['amount'];
+                            $closedBalance->closing_balance = null;
+                            $closedBalance->variance = '0.0000';
+                            $closedBalance->closed_at = null;
+                            $closedBalance->closed_by = null;
+                            $closedBalance->notes = null;
+                            $closedBalance->save();
+                        } else {
+                            // Create new balance record
+                            TillBalance::create([
+                                'till_id' => (string) $newSession->counter_id,
+                                'currency_code' => $currencyCode,
+                                'opening_balance' => $count['amount'],
+                                'date' => $today,
+                                'opened_by' => $toUser->id,
+                            ]);
+                        }
+                    }
                     $newTillBalanceIds[] = $currencyCode;
                 }
             }

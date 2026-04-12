@@ -147,7 +147,7 @@ enum TransactionStatus: string
      */
     public function isOnHold(): bool
     {
-        return false;
+        return $this === self::OnHold;
     }
 
     /**

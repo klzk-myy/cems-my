@@ -250,6 +250,7 @@ class TransactionCancellationController extends Controller
             'purpose' => 'Refund: '.$original->purpose,
             'source_of_funds' => 'Refund',
             'status' => $status,
+            'hold_reason' => $holdReason,
             'cdd_level' => $original->cdd_level,
             'original_transaction_id' => $original->id,
             'is_refund' => true,
@@ -293,10 +294,19 @@ class TransactionCancellationController extends Controller
                 ],
             ];
         } else {
+            // SELL cancellation: use cost basis for inventory restoration
+            // We sold currency that we had acquired at average cost, not at the sale price
+            $position = $this->positionService->getPosition(
+                $transaction->currency_code,
+                $transaction->till_id ?? 'MAIN'
+            );
+            $avgCost = $position ? $position->avg_cost_rate : $transaction->rate;
+            $costBasis = $this->mathService->multiply((string) $transaction->amount_foreign, $avgCost);
+
             $entries = [
                 [
                     'account_code' => AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
-                    'debit' => $transaction->amount_local,
+                    'debit' => $costBasis,  // Restore inventory at cost basis, not sale price
                     'credit' => '0',
                     'description' => "Refund for cancelled transaction #{$transaction->id}",
                 ],
@@ -307,6 +317,24 @@ class TransactionCancellationController extends Controller
                     'description' => "Reversal: {$transaction->currency_code} refund",
                 ],
             ];
+
+            // Record gain/loss on cancellation if sale proceeds differ from cost basis
+            $gainLoss = $this->mathService->subtract($transaction->amount_local, $costBasis);
+            if ($this->mathService->compare($gainLoss, '0') !== 0) {
+                if ($this->mathService->compare($gainLoss, '0') > 0) {
+                    // Gain - we sold higher than cost, refund net of gain
+                    $entries[1]['credit'] = $costBasis;
+                    $entries[] = [
+                        'account_code' => AccountCode::FOREX_TRADING_REVENUE->value,
+                        'debit' => $gainLoss,
+                        'credit' => '0',
+                        'description' => "Loss recovery on {$transaction->currency_code} cancellation",
+                    ];
+                } else {
+                    // Loss - we sold lower than cost, refund net of loss
+                    $entries[1]['credit'] = $transaction->amount_local;
+                }
+            }
         }
 
         $this->accountingService->createJournalEntry(

@@ -8,11 +8,23 @@ use App\Models\StrReport;
 use App\Models\User;
 use App\Notifications\Compliance\StrEscalationNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
+/**
+ * STR Report Service
+ *
+ * Manages Suspicious Transaction Report (STR) lifecycle including
+ * generation, workflow, and BNM goAML submission.
+ *
+ * @see https://www.bnm.gov.my/goaml
+ */
 class StrReportService
 {
+    /**
+     * Generate a new STR number
+     */
     public function generateStrNumber(): string
     {
         $year = date('Y');
@@ -33,38 +45,26 @@ class StrReportService
         return $prefix.str_pad($newNumber, 5, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Generate STR from a flagged transaction
+     */
     public function generateFromAlert(FlaggedTransaction $alert): StrReport
     {
         return DB::transaction(function () use ($alert) {
-            // DEBUG: Log raw alert data
-            \Illuminate\Support\Facades\Log::info('STR generateFromAlert START', [
-                'alert_id_provided' => $alert->id,
-                'alert_customer_id' => $alert->getAttribute('customer_id'),
-                'alert_transaction_id' => $alert->getAttribute('transaction_id'),
-            ]);
-
             // Try transaction first
             if ($alert->getAttribute('transaction_id')) {
                 $txnId = $alert->getAttribute('transaction_id');
                 $transaction = \App\Models\Transaction::with('customer')->find($txnId);
-                \Illuminate\Support\Facades\Log::info('Transaction lookup', [
-                    'txn_id' => $txnId,
-                    'found' => $transaction ? true : false,
-                    'txn_customer' => $transaction?->customer ? ['id' => $transaction->customer->id] : null,
-                ]);
                 $customer = $transaction?->customer;
             } else {
                 $customer = null;
+                $transaction = null;
             }
 
             // Fall back to customer_id on alert
             if (! $customer && $alert->getAttribute('customer_id')) {
                 $custId = $alert->getAttribute('customer_id');
                 $customer = \App\Models\Customer::find($custId);
-                \Illuminate\Support\Facades\Log::info('Customer fallback lookup', [
-                    'cust_id' => $custId,
-                    'found' => $customer ? true : false,
-                ]);
             }
 
             if (! $customer) {
@@ -73,7 +73,7 @@ class StrReportService
 
             $branchId = $transaction?->branch_id ?? auth()->user()->branch_id ?? 1;
 
-            // Use the alert creation date as the suspicion date (when suspicion first arose)
+            // Use the alert creation date as the suspicion date
             $suspicionDate = $alert->created_at ?? now();
 
             $strReport = StrReport::create([
@@ -123,6 +123,14 @@ class StrReportService
         });
     }
 
+    /**
+     * Submit STR to BNM goAML system
+     *
+     * Implements certificate-based authentication with retry logic.
+     *
+     * @param  StrReport  $report  The STR report to submit
+     * @return bool True if submission succeeded
+     */
     public function submitToGoAML(StrReport $report): bool
     {
         if (! $report->status->canSubmit()) {
@@ -134,87 +142,262 @@ class StrReportService
             return false;
         }
 
-        try {
-            $goAmlPayload = $this->buildGoAMLPayload($report);
+        // Check if in test mode
+        if ($this->isTestMode()) {
+            Log::info('STR submission in TEST MODE', [
+                'str_id' => $report->id,
+                'str_no' => $report->str_no,
+            ]);
 
+            return $this->handleTestModeSubmission($report);
+        }
+
+        try {
+            // Generate goAML XML payload
+            $xmlPayload = $this->buildGoAMLPayload($report);
+
+            // Log attempt
             Log::info('Submitting STR to goAML', [
                 'str_id' => $report->id,
                 'str_no' => $report->str_no,
-                'payload' => $goAmlPayload,
+                'payload_size' => strlen($xmlPayload),
             ]);
 
-            $submitted = $this->callGoAMLApi($goAmlPayload);
+            // Call goAML API
+            $result = $this->callGoAMLApi($report, $xmlPayload);
 
-            if ($submitted) {
-                // Only mark as Submitted when API call actually succeeds
+            if ($result['success']) {
+                // Update report status
                 $report->update([
                     'status' => StrStatus::Submitted,
                     'submitted_at' => now(),
+                    'bnm_reference' => $result['reference'] ?? null,
+                ]);
+
+                // Clear retry tracking
+                $report->update([
+                    'last_error' => null,
+                    'last_retry_at' => null,
                 ]);
 
                 Log::info('STR submitted successfully', [
                     'str_id' => $report->id,
                     'str_no' => $report->str_no,
+                    'bnm_reference' => $result['reference'] ?? null,
                 ]);
 
-                // Audit log for successful submission
+                // Audit log
                 $auditService = app(AuditService::class);
                 $auditService->logStrAction('str_submitted', $report->id, [
                     'str_no' => $report->str_no,
+                    'bnm_reference' => $result['reference'] ?? null,
                     'submitted_at' => now()->toDateTimeString(),
                 ]);
 
                 return true;
             }
 
-            // API call returned false - mark as Failed with error details
-            $errorMessage = 'goAML API returned non-success response';
-            $report->update([
-                'status' => StrStatus::Failed,
-                'retry_count' => ($report->retry_count ?? 0) + 1,
-                'last_error' => $errorMessage,
-                'last_retry_at' => now(),
-            ]);
+            // Handle submission failure
+            return $this->handleSubmissionFailure($report, $result['error'] ?? 'Unknown error');
 
-            Log::error('STR submission failed - marked as Failed', [
-                'str_id' => $report->id,
-                'str_no' => $report->str_no,
-                'retry_count' => $report->retry_count,
-                'error' => $errorMessage,
-            ]);
-
-            // Audit log for failed submission
-            $auditService = app(AuditService::class);
-            $auditService->logStrAction('str_submission_failed', $report->id, [
-                'str_no' => $report->str_no,
-                'retry_count' => $report->retry_count,
-                'error' => $errorMessage,
-            ]);
-
-            return false;
         } catch (\Exception $e) {
             Log::error('STR submission exception', [
                 'str_id' => $report->id,
                 'error' => $e->getMessage(),
             ]);
 
-            // Mark as Failed on exception
-            $report->update([
-                'status' => StrStatus::Failed,
-                'retry_count' => ($report->retry_count ?? 0) + 1,
-                'last_error' => $e->getMessage(),
-                'last_retry_at' => now(),
-            ]);
-
-            return false;
+            return $this->handleSubmissionFailure($report, $e->getMessage());
         }
     }
 
     /**
-     * Retry a failed STR submission.
-     * Can be called manually by compliance officer or via scheduled job.
+     * Call goAML API with certificate authentication
      *
-     * @return bool True if submission succeeds, false otherwise
+     * @param  StrReport  $report  The STR report
+     * @param  string  $xmlPayload  The XML payload
+     * @return array ['success' => bool, 'reference' => string|null, 'error' => string|null]
+     */
+    protected function callGoAMLApi(StrReport $report, string $xmlPayload): array
+    {
+        $endpoint = config('services.goaml.endpoint', 'https://goaml.bnm.gov.my/api/v1');
+        $apiKey = config('services.goaml.api_key');
+
+        // Validate certificate configuration
+        $certIssues = $this->validateCertificateConfiguration();
+        if (! empty($certIssues)) {
+            Log::error('Certificate configuration missing', ['issues' => $certIssues]);
+
+            return [
+                'success' => false,
+                'error' => 'Certificate configuration incomplete: '.implode(', ', $certIssues),
+            ];
+        }
+
+        try {
+            // Build HTTP request with certificate authentication
+            $response = Http::withOptions([
+                'cert' => [
+                    config('services.goaml.cert_path'),
+                    config('services.goaml.cert_password', ''),
+                ],
+                'ssl_key' => [
+                    config('services.goaml.key_path'),
+                    config('services.goaml.key_password', ''),
+                ],
+                'verify' => config('services.goaml.ca_path'),
+                'timeout' => 60,
+                'connect_timeout' => 30,
+            ])
+                ->withHeaders([
+                    'Content-Type' => 'application/xml',
+                    'Accept' => 'application/json',
+                    'X-API-Key' => $apiKey,
+                    'X-STR-Reference' => $report->str_no,
+                ])
+                ->withBody($xmlPayload, 'application/xml')
+                ->post($endpoint.'/str/submit');
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                return [
+                    'success' => true,
+                    'reference' => $data['reference_number'] ?? $data['bnm_reference'] ?? null,
+                    'error' => null,
+                ];
+            }
+
+            // Log HTTP error
+            Log::warning('goAML API returned error', [
+                'http_code' => $response->status(),
+                'response' => $response->body(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => "HTTP {$response->status()}: ".$response->body(),
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('goAML API call failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Handle submission failure with retry logic
+     */
+    protected function handleSubmissionFailure(StrReport $report, string $error): bool
+    {
+        $maxRetries = config('services.goaml.max_retries', 5);
+        $newRetryCount = ($report->retry_count ?? 0) + 1;
+
+        $report->update([
+            'status' => StrStatus::Failed,
+            'retry_count' => $newRetryCount,
+            'last_error' => $error,
+            'last_retry_at' => now(),
+        ]);
+
+        Log::error('STR submission failed', [
+            'str_id' => $report->id,
+            'str_no' => $report->str_no,
+            'retry_count' => $newRetryCount,
+            'max_retries' => $maxRetries,
+            'error' => $error,
+        ]);
+
+        // Audit log
+        $auditService = app(AuditService::class);
+        $auditService->logStrAction('str_submission_failed', $report->id, [
+            'str_no' => $report->str_no,
+            'retry_count' => $newRetryCount,
+            'error' => $error,
+        ]);
+
+        // Dispatch retry job with exponential backoff
+        if ($newRetryCount < $maxRetries) {
+            $delay = $this->calculateRetryDelay($newRetryCount);
+            \App\Jobs\SubmitStrToGoAmlJob::dispatch($report)
+                ->delay(now()->addSeconds($delay));
+
+            Log::info('STR retry scheduled', [
+                'str_id' => $report->id,
+                'str_no' => $report->str_no,
+                'delay_minutes' => $delay / 60,
+                'attempt' => $newRetryCount,
+            ]);
+        } else {
+            // Max retries exceeded - escalate
+            $this->escalateToSupervisor($report);
+        }
+
+        return false;
+    }
+
+    /**
+     * Calculate retry delay with exponential backoff
+     *
+     * Delays: 1min, 5min, 10min, 30min, 60min
+     */
+    protected function calculateRetryDelay(int $attempt): int
+    {
+        $delays = [60, 300, 600, 1800, 3600]; // seconds
+
+        return $delays[min($attempt - 1, count($delays) - 1)] ?? 3600;
+    }
+
+    /**
+     * Handle test mode submission
+     */
+    protected function handleTestModeSubmission(StrReport $report): bool
+    {
+        $testResponse = $this->getTestModeResponse();
+
+        if ($testResponse) {
+            // Simulate success
+            $report->update([
+                'status' => StrStatus::Submitted,
+                'submitted_at' => now(),
+                'bnm_reference' => 'TEST-'.strtoupper(uniqid()),
+            ]);
+
+            Log::info('STR submitted successfully (TEST MODE)', [
+                'str_id' => $report->id,
+                'str_no' => $report->str_no,
+            ]);
+        } else {
+            // Simulate failure
+            $this->handleSubmissionFailure($report, 'Simulated test failure');
+        }
+
+        return $testResponse;
+    }
+
+    /**
+     * Check if test mode is enabled
+     */
+    protected function isTestMode(): bool
+    {
+        return config('services.goaml.test_mode', false) === true;
+    }
+
+    /**
+     * Get test mode response (success or failure)
+     */
+    protected function getTestModeResponse(): bool
+    {
+        return config('services.goaml.test_mode_response', true);
+    }
+
+    /**
+     * Retry a failed STR submission
      */
     public function retrySubmission(StrReport $report): bool
     {
@@ -237,8 +420,6 @@ class StrReportService
                 'max_retries' => $maxRetries,
             ]);
 
-            // Trigger supervisor escalation notification
-            // This dispatches a job to notify compliance supervisors
             $this->escalateToSupervisor($report);
 
             return false;
@@ -250,22 +431,19 @@ class StrReportService
             'attempt' => ($report->retry_count ?? 0) + 1,
         ]);
 
-        // Revert status to PendingApproval so submitToGoAML will accept it
-        // Failed STRs need to be re-submitted as they were originally in PendingApproval
+        // Revert status to allow submission
         $report->update(['status' => StrStatus::PendingApproval]);
         $report->refresh();
 
-        // Attempt submission again
+        // Attempt submission
         return $this->submitToGoAML($report);
     }
 
     /**
-     * Escalate a repeatedly failed STR to supervisor for manual intervention.
-     * Sends notifications to all compliance officers and managers.
+     * Escalate repeatedly failed STR to supervisor
      */
     protected function escalateToSupervisor(StrReport $report): void
     {
-        // Log escalation for supervisor attention
         Log::critical('STR submission escalated to supervisor', [
             'str_id' => $report->id,
             'str_no' => $report->str_no,
@@ -279,7 +457,7 @@ class StrReportService
             'last_error' => 'Escalated to supervisor after '.$report->retry_count.' failed attempts',
         ]);
 
-        // Audit log for escalation
+        // Audit log
         $auditService = app(AuditService::class);
         $auditService->logStrAction('str_escalated', $report->id, [
             'str_no' => $report->str_no,
@@ -288,23 +466,22 @@ class StrReportService
             'is_overdue' => $report->isOverdue(),
         ]);
 
-        // Send notification to compliance supervisors
+        // Send notification
         $this->sendEscalationNotification($report);
     }
 
     /**
-     * Send escalation notification to compliance officers and managers.
+     * Send escalation notification
      */
     protected function sendEscalationNotification(StrReport $report): void
     {
         try {
-            // Get all compliance officers and managers
             $supervisors = User::whereIn('role', ['compliance_officer', 'manager', 'admin'])
                 ->where('is_active', true)
                 ->get();
 
             if ($supervisors->isEmpty()) {
-                Log::warning('No supervisors found for STR escalation notification', [
+                Log::warning('No supervisors found for STR escalation', [
                     'str_id' => $report->id,
                     'str_no' => $report->str_no,
                 ]);
@@ -312,27 +489,24 @@ class StrReportService
                 return;
             }
 
-            // Send notification to supervisors
-            Notification::send(
-                $supervisors,
-                new StrEscalationNotification($report)
-            );
+            Notification::send($supervisors, new StrEscalationNotification($report));
 
             Log::info('STR escalation notifications sent', [
                 'str_id' => $report->id,
                 'str_no' => $report->str_no,
                 'supervisors_notified' => $supervisors->count(),
-                'supervisor_ids' => $supervisors->pluck('id')->toArray(),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send STR escalation notifications', [
                 'str_id' => $report->id,
-                'str_no' => $report->str_no,
                 'error' => $e->getMessage(),
             ]);
         }
     }
 
+    /**
+     * Track BNM acknowledgment
+     */
     public function trackSubmission(StrReport $report, string $bnmRef): void
     {
         $report->update([
@@ -347,6 +521,9 @@ class StrReportService
         ]);
     }
 
+    /**
+     * Submit STR for review
+     */
     public function submitForReview(StrReport $report): bool
     {
         if (! $report->isDraft()) {
@@ -358,6 +535,9 @@ class StrReportService
         return true;
     }
 
+    /**
+     * Submit STR for approval
+     */
     public function submitForApproval(StrReport $report): bool
     {
         if (! $report->status->canApprove()) {
@@ -372,21 +552,27 @@ class StrReportService
         return true;
     }
 
+    /**
+     * Approve STR
+     */
     public function approve(StrReport $report): bool
     {
-        if (! $report->status->canSubmit()) {
+        if (! $report->status->canApprove()) {
             return false;
         }
 
         $report->update([
-            'status' => StrStatus::PendingApproval,
+            'status' => StrStatus::Submitted,
             'approved_by' => auth()->id(),
         ]);
 
         return true;
     }
 
-    private function buildReasonFromAlert(FlaggedTransaction $alert): string
+    /**
+     * Build reason text from alert
+     */
+    protected function buildReasonFromAlert(FlaggedTransaction $alert): string
     {
         $reason = "Suspicious Transaction Alert - {$alert->flag_type->value}\n\n";
         $reason .= "Flag Reason: {$alert->flag_reason}\n";
@@ -403,7 +589,10 @@ class StrReportService
         return $reason;
     }
 
-    private function gatherSupportingDocuments(FlaggedTransaction $alert): array
+    /**
+     * Gather supporting documents
+     */
+    protected function gatherSupportingDocuments(FlaggedTransaction $alert): array
     {
         $documents = [];
 
@@ -422,78 +611,35 @@ class StrReportService
         return $documents;
     }
 
-    private function buildGoAMLPayload(StrReport $report): array
+    /**
+     * Build goAML XML payload
+     */
+    protected function buildGoAMLPayload(StrReport $report): string
     {
-        $report->load('customer');
+        $generator = new GoAmlXmlGenerator;
 
-        return [
-            'str_no' => $report->str_no,
-            'submission_date' => now()->format('Y-m-d\TH:i:s'),
-            'branch' => [
-                'code' => $report->branch?->code ?? 'HQ',
-                'name' => $report->branch?->name ?? 'Head Office',
-            ],
-            'customer' => [
-                'id' => $report->customer->id,
-                'name' => $report->customer->full_name,
-                'id_type' => $report->customer->id_type,
-                'nationality' => $report->customer->nationality,
-                'pep_status' => $report->customer->pep_status,
-            ],
-            'transactions' => $report->transactions()->map(function ($txn) {
-                return [
-                    'id' => $txn->id,
-                    'amount' => $txn->amount_local,
-                    'currency' => $txn->currency,
-                    'date' => $txn->created_at->format('Y-m-d\TH:i:s'),
-                    'type' => $txn->transaction_type,
-                ];
-            })->toArray(),
-            'reason' => $report->reason,
-            'supporting_documents' => $report->supporting_documents,
-            'filed_by' => $report->creator?->full_name ?? 'Unknown',
-            'filed_at' => $report->created_at->format('Y-m-d\TH:i:s'),
-        ];
+        return $generator->generate($report);
     }
 
-    private function callGoAMLApi(array $payload): bool
+    /**
+     * Validate certificate configuration
+     */
+    protected function validateCertificateConfiguration(): array
     {
-        $goAmlEndpoint = config('services.goaml.endpoint', 'https://goaml.bnm.gov.my/api/v1');
-        $apiKey = config('services.goaml.api_key');
+        $config = config('services.goaml', []);
+        $missing = [];
 
-        try {
-            $ch = curl_init($goAmlEndpoint.'/str');
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_HTTPHEADER => [
-                    'Content-Type: application/json',
-                    'Authorization: Bearer '.$apiKey,
-                ],
-                CURLOPT_POSTFIELDS => json_encode($payload),
-                CURLOPT_TIMEOUT => 30,
-            ]);
+        // Required for production
+        $required = ['cert_path', 'key_path', 'ca_path'];
 
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            if ($httpCode >= 200 && $httpCode < 300) {
-                return true;
+        foreach ($required as $key) {
+            if (empty($config[$key])) {
+                $missing[] = $key;
+            } elseif (! file_exists($config[$key])) {
+                $missing[] = "{$key} (file not found: {$config[$key]})";
             }
-
-            Log::warning('goAML API returned non-success status', [
-                'http_code' => $httpCode,
-                'response' => $response,
-            ]);
-
-            return false;
-        } catch (\Exception $e) {
-            Log::error('goAML API call failed', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
         }
+
+        return $missing;
     }
 }

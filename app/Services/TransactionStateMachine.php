@@ -28,6 +28,11 @@ class TransactionStateMachine
             'Rejected',
             'Cancelled',
         ],
+        'Pending' => [           // Large transaction awaiting manager approval
+            'Approved',
+            'OnHold',
+            'Cancelled',
+        ],
         'Approved' => [
             'Processing',
             'Cancelled',
@@ -47,9 +52,15 @@ class TransactionStateMachine
         'Reversed' => [],
         'Failed' => [
             'PendingApproval',
+            'Pending',
             'Cancelled',
         ],
         'Rejected' => [
+            'Cancelled',
+        ],
+        'OnHold' => [            // Transaction on hold awaiting compliance review
+            'Pending',
+            'Approved',
             'Cancelled',
         ],
     ];
@@ -317,6 +328,45 @@ class TransactionStateMachine
     public function cancel(string $reason): bool
     {
         return $this->transitionTo(TransactionStatus::Cancelled, ['reason' => $reason]);
+    }
+
+    /**
+     * Place transaction on hold (compliance review required).
+     * Pending -> OnHold
+     *
+     * @param  string  $reason  The reason for hold
+     * @return bool True if transition was successful
+     */
+    public function hold(string $reason): bool
+    {
+        return $this->transitionTo(TransactionStatus::OnHold, ['reason' => $reason]);
+    }
+
+    /**
+     * Release transaction from hold back to pending.
+     * OnHold -> Pending (re-submit for approval)
+     *
+     * @return bool True if transition was successful
+     */
+    public function release(): bool
+    {
+        // release() is only valid from OnHold state
+        if (! $this->transaction->status->isOnHold()) {
+            return false;
+        }
+
+        return $this->transitionTo(TransactionStatus::Pending);
+    }
+
+    /**
+     * Approve a pending transaction (large transaction flow).
+     * Pending -> Approved
+     *
+     * @return bool True if transition was successful
+     */
+    public function approvePending(): bool
+    {
+        return $this->transitionTo(TransactionStatus::Approved);
     }
 
     /**

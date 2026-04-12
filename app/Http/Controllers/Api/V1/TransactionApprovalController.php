@@ -33,9 +33,13 @@ class TransactionApprovalController extends Controller
      * - Double-entry accounting journal entries
      * - AML/Compliance monitoring before approval
      * - Audit logging
+     *
+     * @throws \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
      */
     public function approve(Request $request, int $transactionId): JsonResponse
     {
+        $this->requireManagerOrAdmin();
+
         $transaction = Transaction::findOrFail($transactionId);
 
         if (! $transaction->status->isPending()) {

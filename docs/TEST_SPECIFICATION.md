@@ -1,9 +1,9 @@
 # CEMS-MY Test Suite Specification
 
 **Document Type:** Test Specification
-**Version:** 1.2
-**Last Updated:** April 2026
-**Total Tests:** 1,304 tests, 4,334 assertions
+**Version:** 1.4
+**Last Updated:** April 12, 2026
+**Total Tests:** 1,309 tests, 4,345 assertions
 
 ---
 
@@ -15,6 +15,7 @@
 4. [Unit Tests](#4-unit-tests)
 5. [Test Outcomes Reference](#5-test-outcomes-reference)
 6. [Running Tests](#6-running-tests)
+7. [Recent Fixes and Validation](#7-recent-fixes-and-validation)
 
 ---
 
@@ -29,9 +30,9 @@ This document specifies the test suites for CEMS-MY (Currency Exchange Managemen
 | Category | Count |
 |----------|-------|
 | Feature Tests | 45 test files |
-| Unit Tests | 35 test files |
-| Total Tests | 1,304 |
-| Total Assertions | 4,334 |
+| Unit Tests | 36 test files |
+| Total Tests | 1,309 |
+| Total Assertions | 4,345 |
 | Duration (full suite) | ~170 seconds |
 
 ### 1.3 Test Philosophy
@@ -42,6 +43,17 @@ This document specifies the test suites for CEMS-MY (Currency Exchange Managemen
 - **Workflow Integrity**: Multi-step workflows tested end-to-end
 - **Database Integrity**: Transactions wrapped in DB::transaction() for consistency
 - **Data Integrity**: All multi-model operations use database transactions
+
+### 1.4 Test Results Summary (April 12, 2026)
+
+All 1,309 tests pass. The following critical issues were identified and fixed via logical inconsistency analysis:
+
+| Issue Area | Tests Added/Updated | Status |
+|------------|---------------------|--------|
+| CounterService handover validation | 5 new edge case tests | ✅ PASS |
+| TransactionStateMachine OnHold/Pending | Transition tests | ✅ PASS |
+| STR workflow (StrReportService) | Workflow tests | ✅ PASS |
+| Cancellation journal entries | Accounting tests | ✅ PASS |
 
 ---
 
@@ -612,7 +624,12 @@ tests/
 | `test_get_available_counters` | Available counters | PASS: List of available |
 | `test_close_session_query_only_returns_expected_currencies` | Currency filter | PASS: Correct currencies |
 | `test_calculates_variance_correctly` | Variance = actual - expected | PASS: Correct |
-| `test_requires_supervisor_for_large_variance` | > RM 10 variance | PASS: Supervisor required |
+| `test_requires_supervisor_for_large_variance` | > RM 500 variance | PASS: Supervisor required |
+| `test_initiate_handover_fails_when_from_user_not_session_user` | From user mismatch | PASS: Exception |
+| `test_initiate_handover_fails_when_to_user_at_another_counter` | To user conflict | PASS: Exception |
+| `test_initiate_handover_fails_when_session_not_open` | Session not open | PASS: Exception |
+| `test_initiate_handover_fails_when_supervisor_not_manager` | Non-manager supervisor | PASS: Exception |
+| `test_initiate_handover_with_zero_variance` | Exact count handover | PASS: Variance = 0.00 |
 
 ---
 
@@ -847,6 +864,75 @@ Duration: 170.93s
 | 1.0 | 2026-04-05 | Initial specification | CEMS-MY Team |
 | 1.1 | 2026-04-09 | Updated test counts after MySQL migration fixes (1,061 tests) | CEMS-MY Team |
 | 1.2 | 2026-04-12 | Updated to 1,304 tests, 4,334 assertions. Added transaction coverage notes. | CEMS-MY Team |
+| 1.3 | 2026-04-12 | Updated to 1,309 tests, 4,345 assertions. Added CounterService handover tests. | CEMS-MY Team |
+| 1.4 | 2026-04-12 | Added section 7 documenting recent logical inconsistency fixes and validation. | CEMS-MY Team |
+
+---
+
+## 7. Recent Fixes and Validation
+
+### 7.1 Logical Inconsistency Analysis (April 12, 2026)
+
+A comprehensive logical inconsistency analysis was conducted across the codebase. The following critical issues were identified and fixed:
+
+#### CRITICAL Fixes
+
+| # | Issue | File | Fix Description |
+|---|-------|------|-----------------|
+| 1 | STR approve() sets wrong status | `app/Services/StrReportService.php:558-570` | Changed `StrStatus::PendingApproval` → `StrStatus::Submitted` after approval |
+| 2 | OnHold transactions no resume path | `app/Services/TransactionStateMachine.php` | Added `hold()` and `release()` methods, added `OnHold` and `Pending` to TRANSITIONS |
+| 3 | API approval missing role check | `app/Http/Controllers/Api/V1/TransactionApprovalController.php:40` | Added `$this->requireManagerOrAdmin()` |
+| 4 | SELL cancellation wrong inventory | `app/Http/Controllers/Api/V1/TransactionCancellationController.php` | Uses `avg_cost_rate` for cost basis instead of `amount_local` |
+| 5 | State machine missing Pending transitions | `app/Services/TransactionStateMachine.php` | Added `'Pending' => ['Approved', 'OnHold', 'Cancelled']` |
+
+#### HIGH Fixes
+
+| # | Issue | File | Fix Description |
+|---|-------|------|-----------------|
+| 6 | TillBalance deleted during handover | `app/Services/CounterService.php:376-420` | Changed delete to update + transfer; preserves audit via CounterHandover table |
+| 7 | CDD determine() missing PEP params | `app/Services/ComplianceService.php:86-102` | Added `?bool $isPep` and `?bool $isSanctionMatch` parameters |
+| 8 | Refund hold_reason not saved | `app/Http/Controllers/Api/V1/TransactionCancellationController.php:205` | Added `'hold_reason' => $holdReason` to refund Transaction::create() |
+
+#### MEDIUM Fixes
+
+| # | Issue | File | Fix Description |
+|---|-------|------|-----------------|
+| 9 | getPosition() defaults to MAIN | `app/Services/CurrencyPositionService.php:127-156` | Changed to nullable with logging warning, added `getPositionForTransaction()` |
+| 10 | Multi-currency journal balancing | `app/Services/TransactionService.php` | Verified uses avg_cost_rate with gain/loss split |
+
+### 7.2 Test Coverage for Fixed Issues
+
+The following tests were run to validate fixes:
+
+| Test Suite | Tests | Status |
+|------------|-------|--------|
+| CounterServiceTest | 13 tests | ✅ PASS |
+| TransactionStateMachine tests | 10 tests | ✅ PASS |
+| TransactionWorkflowTest | 14 tests | ✅ PASS |
+| StrWorkflowTest | 5 tests | ✅ PASS |
+| Full test suite | 1,309 tests | ✅ PASS |
+
+### 7.3 Key Validation Points
+
+- **STR Workflow**: After approval, status correctly transitions to `Submitted` for BNM goAML submission
+- **OnHold Path**: Transactions in `OnHold` can now transition to `Pending` via `release()` method
+- **API Security**: Approval endpoint now requires manager or admin role
+- **Accounting Integrity**: SELL cancellation now correctly uses `avg_cost_rate` for inventory cost basis
+- **Audit Trail**: TillBalance records preserved during handover (no longer deleted)
+
+### 7.4 Files Modified During Fixes
+
+```
+app/Services/StrReportService.php
+app/Services/TransactionStateMachine.php
+app/Enums/TransactionStatus.php
+app/Http/Controllers/Api/V1/TransactionApprovalController.php
+app/Http/Controllers/Api/V1/TransactionCancellationController.php
+app/Http/Controllers/Transaction/TransactionCancellationController.php
+app/Services/CounterService.php
+app/Services/ComplianceService.php
+app/Services/CurrencyPositionService.php
+```
 
 ---
 

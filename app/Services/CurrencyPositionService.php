@@ -121,14 +121,45 @@ class CurrencyPositionService
      * Get a specific currency position.
      *
      * @param  string  $currencyCode  Currency code (e.g., 'USD', 'EUR')
-     * @param  string  $tillId  Till identifier (default: 'MAIN')
+     * @param  string|null  $tillId  Till identifier (default: 'MAIN' with warning log)
      * @return CurrencyPosition|null Position model or null if not found
      */
-    public function getPosition(string $currencyCode, string $tillId = 'MAIN'): ?CurrencyPosition
+    public function getPosition(string $currencyCode, ?string $tillId = null): ?CurrencyPosition
     {
+        // If no till specified, use MAIN as fallback (but log a warning)
+        if ($tillId === null) {
+            \Illuminate\Support\Facades\Log::warning(
+                'getPosition called without till_id - using MAIN as fallback',
+                [
+                    'currency_code' => $currencyCode,
+                    'stack_trace' => collect(debug_backtrace())->take(5)->pluck('file')->toArray(),
+                ]
+            );
+            $tillId = 'MAIN';
+        }
+
         return CurrencyPosition::where('currency_code', $currencyCode)
             ->where('till_id', $tillId)
             ->first();
+    }
+
+    /**
+     * Get position for a specific transaction (required till_id).
+     *
+     * @param  string  $currencyCode  Currency code (e.g., 'USD', 'EUR')
+     * @param  string  $tillId  Till identifier (required)
+     * @return CurrencyPosition|null Position model or null if not found
+     * @throws \InvalidArgumentException If till_id is empty or invalid
+     */
+    public function getPositionForTransaction(string $currencyCode, string $tillId): ?CurrencyPosition
+    {
+        if (empty($tillId) || $tillId === 'undefined') {
+            throw new \InvalidArgumentException(
+                'till_id is required for position lookup. Transaction must specify a till.'
+            );
+        }
+
+        return $this->getPosition($currencyCode, $tillId);
     }
 
     /**
