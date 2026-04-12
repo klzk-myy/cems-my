@@ -464,12 +464,12 @@ public function test_negative_balance_prevented() {
 ## 9. Document Information
 
 - **Analysis Date**: 2026-04-01
-- **Last Updated**: 2026-04-01
+- **Last Updated**: 2026-04-12
 - **Risk Level**: LOW (Previously HIGH → MEDIUM → LOW)
 - **Action Required**: None - all critical issues resolved
 - **Review By**: Security Team
 - **Next Review**: Quarterly (2026-07-01)
-- **Test Results**: 24/24 tests passing ✅
+- **Test Results**: 1,304 tests passing ✅
 
 ---
 
@@ -482,3 +482,39 @@ public function test_negative_balance_prevented() {
 | 2026-04-04 | Fixed 11 accounting logic faults (CRITICAL: #2, HIGH: #3, #4, #5, #6, MODERATE: #7, #8, #9, #10, #11) |
 | 2026-04-04 | Status updated to LOW - all critical and high priority issues resolved |
 | 2026-04-04 | Added 49 new unit tests with 127 assertions, 100% pass rate |
+| 2026-04-12 | Fixed 9 missing database transactions, added 27 new tests |
+
+---
+
+## 2026-04-12 Database Transaction Fixes
+
+### Issue: Missing Database Transactions
+
+**Problem**: Several services performed multi-model operations without `DB::transaction()` wrapping, risking data inconsistency if one operation succeeded and another failed.
+
+**Services Fixed**:
+
+| Service | Method | Risk |
+|---------|--------|------|
+| `StrAutomationService::generateFromCase()` | StrDraft + event not atomic | Event dispatched before commit |
+| `StrAutomationService::convertToStrReport()` | StrReport + StrDraft update separate | Orphan StrReport if update fails |
+| `AlertTriageService::resolveAlert()` | Alert + FlaggedTransaction separate | case_id=null but flag refs old case |
+| `AlertTriageService::bulkResolve()` | Loop without transaction | Partial completion |
+| `AlertTriageService::bulkLinkToCase()` | Individual updates in loop | Inconsistent linkages |
+| `ReconciliationService::importStatement()` | Multiple records in loop | Partial import |
+| `TransactionMonitoringService::monitorTransaction()` | Flags + status separate | Transaction on-hold without flags |
+| `RiskScoringEngine::recalculateForCustomer()` | No row locking | Race condition |
+| `StockTransferService::receiveItems()` | Item updates + status separate | Partial receipt |
+
+### Additional Fix
+
+- `StockTransferService::cancel()` - Added validation to prevent cancelling already-cancelled transfers
+
+### Test Coverage
+
+- **Before**: 1277 tests passing
+- **After**: 1304 tests passing (+27 new tests)
+
+### Status
+
+**Risk Level**: 🟢 **LOW** - All data integrity issues resolved

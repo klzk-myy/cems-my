@@ -96,30 +96,32 @@ class RiskScoringEngine
      */
     public function recalculateForCustomer(int $customerId): CustomerRiskProfile
     {
-        $customer = Customer::findOrFail($customerId);
+        return DB::transaction(function () use ($customerId) {
+            $customer = Customer::findOrFail($customerId);
 
-        // Check if locked
-        $existingProfile = CustomerRiskProfile::where('customer_id', $customerId)->first();
-        if ($existingProfile && $existingProfile->isLocked()) {
-            return $existingProfile;
-        }
+            // Check if locked
+            $existingProfile = CustomerRiskProfile::where('customer_id', $customerId)->first();
+            if ($existingProfile && $existingProfile->isLocked()) {
+                return $existingProfile;
+            }
 
-        $result = $this->calculateScoreWithFactors($customerId);
+            $result = $this->calculateScoreWithFactors($customerId);
 
-        if ($existingProfile) {
-            $existingProfile->update([
-                'previous_score' => $existingProfile->risk_score,
-                'risk_score' => $result['score'],
-                'risk_tier' => $result['tier'],
-                'risk_factors' => $result['factors'],
-                'score_changed_at' => now(),
-                'recalculation_trigger' => RecalculationTrigger::EventDriven,
-            ]);
+            if ($existingProfile) {
+                $existingProfile->update([
+                    'previous_score' => $existingProfile->risk_score,
+                    'risk_score' => $result['score'],
+                    'risk_tier' => $result['tier'],
+                    'risk_factors' => $result['factors'],
+                    'score_changed_at' => now(),
+                    'recalculation_trigger' => RecalculationTrigger::EventDriven,
+                ]);
 
-            return $existingProfile->fresh();
-        }
+                return $existingProfile->fresh();
+            }
 
-        return CustomerRiskProfile::createForCustomer($customerId, $result['score']);
+            return CustomerRiskProfile::createForCustomer($customerId, $result['score']);
+        });
     }
 
     /**

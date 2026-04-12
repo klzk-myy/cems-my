@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BankReconciliation;
 use App\Models\JournalEntry;
+use Illuminate\Support\Facades\DB;
 
 class ReconciliationService
 {
@@ -12,37 +13,37 @@ class ReconciliationService
      */
     public function importStatement(string $accountCode, array $lines, int $userId): array
     {
-        $imported = [];
+        return DB::transaction(function () use ($accountCode, $lines, $userId) {
+            $imported = [];
 
-        foreach ($lines as $line) {
-            $record = BankReconciliation::create([
-                'account_code' => $accountCode,
-                'statement_date' => $line['date'],
-                'reference' => $line['reference'] ?? null,
-                'description' => $line['description'],
-                'debit' => $line['debit'] ?? 0,
-                'credit' => $line['credit'] ?? 0,
-                'status' => 'unmatched',
-                'created_by' => $userId,
-                // Check fields if present
-                'check_number' => $line['check_number'] ?? null,
-                'check_date' => $line['check_date'] ?? null,
-                'check_status' => $line['check_status'] ?? null,
-                'check_payee' => $line['check_payee'] ?? null,
-            ]);
+            foreach ($lines as $line) {
+                $record = BankReconciliation::create([
+                    'account_code' => $accountCode,
+                    'statement_date' => $line['date'],
+                    'reference' => $line['reference'] ?? null,
+                    'description' => $line['description'],
+                    'debit' => $line['debit'] ?? 0,
+                    'credit' => $line['credit'] ?? 0,
+                    'status' => 'unmatched',
+                    'created_by' => $userId,
+                    'check_number' => $line['check_number'] ?? null,
+                    'check_date' => $line['check_date'] ?? null,
+                    'check_status' => $line['check_status'] ?? null,
+                    'check_payee' => $line['check_payee'] ?? null,
+                ]);
 
-            $imported[] = $record;
-        }
+                $imported[] = $record;
+            }
 
-        // Auto-match where possible
-        $this->autoMatch($accountCode);
+            $this->autoMatch($accountCode);
 
-        return [
-            'imported' => count($imported),
-            'unmatched' => BankReconciliation::where('account_code', $accountCode)
-                ->where('status', 'unmatched')
-                ->count(),
-        ];
+            return [
+                'imported' => count($imported),
+                'unmatched' => BankReconciliation::where('account_code', $accountCode)
+                    ->where('status', 'unmatched')
+                    ->count(),
+            ];
+        });
     }
 
     /**

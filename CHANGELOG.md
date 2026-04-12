@@ -2,6 +2,61 @@
 
 All notable changes to the CEMS-MY system will be documented in this file.
 
+## [1.3.0] - 2026-04-12 - Database Transaction Fixes & Test Coverage
+
+### Critical Fixes
+
+#### Fixed Missing Database Transactions (9 Services)
+All multi-model operations now wrapped in `DB::transaction()` for data integrity:
+
+| Service | Method | Issue Fixed |
+|---------|--------|-------------|
+| `StrAutomationService` | `generateFromCase()` | StrDraft + event atomicity |
+| `StrAutomationService` | `convertToStrReport()` | StrReport create + StrDraft update |
+| `AlertTriageService` | `resolveAlert()` | Alert + FlaggedTransaction update |
+| `AlertTriageService` | `bulkResolve()` | Loop without transaction |
+| `AlertTriageService` | `bulkLinkToCase()` | Individual updates in loop |
+| `ReconciliationService` | `importStatement()` | Multiple BankReconciliation creates |
+| `TransactionMonitoringService` | `monitorTransaction()` | Flags + status update atomicity |
+| `RiskScoringEngine` | `recalculateForCustomer()` | Race condition prevention |
+| `StockTransferService` | `receiveItems()` | Multiple item updates + status |
+
+#### Added Business Validation
+- `StockTransferService::cancel()` - Now validates transfer is not already cancelled
+
+### Test Coverage Added
+
+#### StockTransferServiceTest (13 new tests)
+- State transition validation tests
+- Item handling edge cases (zero quantity, exceeding original, already received)
+- Validation tests (empty items, cancel already cancelled, cancel completed)
+- Role validation for ComplianceOfficer
+
+#### BudgetTest (8 new tests)
+- Variance when budget_amount = 0
+- Negative actual amounts
+- Variance percentage with negative actual
+- Budget with no transactions
+- Invalid account code handling
+- Large budget amounts BCMath precision
+- Small variance percentage precision
+
+### Files Modified
+- `app/Services/StrAutomationService.php`
+- `app/Services/AlertTriageService.php`
+- `app/Services/ReconciliationService.php`
+- `app/Services/TransactionMonitoringService.php`
+- `app/Services/Compliance/RiskScoringEngine.php`
+- `app/Services/StockTransferService.php`
+- `tests/Unit/StockTransferServiceTest.php`
+- `tests/Feature/BudgetTest.php`
+
+### Test Results
+- **Before**: 1277 tests passing
+- **After**: 1304 tests passing (+27 new tests)
+
+---
+
 ## [1.2.0] - 2026-04-04 - Critical Accounting Logic Fixes
 
 ### Critical Fixes

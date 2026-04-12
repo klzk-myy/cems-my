@@ -458,4 +458,125 @@ class BudgetTest extends TestCase
         $response->assertSee('Total Actual');
         $response->assertSee('Total Variance');
     }
+
+    public function test_variance_when_budget_amount_is_zero(): void
+    {
+        $budget = Budget::create([
+            'account_code' => '6000',
+            'period_code' => $this->currentPeriod->period_code,
+            'budget_amount' => '0',
+            'actual_amount' => '0',
+            'created_by' => $this->managerUser->id,
+        ]);
+
+        $this->assertEquals(0.0, $budget->getVariance());
+        $this->assertEquals(0, $budget->getVariancePercentage());
+        $this->assertFalse($budget->isOverBudget());
+    }
+
+    public function test_variance_with_negative_actual_amount(): void
+    {
+        $budget = Budget::create([
+            'account_code' => '6000',
+            'period_code' => $this->currentPeriod->period_code,
+            'budget_amount' => '20000.00',
+            'actual_amount' => '-5000.00',
+            'created_by' => $this->managerUser->id,
+        ]);
+
+        $this->assertEquals(25000.00, $budget->getVariance());
+        $this->assertFalse($budget->isOverBudget());
+        $this->assertEquals(125.00, $budget->getVariancePercentage());
+    }
+
+    public function test_variance_percentage_when_actual_is_negative(): void
+    {
+        $budget = Budget::create([
+            'account_code' => '5000',
+            'period_code' => $this->currentPeriod->period_code,
+            'budget_amount' => '10000.00',
+            'actual_amount' => '-2000.00',
+            'created_by' => $this->managerUser->id,
+        ]);
+
+        $this->assertEquals(12000.00, $budget->getVariance());
+        $this->assertEquals(120.00, $budget->getVariancePercentage());
+    }
+
+    public function test_budget_with_no_transactions(): void
+    {
+        $budget = Budget::create([
+            'account_code' => '5000',
+            'period_code' => $this->currentPeriod->period_code,
+            'budget_amount' => '50000.00',
+            'actual_amount' => '0',
+            'created_by' => $this->managerUser->id,
+        ]);
+
+        $this->assertEquals(50000.00, $budget->getVariance());
+        $this->assertEquals(100.00, $budget->getVariancePercentage());
+        $this->assertFalse($budget->isOverBudget());
+    }
+
+    public function test_set_budget_with_invalid_account_code(): void
+    {
+        $service = app(\App\Services\BudgetService::class);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+
+        $service->setBudget('9999', $this->currentPeriod->period_code, '50000.00', $this->managerUser->id);
+    }
+
+    public function test_set_budget_on_closed_period(): void
+    {
+        $closedPeriod = AccountingPeriod::create([
+            'period_code' => now()->subMonths(2)->format('Y-m'),
+            'start_date' => now()->subMonths(2)->startOfMonth(),
+            'end_date' => now()->subMonths(2)->endOfMonth(),
+            'period_type' => 'month',
+            'status' => 'closed',
+        ]);
+
+        $response = $this->actingAs($this->managerUser)->post('/accounting/budget', [
+            'period_code' => $closedPeriod->period_code,
+            'budgets' => [
+                ['account_code' => '5000', 'amount' => '50000.00'],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+    }
+
+    public function test_large_budget_amounts_bcmath_precision(): void
+    {
+        $budget = Budget::create([
+            'account_code' => '5000',
+            'period_code' => $this->currentPeriod->period_code,
+            'budget_amount' => '999999999999.99',
+            'actual_amount' => '888888888888.88',
+            'created_by' => $this->managerUser->id,
+        ]);
+
+        $expectedVariance = '111111111111.11';
+        $variance = $budget->getVariance();
+        $this->assertEqualsWithDelta((float) $expectedVariance, $variance, 0.01);
+
+        $expectedVariancePct = (111111111111.11 / 999999999999.99) * 100;
+        $this->assertEqualsWithDelta($expectedVariancePct, $budget->getVariancePercentage(), 0.0001);
+    }
+
+    public function test_very_small_variance_percentage(): void
+    {
+        $budget = Budget::create([
+            'account_code' => '5000',
+            'period_code' => $this->currentPeriod->period_code,
+            'budget_amount' => '1000000.00',
+            'actual_amount' => '999950.00',
+            'created_by' => $this->managerUser->id,
+        ]);
+
+        $this->assertEquals(50.00, $budget->getVariance());
+        $this->assertEqualsWithDelta(0.005, $budget->getVariancePercentage(), 0.0001);
+    }
 }

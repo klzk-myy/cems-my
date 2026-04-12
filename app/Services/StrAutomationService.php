@@ -10,8 +10,9 @@ use App\Models\StrDraft;
 use App\Models\StrReport;
 use App\Models\Transaction;
 use App\Models\User;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class StrAutomationService
 {
@@ -24,32 +25,34 @@ class StrAutomationService
      */
     public function generateFromCase(ComplianceCase $case): StrDraft
     {
-        $alerts = $case->alerts()->with(['flaggedTransaction.transaction'])->get();
-        $customer = $case->customer;
-        $transactionIds = $this->extractTransactionIds($alerts);
-        $transactions = $this->getTransactions($transactionIds);
+        return DB::transaction(function () use ($case) {
+            $alerts = $case->alerts()->with(['flaggedTransaction.transaction'])->get();
+            $customer = $case->customer;
+            $transactionIds = $this->extractTransactionIds($alerts);
+            $transactions = $this->getTransactions($transactionIds);
 
-        $narrative = $this->generateNarrative($alerts, $transactions);
-        $suspectedActivity = $this->identifySuspectedActivity($alerts);
-        $confidenceScore = $this->calculateConfidenceScore($alerts, $transactions);
-        $filingDeadline = $this->calculateFilingDeadline($case);
+            $narrative = $this->generateNarrative($alerts, $transactions);
+            $suspectedActivity = $this->identifySuspectedActivity($alerts);
+            $confidenceScore = $this->calculateConfidenceScore($alerts, $transactions);
+            $filingDeadline = $this->calculateFilingDeadline($case);
 
-        $strDraft = StrDraft::create([
-            'case_id' => $case->id,
-            'alert_ids' => $alerts->pluck('id')->toArray(),
-            'customer_id' => $customer->id,
-            'transaction_ids' => $transactionIds,
-            'narrative' => $narrative,
-            'suspected_activity' => $suspectedActivity,
-            'confidence_score' => $confidenceScore,
-            'filing_deadline' => $filingDeadline,
-            'status' => StrStatus::Draft,
-            'created_by' => auth()->id(),
-        ]);
+            $strDraft = StrDraft::create([
+                'case_id' => $case->id,
+                'alert_ids' => $alerts->pluck('id')->toArray(),
+                'customer_id' => $customer->id,
+                'transaction_ids' => $transactionIds,
+                'narrative' => $narrative,
+                'suspected_activity' => $suspectedActivity,
+                'confidence_score' => $confidenceScore,
+                'filing_deadline' => $filingDeadline,
+                'status' => StrStatus::Draft,
+                'created_by' => auth()->id(),
+            ]);
 
-        event(new StrDraftGenerated($strDraft));
+            event(new StrDraftGenerated($strDraft));
 
-        return $strDraft;
+            return $strDraft;
+        });
     }
 
     /**
@@ -106,30 +109,32 @@ class StrAutomationService
      */
     public function convertToStrReport(StrDraft $strDraft): StrReport
     {
-        if (! $strDraft->canConvert()) {
-            throw new \RuntimeException('STR draft does not meet conversion criteria');
-        }
+        return DB::transaction(function () use ($strDraft) {
+            if (! $strDraft->canConvert()) {
+                throw new \RuntimeException('STR draft does not meet conversion criteria');
+            }
 
-        $customer = $strDraft->customer;
-        $transactions = $this->getTransactions($strDraft->transaction_ids ?? []);
+            $customer = $strDraft->customer;
+            $transactions = $this->getTransactions($strDraft->transaction_ids ?? []);
 
-        $strReport = StrReport::create([
-            'str_no' => 'STR-'.now()->format('Ymd').'-'.substr(uniqid(), -6),
-            'customer_id' => $customer->id,
-            'status' => StrStatus::Draft,
-            'transaction_ids' => $strDraft->transaction_ids ?? [],
-            'suspicion_date' => $strDraft->created_at,
-            'filing_deadline' => $strDraft->filing_deadline,
-            'reason' => $strDraft->narrative,
-            'created_by' => $strDraft->created_by ?? User::first()?->id ?? 1,
-        ]);
+            $strReport = StrReport::create([
+                'str_no' => 'STR-'.now()->format('Ymd').'-'.substr(uniqid(), -6),
+                'customer_id' => $customer->id,
+                'status' => StrStatus::Draft,
+                'transaction_ids' => $strDraft->transaction_ids ?? [],
+                'suspicion_date' => $strDraft->created_at,
+                'filing_deadline' => $strDraft->filing_deadline,
+                'reason' => $strDraft->narrative,
+                'created_by' => $strDraft->created_by ?? User::first()?->id ?? 1,
+            ]);
 
-        $strDraft->update([
-            'converted_to_str_id' => $strReport->id,
-            'status' => StrStatus::Submitted,
-        ]);
+            $strDraft->update([
+                'converted_to_str_id' => $strReport->id,
+                'status' => StrStatus::Submitted,
+            ]);
 
-        return $strReport;
+            return $strReport;
+        });
     }
 
     /**

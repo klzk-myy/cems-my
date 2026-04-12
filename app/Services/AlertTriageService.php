@@ -10,6 +10,7 @@ use App\Models\Compliance\ComplianceCase;
 use App\Models\Customer;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
+use Illuminate\Support\Facades\DB;
 
 class AlertTriageService
 {
@@ -163,20 +164,22 @@ class AlertTriageService
      */
     public function resolveAlert(Alert $alert, int $resolvedBy, ?string $notes = null): Alert
     {
-        $alert->update([
-            'case_id' => null,
-        ]);
-
-        if ($alert->flaggedTransaction) {
-            $alert->flaggedTransaction->update([
-                'status' => \App\Enums\FlagStatus::Resolved,
-                'reviewed_by' => $resolvedBy,
-                'resolved_at' => now(),
-                'notes' => $notes,
+        return DB::transaction(function () use ($alert, $resolvedBy, $notes) {
+            $alert->update([
+                'case_id' => null,
             ]);
-        }
 
-        return $alert->fresh();
+            if ($alert->flaggedTransaction) {
+                $alert->flaggedTransaction->update([
+                    'status' => \App\Enums\FlagStatus::Resolved,
+                    'reviewed_by' => $resolvedBy,
+                    'resolved_at' => now(),
+                    'notes' => $notes,
+                ]);
+            }
+
+            return $alert->fresh();
+        });
     }
 
     /**
@@ -272,34 +275,36 @@ class AlertTriageService
      */
     public function bulkResolve(array $alertIds, int $resolvedBy, ?string $notes = null): array
     {
-        $results = ['success' => 0, 'failed' => 0, 'errors' => []];
+        return DB::transaction(function () use ($alertIds, $resolvedBy, $notes) {
+            $results = ['success' => 0, 'failed' => 0, 'errors' => []];
 
-        foreach ($alertIds as $alertId) {
-            try {
-                $alert = Alert::find($alertId);
-                if (! $alert) {
+            foreach ($alertIds as $alertId) {
+                try {
+                    $alert = Alert::find($alertId);
+                    if (! $alert) {
+                        $results['failed']++;
+                        $results['errors'][] = "Alert {$alertId} not found";
+
+                        continue;
+                    }
+
+                    if ($alert->status === \App\Enums\FlagStatus::Resolved) {
+                        $results['failed']++;
+                        $results['errors'][] = "Alert {$alertId} is already resolved";
+
+                        continue;
+                    }
+
+                    $this->resolveAlert($alert, $resolvedBy, $notes);
+                    $results['success']++;
+                } catch (\Exception $e) {
                     $results['failed']++;
-                    $results['errors'][] = "Alert {$alertId} not found";
-
-                    continue;
+                    $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
                 }
-
-                if ($alert->status === \App\Enums\FlagStatus::Resolved) {
-                    $results['failed']++;
-                    $results['errors'][] = "Alert {$alertId} is already resolved";
-
-                    continue;
-                }
-
-                $this->resolveAlert($alert, $resolvedBy, $notes);
-                $results['success']++;
-            } catch (\Exception $e) {
-                $results['failed']++;
-                $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
             }
-        }
 
-        return $results;
+            return $results;
+        });
     }
 
     /**
@@ -311,27 +316,29 @@ class AlertTriageService
      */
     public function bulkLinkToCase(array $alertIds, ComplianceCase $case): array
     {
-        $results = ['success' => 0, 'failed' => 0, 'errors' => []];
+        return DB::transaction(function () use ($alertIds, $case) {
+            $results = ['success' => 0, 'failed' => 0, 'errors' => []];
 
-        foreach ($alertIds as $alertId) {
-            try {
-                $alert = Alert::find($alertId);
-                if (! $alert) {
+            foreach ($alertIds as $alertId) {
+                try {
+                    $alert = Alert::find($alertId);
+                    if (! $alert) {
+                        $results['failed']++;
+                        $results['errors'][] = "Alert {$alertId} not found";
+
+                        continue;
+                    }
+
+                    $alert->update(['case_id' => $case->id]);
+                    $results['success']++;
+                } catch (\Exception $e) {
                     $results['failed']++;
-                    $results['errors'][] = "Alert {$alertId} not found";
-
-                    continue;
+                    $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
                 }
-
-                $alert->update(['case_id' => $case->id]);
-                $results['success']++;
-            } catch (\Exception $e) {
-                $results['failed']++;
-                $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
             }
-        }
 
-        return $results;
+            return $results;
+        });
     }
 
     /**

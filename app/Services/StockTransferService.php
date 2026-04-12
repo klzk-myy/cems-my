@@ -91,44 +91,45 @@ class StockTransferService
             throw new \RuntimeException('Transfer must be in transit to receive items');
         }
 
-        foreach ($items as $itemData) {
-            $item = $transfer->items()->where('id', $itemData['id'])->first();
-            if ($item) {
-                $item->update([
-                    'quantity_received' => $itemData['quantity_received'],
-                    'quantity_in_transit' => bcsub($item->quantity, $itemData['quantity_received'], 4),
-                ]);
+        DB::transaction(function () use ($transfer, $items) {
+            foreach ($items as $itemData) {
+                $item = $transfer->items()->where('id', $itemData['id'])->first();
+                if ($item) {
+                    $item->update([
+                        'quantity_received' => $itemData['quantity_received'],
+                        'quantity_in_transit' => bcsub($item->quantity, $itemData['quantity_received'], 4),
+                    ]);
 
-                if ($item->hasVariance()) {
-                    $item->update(['variance_notes' => "Variance: {$item->variance}"]);
+                    if ($item->hasVariance()) {
+                        $item->update(['variance_notes' => "Variance: {$item->variance}"]);
 
-                    // Log high variance to audit trail
-                    if ($item->quantity > 0) {
-                        $variancePercent = abs(bcdiv($item->variance, $item->quantity, 4)) * 100;
-                        if (bccomp($variancePercent, '5', 4) > 0) {
-                            app(AuditService::class)->logWithSeverity(
-                                'stock_transfer_variance_exceeded',
-                                [
-                                    'entity_type' => 'StockTransfer',
-                                    'entity_id' => $transfer->id,
-                                    'new_values' => [
-                                        'item_id' => $item->id,
-                                        'currency' => $item->currency_code,
-                                        'variance_percent' => $variancePercent,
+                        if ($item->quantity > 0) {
+                            $variancePercent = abs(bcdiv($item->variance, $item->quantity, 4)) * 100;
+                            if (bccomp($variancePercent, '5', 4) > 0) {
+                                app(AuditService::class)->logWithSeverity(
+                                    'stock_transfer_variance_exceeded',
+                                    [
+                                        'entity_type' => 'StockTransfer',
+                                        'entity_id' => $transfer->id,
+                                        'new_values' => [
+                                            'item_id' => $item->id,
+                                            'currency' => $item->currency_code,
+                                            'variance_percent' => $variancePercent,
+                                        ],
                                     ],
-                                ],
-                                'WARNING'
-                            );
+                                    'WARNING'
+                                );
+                            }
                         }
                     }
                 }
             }
-        }
 
-        $allFullyReceived = $transfer->items->every(fn ($item) => $item->isFullyReceived());
-        if (! $allFullyReceived) {
-            $transfer->update(['status' => StockTransfer::STATUS_PARTIALLY_RECEIVED]);
-        }
+            $allFullyReceived = $transfer->items->every(fn ($item) => $item->isFullyReceived());
+            if (! $allFullyReceived) {
+                $transfer->update(['status' => StockTransfer::STATUS_PARTIALLY_RECEIVED]);
+            }
+        });
     }
 
     public function complete(StockTransfer $transfer): void
@@ -152,6 +153,10 @@ class StockTransferService
 
         if ($transfer->isCompleted()) {
             throw new \RuntimeException('Cannot cancel a completed transfer');
+        }
+
+        if ($transfer->status === StockTransfer::STATUS_CANCELLED) {
+            throw new \RuntimeException('Transfer is already cancelled');
         }
 
         $transfer->cancel($reason);

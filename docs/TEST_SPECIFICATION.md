@@ -1,9 +1,9 @@
 # CEMS-MY Test Suite Specification
 
 **Document Type:** Test Specification
-**Version:** 1.1
+**Version:** 1.2
 **Last Updated:** April 2026
-**Total Tests:** 1,061 tests, 3,153 assertions
+**Total Tests:** 1,304 tests, 4,334 assertions
 
 ---
 
@@ -28,11 +28,11 @@ This document specifies the test suites for CEMS-MY (Currency Exchange Managemen
 
 | Category | Count |
 |----------|-------|
-| Feature Tests | 34 test files |
-| Unit Tests | 39 test files |
-| Total Tests | ~1,100+ |
-| Total Assertions | ~3,500+ |
-| Duration (full suite) | ~45-60 seconds |
+| Feature Tests | 45 test files |
+| Unit Tests | 35 test files |
+| Total Tests | 1,304 |
+| Total Assertions | 4,334 |
+| Duration (full suite) | ~170 seconds |
 
 ### 1.3 Test Philosophy
 
@@ -40,7 +40,8 @@ This document specifies the test suites for CEMS-MY (Currency Exchange Managemen
 - **RBAC Verification**: Role-based access control tested for every endpoint
 - **Audit Trail**: All critical operations verified with audit log entries
 - **Workflow Integrity**: Multi-step workflows tested end-to-end
-- **Database Integrity**: Transactions, positions, and balances verified after operations
+- **Database Integrity**: Transactions wrapped in DB::transaction() for consistency
+- **Data Integrity**: All multi-model operations use database transactions
 
 ---
 
@@ -833,8 +834,8 @@ PASS  Tests\Feature\TransactionTest
 
 ...
 
-Tests:    364 passed (1063 assertions)
-Duration: 30.40s
+Tests:    1304 passed (4334 assertions)
+Duration: 170.93s
 ```
 
 ---
@@ -845,6 +846,7 @@ Duration: 30.40s
 |---------|------|---------|--------|
 | 1.0 | 2026-04-05 | Initial specification | CEMS-MY Team |
 | 1.1 | 2026-04-09 | Updated test counts after MySQL migration fixes (1,061 tests) | CEMS-MY Team |
+| 1.2 | 2026-04-12 | Updated to 1,304 tests, 4,334 assertions. Added transaction coverage notes. | CEMS-MY Team |
 
 ---
 

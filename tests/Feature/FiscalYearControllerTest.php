@@ -178,4 +178,38 @@ class FiscalYearControllerTest extends TestCase
             'status' => 'Open',
         ]);
     }
+
+    protected function seedChartOfAccounts(): void
+    {
+        \Illuminate\Support\Facades\DB::table('chart_of_accounts')->delete();
+
+        \App\Models\ChartOfAccount::create(['account_code' => '1000', 'account_name' => 'Cash', 'account_type' => 'Asset']);
+        \App\Models\ChartOfAccount::create(['account_code' => '2000', 'account_name' => 'Accounts Payable', 'account_type' => 'Liability']);
+        \App\Models\ChartOfAccount::create(['account_code' => '3000', 'account_name' => 'Retained Earnings', 'account_type' => 'Equity']);
+        \App\Models\ChartOfAccount::create(['account_code' => '4000', 'account_name' => 'Sales Revenue', 'account_type' => 'Revenue']);
+        \App\Models\ChartOfAccount::create(['account_code' => '5000', 'account_name' => 'Office Expense', 'account_type' => 'Expense']);
+        \App\Models\ChartOfAccount::create(['account_code' => '4998', 'account_name' => 'Income Summary', 'account_type' => 'Revenue']);
+        \App\Models\ChartOfAccount::create(['account_code' => '4999', 'account_name' => 'Retained Earnings Summary', 'account_type' => 'Equity']);
+    }
+
+    protected function createAccountLedgerBalances(string $revenueAmount = '20000', string $expenseAmount = '35000'): void
+    {
+        $mathService = new \App\Services\MathService;
+
+        \App\Models\AccountLedger::create([
+            'account_code' => '4000',
+            'entry_date' => '2025-06-15',
+            'debit' => '0',
+            'credit' => $revenueAmount,
+            'running_balance' => $revenueAmount,
+        ]);
+
+        \App\Models\AccountLedger::create([
+            'account_code' => '5000',
+            'entry_date' => '2025-06-15',
+            'debit' => $expenseAmount,
+            'credit' => '0',
+            'running_balance' => $expenseAmount,
+        ]);
+    }
 }

@@ -26,102 +26,104 @@ class TransactionMonitoringService
 
     public function monitorTransaction(Transaction $transaction): array
     {
-        $flags = [];
+        return DB::transaction(function () use ($transaction) {
+            $flags = [];
 
-        // Velocity check - 24h cumulative threshold
-        $velocityCheck = $this->complianceService->checkVelocity(
-            $transaction->customer_id,
-            $transaction->amount_local
-        );
-        if ($velocityCheck['threshold_exceeded']) {
-            $flags[] = $this->createFlag($transaction, ComplianceFlagType::Velocity, "24h velocity exceeded: RM {$velocityCheck['with_new_transaction']}");
-            $this->auditService->logAmlMonitorEvent('aml_velocity_alert_triggered', $transaction->id, [
-                'entity_type' => 'Transaction',
-                'new' => [
-                    'customer_id' => $transaction->customer_id,
-                    'velocity_amount' => $velocityCheck['with_new_transaction'],
-                    'transaction_count' => Transaction::where('customer_id', $transaction->customer_id)
-                        ->where('created_at', '>=', now()->subHours(24))
-                        ->count(),
-                ],
-            ]);
-        }
-
-        // Structuring detection - multiple small transactions
-        if ($this->complianceService->checkStructuring($transaction->customer_id)) {
-            $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, 'Potential structuring: 3+ transactions under RM 3,000 within 1 hour');
-            $this->auditService->logAmlMonitorEvent('aml_structuring_detected', $transaction->id, [
-                'entity_type' => 'Transaction',
-                'new' => [
-                    'customer_id' => $transaction->customer_id,
-                    'pattern' => 'aggregate_transactions',
-                ],
-            ]);
-        }
-
-        // Aggregate transaction check - related transactions exceeding threshold
-        $aggregateCheck = $this->complianceService->checkAggregateTransactions(
-            $transaction->customer_id,
-            $transaction->amount_local
-        );
-        if ($aggregateCheck['has_aggregate_concern']) {
-            $flags[] = $this->createFlag(
-                $transaction,
-                ComplianceFlagType::LargeAmount,
-                "Aggregate concern: RM {$aggregateCheck['total_aggregate']} across {$aggregateCheck['transaction_count']} transactions in 24h"
+            // Velocity check - 24h cumulative threshold
+            $velocityCheck = $this->complianceService->checkVelocity(
+                $transaction->customer_id,
+                $transaction->amount_local
             );
-        }
-
-        // Unusual pattern detection
-        if ($this->isUnusualPattern($transaction)) {
-            $flags[] = $this->createFlag($transaction, ComplianceFlagType::ManualReview, 'Transaction deviates 200% from customer average');
-        }
-
-        // High-risk country transaction
-        if ($this->isHighRiskCountry($transaction)) {
-            $flags[] = $this->createFlag($transaction, ComplianceFlagType::HighRiskCountry, 'High-risk country transaction: '.$transaction->customer->nationality);
-        }
-
-        // Round amount detection
-        if ($this->isRoundAmount($transaction)) {
-            $flags[] = $this->createFlag($transaction, ComplianceFlagType::RoundAmount, 'Round amount transaction - review purpose: RM '.$transaction->amount_local);
-        }
-
-        // Profile deviation check
-        if ($this->isProfileDeviation($transaction)) {
-            $flags[] = $this->createFlag($transaction, ComplianceFlagType::ProfileDeviation, 'Transaction volume exceeds customer profile');
-        }
-
-        // Duration threshold check for large transactions on hold
-        $durationCheck = $this->complianceService->checkTransactionDuration($transaction);
-        if ($durationCheck['has_duration_concern']) {
-            $flags[] = $this->createFlag(
-                $transaction,
-                ComplianceFlagType::EddRequired,
-                "Duration threshold exceeded: {$durationCheck['hours_on_hold']} hours on hold (threshold: {$durationCheck['threshold_hours']} hours) - {$durationCheck['severity']}"
-            );
-        }
-
-        // Hold decision
-        $holdCheck = $this->complianceService->requiresHold(
-            $transaction->amount_local,
-            $transaction->customer
-        );
-        if ($holdCheck['requires_hold']
-            && $transaction->status->isCompleted()
-            && $transaction->approved_by === null) {
-            $transaction->update(['status' => TransactionStatus::OnHold]);
-            foreach ($holdCheck['reasons'] as $reason) {
-                $flags[] = $this->createFlag($transaction, ComplianceFlagType::EddRequired, $reason);
+            if ($velocityCheck['threshold_exceeded']) {
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::Velocity, "24h velocity exceeded: RM {$velocityCheck['with_new_transaction']}");
+                $this->auditService->logAmlMonitorEvent('aml_velocity_alert_triggered', $transaction->id, [
+                    'entity_type' => 'Transaction',
+                    'new' => [
+                        'customer_id' => $transaction->customer_id,
+                        'velocity_amount' => $velocityCheck['with_new_transaction'],
+                        'transaction_count' => Transaction::where('customer_id', $transaction->customer_id)
+                            ->where('created_at', '>=', now()->subHours(24))
+                            ->count(),
+                    ],
+                ]);
             }
-        }
 
-        return [
-            'transaction_id' => $transaction->id,
-            'flags_created' => count($flags),
-            'flags' => $flags,
-            'status' => $transaction->status,
-        ];
+            // Structuring detection - multiple small transactions
+            if ($this->complianceService->checkStructuring($transaction->customer_id)) {
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, 'Potential structuring: 3+ transactions under RM 3,000 within 1 hour');
+                $this->auditService->logAmlMonitorEvent('aml_structuring_detected', $transaction->id, [
+                    'entity_type' => 'Transaction',
+                    'new' => [
+                        'customer_id' => $transaction->customer_id,
+                        'pattern' => 'aggregate_transactions',
+                    ],
+                ]);
+            }
+
+            // Aggregate transaction check - related transactions exceeding threshold
+            $aggregateCheck = $this->complianceService->checkAggregateTransactions(
+                $transaction->customer_id,
+                $transaction->amount_local
+            );
+            if ($aggregateCheck['has_aggregate_concern']) {
+                $flags[] = $this->createFlag(
+                    $transaction,
+                    ComplianceFlagType::LargeAmount,
+                    "Aggregate concern: RM {$aggregateCheck['total_aggregate']} across {$aggregateCheck['transaction_count']} transactions in 24h"
+                );
+            }
+
+            // Unusual pattern detection
+            if ($this->isUnusualPattern($transaction)) {
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::ManualReview, 'Transaction deviates 200% from customer average');
+            }
+
+            // High-risk country transaction
+            if ($this->isHighRiskCountry($transaction)) {
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::HighRiskCountry, 'High-risk country transaction: '.$transaction->customer->nationality);
+            }
+
+            // Round amount detection
+            if ($this->isRoundAmount($transaction)) {
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::RoundAmount, 'Round amount transaction - review purpose: RM '.$transaction->amount_local);
+            }
+
+            // Profile deviation check
+            if ($this->isProfileDeviation($transaction)) {
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::ProfileDeviation, 'Transaction volume exceeds customer profile');
+            }
+
+            // Duration threshold check for large transactions on hold
+            $durationCheck = $this->complianceService->checkTransactionDuration($transaction);
+            if ($durationCheck['has_duration_concern']) {
+                $flags[] = $this->createFlag(
+                    $transaction,
+                    ComplianceFlagType::EddRequired,
+                    "Duration threshold exceeded: {$durationCheck['hours_on_hold']} hours on hold (threshold: {$durationCheck['threshold_hours']} hours) - {$durationCheck['severity']}"
+                );
+            }
+
+            // Hold decision
+            $holdCheck = $this->complianceService->requiresHold(
+                $transaction->amount_local,
+                $transaction->customer
+            );
+            if ($holdCheck['requires_hold']
+                && $transaction->status->isCompleted()
+                && $transaction->approved_by === null) {
+                $transaction->update(['status' => TransactionStatus::OnHold]);
+                foreach ($holdCheck['reasons'] as $reason) {
+                    $flags[] = $this->createFlag($transaction, ComplianceFlagType::EddRequired, $reason);
+                }
+            }
+
+            return [
+                'transaction_id' => $transaction->id,
+                'flags_created' => count($flags),
+                'flags' => $flags,
+                'status' => $transaction->status,
+            ];
+        });
     }
 
     protected function isUnusualPattern(Transaction $transaction): bool
