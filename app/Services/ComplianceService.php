@@ -118,10 +118,12 @@ class ComplianceService
      */
     public function checkSanctionMatch(Customer $customer): bool
     {
-        // Query sanction_entries for fuzzy match
+        // Query sanction_entries for fuzzy match using parameterized queries
+        $customerName = $customer->full_name;
+
         $matches = DB::table('sanction_entries')
-            ->whereRaw('LOWER(entity_name) LIKE ?', ['%'.strtolower($customer->full_name).'%'])
-            ->orWhereRaw('LOWER(aliases) LIKE ?', ['%'.strtolower($customer->full_name).'%'])
+            ->where('entity_name', 'ilike', '%'.$customerName.'%')
+            ->orWhere('aliases', 'ilike', '%'.$customerName.'%')
             ->count();
 
         return $matches > 0;

@@ -40,19 +40,6 @@ class AuditService
     }
 
     /**
-     * Get the hash of the most recent system log entry
-     *
-     * Uses lockForUpdate to serialize hash chain writes and prevent race conditions
-     * where two concurrent audit writes could get the same previous_hash.
-     */
-    protected function getLastEntryHash(): ?string
-    {
-        $lastLog = SystemLog::orderBy('id', 'desc')->lockForUpdate()->first();
-
-        return $lastLog?->entry_hash;
-    }
-
-    /**
      * Log with severity level (tamper-evident with hash chaining)
      *
      * Wrapped in transaction to prevent race conditions in hash chain.
@@ -64,7 +51,12 @@ class AuditService
     ): SystemLog {
         return DB::transaction(function () use ($action, $data, $severity) {
             $userId = $data['user_id'] ?? auth()->id();
-            $previousHash = $this->getLastEntryHash();
+
+            // Get the hash of the most recent system log entry WITHIN the transaction
+            // This ensures the lock is held until the new entry is created
+            $lastLog = SystemLog::orderBy('id', 'desc')->lockForUpdate()->first();
+            $previousHash = $lastLog?->entry_hash;
+
             $timestamp = now()->toIso8601String();
 
             // Compute entry hash for tamper detection
@@ -182,7 +174,7 @@ class AuditService
         }
 
         if (! empty($filters['action'])) {
-            $query->whereRaw('action LIKE ?', ['%' . $filters['action'] . '%']);
+            $query->whereRaw('action LIKE ?', ['%'.$filters['action'].'%']);
         }
 
         if (! empty($filters['severity'])) {

@@ -12,8 +12,13 @@ class EncryptionService
         if (empty($rawKey)) {
             throw new \RuntimeException('Encryption key not configured');
         }
-        // Derive a proper 32-byte key using SHA-256 (AES-256-CBC requires 32 bytes)
-        $this->key = hash('sha256', $rawKey, true);
+
+        // Use PBKDF2 for secure key derivation with proper salt and iteration count
+        $salt = config('app.encryption_salt', env('ENCRYPTION_SALT', 'cems-default-salt'));
+        $iterations = config('app.encryption_iterations', 100000);
+
+        // Derive a proper 32-byte key using PBKDF2 (AES-256-CBC requires 32 bytes)
+        $this->key = hash_pbkdf2('sha256', $rawKey, $salt, $iterations, 32, true);
     }
 
     public function encrypt(string $data): string
@@ -53,7 +58,7 @@ class EncryptionService
      * Hash data using HMAC-SHA256 to prevent length extension attacks.
      *
      * @param  string  $data  Data to hash
-     * @return string  HMAC-SHA256 hash as hex string
+     * @return string HMAC-SHA256 hash as hex string
      */
     public function hash(string $data): string
     {

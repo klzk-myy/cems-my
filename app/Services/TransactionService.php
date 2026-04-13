@@ -123,6 +123,13 @@ class TransactionService
             $position = null;
             if ($data['type'] === TransactionType::Sell->value) {
                 $position = $this->positionService->getPositionWithLock($data['currency_code'], $data['till_id']);
+
+                // Verify sufficient stock for Sell transactions IMMEDIATELY after acquiring lock
+                // This prevents race conditions where another transaction could modify the position
+                if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
+                    $availableBalance = $position ? $position->balance : '0';
+                    throw new \InvalidArgumentException("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
+                }
             }
 
             // Check for duplicate transaction via idempotency key (inside transaction to prevent race)
@@ -157,13 +164,6 @@ class TransactionService
                 throw new \InvalidArgumentException('Potential duplicate transaction detected. Please wait 30 seconds before submitting again or check your recent transactions.');
             }
 
-            // Verify sufficient stock for Sell transactions (lock already held above)
-            if ($data['type'] === TransactionType::Sell->value) {
-                if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
-                    $availableBalance = $position ? $position->balance : '0';
-                    throw new \InvalidArgumentException("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
-                }
-            }
             $transaction = Transaction::create([
                 'customer_id' => $data['customer_id'],
                 'user_id' => $userId,
@@ -388,29 +388,33 @@ class TransactionService
         }
 
         return DB::transaction(function () use ($transaction, $approverId, $amlResult) {
-            // Optimistic locking: Prevent race conditions
-            $updated = Transaction::where('id', $transaction->id)
+            // Optimistic locking with pessimistic lock to prevent race conditions
+            $lockedTransaction = Transaction::where('id', $transaction->id)
                 ->where('status', TransactionStatus::Pending)
                 ->where('version', $transaction->version)
-                ->update([
-                    'status' => TransactionStatus::Completed,
-                    'approved_by' => $approverId,
-                    'approved_at' => now(),
-                    'version' => DB::raw('version + 1'),
-                ]);
+                ->lockForUpdate()
+                ->first();
 
-            if (! $updated) {
+            if (! $lockedTransaction) {
                 throw new \RuntimeException(
                     'Transaction was already processed or modified by another user.'
                 );
             }
 
+            // Update the locked transaction
+            $lockedTransaction->update([
+                'status' => TransactionStatus::Completed,
+                'approved_by' => $approverId,
+                'approved_at' => now(),
+                'version' => $lockedTransaction->version + 1,
+            ]);
+
             // Refresh the model to get updated version
-            $transaction->refresh();
+            $lockedTransaction->refresh();
 
             // Get the till balance for today
-            $tillBalance = TillBalance::where('till_id', $transaction->till_id ?? 'MAIN')
-                ->where('currency_code', $transaction->currency_code)
+            $tillBalance = TillBalance::where('till_id', $lockedTransaction->till_id ?? 'MAIN')
+                ->where('currency_code', $lockedTransaction->currency_code)
                 ->whereDate('date', today())
                 ->whereNull('closed_at')
                 ->first();
@@ -423,24 +427,24 @@ class TransactionService
 
             // Execute position and till balance updates
             $this->positionService->updatePosition(
-                $transaction->currency_code,
-                (string) $transaction->amount_foreign,
-                (string) $transaction->rate,
-                $transaction->type->value,
-                $transaction->till_id ?? 'MAIN'
+                $lockedTransaction->currency_code,
+                (string) $lockedTransaction->amount_foreign,
+                (string) $lockedTransaction->rate,
+                $lockedTransaction->type->value,
+                $lockedTransaction->till_id ?? 'MAIN'
             );
             $this->updateTillBalance(
                 $tillBalance,
-                $transaction->type->value,
-                (string) $transaction->amount_local,
-                (string) $transaction->amount_foreign
+                $lockedTransaction->type->value,
+                (string) $lockedTransaction->amount_local,
+                (string) $lockedTransaction->amount_foreign
             );
 
             // Create double-entry accounting journal entries
-            $this->createAccountingEntries($transaction);
+            $this->createAccountingEntries($lockedTransaction);
 
             // Audit logging for the approval action
-            $this->auditService->logTransaction('transaction_approved', $transaction->id, [
+            $this->auditService->logTransaction('transaction_approved', $lockedTransaction->id, [
                 'old' => [
                     'status' => TransactionStatus::Pending->value,
                     'approved_by' => null,
@@ -448,18 +452,18 @@ class TransactionService
                 'new' => [
                     'status' => TransactionStatus::Completed->value,
                     'approved_by' => $approverId,
-                    'approved_at' => $transaction->approved_at->toIso8601String(),
+                    'approved_at' => $lockedTransaction->approved_at->toIso8601String(),
                     'aml_flags_checked' => $amlResult['flags_created'] ?? 0,
                 ],
             ]);
 
             // Dispatch event for async compliance processing
-            Event::dispatch(new TransactionApproved($transaction));
+            Event::dispatch(new TransactionApproved($lockedTransaction));
 
             return [
                 'success' => true,
                 'message' => 'Transaction approved and completed successfully.',
-                'transaction' => $transaction->fresh(),
+                'transaction' => $lockedTransaction->fresh(),
             ];
         });
     }
