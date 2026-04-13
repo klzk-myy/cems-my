@@ -144,16 +144,18 @@ class ComplianceService
     public function checkVelocity(int $customerId, string $newAmount): array
     {
         $startTime = now()->subHours(24);
+        // Use DB::raw to cast to decimal for BCMath precision
         $velocity = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $startTime)
-            ->sum('amount_local');
+            ->selectRaw('CAST(SUM(amount_local) AS CHAR) as total')
+            ->value('total') ?? '0';
 
         $total = $this->mathService->add((string) $velocity, $newAmount);
 
         return [
             'amount_24h' => (string) $velocity,
             'with_new_transaction' => $total,
-            'threshold_exceeded' => $this->mathService->compare($total, '50000') > 0,
+            'threshold_exceeded' => $this->mathService->compare($total, self::LARGE_TRANSACTION_THRESHOLD) >= 0,
             'threshold_amount' => '50000',
         ];
     }
@@ -173,7 +175,7 @@ class ComplianceService
         $oneHourAgo = now()->subHour();
         $smallTransactions = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $oneHourAgo)
-            ->where('amount_local', '<', 3000)
+            ->where('amount_local', '<', self::STANDARD_CDD_THRESHOLD)
             ->count();
 
         return $smallTransactions >= 3;

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\ComplianceFlagType;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
+use App\Events\TransactionApproved;
 use App\Events\TransactionCreated;
 use App\Models\Customer;
 use App\Models\TillBalance;
@@ -141,16 +142,47 @@ class TransactionService
             }
         }
 
-        // For Sell transactions, verify sufficient stock
-        if ($data['type'] === TransactionType::Sell->value) {
-            $position = $this->positionService->getPosition($data['currency_code'], $data['till_id']);
-            if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
-                $availableBalance = $position ? $position->balance : '0';
-                throw new \InvalidArgumentException("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
-            }
-        }
-
         return DB::transaction(function () use ($data, $userId, $tillBalance, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy) {
+            // Check for duplicate transaction via idempotency key (inside transaction to prevent race)
+            if (! empty($data['idempotency_key'])) {
+                $existingByKey = Transaction::where('idempotency_key', $data['idempotency_key'])->first();
+                if ($existingByKey) {
+                    return $existingByKey;
+                }
+            }
+
+            // Check for recent similar transaction (potential double-submit)
+            $recentWindow = now()->subSeconds(30);
+            $recentAmount = Transaction::where('user_id', $userId)
+                ->where('created_at', '>=', $recentWindow)
+                ->where('amount_foreign', $data['amount_foreign'])
+                ->where('currency_code', $data['currency_code'])
+                ->where('type', $data['type'])
+                ->first();
+
+            if ($recentAmount) {
+                $this->auditService->logWithSeverity(
+                    'potential_duplicate_detected',
+                    [
+                        'user_id' => $userId,
+                        'entity_type' => 'Transaction',
+                        'entity_id' => $recentAmount->id,
+                        'description' => "Similar transaction {$recentAmount->id} found within 30 seconds",
+                    ],
+                    'WARNING'
+                );
+
+                throw new \InvalidArgumentException('Potential duplicate transaction detected. Please wait 30 seconds before submitting again or check your recent transactions.');
+            }
+
+            // For Sell transactions, verify sufficient stock WITH LOCK to prevent race conditions
+            if ($data['type'] === TransactionType::Sell->value) {
+                $position = $this->positionService->getPositionWithLock($data['currency_code'], $data['till_id']);
+                if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
+                    $availableBalance = $position ? $position->balance : '0';
+                    throw new \InvalidArgumentException("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
+                }
+            }
             $transaction = Transaction::create([
                 'customer_id' => $data['customer_id'],
                 'user_id' => $userId,
@@ -264,7 +296,7 @@ class TransactionService
                 ],
             ];
         } else {
-            $position = $this->positionService->getPosition($transaction->currency_code);
+            $position = $this->positionService->getPosition($transaction->currency_code, $transaction->till_id);
             $avgCost = $position ? $position->avg_cost_rate : $transaction->rate;
             $costBasis = $this->mathService->multiply((string) $transaction->amount_foreign, $avgCost);
             $revenue = $this->mathService->subtract((string) $transaction->amount_local, $costBasis);
@@ -436,7 +468,7 @@ class TransactionService
             ]);
 
             // Dispatch event for async compliance processing
-            Event::dispatch(new \App\Events\TransactionCreated($transaction));
+            Event::dispatch(new TransactionApproved($transaction));
 
             return [
                 'success' => true,

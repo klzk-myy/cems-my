@@ -40,10 +40,13 @@ class AuditService
 
     /**
      * Get the hash of the most recent system log entry
+     *
+     * Uses lockForUpdate to serialize hash chain writes and prevent race conditions
+     * where two concurrent audit writes could get the same previous_hash.
      */
     protected function getLastEntryHash(): ?string
     {
-        $lastLog = SystemLog::orderBy('id', 'desc')->first();
+        $lastLog = SystemLog::orderBy('id', 'desc')->lockForUpdate()->first();
 
         return $lastLog?->entry_hash;
     }

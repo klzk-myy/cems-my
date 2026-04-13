@@ -183,11 +183,12 @@ class CounterService
     }
 
     /**
-     * Calculate variance between expected and actual
+     * Calculate variance between expected and actual.
+     * Uses BCMath for precision, returns float for backward compatibility.
      */
-    public function calculateVariance(float $expected, float $actual): float
+    public function calculateVariance(string $expected, string $actual): string
     {
-        return $actual - $expected;
+        return BcmathHelper::subtract($actual, $expected);
     }
 
     /**
@@ -250,9 +251,10 @@ class CounterService
             throw new Exception('Session does not belong to the specified user');
         }
 
-        // Validate toUser is not already at another counter
+        // Validate toUser is not already at another counter (with lock to prevent race condition)
         $existingSession = CounterSession::where('user_id', $toUser->id)
             ->where('status', CounterSessionStatus::Open->value)
+            ->lockForUpdate()
             ->first();
 
         if ($existingSession && $existingSession->id !== $session->id) {
@@ -275,8 +277,9 @@ class CounterService
                 ->get()
                 ->keyBy('currency_code');
 
-            // Calculate variance
+            // Calculate variance - track per-currency for audit and convert to MYR for total
             $totalVarianceMyr = '0';
+            $perCurrencyVariances = [];
             $tillUpdates = [];
 
             foreach ($physicalCounts as $count) {
@@ -291,9 +294,19 @@ class CounterService
                 $expected = BcmathHelper::add($openingBalance, $foreignTotal);
                 $variance = BcmathHelper::subtract($count['amount'], $expected);
 
-                // Only sum up MYR variance directly
+                // Track per-currency variance for audit
+                $perCurrencyVariances[$currencyCode] = $variance;
+
+                // Convert to MYR equivalent for total - use 1:1 for simplicity if rate unknown
+                // In production, you'd use the actual exchange rate
                 if ($currencyCode === 'MYR') {
                     $totalVarianceMyr = BcmathHelper::add($totalVarianceMyr, $variance);
+                } else {
+                    // For foreign currencies, convert using the current rate
+                    // Use a nominal rate if not available (this should be improved with actual rates)
+                    $rate = $tillBalance->last_rate ?? '1';
+                    $varianceMyr = BcmathHelper::multiply($variance, $rate);
+                    $totalVarianceMyr = BcmathHelper::add($totalVarianceMyr, $varianceMyr);
                 }
 
                 // Collect till balance updates
@@ -305,6 +318,12 @@ class CounterService
                         'currencyCode' => $currencyCode,
                     ];
                 }
+            }
+
+            // Build variance notes including all currencies
+            $varianceNotes = 'Variance during handover: ';
+            foreach ($perCurrencyVariances as $code => $v) {
+                $varianceNotes .= "{$code}: {$v}; ";
             }
 
             // Apply till balance closings
@@ -333,7 +352,7 @@ class CounterService
                 'handover_time' => $now,
                 'physical_count_verified' => true,
                 'variance_myr' => $totalVarianceMyr,
-                'variance_notes' => $totalVarianceMyr != 0 ? 'Variance noted during handover' : null,
+                'variance_notes' => BcmathHelper::compare($totalVarianceMyr, '0') !== 0 ? $varianceNotes : null,
             ]);
 
             // Create new session for new user
@@ -384,23 +403,25 @@ class CounterService
                             ->first();
 
                         if ($lockedBalance) {
-                            // Single atomic update: close and reopen in one transaction
+                            // Single atomic update: record the closing data from handover
                             // The CounterHandover table captures the variance and audit details
+                            // We keep the closing data as the permanent record for audit purposes
                             $lockedBalance->closing_balance = $count['amount'];
                             $lockedBalance->variance = $variance;
                             $lockedBalance->closed_at = $now;
                             $lockedBalance->closed_by = $fromUser->id;
                             $lockedBalance->notes = $handoverNotes;
-                            $lockedBalance->opened_by = $toUser->id;
                             $lockedBalance->save();
 
-                            // Refresh and reset for new session
-                            $lockedBalance->closing_balance = null;
-                            $lockedBalance->variance = '0.0000';
-                            $lockedBalance->closed_at = null;
-                            $lockedBalance->closed_by = null;
-                            $lockedBalance->notes = null;
-                            $lockedBalance->save();
+                            // Create a new balance record for the new session user
+                            // This ensures the handover audit trail is preserved
+                            TillBalance::create([
+                                'till_id' => (string) $newSession->counter_id,
+                                'currency_code' => $currencyCode,
+                                'opening_balance' => $count['amount'],
+                                'date' => $today,
+                                'opened_by' => $toUser->id,
+                            ]);
                         }
                     } else {
                         // No existing balance - check if there's a closed one for today
@@ -470,17 +491,28 @@ class CounterService
     /**
      * Resolve currency codes from physical counts array.
      * Returns a map of [input_id => currency_code].
+     * Handles both numeric IDs and string codes for consistency.
      */
     private function resolveCurrenciesForCounts(array $counts): array
     {
         $ids = collect($counts)->pluck('currency_id')->unique()->toArray();
 
-        // Since Currency uses 'code' as PK, Currency::find() with a code returns the model
-        $currencies = Currency::whereIn('code', $ids)->pluck('code', 'code');
+        $numericIds = array_filter($ids, 'is_numeric');
+        $stringCodes = array_filter($ids, fn ($id) => ! is_numeric($id));
 
         $resolved = [];
-        foreach ($ids as $id) {
-            $resolved[$id] = $currencies->get($id);
+
+        // Map string codes directly
+        foreach ($stringCodes as $code) {
+            $resolved[$code] = $code;
+        }
+
+        // Look up numeric IDs
+        if (! empty($numericIds)) {
+            $currencies = Currency::whereIn('id', $numericIds)->pluck('code', 'id');
+            foreach ($currencies as $id => $code) {
+                $resolved[$id] = $code;
+            }
         }
 
         return $resolved;

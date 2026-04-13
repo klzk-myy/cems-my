@@ -118,6 +118,25 @@ class CurrencyPositionService
     }
 
     /**
+     * Get a specific currency position with pessimistic lock for safe concurrent access.
+     *
+     * This method should be used when you need to check position balance before
+     * making changes, to prevent race conditions where two transactions could
+     * both pass the balance check and cause negative positions.
+     *
+     * @param  string  $currencyCode  Currency code (e.g., 'USD', 'EUR')
+     * @param  string  $tillId  Till identifier
+     * @return CurrencyPosition|null Position model or null if not found
+     */
+    public function getPositionWithLock(string $currencyCode, string $tillId): ?CurrencyPosition
+    {
+        return CurrencyPosition::where('currency_code', $currencyCode)
+            ->where('till_id', $tillId)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
      * Get a specific currency position.
      *
      * @param  string  $currencyCode  Currency code (e.g., 'USD', 'EUR')

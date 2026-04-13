@@ -27,20 +27,19 @@ use Illuminate\Support\Facades\Notification;
 class TransactionCancellationService
 {
     /**
-     * Audit service for logging.
-     */
-    protected AuditService $auditService;
-
-    /**
      * Create a new TransactionCancellationService instance.
      *
      * @param  MathService  $mathService  Math service for precise calculations
+     * @param  AuditService  $auditService  Audit service for logging
      */
     public function __construct(
         protected MathService $mathService,
-        ?AuditService $auditService = null
+        protected AuditService $auditService,
+        protected ?CurrencyPositionService $positionService = null,
+        protected ?AccountingService $accountingService = null,
     ) {
-        $this->auditService = $auditService ?? new AuditService();
+        $this->positionService = $positionService ?? new CurrencyPositionService($mathService);
+        $this->accountingService = $accountingService ?? app(AccountingService::class);
     }
 
     /**
@@ -148,6 +147,19 @@ class TransactionCancellationService
                 'transaction_id' => $transaction->id,
                 'user_id' => $approver->id,
                 'user_role' => $approver->role->value,
+            ]);
+
+            return false;
+        }
+
+        // Segregation of duties check: approver cannot be the same user who requested cancellation
+        // This enforces dual-control as required by BNM AML/CFT regulations
+        $cancellationRequest = $this->getLastCancellationRequest($transaction);
+        if ($cancellationRequest && ($cancellationRequest['user_id'] ?? null) === $approver->id) {
+            Log::warning('Self-approval of cancellation attempted - segregation of duties violation', [
+                'transaction_id' => $transaction->id,
+                'approver_id' => $approver->id,
+                'requester_id' => $cancellationRequest['user_id'],
             ]);
 
             return false;
@@ -468,7 +480,7 @@ class TransactionCancellationService
      */
     public function reversePositions(Transaction $transaction): void
     {
-        $positionService = app(CurrencyPositionService::class);
+        $positionService = $this->positionService;
 
         // Get the position first to check balance
         $position = $positionService->getPosition(
@@ -520,7 +532,7 @@ class TransactionCancellationService
      */
     public function createReversingJournalEntries(Transaction $transaction, ?int $reversedBy = null): void
     {
-        $accountingService = app(AccountingService::class);
+        $accountingService = $this->accountingService;
         $reversedBy = $reversedBy ?? auth()->id();
 
         // Find original journal entries for this transaction
@@ -676,6 +688,20 @@ class TransactionCancellationService
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    protected function getLastCancellationRequest(Transaction $transaction): ?array
+    {
+        $history = $transaction->transition_history ?? [];
+
+        // Find the most recent PendingCancellation transition
+        foreach (array_reverse($history) as $entry) {
+            if (($entry['to'] ?? '') === TransactionStatus::PendingCancellation->value) {
+                return $entry;
+            }
+        }
+
+        return null;
     }
 
     /**

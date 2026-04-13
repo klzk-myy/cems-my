@@ -36,9 +36,9 @@ class CustomerController extends Controller
     {
         $query = Customer::query();
 
-        // Search by name
+        // Search by name - escape special LIKE characters to prevent regex DoS
         if ($request->has('search') && ! empty($request->search)) {
-            $search = $request->search;
+            $search = addcslashes($request->search, '%_');
             $query->where('full_name', 'like', "%{$search}%");
         }
 
@@ -174,6 +174,9 @@ class CustomerController extends Controller
             $encryptedPhone = ! empty($validated['phone'])
                 ? $this->encryptionService->encrypt($validated['phone'])
                 : null;
+            $encryptedEmployerAddress = ! empty($validated['employer_address'])
+                ? $this->encryptionService->encrypt($validated['employer_address'])
+                : null;
 
             // Create customer
             $customer = Customer::create([
@@ -189,7 +192,7 @@ class CustomerController extends Controller
                 'risk_rating' => $validated['risk_rating'],
                 'occupation' => $validated['occupation'] ?? null,
                 'employer_name' => $validated['employer_name'] ?? null,
-                'employer_address' => $encryptedAddress ?? null,
+                'employer_address' => $encryptedEmployerAddress,
                 'is_active' => true,
             ]);
 

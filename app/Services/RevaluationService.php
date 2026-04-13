@@ -103,6 +103,11 @@ class RevaluationService
         );
 
         return DB::transaction(function () use ($position, $oldRate, $newRate, $gainLoss, $date, $postedBy) {
+            // Prevent double-counting: check if position was already revalued at this rate
+            if ($position->last_valuation_rate !== null && bccomp($position->last_valuation_rate, $newRate, 10) === 0) {
+                return null;
+            }
+
             // Create revaluation entry
             $entry = RevaluationEntry::create([
                 'currency_code' => $position->currency_code,
@@ -411,8 +416,8 @@ class RevaluationService
      */
     public function getRevaluationStatus(string $month): array
     {
-        $startDate = now()->parse($month)->startOfMonth();
-        $endDate = now()->parse($month)->endOfMonth();
+        $startDate = \Carbon\Carbon::parse($month)->startOfMonth();
+        $endDate = \Carbon\Carbon::parse($month)->endOfMonth();
 
         $entries = RevaluationEntry::whereBetween('revaluation_date', [$startDate, $endDate])
             ->get();
@@ -464,13 +469,20 @@ class RevaluationService
     /**
      * Get list of users to notify about revaluation completion.
      *
-     * Retrieves all active users in the system to receive revaluation notifications.
+     * Retrieves only authorized users (managers, accountants, compliance officers)
+     * who should receive sensitive financial P&L data. Regular tellers are excluded.
      *
      * @return array Array of user data arrays with email addresses
      */
     protected function getNotificationRecipients(): array
     {
+        // Only managers, accountants, and compliance officers should receive P&L data
         return User::where('is_active', true)
+            ->whereIn('role', [
+                \App\Enums\UserRole::Manager->value,
+                \App\Enums\UserRole::ComplianceOfficer->value,
+                \App\Enums\UserRole::Admin->value,
+            ])
             ->get()
             ->toArray();
     }

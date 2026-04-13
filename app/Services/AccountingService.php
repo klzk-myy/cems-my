@@ -190,37 +190,50 @@ class AccountingService
         $approvedBy = $approvedBy ?? auth()->id();
 
         // The model's status should already be 'Pending' after submitForApproval
-        // We don't use DB::transaction() here to avoid nested transaction issues with RefreshDatabase
         if (! $entry->isPending()) {
             throw new \InvalidArgumentException('Only pending entries can be approved');
         }
 
-        $entry->update([
-            'status' => 'Posted',
-            'approved_by' => $approvedBy,
-            'approved_at' => now(),
-            'approval_notes' => $approvalNotes,
-            'posted_by' => $approvedBy,
-            'posted_at' => now(),
-        ]);
+        // Re-validate period is still open before posting (could have been closed since submission)
+        if ($entry->period_id) {
+            $period = AccountingPeriod::find($entry->period_id);
+            if ($period && ! $period->isOpen()) {
+                throw new \InvalidArgumentException(
+                    "Cannot approve entry - period {$period->period_code} is closed"
+                );
+            }
+        }
 
-        // Post to the ledger
-        $this->updateLedger($entry);
-
-        SystemLog::create([
-            'user_id' => $approvedBy,
-            'action' => 'journal_entry_approved',
-            'entity_type' => 'JournalEntry',
-            'entity_id' => $entry->id,
-            'new_values' => [
+        // Wrap in transaction to ensure atomicity - if updateLedger fails,
+        // the entry status won't be changed to Posted
+        return DB::transaction(function () use ($entry, $approvedBy, $approvalNotes) {
+            $entry->update([
                 'status' => 'Posted',
                 'approved_by' => $approvedBy,
+                'approved_at' => now(),
                 'approval_notes' => $approvalNotes,
-            ],
-            'ip_address' => request()->ip(),
-        ]);
+                'posted_by' => $approvedBy,
+                'posted_at' => now(),
+            ]);
 
-        return $entry->fresh();
+            // Post to the ledger
+            $this->updateLedger($entry);
+
+            SystemLog::create([
+                'user_id' => $approvedBy,
+                'action' => 'journal_entry_approved',
+                'entity_type' => 'JournalEntry',
+                'entity_id' => $entry->id,
+                'new_values' => [
+                    'status' => 'Posted',
+                    'approved_by' => $approvedBy,
+                    'approval_notes' => $approvalNotes,
+                ],
+                'ip_address' => request()->ip(),
+            ]);
+
+            return $entry->fresh();
+        });
     }
 
     /**

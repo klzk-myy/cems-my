@@ -8,10 +8,12 @@ class EncryptionService
 
     public function __construct()
     {
-        $this->key = config('app.encryption_key') ?? env('ENCRYPTION_KEY');
-        if (empty($this->key)) {
+        $rawKey = config('app.encryption_key') ?? env('ENCRYPTION_KEY');
+        if (empty($rawKey)) {
             throw new \RuntimeException('Encryption key not configured');
         }
+        // Derive a proper 32-byte key using SHA-256 (AES-256-CBC requires 32 bytes)
+        $this->key = hash('sha256', $rawKey, true);
     }
 
     public function encrypt(string $data): string
@@ -47,14 +49,14 @@ class EncryptionService
         return $result !== false ? $result : null;
     }
 
-    protected function getIv(): string
-    {
-        // In production, store IV alongside encrypted data
-        return substr(hash('sha256', $this->key), 0, 16);
-    }
-
+    /**
+     * Hash data using HMAC-SHA256 to prevent length extension attacks.
+     *
+     * @param  string  $data  Data to hash
+     * @return string  HMAC-SHA256 hash as hex string
+     */
     public function hash(string $data): string
     {
-        return hash('sha256', $data.$this->key);
+        return hash_hmac('sha256', $data, $this->key);
     }
 }

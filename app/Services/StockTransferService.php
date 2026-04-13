@@ -10,9 +10,14 @@ use Illuminate\Support\Facades\DB;
 
 class StockTransferService
 {
+    protected User $requester;
+
     public function __construct(
-        protected User $requester,
-    ) {}
+        protected MathService $mathService,
+        ?User $requester = null,
+    ) {
+        $this->requester = $requester ?? auth()->user();
+    }
 
     public function createRequest(array $data): StockTransfer
     {
@@ -103,8 +108,11 @@ class StockTransferService
                     if ($item->hasVariance()) {
                         $item->update(['variance_notes' => "Variance: {$item->variance}"]);
 
-                        if ($item->quantity > 0) {
-                            $variancePercent = abs(bcdiv($item->variance, $item->quantity, 4)) * 100;
+                        if (bccomp($item->quantity, '0', 4) > 0) {
+                            $variancePercent = $this->mathService->multiply(
+                                $this->mathService->divide(abs($item->variance), $item->quantity, 4),
+                                '100'
+                            );
                             if (bccomp($variancePercent, '5', 4) > 0) {
                                 app(AuditService::class)->logWithSeverity(
                                     'stock_transfer_variance_exceeded',
