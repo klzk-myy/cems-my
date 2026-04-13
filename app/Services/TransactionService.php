@@ -117,6 +117,14 @@ class TransactionService
         }
 
         return DB::transaction(function () use ($data, $userId, $tillBalance, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy) {
+            // For Sell transactions, acquire position lock FIRST to prevent race conditions
+            // where two concurrent transactions could both pass the duplicate check
+            // before either acquires the lock
+            $position = null;
+            if ($data['type'] === TransactionType::Sell->value) {
+                $position = $this->positionService->getPositionWithLock($data['currency_code'], $data['till_id']);
+            }
+
             // Check for duplicate transaction via idempotency key (inside transaction to prevent race)
             if (! empty($data['idempotency_key'])) {
                 $existingByKey = Transaction::where('idempotency_key', $data['idempotency_key'])->first();
@@ -149,9 +157,8 @@ class TransactionService
                 throw new \InvalidArgumentException('Potential duplicate transaction detected. Please wait 30 seconds before submitting again or check your recent transactions.');
             }
 
-            // For Sell transactions, verify sufficient stock WITH LOCK to prevent race conditions
+            // Verify sufficient stock for Sell transactions (lock already held above)
             if ($data['type'] === TransactionType::Sell->value) {
-                $position = $this->positionService->getPositionWithLock($data['currency_code'], $data['till_id']);
                 if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
                     $availableBalance = $position ? $position->balance : '0';
                     throw new \InvalidArgumentException("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
