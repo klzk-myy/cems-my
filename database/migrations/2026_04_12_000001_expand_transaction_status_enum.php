@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         // MySQL - modify enum to include all statuses (PascalCase)
-        DB::statement("ALTER TABLE transactions MODIFY COLUMN status ENUM('Draft', 'PendingApproval', 'Approved', 'Processing', 'Completed', 'Finalized', 'Cancelled', 'Reversed', 'Failed', 'Rejected', 'Pending', 'OnHold') DEFAULT 'Draft'");
+        DB::statement("ALTER TABLE transactions MODIFY COLUMN status ENUM('Draft', 'PendingApproval', 'Approved', 'Processing', 'Completed', 'Finalized', 'Cancelled', 'Reversed', 'Failed', 'Rejected', 'Pending', 'OnHold', 'PendingCancellation') DEFAULT 'Draft'");
 
         // Add new columns if they don't exist
         if (Schema::hasTable('transactions') && ! Schema::hasColumn('transactions', 'transition_history')) {

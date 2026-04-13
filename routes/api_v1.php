@@ -50,8 +50,6 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware(['role:manager,compliance', 'mfa.verified']);
     Route::post('/transactions/{transaction}/reject-cancellation', [TransactionCancellationController::class, 'rejectCancellation'])
         ->middleware(['role:manager,compliance', 'mfa.verified']);
-    Route::post('/transactions/{transaction}/cancel', [TransactionCancellationController::class, 'cancel'])
-        ->middleware(['role:manager', 'mfa.verified']);
 
     // Customers API
     Route::get('/customers', [CustomerController::class, 'index']);

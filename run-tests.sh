@@ -3,7 +3,7 @@
 # CEMS-MY Test Runner Script
 # Usage: ./run-tests.sh [filter]
 
-set -e
+# Don't use set -e here - we need to capture test exit codes properly
 
 echo "=================================="
 echo "CEMS-MY Test Suite Runner"
@@ -104,20 +104,24 @@ case "${1:-}" in
         echo -e "${YELLOW}Running All Tests...${NC}"
         echo ""
         run_tests
+        exit_code=$?
         ;;
     *)
         echo -e "${YELLOW}Running tests matching: $1${NC}"
         echo ""
         run_tests "$1"
+        exit_code=$?
         ;;
 esac
 
 # Summary
 echo ""
 echo "=================================="
-if [ $? -eq 0 ]; then
+if [ $exit_code -eq 0 ]; then
     echo -e "${GREEN}All tests passed!${NC}"
 else
     echo -e "${RED}Some tests failed!${NC}"
 fi
 echo "=================================="
+
+exit $exit_code
