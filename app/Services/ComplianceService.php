@@ -79,17 +79,19 @@ class ComplianceService
      * - Standard: Amount ≥ RM 3,000
      * - Simplified: Amount < RM 3,000 with no risk factors
      *
+     * SECURITY NOTE: This method always uses the customer's actual record values
+     * for PEP status and sanctions screening. No override parameters are allowed
+     * to prevent bypassing Enhanced CDD requirements.
+     *
      * @param  string  $amount  Transaction amount in MYR (as string for precision)
      * @param  Customer  $customer  The customer initiating the transaction
-     * @param  bool|null  $isPep  Optional PEP status override (if not provided, uses customer record)
-     * @param  bool|null  $isSanctionMatch  Optional sanction match override (if not provided, uses internal check)
      * @return CddLevel The determined CDD level (Simplified, Standard, or Enhanced)
      */
-    public function determineCDDLevel(string $amount, Customer $customer, ?bool $isPep = null, ?bool $isSanctionMatch = null): CddLevel
+    public function determineCDDLevel(string $amount, Customer $customer): CddLevel
     {
-        // Use explicit parameters if provided, otherwise fall back to customer record
-        $pepStatus = $isPep ?? $customer->pep_status ?? false;
-        $sanctionStatus = $isSanctionMatch ?? $this->checkSanctionMatch($customer);
+        // Always use customer record - no overrides allowed for security
+        $pepStatus = $customer->pep_status ?? false;
+        $sanctionStatus = $this->checkSanctionMatch($customer);
 
         // Enhanced Due Diligence triggers
         if ($pepStatus || $sanctionStatus) {

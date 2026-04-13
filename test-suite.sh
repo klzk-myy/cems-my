@@ -189,6 +189,15 @@ else
     print_result "Data encryption at rest fix" "FAIL" "Encryption not implemented"
 fi
 
+# Test 16: CDD level override parameters removed
+echo "Test 16: CDD level override parameters removed"
+if ! grep -q "?bool \$isPep = null" app/Services/ComplianceService.php && \
+   ! grep -q "?bool \$isSanctionMatch = null" app/Services/ComplianceService.php; then
+    print_result "CDD level override parameters fix" "PASS"
+else
+    print_result "CDD level override parameters fix" "FAIL" "Override parameters still present"
+fi
+
 echo ""
 echo -e "${BLUE}Running PHP Unit Tests...${NC}"
 echo ""
@@ -295,6 +304,15 @@ if (( $(echo "$MEMORY_USAGE < 50" | bc -l) )); then
     print_result "Memory usage check" "PASS" "${MEMORY_USAGE}MB"
 else
     print_result "Memory usage check" "FAIL" "${MEMORY_USAGE}MB - too high"
+fi
+
+# Test 23: CDD level override parameters removed
+echo "Test 23: CDD level override parameters removed"
+if ! grep -q "?bool \$isPep = null" app/Services/ComplianceService.php && \
+   ! grep -q "?bool \$isSanctionMatch = null" app/Services/ComplianceService.php; then
+    print_result "CDD level override parameters fix" "PASS"
+else
+    print_result "CDD level override parameters fix" "FAIL" "Override parameters still present"
 fi
 
 echo ""
