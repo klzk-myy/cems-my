@@ -182,7 +182,7 @@ class AuditService
         }
 
         if (! empty($filters['action'])) {
-            $query->where('action', 'like', '%'.$filters['action'].'%');
+            $query->whereRaw('action LIKE ?', ['%' . $filters['action'] . '%']);
         }
 
         if (! empty($filters['severity'])) {
@@ -885,8 +885,8 @@ class AuditService
                 continue;
             }
 
-            // Verify the previous_hash chain link
-            if ($entry->previous_hash !== $previousHash) {
+            // Verify the previous_hash chain link using timing-safe comparison
+            if (! hash_equals((string) $previousHash, (string) $entry->previous_hash)) {
                 return [
                     'valid' => false,
                     'broken_at' => $entry->id,
@@ -905,7 +905,7 @@ class AuditService
                 $entry->previous_hash
             );
 
-            if ($recomputedHash !== $entry->entry_hash) {
+            if (! hash_equals($recomputedHash, (string) $entry->entry_hash)) {
                 return [
                     'valid' => false,
                     'broken_at' => $entry->id,
