@@ -38,9 +38,15 @@ class TransactionController extends Controller
      */
     public function index()
     {
-        $transactions = Transaction::with(['customer', 'user'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $query = Transaction::with(['customer', 'user']);
+
+        // Branch segregation: non-admin users can only see their branch's transactions
+        $user = auth()->user();
+        if ($user && $user->branch_id !== null) {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        $transactions = $query->orderBy('created_at', 'desc')->paginate(20);
 
         return view('transactions.index', compact('transactions'));
     }
@@ -52,10 +58,17 @@ class TransactionController extends Controller
     {
         $currencies = Currency::where('is_active', true)->get();
         $customers = Customer::all();
-        $tillBalances = TillBalance::where('date', today())
+
+        // Branch segregation: non-admin users can only see tills at their branch
+        $tillQuery = TillBalance::where('date', today())
             ->whereNull('closed_at')
-            ->with('currency')
-            ->get();
+            ->with('currency');
+
+        $user = auth()->user();
+        if ($user && $user->branch_id !== null) {
+            $tillQuery->where('branch_id', $user->branch_id);
+        }
+        $tillBalances = $tillQuery->get();
 
         return view('transactions.create', compact('currencies', 'customers', 'tillBalances'));
     }

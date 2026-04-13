@@ -46,7 +46,7 @@ class HealthCheckController extends Controller
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'message' => 'Database connection failed: '.$e->getMessage(),
+                'message' => 'Database connection failed',
             ];
         }
     }
@@ -76,7 +76,7 @@ class HealthCheckController extends Controller
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'message' => 'Cache connection failed: '.$e->getMessage(),
+                'message' => 'Cache connection failed',
             ];
         }
     }
@@ -103,7 +103,7 @@ class HealthCheckController extends Controller
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'message' => 'Queue connection failed: '.$e->getMessage(),
+                'message' => 'Queue connection failed',
             ];
         }
     }

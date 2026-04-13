@@ -7,7 +7,8 @@ use Illuminate\Http\Request;
 
 /**
  * Middleware that allows access if user has ANY of the specified roles.
- * Unlike CheckRole which requires ALL roles, this middleware requires ANY.
+ * Both CheckRole and CheckRoleAny implement OR semantics (user needs ANY of the roles).
+ * CheckRoleAny exists for semantic clarity when the intent is specifically "any of these roles".
  */
 class CheckRoleAny
 {

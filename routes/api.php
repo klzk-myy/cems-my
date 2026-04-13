@@ -7,14 +7,14 @@ use App\Http\Controllers\Api\Compliance\EddController;
 use App\Http\Controllers\Api\Compliance\FindingController;
 use App\Http\Controllers\Api\Compliance\RiskController;
 use App\Http\Controllers\Api\SanctionsWebhookController;
-use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\Api\V1\TransactionController as V1TransactionController;
+use App\Http\Controllers\Api\V1\CustomerController as V1CustomerController;
 use App\Http\Controllers\Report\RegulatoryReportController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SanctionController;
 use App\Http\Controllers\StrController;
 use App\Http\Controllers\Transaction\TransactionApprovalController;
 use App\Http\Controllers\Transaction\TransactionCancellationController;
-use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -45,26 +45,26 @@ Route::get('/webhooks/sanctions/health', [SanctionsWebhookController::class, 'he
     ->name('webhooks.sanctions.health');
 
 Route::middleware('auth:sanctum')->group(function () {
-    // Transactions API
-    Route::get('/transactions', [TransactionController::class, 'index']);
-    Route::post('/transactions', [TransactionController::class, 'store']);
-    Route::get('/transactions/{transaction}', [TransactionController::class, 'show']);
+    // Transactions API (V1 JSON endpoints)
+    Route::get('/transactions', [V1TransactionController::class, 'index']);
+    Route::post('/transactions', [V1TransactionController::class, 'store']);
+    Route::get('/transactions/{transaction}', [V1TransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/approve', [TransactionApprovalController::class, 'approve'])
         ->middleware(['role:manager', 'mfa.verified']);
     Route::post('/transactions/{transaction}/cancel', [TransactionCancellationController::class, 'cancel'])
         ->middleware(['role:manager', 'mfa.verified']);
 
-    // Customers API
-    Route::get('/customers', [CustomerController::class, 'index']);
-    Route::post('/customers', [CustomerController::class, 'store'])
+    // Customers API (V1 JSON endpoints)
+    Route::get('/customers', [V1CustomerController::class, 'index']);
+    Route::post('/customers', [V1CustomerController::class, 'store'])
         ->middleware('throttle:30,1'); // 30 requests per minute
-    Route::get('/customers/{customer}', [CustomerController::class, 'show']);
-    Route::put('/customers/{customer}', [CustomerController::class, 'update'])
+    Route::get('/customers/{customer}', [V1CustomerController::class, 'show']);
+    Route::put('/customers/{customer}', [V1CustomerController::class, 'update'])
         ->middleware('throttle:30,1');
-    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
+    Route::delete('/customers/{customer}', [V1CustomerController::class, 'destroy'])
         ->middleware('throttle:15,1'); // Stricter limit for destructive operation
-    Route::get('/customers/{customer}/history', [CustomerController::class, 'customerHistory']);
-    Route::post('/customers/{customer}/kyc', [CustomerController::class, 'uploadDocument'])
+    Route::get('/customers/{customer}/history', [V1CustomerController::class, 'customerHistory']);
+    Route::post('/customers/{customer}/kyc', [V1CustomerController::class, 'uploadDocument'])
         ->middleware('throttle:30,1');
 
     // STR API

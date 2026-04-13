@@ -42,12 +42,8 @@ class CustomerController extends Controller
             $query->where('full_name', 'like', "%{$search}%");
         }
 
-        // Filter by ID number (partial match on decrypted)
-        if ($request->has('id_number') && ! empty($request->id_number)) {
-            // Note: For encrypted fields, we would need to search differently
-            // This is a simplified search
-            $query->where('id_number_encrypted', 'like', "%{$request->id_number}%");
-        }
+        // Note: ID number search on encrypted field is not supported
+        // Encrypted fields cannot be searched via SQL LIKE
 
         // Filter by risk rating
         if ($request->has('risk_rating') && ! empty($request->risk_rating)) {
@@ -69,9 +65,19 @@ class CustomerController extends Controller
             $query->where('nationality', $request->nationality);
         }
 
-        // Order by
+        // Order by - validate sort columns to prevent SQL injection
+        $allowedSortColumns = ['created_at', 'updated_at', 'full_name', 'risk_rating', 'is_active', 'pep_status', 'nationality'];
         $sortBy = $request->get('sort_by', 'created_at');
         $sortDir = $request->get('sort_dir', 'desc');
+
+        // Whitelist validation - only allow safe column names
+        if (! in_array($sortBy, $allowedSortColumns)) {
+            $sortBy = 'created_at';
+        }
+        if (! in_array(strtolower($sortDir), ['asc', 'desc'])) {
+            $sortDir = 'desc';
+        }
+
         $query->orderBy($sortBy, $sortDir);
 
         $query->withCount(['documents', 'transactions']);

@@ -20,9 +20,15 @@ class TransactionController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = $request->get('per_page', 20);
-        $transactions = \App\Models\Transaction::with(['customer', 'user'])
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
+        $query = \App\Models\Transaction::with(['customer', 'user']);
+
+        // Branch segregation: non-admin users can only see their branch's transactions
+        $user = auth()->user();
+        if ($user && $user->branch_id !== null) {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
             'success' => true,
