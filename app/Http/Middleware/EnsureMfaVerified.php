@@ -41,9 +41,18 @@ class EnsureMfaVerified
             return $next($request);
         }
 
-        // Check if already verified in this session
+        // Check if already verified in this session with expiration
         if ($request->session()->get('mfa_verified', false)) {
-            return $next($request);
+            $verifiedAt = $request->session()->get('mfa_verified_at');
+            $maxAge = config('security.mfa_session_max_age', 900); // 15 minutes default
+
+            // Check if verification has expired
+            if ($verifiedAt && now()->timestamp - $verifiedAt <= $maxAge) {
+                return $next($request);
+            }
+
+            // Verification has expired, clear the session
+            $request->session()->forget(['mfa_verified', 'mfa_verified_at']);
         }
 
         // Check for trusted device
