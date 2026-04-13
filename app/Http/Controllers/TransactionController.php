@@ -144,7 +144,8 @@ class TransactionController extends Controller
                 'ERROR'
             );
 
-            return back()->with('error', 'Transaction failed: '.$e->getMessage())->withInput();
+            // Return generic message to user to avoid information disclosure
+            return back()->with('error', 'Transaction failed. Please contact support if the problem persists.')->withInput();
         }
     }
 

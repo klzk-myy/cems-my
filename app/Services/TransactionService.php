@@ -45,6 +45,11 @@ class TransactionService
         $userId = $userId ?? auth()->id();
         $ipAddress = $ipAddress ?? request()->ip();
 
+        // Validate IP address format
+        if ($ipAddress && ! filter_var($ipAddress, FILTER_VALIDATE_IP)) {
+            throw new \InvalidArgumentException('Invalid IP address format.');
+        }
+
         // Verify till is open for this currency
         $tillBalance = TillBalance::where('till_id', $data['till_id'])
             ->where('currency_code', $data['currency_code'])
@@ -328,6 +333,11 @@ class TransactionService
     public function approveTransaction(Transaction $transaction, int $approverId, ?string $ipAddress = null): array
     {
         $ipAddress = $ipAddress ?? request()->ip();
+
+        // Validate IP address format
+        if ($ipAddress && ! filter_var($ipAddress, FILTER_VALIDATE_IP)) {
+            throw new \InvalidArgumentException('Invalid IP address format.');
+        }
 
         // Validate transaction is in pending status
         if ($transaction->status !== TransactionStatus::Pending) {
