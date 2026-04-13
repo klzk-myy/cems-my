@@ -4,10 +4,11 @@ namespace App\Notifications\Compliance;
 
 use App\Models\StrReport;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use Illuminate\Queue\SerializesModels;
 
-class StrEscalationNotification extends Notification
+class StrEscalationNotification extends Notification implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

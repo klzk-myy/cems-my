@@ -27,6 +27,7 @@ class CtosReport extends Model
         'report_date',
         'status',
         'submitted_at',
+        'submitted_by',
         'bnm_reference',
         'created_by',
     ];
@@ -38,6 +39,11 @@ class CtosReport extends Model
         'submitted_at' => 'datetime',
         'status' => CtosStatus::class,
     ];
+
+    public function submittedBy()
+    {
+        return $this->belongsTo(User::class, 'submitted_by');
+    }
 
     public function transaction()
     {
@@ -69,11 +75,12 @@ class CtosReport extends Model
         return $this->status === CtosStatus::Submitted;
     }
 
-    public function markAsSubmitted(?string $bnmReference = null): void
+    public function markAsSubmitted(int $submittedBy, ?string $bnmReference = null): void
     {
         $this->update([
             'status' => CtosStatus::Submitted,
             'submitted_at' => now(),
+            'submitted_by' => $submittedBy,
             'bnm_reference' => $bnmReference,
         ]);
     }

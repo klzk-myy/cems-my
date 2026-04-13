@@ -1,236 +1,44 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
 @section('title', 'Compliance Workspace')
 
-@section('breadcrumbs')
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ol class="breadcrumbs__list">
-        <li class="breadcrumbs__item">
-            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item">
-            <a href="{{ route('compliance') }}" class="breadcrumbs__link">Compliance</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
-            <span class="breadcrumbs__text">Workspace</span>
-        </li>
-    </ol>
-</nav>
+@section('header-title')
+<div>
+    <h1 class="text-2xl font-semibold text-[--color-ink]">Compliance Workspace</h1>
+    <p class="text-sm text-[--color-ink-muted]">Unified compliance management</p>
+</div>
 @endsection
 
 @section('content')
-<div class="page-header">
-    <div class="page-header__content">
-        <h1 class="page-header__title">Compliance Workspace</h1>
-    </div>
-</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <a href="/compliance/alerts" class="card p-6 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-[--color-danger]/10 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-[--color-danger]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+            </svg>
+        </div>
+        <h3 class="font-semibold text-lg mb-1">Alert Triage</h3>
+        <p class="text-sm text-[--color-ink-muted]">Review and resolve alerts</p>
+    </a>
 
-<!-- KPI Cards Row -->
-<div class="stats-grid mb-6">
-    <div class="stat-card">
-        <div class="stat-card__value">{{ $alertSummary['total'] }}</div>
-        <div class="stat-card__label">Open Alerts</div>
-        <div class="text-xs text-red-500 mt-1">{{ $alertSummary['overdue'] }} overdue</div>
-    </div>
-    <div class="stat-card stat-card--primary">
-        <div class="stat-card__value">{{ $caseSummary['total_open'] }}</div>
-        <div class="stat-card__label">Open Cases</div>
-        <div class="text-xs text-red-500 mt-1">{{ $caseSummary['overdue'] }} overdue</div>
-    </div>
-    <div class="stat-card stat-card--warning">
-        <div class="stat-card__value">{{ $riskSummary['high_risk'] + $riskSummary['critical_risk'] }}</div>
-        <div class="stat-card__label">High Risk Customers</div>
-        <div class="text-xs text-gray-500 mt-1">{{ $riskSummary['deteriorating_trend'] }} deteriorating</div>
-    </div>
-    <div class="stat-card stat-card--danger">
-        <div class="stat-card__value">{{ $strDeadlineSummary['total_pending'] }}</div>
-        <div class="stat-card__label">STR Pending</div>
-        <div class="text-xs text-red-500 mt-1">{{ $strDeadlineSummary['overdue'] }} overdue</div>
-    </div>
-</div>
+    <a href="/compliance/cases" class="card p-6 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-[--color-warning]/10 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-[--color-warning]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+        </div>
+        <h3 class="font-semibold text-lg mb-1">Cases</h3>
+        <p class="text-sm text-[--color-ink-muted]">Manage investigation cases</p>
+    </a>
 
-<!-- Alert Priority Breakdown -->
-<div class="stats-grid mb-6">
-    <div class="stat-card stat-card--danger">
-        <div class="stat-card__value">{{ $alertSummary['critical'] }}</div>
-        <div class="stat-card__label">Critical</div>
-    </div>
-    <div class="stat-card stat-card--warning">
-        <div class="stat-card__value">{{ $alertSummary['high'] }}</div>
-        <div class="stat-card__label">High</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card__value">{{ $alertSummary['medium'] }}</div>
-        <div class="stat-card__label">Medium</div>
-    </div>
-    <div class="stat-card stat-card--success">
-        <div class="stat-card__value">{{ $alertSummary['low'] }}</div>
-        <div class="stat-card__label">Low</div>
-    </div>
-</div>
-
-<!-- Main Content Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-    <!-- Alert Queue Panel -->
-    <div class="card">
-        <div class="p-4 border-b flex justify-between items-center">
-            <h3 class="text-lg font-semibold">Alert Queue</h3>
-            <a href="{{ route('compliance.alerts.index') }}" class="text-blue-600 text-sm hover:underline">View All</a>
+    <a href="/compliance/edd" class="card p-6 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-[--color-info]/10 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-[--color-info]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
         </div>
-        <div class="p-4">
-            <p class="text-gray-500 text-sm">Unassigned alerts requiring review</p>
-            <div class="mt-3 text-3xl font-bold text-gray-700">{{ $alertSummary['unassigned'] }}</div>
-            <p class="text-sm text-gray-400">unassigned</p>
-        </div>
-    </div>
-
-    <!-- Case Management Panel -->
-    <div class="card">
-        <div class="p-4 border-b flex justify-between items-center">
-            <h3 class="text-lg font-semibold">Case Management</h3>
-            <a href="{{ route('compliance.cases.index') }}" class="text-blue-600 text-sm hover:underline">View All</a>
-        </div>
-        <div class="p-4">
-            <p class="text-gray-500 text-sm">Active cases by status</p>
-            <div class="mt-2 flex gap-4">
-                <div>
-                    <div class="text-xl font-bold text-purple-600">{{ $caseSummary['pending_review'] }}</div>
-                    <p class="text-xs text-gray-400">Pending Review</p>
-                </div>
-                <div>
-                    <div class="text-xl font-bold text-blue-600">{{ $caseSummary['high'] + $caseSummary['critical'] }}</div>
-                    <p class="text-xs text-gray-400">High/Critical</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Risk Dashboard and Reporting -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-    <!-- Risk Dashboard Preview -->
-    <div class="card">
-        <div class="p-4 border-b flex justify-between items-center">
-            <h3 class="text-lg font-semibold">Risk Dashboard</h3>
-            <a href="{{ route('compliance.risk-dashboard.index') }}" class="text-blue-600 text-sm hover:underline">View All</a>
-        </div>
-        <div class="p-4">
-            <p class="text-gray-500 text-sm">Customer risk overview</p>
-            <div class="mt-3 grid grid-cols-3 gap-2">
-                <div class="text-center p-2 bg-red-50 rounded">
-                    <div class="text-lg font-bold text-red-700">{{ $riskSummary['critical_risk'] }}</div>
-                    <div class="text-xs text-red-600">Critical</div>
-                </div>
-                <div class="text-center p-2 bg-orange-50 rounded">
-                    <div class="text-lg font-bold text-orange-700">{{ $riskSummary['high_risk'] }}</div>
-                    <div class="text-xs text-orange-600">High</div>
-                </div>
-                <div class="text-center p-2 bg-gray-100 rounded">
-                    <div class="text-lg font-bold text-gray-700">{{ $riskSummary['medium_risk'] }}</div>
-                    <div class="text-xs text-gray-600">Medium</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reporting Panel -->
-    <div class="card">
-        <div class="p-4 border-b flex justify-between items-center">
-            <h3 class="text-lg font-semibold">Reporting</h3>
-            <a href="{{ route('compliance.reporting.index') }}" class="text-blue-600 text-sm hover:underline">View All</a>
-        </div>
-        <div class="p-4">
-            <p class="text-gray-500 text-sm">Report generation and schedules</p>
-            <div class="mt-3 grid grid-cols-3 gap-2">
-                <div class="text-center p-2 bg-blue-50 rounded">
-                    <div class="text-lg font-bold text-blue-700">{{ $reportSummary['total_runs'] }}</div>
-                    <div class="text-xs text-blue-600">Total Runs</div>
-                </div>
-                <div class="text-center p-2 bg-green-50 rounded">
-                    <div class="text-lg font-bold text-green-700">{{ $reportSummary['success_rate'] }}%</div>
-                    <div class="text-xs text-green-600">Success Rate</div>
-                </div>
-                <div class="text-center p-2 bg-gray-100 rounded">
-                    <div class="text-lg font-bold text-gray-700">{{ $reportSummary['scheduled_runs'] }}</div>
-                    <div class="text-xs text-gray-600">Scheduled</div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- KPI Metrics -->
-<div class="card mb-6">
-    <div class="p-4 border-b">
-        <h3 class="text-lg font-semibold">Compliance KPIs (Last 30 Days)</h3>
-    </div>
-    <div class="p-4 grid grid-cols-4 gap-4">
-        <div class="text-center">
-            <div class="text-2xl font-bold text-blue-600">{{ $kpis['flag_resolution_avg_hours'] }}h</div>
-            <div class="text-sm text-gray-500">Avg Flag Resolution</div>
-        </div>
-        <div class="text-center">
-            <div class="text-2xl font-bold text-green-600">{{ $kpis['str_on_time_percent'] }}%</div>
-            <div class="text-sm text-gray-500">STR On-Time</div>
-        </div>
-        <div class="text-center">
-            <div class="text-2xl font-bold text-purple-600">{{ $kpis['edd_completion_rate_percent'] }}%</div>
-            <div class="text-sm text-gray-500">EDD Completion</div>
-        </div>
-        <div class="text-center">
-            <div class="text-2xl font-bold text-orange-600">{{ $kpis['reports_on_schedule_percent'] }}%</div>
-            <div class="text-sm text-gray-500">Reports On Schedule</div>
-        </div>
-    </div>
-</div>
-
-<!-- Upcoming Deadlines Calendar -->
-<div class="card">
-    <div class="p-4 border-b flex justify-between items-center">
-        <h3 class="text-lg font-semibold">Upcoming Deadlines</h3>
-        <a href="{{ route('compliance.reporting.deadlines') }}" class="text-blue-600 text-sm hover:underline">View Calendar</a>
-    </div>
-    <div class="p-4">
-        @if(empty($deadlines))
-            <p class="text-gray-500 text-sm">No upcoming deadlines</p>
-        @else
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Deadline</th>
-                        <th>Urgency</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach(array_slice($deadlines, 0, 5) as $deadline)
-                    <tr>
-                        <td>
-                            @if($deadline['type'] === 'str')
-                                <span class="status-badge status-badge--danger">STR</span>
-                            @else
-                                <span class="status-badge status-badge--active">{{ strtoupper($deadline['report_type'] ?? 'Report') }}</span>
-                            @endif
-                        </td>
-                        <td>{{ $deadline['deadline'] }}</td>
-                        <td>
-                            @if($deadline['urgency'] === 'overdue')
-                                <span class="text-red-600 font-medium">Overdue</span>
-                            @elseif($deadline['urgency'] === 'critical')
-                                <span class="text-red-500">{{ $deadline['urgency'] }}</span>
-                            @elseif($deadline['urgency'] === 'warning')
-                                <span class="text-yellow-600">{{ $deadline['urgency'] }}</span>
-                            @else
-                                <span class="text-green-600">{{ $deadline['urgency'] }}</span>
-                            @endif
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @endif
-    </div>
+        <h3 class="font-semibold text-lg mb-1">EDD Records</h3>
+        <p class="text-sm text-[--color-ink-muted]">Enhanced due diligence</p>
+    </a>
 </div>
 @endsection

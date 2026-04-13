@@ -25,6 +25,11 @@ class Kernel extends ConsoleKernel
             ->dailyAt('06:00')
             ->appendOutputTo(storage_path('logs/report-position-limit.log'));
 
+        // EOD Reconciliation - End of day reconciliation (runs after counters close)
+        $schedule->command('report:eod')
+            ->dailyAt('20:00')
+            ->appendOutputTo(storage_path('logs/report-eod.log'));
+
         // ============ WEEKLY REPORTS ============
 
         // Trial Balance - Every Sunday at 01:00

@@ -1,138 +1,110 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'STR Reports - CEMS-MY')
+@section('title', 'STR Reports')
 
-@section('breadcrumbs')
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ol class="breadcrumbs__list">
-        <li class="breadcrumbs__item">
-            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
-            <span class="breadcrumbs__text">STR Reports</span>
-        </li>
-    </ol>
-</nav>
+@section('header-title')
+<div>
+    <h1 class="text-2xl font-semibold text-[--color-ink]">Suspicious Transaction Reports</h1>
+    <p class="text-sm text-[--color-ink-muted]">Manage and submit STRs to BNM</p>
+</div>
+@endsection
+
+@section('header-actions')
+<a href="/str/create" class="btn btn-primary">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+    </svg>
+    New STR
+</a>
 @endsection
 
 @section('content')
-<div class="page-header">
-    <div class="page-header__content">
-        <h1 class="page-header__title">Suspicious Transaction Reports (STR)</h1>
-        <p class="page-header__subtitle">Manage STR filings for BNM compliance - Must be filed within 24 hours of suspicion</p>
-    </div>
-</div>
-
-<!-- Summary Cards -->
-<div class="stats-grid mb-6">
-    <div class="stat-card stat-card--primary">
-        <div class="stat-card__value">{{ $stats['draft'] ?? 0 }}</div>
-        <div class="stat-card__label">Drafts</div>
-    </div>
-    <div class="stat-card stat-card--warning">
-        <div class="stat-card__value">{{ $stats['pending_review'] ?? 0 }}</div>
-        <div class="stat-card__label">Pending Review</div>
-    </div>
-    <div class="stat-card stat-card--warning">
-        <div class="stat-card__value">{{ $stats['pending_approval'] ?? 0 }}</div>
-        <div class="stat-card__label">Pending Approval</div>
-    </div>
-    <div class="stat-card stat-card--success">
-        <div class="stat-card__value">{{ $stats['submitted'] ?? 0 }}</div>
-        <div class="stat-card__label">Submitted</div>
-    </div>
-    <div class="stat-card stat-card--success">
-        <div class="stat-card__value">{{ $stats['acknowledged'] ?? 0 }}</div>
-        <div class="stat-card__label">Acknowledged</div>
-    </div>
-</div>
-
-<!-- Filter Bar -->
-<div class="card mb-6">
-    <div class="p-4">
-        <form method="GET" class="flex flex-wrap items-center gap-4">
-            <label class="text-sm font-semibold text-gray-600">Status:</label>
-            <select onchange="window.location.href='?status='+this.value" class="form-select w-auto">
-                <option value="all" {{ request('status') == 'all' ? 'selected' : '' }}>All Status</option>
-                <option value="draft" {{ request('status') == 'draft' ? 'selected' : '' }}>Draft</option>
-                <option value="pending_review" {{ request('status') == 'pending_review' ? 'selected' : '' }}>Pending Review</option>
-                <option value="pending_approval" {{ request('status') == 'pending_approval' ? 'selected' : '' }}>Pending Approval</option>
-                <option value="submitted" {{ request('status') == 'submitted' ? 'selected' : '' }}>Submitted</option>
-                <option value="acknowledged" {{ request('status') == 'acknowledged' ? 'selected' : '' }}>Acknowledged</option>
-            </select>
-            @if(request('status'))
-                <a href="{{ route('str.index') }}" class="btn btn--secondary btn--sm">Clear Filter</a>
-            @endif
-        </form>
-    </div>
-</div>
-
 <div class="card">
-    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900">All STR Reports</h3>
-        <a href="{{ route('str.create') }}" class="btn btn--danger btn--sm">+ Create STR</a>
-    </div>
-    <div class="p-0">
-        @if($strReports->count() > 0)
-        <table class="data-table">
+    <div class="table-container">
+        <table class="table">
             <thead>
                 <tr>
-                    <th>STR No.</th>
+                    <th>STR ID</th>
+                    <th>Reference</th>
                     <th>Customer</th>
                     <th>Status</th>
-                    <th>Filed By</th>
-                    <th>Created</th>
-                    <th>Submitted</th>
-                    <th>BNM Reference</th>
+                    <th>Submitted Date</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($strReports as $str)
+                @forelse($strReports ?? [] as $str)
                 <tr>
-                    <td><strong class="font-mono text-xs">{{ $str->str_no }}</strong></td>
-                    <td>{{ $str->customer->full_name ?? 'N/A' }}</td>
+                    <td class="font-mono text-xs">#{{ $str->id }}</td>
+                    <td class="font-mono">{{ $str->reference_number ?? 'DRAFT' }}</td>
                     <td>
-                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full {{ match($str->status->value) {
-                            'Draft' => 'bg-gray-100 text-gray-600',
-                            'PendingReview' => 'bg-yellow-100 text-yellow-800',
-                            'PendingApproval' => 'bg-orange-100 text-orange-800',
-                            'Submitted' => 'bg-blue-100 text-blue-800',
-                            'Acknowledged' => 'bg-green-100 text-green-800',
-                            default => 'bg-gray-100 text-gray-600'
-                        } }}">
-                            {{ $str->status->label() }}
-                        </span>
+                        @if($str->customer)
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-[--color-canvas-subtle] rounded-lg flex items-center justify-center text-xs">
+                                {{ substr($str->customer->full_name, 0, 1) }}
+                            </div>
+                            <span class="font-medium">{{ $str->customer->full_name }}</span>
+                        </div>
+                        @else
+                        <span class="text-[--color-ink-muted]">N/A</span>
+                        @endif
                     </td>
-                    <td class="text-sm">{{ $str->creator->full_name ?? 'N/A' }}</td>
-                    <td class="text-sm text-gray-600">{{ $str->created_at->format('Y-m-d H:i') }}</td>
-                    <td class="text-sm text-gray-600">{{ $str->submitted_at?->format('Y-m-d H:i') ?? '-' }}</td>
-                    <td class="font-mono text-sm">{{ $str->bnm_reference ?? '-' }}</td>
                     <td>
-                        <div class="flex gap-2">
-                            <a href="{{ route('str.show', $str) }}" class="btn btn--primary btn--sm">View</a>
-                            @if($str->isDraft())
-                                <form action="{{ route('str.submit-review', $str) }}" method="POST">
-                                    @csrf
-                                    <button type="submit" class="btn btn--primary btn--sm">Submit for Review</button>
-                                </form>
+                        @php
+                            $statusClass = match($str->status->value ?? '') {
+                                'Submitted' => 'badge-success',
+                                'Approved' => 'badge-info',
+                                'Draft' => 'badge-warning',
+                                'Rejected' => 'badge-danger',
+                                default => 'badge-default'
+                            };
+                        @endphp
+                        <span class="badge {{ $statusClass }}">{{ $str->status->label() ?? 'Draft' }}</span>
+                    </td>
+                    <td class="text-[--color-ink-muted]">
+                        {{ $str->submitted_at?->format('d M Y') ?? 'Not submitted' }}
+                    </td>
+                    <td>
+                        <div class="table-actions">
+                            <a href="/str/{{ $str->id }}" class="btn btn-ghost btn-icon" title="View">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </a>
+                            @if($str->status->value === 'Draft')
+                                <a href="/str/{{ $str->id }}/edit" class="btn btn-ghost btn-icon" title="Edit">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </a>
                             @endif
                         </div>
                     </td>
                 </tr>
-                @endforeach
+                @empty
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state py-12">
+                            <div class="empty-state-icon">
+                                <svg class="w-8 h-8 text-[--color-ink-muted]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </div>
+                            <p class="empty-state-title">No STRs found</p>
+                            <p class="empty-state-description">Create a new STR when suspicious activity is detected</p>
+                            <a href="/str/create" class="btn btn-primary mt-4">New STR</a>
+                        </div>
+                    </td>
+                </tr>
+                @endforelse
             </tbody>
         </table>
-
-        <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
-            {{ $strReports->appends(request()->query())->links() }}
-        </div>
-        @else
-        <div class="p-8 text-center">
-            <p class="text-gray-500">No suspicious transaction reports have been filed yet.</p>
-        </div>
-        @endif
     </div>
+    @if($strReports && $strReports->hasPages())
+        <div class="card-footer">
+            {{ $strReports->withQueryString()->links() }}
+        </div>
+    @endif
 </div>
 @endsection

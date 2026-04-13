@@ -1,109 +1,51 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Edit User - CEMS-MY')
+@section('title', 'Edit User')
 
 @section('content')
-<div class="edit-user-header">
-    <h2>Edit User: {{ $user->username }}</h2>
-    <p>Update user information and permissions</p>
-</div>
-
 <div class="card">
-    <div class="user-info">
-        <div class="user-info-row">
-            <span class="user-info-label">User ID:</span>
-            <span class="user-info-value">{{ $user->id }}</span>
-        </div>
-        <div class="user-info-row">
-            <span class="user-info-label">Current Role:</span>
-            <span class="user-info-value">
-@php
-                $roleClass = match($user->role->value) {
-                    'admin' => 'role-admin',
-                    'manager' => 'role-manager',
-                    'compliance_officer' => 'role-compliance',
-                    default => 'role-teller'
-                };
-            @endphp
-                <span class="role-badge {{ $roleClass }}">
-                    {{ ucfirst(str_replace('_', ' ', $user->role->value)) }}
-                </span>
-            </span>
-        </div>
-        <div class="user-info-row">
-            <span class="user-info-label">Current Status:</span>
-            <span class="user-info-value">
-                @if($user->is_active)
-                    <span class="status-indicator status-active">Active</span>
-                @else
-                    <span class="status-indicator status-inactive">Inactive</span>
-                @endif
-            </span>
-        </div>
-        <div class="user-info-row">
-            <span class="user-info-label">Created:</span>
-            <span class="user-info-value">{{ $user->created_at->format('Y-m-d H:i') }}</span>
-        </div>
+    <div class="card-header"><h3 class="card-title">Edit User</h3></div>
+    <div class="card-body">
+        <form method="POST" action="{{ route('users.update', $user->id ?? 0) }}">
+            @csrf
+            @method('PUT')
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="form-label">Name</label>
+                    <input type="text" name="name" class="form-input" value="{{ $user->name ?? '' }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-input" value="{{ $user->email ?? '' }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Role</label>
+                    <select name="role" class="form-input" required>
+                        @foreach($roles ?? [] as $role)
+                        <option value="{{ $role->value }}" @if($user->role->value === $role->value) selected @endif>{{ $role->label() }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Branch</label>
+                    <select name="branch_id" class="form-input">
+                        <option value="">No Branch</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Password (leave blank to keep)</label>
+                    <input type="password" name="password" class="form-input">
+                </div>
+                <div>
+                    <label class="form-label">Active</label>
+                    <input type="checkbox" name="is_active" value="1" @if($user->is_active ?? false) checked @endif>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-3">
+                <button type="submit" class="btn btn-primary">Update User</button>
+                <a href="{{ route('users.index') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
     </div>
-
-    @if($errors->any())
-        <div class="alert alert-error">
-            <strong>Please fix the following errors:</strong>
-            <ul class="mt-2 ml-4">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <form action="/users/{{ $user->id }}" method="POST">
-        @csrf
-        @method('PUT')
-
-        <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" value="{{ old('username', $user->username) }}" required class="form-input">
-            @error('username')
-                <div class="error">{{ $message }}</div>
-            @enderror
-        </div>
-
-        <div class="form-group">
-            <label for="email">Email Address</label>
-            <input type="email" id="email" name="email" value="{{ old('email', $user->email) }}" required class="form-input">
-            @error('email')
-                <div class="error">{{ $message }}</div>
-            @enderror
-        </div>
-
-        <div class="form-group">
-            <label for="role">Role</label>
-            <select id="role" name="role" required class="form-input">
-                @foreach($roles as $key => $label)
-                    <option value="{{ $key }}" {{ old('role', $user->role) == $key ? 'selected' : '' }}>
-                        {{ $label }}
-                    </option>
-                @endforeach
-            </select>
-            @error('role')
-                <div class="error">{{ $message }}</div>
-            @enderror
-        </div>
-
-        <div class="checkbox-group">
-            <input type="hidden" name="is_active" value="0">
-            <input type="checkbox" id="is_active" name="is_active" value="1" {{ old('is_active', $user->is_active) ? 'checked' : '' }}>
-            <label for="is_active">User is active and can log in</label>
-        </div>
-        @error('is_active')
-            <div class="error">{{ $message }}</div>
-        @enderror
-
-        <div class="actions">
-            <a href="/users" class="btn btn-secondary">Cancel</a>
-            <button type="submit" class="btn btn-primary">Update User</button>
-        </div>
-    </form>
 </div>
 @endsection

@@ -7,8 +7,10 @@ use App\Enums\TransactionType;
 use App\Models\JournalEntry;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Notifications\TransactionCancellationPendingNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Transaction Cancellation Service
@@ -16,6 +18,7 @@ use Illuminate\Support\Facades\Log;
  * Handles transaction cancellation and reversal workflows using the state machine.
  * Manages the complete lifecycle of cancelling transactions including:
  * - Cancellation requests (manager approval required)
+ * - Cancellation approval/rejection (supervisor approval required)
  * - Reversal of completed transactions (within 24-hour window)
  * - Position reversal (stock/cash)
  * - Reversing journal entries
@@ -24,30 +27,32 @@ use Illuminate\Support\Facades\Log;
 class TransactionCancellationService
 {
     /**
-     * Math service for high-precision calculations.
+     * Audit service for logging.
      */
-    protected MathService $mathService;
+    protected AuditService $auditService;
 
     /**
      * Create a new TransactionCancellationService instance.
      *
      * @param  MathService  $mathService  Math service for precise calculations
      */
-    public function __construct(MathService $mathService)
-    {
-        $this->mathService = $mathService;
+    public function __construct(
+        protected MathService $mathService,
+        ?AuditService $auditService = null
+    ) {
+        $this->auditService = $auditService ?? new AuditService();
     }
 
     /**
      * Request cancellation of a transaction.
      *
-     * Requires manager or admin role. Cancellations can be requested from any
-     * non-final state (Draft, PendingApproval, Approved, Processing, Completed, Failed).
+     * Requires manager or admin role. Transitions transaction to PendingCancellation
+     * status, awaiting supervisor approval.
      *
      * @param  Transaction  $transaction  The transaction to cancel
      * @param  User  $requester  The user requesting cancellation
      * @param  string  $reason  Reason for cancellation
-     * @return bool True if cancellation was successful
+     * @return bool True if cancellation request was successful
      *
      * @throws \InvalidArgumentException If user is not authorized or transaction cannot be cancelled
      */
@@ -55,7 +60,7 @@ class TransactionCancellationService
     {
         // Authorization check: must be manager or admin
         if (! $requester->role->isManager()) {
-            Log::warning('Non-manager attempted transaction cancellation', [
+            Log::warning('Non-manager attempted transaction cancellation request', [
                 'transaction_id' => $transaction->id,
                 'user_id' => $requester->id,
                 'user_role' => $requester->role->value,
@@ -77,17 +82,190 @@ class TransactionCancellationService
         return DB::transaction(function () use ($transaction, $requester, $reason) {
             $stateMachine = new TransactionStateMachine($transaction);
 
-            $result = $stateMachine->transitionTo(TransactionStatus::Cancelled, [
+            $previousStatus = $transaction->status;
+
+            $result = $stateMachine->transitionTo(TransactionStatus::PendingCancellation, [
                 'reason' => $reason,
                 'user_id' => $requester->id,
             ]);
 
             if ($result) {
-                Log::info('Transaction cancellation processed', [
+                Log::info('Transaction cancellation requested', [
                     'transaction_id' => $transaction->id,
-                    'cancelled_by' => $requester->id,
+                    'requested_by' => $requester->id,
+                    'reason' => $reason,
+                    'previous_status' => $previousStatus->value,
+                ]);
+
+                // Notify compliance team of pending cancellation
+                $this->notifyPendingCancellation($transaction, $requester, $reason);
+
+                // Audit logging
+                $this->auditService->logTransaction(
+                    'cancellation_requested',
+                    $transaction->id,
+                    [
+                        'old' => ['status' => $previousStatus->value],
+                        'new' => [
+                            'status' => TransactionStatus::PendingCancellation->value,
+                            'reason' => $reason,
+                            'requested_by' => $requester->id,
+                        ],
+                    ]
+                );
+            }
+
+            return $result;
+        });
+    }
+
+    /**
+     * Approve a pending cancellation request.
+     *
+     * Requires manager, compliance officer, or admin role (different from requester).
+     * Transitions transaction to Cancelled status.
+     *
+     * @param  Transaction  $transaction  The transaction to approve cancellation for
+     * @param  User  $approver  The user approving the cancellation
+     * @param  string|null  $reason  Optional reason for approval
+     * @return bool True if approval was successful
+     */
+    public function approveCancellation(Transaction $transaction, User $approver, ?string $reason = null): bool
+    {
+        // Must be in PendingCancellation status
+        if (! $transaction->status->isPendingCancellation()) {
+            Log::warning('Cannot approve cancellation - transaction not pending', [
+                'transaction_id' => $transaction->id,
+                'current_status' => $transaction->status->value,
+            ]);
+
+            return false;
+        }
+
+        // Authorization check: must be manager, compliance officer, or admin
+        if (! $approver->role->isManager() && ! $approver->role->isComplianceOfficer()) {
+            Log::warning('Non-authorized user attempted cancellation approval', [
+                'transaction_id' => $transaction->id,
+                'user_id' => $approver->id,
+                'user_role' => $approver->role->value,
+            ]);
+
+            return false;
+        }
+
+        return DB::transaction(function () use ($transaction, $approver, $reason) {
+            $stateMachine = new TransactionStateMachine($transaction);
+
+            $previousStatus = $transaction->status;
+
+            $result = $stateMachine->transitionTo(TransactionStatus::Cancelled, [
+                'reason' => $reason ?? 'Cancellation approved',
+                'user_id' => $approver->id,
+                'approved_by' => $approver->id,
+            ]);
+
+            if ($result) {
+                Log::info('Transaction cancellation approved', [
+                    'transaction_id' => $transaction->id,
+                    'approved_by' => $approver->id,
                     'reason' => $reason,
                 ]);
+
+                // Audit logging
+                $this->auditService->logTransaction(
+                    'cancellation_approved',
+                    $transaction->id,
+                    [
+                        'old' => ['status' => $previousStatus->value],
+                        'new' => [
+                            'status' => TransactionStatus::Cancelled->value,
+                            'reason' => $reason,
+                            'approved_by' => $approver->id,
+                        ],
+                    ]
+                );
+            }
+
+            return $result;
+        });
+    }
+
+    /**
+     * Reject a pending cancellation request.
+     *
+     * Requires manager, compliance officer, or admin role. Returns transaction
+     * to its previous status (InProgress, Completed, etc.).
+     *
+     * @param  Transaction  $transaction  The transaction to reject cancellation for
+     * @param  User  $rejector  The user rejecting the cancellation
+     * @param  string  $reason  Reason for rejection
+     * @return bool True if rejection was successful
+     */
+    public function rejectCancellation(Transaction $transaction, User $rejector, string $reason): bool
+    {
+        // Must be in PendingCancellation status
+        if (! $transaction->status->isPendingCancellation()) {
+            Log::warning('Cannot reject cancellation - transaction not pending', [
+                'transaction_id' => $transaction->id,
+                'current_status' => $transaction->status->value,
+            ]);
+
+            return false;
+        }
+
+        // Authorization check: must be manager, compliance officer, or admin
+        if (! $rejector->role->isManager() && ! $rejector->role->isComplianceOfficer()) {
+            Log::warning('Non-authorized user attempted cancellation rejection', [
+                'transaction_id' => $transaction->id,
+                'user_id' => $rejector->id,
+                'user_role' => $rejector->role->value,
+            ]);
+
+            return false;
+        }
+
+        return DB::transaction(function () use ($transaction, $rejector, $reason) {
+            $previousStatus = $transaction->status;
+            $previousHistory = $transaction->transition_history ?? [];
+
+            // Determine the target status based on transition history
+            // Find the status before PendingCancellation was applied
+            $targetStatus = $this->determinePreviousStatus($transaction);
+
+            if (! $targetStatus) {
+                Log::warning('Cannot determine previous status for cancellation rejection', [
+                    'transaction_id' => $transaction->id,
+                ]);
+
+                return false;
+            }
+
+            // Use forceStatus to bypass normal transition rules since we're going back
+            $stateMachine = new TransactionStateMachine($transaction);
+            $result = $stateMachine->forceStatus($targetStatus, "Cancellation rejected: {$reason}");
+
+            if ($result) {
+                Log::info('Transaction cancellation rejected', [
+                    'transaction_id' => $transaction->id,
+                    'rejected_by' => $rejector->id,
+                    'reason' => $reason,
+                    'previous_status' => $previousStatus->value,
+                    'returned_to_status' => $targetStatus->value,
+                ]);
+
+                // Audit logging
+                $this->auditService->logTransaction(
+                    'cancellation_rejected',
+                    $transaction->id,
+                    [
+                        'old' => ['status' => $previousStatus->value],
+                        'new' => [
+                            'status' => $targetStatus->value,
+                            'reason' => $reason,
+                            'rejected_by' => $rejector->id,
+                        ],
+                    ]
+                );
             }
 
             return $result;
@@ -453,5 +631,81 @@ class TransactionCancellationService
 
         // Regular users can only reverse their own transactions
         return $transaction->user_id === $user->id;
+    }
+
+    /**
+     * Notify compliance team of pending cancellation request.
+     *
+     * @param  Transaction  $transaction  The transaction with pending cancellation
+     * @param  User  $requester  The user who requested cancellation
+     * @param  string  $reason  Reason for cancellation
+     */
+    protected function notifyPendingCancellation(Transaction $transaction, User $requester, string $reason): void
+    {
+        // Get all compliance officers and admins
+        $notifiableUsers = \App\Models\User::whereIn('role', [
+            \App\Enums\UserRole::ComplianceOfficer->value,
+            \App\Enums\UserRole::Admin->value,
+        ])->get();
+
+        if ($notifiableUsers->isEmpty()) {
+            Log::warning('No compliance officers or admins found for notification', [
+                'transaction_id' => $transaction->id,
+            ]);
+
+            return;
+        }
+
+        try {
+            Notification::send(
+                $notifiableUsers,
+                new TransactionCancellationPendingNotification(
+                    $transaction,
+                    $requester,
+                    $reason
+                )
+            );
+
+            Log::info('Pending cancellation notification sent', [
+                'transaction_id' => $transaction->id,
+                'notification_count' => $notifiableUsers->count(),
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to send pending cancellation notification', [
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Determine the previous status before PendingCancellation was applied.
+     *
+     * @param  Transaction  $transaction  The transaction
+     * @return TransactionStatus|null The previous status, or null if not found
+     */
+    protected function determinePreviousStatus(Transaction $transaction): ?TransactionStatus
+    {
+        $history = $transaction->transition_history ?? [];
+
+        // Find the last status before PendingCancellation
+        foreach (array_reverse($history) as $entry) {
+            if (($entry['to'] ?? '') === TransactionStatus::PendingCancellation->value) {
+                continue;
+            }
+
+            // This is the status we were in before PendingCancellation
+            try {
+                return TransactionStatus::from($entry['to']);
+            } catch (\ValueError $e) {
+                // Skip if the status value is not valid
+                continue;
+            }
+        }
+
+        // Fallback: determine based on allowed transitions from Cancelled
+        // If we can transition from Cancelled to a status, that was likely the previous state
+        // But this is a last resort - normally the history should have it
+        return null;
     }
 }

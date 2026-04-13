@@ -6,11 +6,11 @@ use App\Enums\StrStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
 use App\Models\User;
+use App\Jobs\SendNotificationJob;
 use App\Notifications\Compliance\StrEscalationNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * STR Report Service
@@ -471,7 +471,7 @@ class StrReportService
     }
 
     /**
-     * Send escalation notification
+     * Send escalation notification via queue
      */
     protected function sendEscalationNotification(StrReport $report): void
     {
@@ -489,15 +489,21 @@ class StrReportService
                 return;
             }
 
-            Notification::send($supervisors, new StrEscalationNotification($report));
+            $notification = new StrEscalationNotification($report);
 
-            Log::info('STR escalation notifications sent', [
+            // Dispatch notification via queue for each supervisor
+            foreach ($supervisors as $supervisor) {
+                SendNotificationJob::dispatch($supervisor, $notification, ['mail', 'database'])
+                    ->onQueue('notifications');
+            }
+
+            Log::info('STR escalation notifications dispatched', [
                 'str_id' => $report->id,
                 'str_no' => $report->str_no,
                 'supervisors_notified' => $supervisors->count(),
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to send STR escalation notifications', [
+            Log::error('Failed to dispatch STR escalation notifications', [
                 'str_id' => $report->id,
                 'error' => $e->getMessage(),
             ]);

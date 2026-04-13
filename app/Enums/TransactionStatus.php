@@ -22,6 +22,7 @@ enum TransactionStatus: string
     case Rejected = 'Rejected';
     case Pending = 'Pending';
     case OnHold = 'OnHold';
+    case PendingCancellation = 'PendingCancellation';
 
     /**
      * Check if the transaction is in draft state.
@@ -114,6 +115,15 @@ enum TransactionStatus: string
     }
 
     /**
+     * Check if the transaction is pending cancellation.
+     * Awaiting supervisor approval for cancellation.
+     */
+    public function isPendingCancellation(): bool
+    {
+        return $this === self::PendingCancellation;
+    }
+
+    /**
      * Check if the transaction is in a final state.
      * Final states cannot be changed without special handling.
      */
@@ -139,6 +149,7 @@ enum TransactionStatus: string
             self::Approved,
             self::Processing,
             self::Pending, // Legacy
+            self::PendingCancellation,
         ], true);
     }
 
@@ -168,6 +179,7 @@ enum TransactionStatus: string
             self::Rejected => 'Rejected',
             self::Pending => 'Pending Approval', // Legacy
             self::OnHold => 'On Hold', // Legacy
+            self::PendingCancellation => 'Pending Cancellation',
         };
     }
 
@@ -189,6 +201,7 @@ enum TransactionStatus: string
             self::Rejected => 'danger',
             self::Pending => 'warning', // Legacy
             self::OnHold => 'danger', // Legacy
+            self::PendingCancellation => 'warning',
         };
     }
 }

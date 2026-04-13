@@ -1,110 +1,86 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Task Details - CEMS-MY')
+@section('title', 'Task Details')
 
 @section('content')
-<nav class="breadcrumb">
-    <a href="{{ route('tasks.index') }}">Tasks</a>
-    <span>/</span>
-    <span>#{{ $task->id }}</span>
-</nav>
-
-<div class="page-header">
-    <div class="flex justify-between items-start">
-        <div>
-            <h1>{{ $task->title }}</h1>
-            <p>Created {{ $task->created_at->format('Y-m-d H:i') }} by {{ $task->createdBy->name ?? 'System' }}</p>
-        </div>
-        <div class="flex gap-2">
-            @if($task->status === 'Pending')
-                <form action="{{ route('tasks.acknowledge', $task) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-primary">Acknowledge</button>
-                </form>
-            @endif
-            @if(in_array($task->status, ['Pending', 'InProgress']))
-                <form action="{{ route('tasks.complete', $task) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-success">Complete</button>
-                </form>
-                <form action="{{ route('tasks.cancel', $task) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="btn btn-secondary">Cancel</button>
-                </form>
-            @endif
-        </div>
+<div class="card">
+    <div class="card-header flex justify-between items-center">
+        <h3 class="card-title">{{ $task->title ?? 'N/A' }}</h3>
+        <a href="{{ route('tasks.index') }}" class="btn btn-secondary">Back</a>
     </div>
-</div>
+    <div class="card-body">
+        <div class="grid grid-cols-2 gap-6 mb-6">
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Status</dt>
+                <dd>
+                    @if(isset($task->status))
+                        @statuslabel($task->status)
+                    @else
+                        <span class="text-[--color-ink-muted]">N/A</span>
+                    @endif
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Priority</dt>
+                <dd>
+                    @if(isset($task->priority))
+                        @statuslabel($task->priority)
+                    @else
+                        <span class="text-[--color-ink-muted]">N/A</span>
+                    @endif
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Assigned To</dt>
+                <dd class="font-medium">{{ $task->assigned_to_name ?? 'N/A' }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Due Date</dt>
+                <dd class="font-mono">{{ $task->due_date ?? 'N/A' }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Category</dt>
+                <dd>{{ $task->category ?? 'N/A' }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Created By</dt>
+                <dd class="font-medium">{{ $task->created_by_name ?? 'N/A' }}</dd>
+            </div>
+        </div>
 
-<div class="detail-grid">
-    <div class="detail-card">
-        <h3>Task Details</h3>
-        <table class="detail-table">
-            <tr>
-                <th>Category:</th>
-                <td>{{ $task->category }}</td>
-            </tr>
-            <tr>
-                <th>Priority:</th>
-                <td>
-                    <span class="priority-badge priority-{{ strtolower($task->priority) }}">
-                        {{ $task->priority }}
-                    </span>
-                </td>
-            </tr>
-            <tr>
-                <th>Status:</th>
-                <td>
-                    <span class="status-badge status-{{ strtolower($task->status) }}">
-                        {{ $task->status }}
-                    </span>
-                </td>
-            </tr>
-            <tr>
-                <th>Assigned To:</th>
-                <td>{{ $task->assignedTo->name ?? 'Unassigned' }}</td>
-            </tr>
-            @if($task->due_at)
-            <tr>
-                <th>Due Date:</th>
-                <td class="{{ $task->isOverdue() ? 'text-danger' : '' }}">
-                    {{ $task->due_at->format('Y-m-d H:i') }}
-                    @if($task->isOverdue()) (Overdue) @endif
-                </td>
-            </tr>
-            @endif
-            @if($task->acknowledged_at)
-            <tr>
-                <th>Acknowledged:</th>
-                <td>{{ $task->acknowledged_at->format('Y-m-d H:i') }}</td>
-            </tr>
-            @endif
-            @if($task->completed_at)
-            <tr>
-                <th>Completed:</th>
-                <td>{{ $task->completed_at->format('Y-m-d H:i') }} by {{ $task->completedBy->name ?? 'Unknown' }}</td>
-            </tr>
-            @endif
-        </table>
-    </div>
+        <div class="mb-6">
+            <h4 class="text-sm font-medium text-[--color-ink-muted] mb-2">Description</h4>
+            <p class="text-[--color-ink]">{{ $task->description ?? 'No description provided.' }}</p>
+        </div>
 
-    <div class="detail-card">
-        <h3>Description</h3>
-        <p>{{ $task->description ?? 'No description provided.' }}</p>
-
-        @if($task->notes)
-        <h3 class="mt-6">Notes</h3>
-        <p>{{ $task->notes }}</p>
+        @if($task->related_customer_id)
+        <div class="mb-6">
+            <h4 class="text-sm font-medium text-[--color-ink-muted] mb-2">Related Customer</h4>
+            <a href="{{ route('customers.show', $task->related_customer_id) }}" class="text-primary hover:underline">
+                View Customer #{{ $task->related_customer_id }}
+            </a>
+        </div>
         @endif
 
-        @if($task->completion_notes)
-        <h3 class="mt-6">Completion Notes</h3>
-        <p>{{ $task->completion_notes }}</p>
-        @endif
+        <form method="POST" action="{{ route('tasks.update', $task->id ?? 0) }}" class="mt-6">
+            @csrf
+            @method('PUT')
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div>
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-input">
+                        <option value="pending" @if(($task->status ?? '') === 'pending') selected @endif>Pending</option>
+                        <option value="in_progress" @if(($task->status ?? '') === 'in_progress') selected @endif>In Progress</option>
+                        <option value="completed" @if(($task->status ?? '') === 'completed') selected @endif>Completed</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label">Notes</label>
+                <textarea name="notes" class="form-input" rows="3">{{ $task->notes ?? '' }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Update Task</button>
+        </form>
     </div>
-</div>
-
-<div class="btn-group mt-6">
-    <a href="{{ route('tasks.index') }}" class="btn btn-secondary">Back to Tasks</a>
 </div>
 @endsection

@@ -21,30 +21,36 @@ class TransactionStateMachine
     protected const TRANSITIONS = [
         'Draft' => [
             'PendingApproval',
+            'PendingCancellation',
             'Cancelled',
         ],
         'PendingApproval' => [
             'Approved',
             'Rejected',
+            'PendingCancellation',
             'Cancelled',
         ],
         'Pending' => [           // Large transaction awaiting manager approval
             'Approved',
             'OnHold',
+            'PendingCancellation',
             'Cancelled',
         ],
         'Approved' => [
             'Processing',
+            'PendingCancellation',
             'Cancelled',
         ],
         'Processing' => [
             'Completed',
             'Failed',
+            'PendingCancellation',
             'Cancelled',
         ],
         'Completed' => [
             'Finalized',
             'Reversed',
+            'PendingCancellation',
             'Cancelled',
         ],
         'Finalized' => [],
@@ -53,6 +59,7 @@ class TransactionStateMachine
         'Failed' => [
             'PendingApproval',
             'Pending',
+            'PendingCancellation',
             'Cancelled',
         ],
         'Rejected' => [
@@ -61,7 +68,14 @@ class TransactionStateMachine
         'OnHold' => [            // Transaction on hold awaiting compliance review
             'Pending',
             'Approved',
+            'PendingCancellation',
             'Cancelled',
+        ],
+        'PendingCancellation' => [
+            'Cancelled',
+            'Approved',
+            'Processing',
+            'Completed',
         ],
     ];
 

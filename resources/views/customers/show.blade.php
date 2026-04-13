@@ -1,219 +1,219 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Customer Profile - CEMS-MY')
+@section('title', 'Customer: ' . ($customer->full_name ?? ''))
+
+@section('header-title')
+<div class="flex items-center gap-3">
+    <a href="/customers" class="btn btn-ghost btn-icon">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+    </a>
+    <div>
+        <h1 class="text-xl font-semibold text-[--color-ink]">{{ $customer->full_name ?? 'N/A' }}</h1>
+        <p class="text-sm text-[--color-ink-muted]">Customer since {{ $customer->created_at->format('M Y') }}</p>
+    </div>
+</div>
+@endsection
+
+@section('header-actions')
+<div class="flex items-center gap-3">
+    <a href="/customers/{{ $customer->id }}/edit" class="btn btn-secondary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+        </svg>
+        Edit
+    </a>
+    <a href="/transactions/create?customer_id={{ $customer->id }}" class="btn btn-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        New Transaction
+    </a>
+</div>
+@endsection
 
 @section('content')
-<div class="mb-6 flex justify-between items-start flex-wrap gap-4">
-    <div>
-        <h2 class="text-xl font-semibold text-gray-800 mb-1">{{ $customer->full_name }}</h2>
-        <p class="text-gray-500 text-sm">Customer ID: {{ $customer->id }} | Created: {{ $customer->created_at->format('Y-m-d H:i') }}</p>
-    </div>
-    <div class="flex gap-2 flex-wrap">
-        <a href="{{ route('customers.edit', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-orange-500 text-white no-underline rounded hover:bg-orange-600 transition-colors">Edit</a>
-        <a href="{{ route('customers.kyc', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white no-underline rounded hover:bg-blue-700 transition-colors">KYC Documents</a>
-        <a href="{{ route('customers.index') }}" class="px-3 py-1.5 text-xs font-medium bg-gray-200 text-gray-700 no-underline rounded hover:bg-gray-300 transition-colors">Back to List</a>
-    </div>
-</div>
-
-<!-- Risk Warning -->
-@if($customer->risk_rating === 'High' || $customer->pep_status)
-    <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r mb-6">
-        <h4 class="text-orange-800 font-semibold mb-2">High Risk Customer Alert</h4>
-        @if($customer->risk_rating === 'High')
-            <p class="text-orange-900 text-sm">This customer has been flagged as <strong>High Risk</strong>. All transactions require enhanced due diligence (EDD) and manager approval.</p>
-        @endif
-        @if($customer->pep_status)
-            <p class="text-orange-900 text-sm mt-2">Customer is a <strong>Politically Exposed Person (PEP)</strong>. Additional monitoring and approval requirements apply.</p>
-        @endif
-    </div>
-@endif
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-    <!-- Basic Information -->
-    <div class="bg-white rounded-lg p-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Basic Information</h3>
-        <table class="w-full">
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium w-2/5 text-sm">Full Name</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->full_name }}</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">ID Type</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->id_type }}</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">ID Number</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ Str::limit($customer->id_number_encrypted, 8, '****') }}</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Date of Birth</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->date_of_birth->format('Y-m-d') }}</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Nationality</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->nationality }}</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Risk Rating</th>
-                <td class="py-2.5">
-                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $customer->risk_rating === 'Low' ? 'bg-green-100 text-green-800' : ($customer->risk_rating === 'Medium' ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800') }}">
-                        {{ $customer->risk_rating }}
-                    </span>
-                </td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Risk Score</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->risk_score ?? 0 }} / 100</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">PEP Status</th>
-                <td class="py-2.5">
-                    @if($customer->pep_status)
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase bg-red-100 text-red-800">PEP</span>
-                    @else
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase bg-gray-200 text-gray-600">Non-PEP</span>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {{-- Main Content --}}
+    <div class="lg:col-span-2 space-y-6">
+        {{-- Customer Details --}}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Customer Details</h3>
+                <div class="flex gap-2">
+                    @if($customer->is_sanctioned ?? false)
+                        <span class="badge badge-danger">Sanctioned</span>
                     @endif
-                </td>
-            </tr>
-            <tr>
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Status</th>
-                <td class="py-2.5">
-                    @if($customer->is_active ?? true)
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>
-                    @else
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-600">Inactive</span>
+                    @if($customer->is_pep ?? false)
+                        <span class="badge badge-warning">PEP</span>
                     @endif
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- Contact Information -->
-    <div class="bg-white rounded-lg p-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Contact Information</h3>
-        <table class="w-full">
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium w-2/5 text-sm">Address</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->address ?? 'Not provided' }}</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Phone</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->phone ?? 'Not provided' }}</td>
-            </tr>
-            <tr>
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Email</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->email ?? 'Not provided' }}</td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- Employment Information -->
-    <div class="bg-white rounded-lg p-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Employment Information</h3>
-        <table class="w-full">
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium w-2/5 text-sm">Occupation</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->occupation ?? 'Not provided' }}</td>
-            </tr>
-            <tr class="border-b border-gray-100">
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Employer Name</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->employer_name ?? 'Not provided' }}</td>
-            </tr>
-            <tr>
-                <th class="py-2.5 pr-4 text-left text-gray-500 font-medium text-sm">Employer Address</th>
-                <td class="py-2.5 text-gray-800 text-sm">{{ $customer->employer_address ?? 'Not provided' }}</td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- Transaction Summary -->
-    <div class="bg-white rounded-lg p-6 shadow-sm">
-        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Transaction Summary</h3>
-        <div class="grid grid-cols-3 gap-4 mt-4">
-            <div class="text-center p-4 bg-gray-50 rounded">
-                <div class="text-2xl font-bold text-gray-800">{{ $transactionStats['total_transactions'] }}</div>
-                <div class="text-xs text-gray-500 mt-1">Total Transactions</div>
+                </div>
             </div>
-            <div class="text-center p-4 bg-gray-50 rounded">
-                <div class="text-2xl font-bold text-gray-800">RM {{ number_format($transactionStats['total_volume'], 2) }}</div>
-                <div class="text-xs text-gray-500 mt-1">Total Volume</div>
-            </div>
-            <div class="text-center p-4 bg-gray-50 rounded">
-                <div class="text-2xl font-bold text-gray-800">RM {{ number_format($transactionStats['avg_transaction'], 2) }}</div>
-                <div class="text-xs text-gray-500 mt-1">Avg Transaction</div>
+            <div class="card-body">
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">Full Name</p>
+                        <p class="font-medium">{{ $customer->full_name ?? 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">IC Number</p>
+                        <p class="font-mono font-medium">{{ $customer->ic_number ?? 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">Email</p>
+                        <p class="font-medium">{{ $customer->email ?? 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">Phone</p>
+                        <p class="font-mono font-medium">{{ $customer->phone ?? 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">Address</p>
+                        <p class="font-medium">{{ $customer->address ?? 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">Nationality</p>
+                        <p class="font-medium">{{ $customer->nationality ?? 'N/A' }}</p>
+                    </div>
+                </div>
             </div>
         </div>
-        @if($transactionStats['last_transaction'])
-            <p class="mt-4 text-sm text-gray-500">
-                Last transaction: {{ $transactionStats['last_transaction']->diffForHumans() }}
-            </p>
-        @endif
-        <div class="mt-4">
-            <a href="{{ route('customers.history', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-blue-600 text-white no-underline rounded hover:bg-blue-700 transition-colors">View Full History</a>
-        </div>
-    </div>
-</div>
 
-<!-- KYC Document Status -->
-<div class="bg-white rounded-lg p-6 shadow-sm mb-6">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">KYC Document Status</h3>
-    <div class="flex gap-6">
-        <div class="text-sm">
-            <strong class="text-gray-800">{{ $documentStatus['total'] }}</strong> <span class="text-gray-500">Total Documents</span>
+        {{-- Risk & Compliance --}}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Risk & Compliance</h3>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-3 gap-6">
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">CDD Level</p>
+                        @php
+                            $cddClass = match($customer->cdd_level->value ?? '') {
+                                'Simplified' => 'badge-info',
+                                'Standard' => 'badge-warning',
+                                'Enhanced' => 'badge-danger',
+                                default => 'badge-default'
+                            };
+                        @endphp
+                        <span class="badge {{ $cddClass }}">{{ $customer->cdd_level->label() ?? 'N/A' }}</span>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">Risk Level</p>
+                        @php
+                            $riskClass = match($customer->risk_level ?? '') {
+                                'Low' => 'badge-success',
+                                'Medium' => 'badge-warning',
+                                'High' => 'badge-danger',
+                                default => 'badge-default'
+                            };
+                        @endphp
+                        <span class="badge {{ $riskClass }}">{{ $customer->risk_level ?? 'N/A' }}</span>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">EDD Status</p>
+                        <span class="badge badge-default">{{ $customer->edd_status->label() ?? 'N/A' }}</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="text-sm">
-            <strong class="text-green-600">{{ $documentStatus['verified'] }}</strong> <span class="text-gray-500">Verified</span>
-        </div>
-        <div class="text-sm">
-            <strong class="text-orange-500">{{ $documentStatus['pending'] }}</strong> <span class="text-gray-500">Pending Verification</span>
-        </div>
-        @if($documentStatus['expired'] > 0)
-        <div class="text-sm">
-            <strong class="text-red-600">{{ $documentStatus['expired'] }}</strong> <span class="text-gray-500">Expired</span>
-        </div>
-        @endif
-    </div>
-    <div class="mt-4">
-        <a href="{{ route('customers.kyc', $customer) }}" class="px-3 py-1.5 text-xs font-medium bg-green-600 text-white no-underline rounded hover:bg-green-700 transition-colors">Manage KYC Documents</a>
-    </div>
-</div>
 
-<!-- Recent Transactions -->
-<div class="bg-white rounded-lg p-6 shadow-sm mt-6">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b-2 border-gray-200">Recent Transactions</h3>
-    @if($customer->transactions->count() > 0)
-        <table class="w-full border-collapse">
-            <thead>
-                <tr>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">ID</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Type</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Currency</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Amount</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Rate</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Status</th>
-                    <th class="text-left px-4 py-3 bg-gray-50 font-semibold text-gray-600 border-b border-gray-200">Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($customer->transactions as $transaction)
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->id }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->type->value ?? $transaction->type }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->currency_code }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-sm">RM {{ number_format($transaction->amount_local, 2) }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->rate }}</td>
-                    <td class="px-4 py-3 border-b border-gray-100">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ strtolower($transaction->status->value ?? $transaction->status) === 'completed' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600' }}">
-                            {{ $transaction->status->label() ?? $transaction->status }}
-                        </span>
-                    </td>
-                    <td class="px-4 py-3 border-b border-gray-100 text-sm">{{ $transaction->created_at->format('Y-m-d H:i') }}</td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @else
-        <p class="text-center p-8 text-gray-500">No transactions found for this customer.</p>
-    @endif
+        {{-- Recent Transactions --}}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Transactions</h3>
+                <a href="/transactions?customer_id={{ $customer->id }}" class="btn btn-ghost btn-sm">View All</a>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Type</th>
+                            <th>Currency</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($customer->transactions ?? [] as $tx)
+                        <tr>
+                            <td class="font-mono text-xs">#{{ $tx->id }}</td>
+                            <td>
+                                <span class="badge {{ $tx->type->value === 'Buy' ? 'badge-success' : 'badge-warning' }}">
+                                    {{ $tx->type->label() }}
+                                </span>
+                            </td>
+                            <td class="font-mono">{{ $tx->currency_code }}</td>
+                            <td class="font-mono">{{ number_format($tx->amount_local, 2) }} MYR</td>
+                            <td>
+                                @php
+                                    $statusClass = match($tx->status->value) {
+                                        'Completed' => 'badge-success',
+                                        'Pending' => 'badge-warning',
+                                        'Cancelled' => 'badge-danger',
+                                        default => 'badge-default'
+                                    };
+                                @endphp
+                                <span class="badge {{ $statusClass }}">{{ $tx->status->label() }}</span>
+                            </td>
+                            <td class="text-[--color-ink-muted]">{{ $tx->created_at->format('d M Y') }}</td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="6" class="text-center py-8 text-[--color-ink-muted]">No transactions found</td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {{-- Sidebar --}}
+    <div class="space-y-6">
+        {{-- Quick Stats --}}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Summary</h3>
+            </div>
+            <div class="card-body space-y-4">
+                <div>
+                    <p class="text-sm text-[--color-ink-muted]">Total Transactions</p>
+                    <p class="text-2xl font-semibold">{{ number_format($customer->transactions_count ?? 0) }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-[--color-ink-muted]">Total Volume</p>
+                    <p class="text-2xl font-semibold">{{ number_format($customer->total_volume ?? 0, 2) }} MYR</p>
+                </div>
+                <div>
+                    <p class="text-sm text-[--color-ink-muted]">Last Transaction</p>
+                    <p class="text-sm">{{ $customer->last_transaction_at?->diffForHumans() ?? 'Never' }}</p>
+                </div>
+            </div>
+        </div>
+
+        {{-- Documents --}}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Documents</h3>
+                <a href="/customers/{{ $customer->id }}/kyc" class="btn btn-ghost btn-sm">Manage</a>
+            </div>
+            <div class="card-body">
+                @forelse($customer->documents ?? [] as $doc)
+                <div class="flex items-center gap-3 p-2 bg-[--color-canvas-subtle] rounded-lg mb-2">
+                    <svg class="w-5 h-5 text-[--color-ink-muted]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <span class="text-sm">{{ $doc->type }}</span>
+                </div>
+                @empty
+                <p class="text-sm text-[--color-ink-muted] text-center py-4">No documents uploaded</p>
+                @endforelse
+            </div>
+        </div>
+    </div>
 </div>
 @endsection

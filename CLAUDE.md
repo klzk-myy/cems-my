@@ -43,13 +43,13 @@ php artisan report:msb2 --date=2026-04-06
 ```
 app/
 ├── Console/Commands/  # Artisan CLI commands (scheduled reports, compliance tasks)
-├── Enums/  # PHP 8.1 enums replacing magic strings (27 enums)
+├── Enums/  # PHP 8.1 enums replacing magic strings (29 enums)
 ├── Events/  # Event classes (TransactionCreated, CounterSessionOpened, etc.)
 ├── Http/
 │   ├── Controllers/  # Thin controllers, delegate to services
-│   └── Middleware/  # CheckRole, CheckRoleAny, EnsureMfaEnabled, EnsureMfaVerified, DataBreachDetection, SessionTimeout
-├── Models/  # Eloquent models (51 models)
-└── Services/  # Business logic (44 services)
+│   └── Middleware/  # CheckRole, CheckRoleAny, EnsureMfaEnabled, EnsureMfaVerified, DataBreachDetection, SessionTimeout, SecurityHeaders, IpBlocker, StrictRateLimit, LogRequests, QueryPerformanceMonitor
+├── Models/  # Eloquent models (57 models)
+└── Services/  # Business logic (55 services)
 ```
 
 ### Full Documentation
@@ -69,11 +69,12 @@ All role checks use PHP enums in `App\Enums\`:
 - `UserRole::Teller`, `UserRole::Manager`, `UserRole::ComplianceOfficer`, `UserRole::Admin`
 - Permission methods on enums: `$role->canApproveLargeTransactions()`, `$role->canViewReports()`
 - All status/type enums organized by domain:
-  - **Transaction**: `TransactionStatus`, `TransactionType`
+  - **Transaction**: `TransactionStatus`, `TransactionType`, `TransactionImportStatus`
   - **Customer**: `CddLevel`, `EddStatus`, `EddRiskLevel`, `EddDocumentStatus`, `EddTemplateType`, `RiskTrend`
   - **Session**: `CounterSessionStatus`
   - **Compliance**: `FlagStatus`, `StrStatus`, `AmlRuleType`, `ComplianceFlagType`, `FindingSeverity`, `FindingType`, `FindingStatus`, `ComplianceCaseType`, `ComplianceCaseStatus`, `ComplianceCasePriority`, `CaseResolution`, `CaseStatus`, `CaseNoteType`, `AlertPriority`, `ReportStatus`, `RecalculationTrigger`
   - **Accounting**: `AccountCode`
+  - **CTOS**: `CtosStatus`
   - **Alert**: `AlertPriority`
 - Models return enum instances, not strings
 
@@ -110,7 +111,8 @@ All monetary calculations use `App\Services\MathService` (BCMath), not floats. N
 - `CustomerRiskScoringService` calculates customer risk scores with lock/unlock capability
 - `ComplianceReportingService` provides dashboard KPIs, calendar, case aging, audit trail
 - `CaseManagementService` manages compliance cases with notes, documents, links
-- All cancellations require manager approval (segregation of duties)
+- **CTOS Submission**: `POST /api/v1/compliance/ctos/{id}/submit` - Submit CTOS reports to BNM with compliance officer sign-off
+- All cancellations require manager approval via `PendingCancellation` status (segregation of duties)
 - **Refunds** are processed through compliance pipeline
 
 **6. Event-Driven Architecture**
@@ -126,10 +128,14 @@ Permissions inherit upward: `Admin` > `ComplianceOfficer` > `Manager` > `Teller`
 
 **9. Security Features**
 - MFA required for ALL roles including Tellers (BNM compliance)
-- Rate limiting on sensitive endpoints (login: 5/min, transactions: 30/min, STR: 10/min)
-- Session timeout (configurable, default 15 minutes idle)
+- IP-based blocking after 10 failed login attempts (5-minute window, 1-hour block duration)
+- Strict rate limiting on sensitive endpoints (login: 5/min, API: 30/min, transactions: 10/min, STR: 3/min, bulk: 1/5min, export: 5/min, sensitive: 3/min)
+- Rate limit monitoring with 3 hits in 10 minutes alerting
+- Session timeout (configurable, default 8 hours)
 - Audit log with cryptographic hash chaining (tampering protection)
-- Password complexity requirements (min 12 chars, mixed case, number, special char)
+- Password complexity requirements (min 12 chars, mixed case, number, special char, max 5 attempts, 15-min lockout)
+- HSTS support (configurable max-age, includeSubDomains, preload)
+- IP whitelist support (exact IPs and CIDR notation)
 
 **Note on MFA scope**: MFA is enforced on sensitive operations (transaction creation, approvals, admin functions). Non-sensitive read operations (viewing transactions, customers, counters) do not require MFA. This balances security with usability while meeting BNM requirements for MFA on high-risk activities.
 
@@ -143,7 +149,9 @@ Routes use these middleware:
 - `EnsureMfaEnabled` - MFA enforcement (redirects to MFA setup if not enabled)
 - `EnsureMfaVerified` - MFA verification required (`mfa.verified`)
 - `DataBreachDetection` - Data breach monitoring and alerting
-- `throttle:{name}` - Rate limiting
+- `StrictRateLimit` - BNM-compliant rate limiting with burst protection (login, api, transactions, str, bulk, export, sensitive)
+- `IpBlocker` - IP-based blocking after repeated failed attempts
+- `SecurityHeaders` - HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.
 - `session.timeout` - Idle session timeout
 - `CheckBranchAccess` - Branch-based access control
 - `EncryptCookies` - Cookie encryption
@@ -154,6 +162,8 @@ Routes use these middleware:
 - `TrustProxies` - Trusted proxy configuration
 - `ValidateSignature` - Signed URL validation
 - `VerifyCsrfToken` - CSRF token verification
+- `LogRequests` - Request logging
+- `QueryPerformanceMonitor` - Query performance monitoring
 
 ### Navigation Structure
 
@@ -414,6 +424,18 @@ Counters (tills) with full lifecycle:
 - `/counters/{counter}/status` - Real-time counter status
 - `/counters/{counter}/history` - Transaction history
 
+**EOD Reconciliation** (`EodReconciliationService`):
+- `GET /api/v1/eod/reconciliation/{date}` - Daily reconciliation summary
+- `GET /api/v1/eod/reconciliation/{date}/counters/{counterId}` - Counter-specific reconciliation
+- `GET /api/v1/eod/reconciliation/{date}/report` - PDF report download
+- Artisan command: `php artisan report:eod --date=YYYY-MM-DD`
+
+**Bulk Import** (`BulkImportService`):
+- `POST /api/v1/import/customers` - Upload and import customers CSV
+- `POST /api/v1/import/transactions` - Upload and import transactions CSV
+- `GET /api/v1/import/status/{jobId}` - Check import job status
+- `GET /api/v1/import/errors/{jobId}` - Get import errors
+
 ## Important Conventions
 
 - **Money**: Always use `MathService` or BCMath functions. Never use PHP `float` for currency.
@@ -425,5 +447,5 @@ Counters (tills) with full lifecycle:
 - **Encryption**: Use `EncryptionService` with random IV per encryption (IV prepended to ciphertext).
 - **File Uploads**: Sanitize filenames with `basename()` or use `Str::uuid()` for naming.
 - **Query Parameters**: Use parameterized queries for user-supplied values in LIKE clauses.
-- **Cancellation**: ALL transaction cancellations require manager approval.
+- **Cancellation**: ALL transaction cancellations require manager approval via `PendingCancellation` workflow.
 - **Concurrency**: Use `lockForUpdate()` for position updates to prevent race conditions.

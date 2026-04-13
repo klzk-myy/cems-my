@@ -1,95 +1,60 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
 @section('title', 'Risk Dashboard')
 
-@section('breadcrumbs')
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ol class="breadcrumbs__list">
-        <li class="breadcrumbs__item">
-            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item">
-            <a href="{{ route('compliance') }}" class="breadcrumbs__link">Compliance</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
-            <span class="breadcrumbs__text">Risk Dashboard</span>
-        </li>
-    </ol>
-</nav>
-@endsection
-
 @section('content')
-<div class="page-header">
-    <div class="page-header__content">
-        <h1 class="page-header__title">Customer Risk Dashboard</h1>
-    </div>
-</div>
-
-<div class="stats-grid mb-6">
-    <div class="stat-card stat-card--danger">
-        <div class="stat-card__value">{{ $summary['critical_risk'] }}</div>
-        <div class="stat-card__label">Critical Risk</div>
-    </div>
-    <div class="stat-card stat-card--warning">
-        <div class="stat-card__value">{{ $summary['high_risk'] }}</div>
-        <div class="stat-card__label">High Risk</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="stat-card">
+        <p class="stat-card-label">High Risk Customers</p>
+        <p class="stat-card-value">{{ $summary['high_risk'] ?? 0 }}</p>
     </div>
     <div class="stat-card">
-        <div class="stat-card__value">{{ $summary['medium_risk'] }}</div>
-        <div class="stat-card__label">Medium Risk</div>
+        <p class="stat-card-label">Medium Risk Customers</p>
+        <p class="stat-card-value">{{ $summary['medium_risk'] ?? 0 }}</p>
     </div>
-    <div class="stat-card stat-card--success">
-        <div class="stat-card__value">{{ $summary['deteriorating_trend'] }}</div>
-        <div class="stat-card__label">Deteriorating</div>
+    <div class="stat-card">
+        <p class="stat-card-label">Low Risk Customers</p>
+        <p class="stat-card-value">{{ $summary['low_risk'] ?? 0 }}</p>
     </div>
 </div>
 
-<div class="card">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Customer</th>
-                <th>Overall Score</th>
-                <th>Trend</th>
-                <th>Factors</th>
-                <th>Last Updated</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($customers as $customer)
-            @php $snapshot = $customer->latestRiskSnapshot; @endphp
-            <tr>
-                <td>
-                    <a href="{{ route('compliance.risk-dashboard.customer', $customer->id) }}" class="text-blue-600 hover:underline">
-                        {{ $customer->full_name }}
-                    </a>
-                </td>
-                <td>
-                    <span class="status-badge {{ ($snapshot && $snapshot->overall_score >= 80) ? 'status-badge--danger' : (($snapshot && $snapshot->overall_score >= 60) ? 'status-badge--flagged' : 'status-badge--inactive') }}">
-                        {{ $snapshot?->overall_score ?? 'N/A' }}
-                    </span>
-                </td>
-                <td>{{ $snapshot?->trend?->label() ?? 'N/A' }}</td>
-                <td>
-                    @if($snapshot && isset($snapshot->factors))
-                        @foreach(array_slice($snapshot->factors, 0, 2) as $factor)
-                            <span class="status-badge status-badge--inactive">{{ $factor }}</span>
-                        @endforeach
-                    @endif
-                </td>
-                <td>{{ $snapshot?->snapshot_date?->format('Y-m-d') ?? 'N/A' }}</td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="5" class="text-center text-gray-500 py-8">No high-risk customers found</td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
-    <div class="mt-4">
-        {{ $customers->links() }}
+<div class="card mt-6">
+    <div class="card-header"><h3 class="card-title">Customers by Risk Level</h3></div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Risk Level</th>
+                    <th>Score</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($customers ?? [] as $customer)
+                <tr>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-[--color-canvas-subtle] rounded-lg flex items-center justify-center text-xs">
+                                {{ substr($customer->full_name, 0, 1) }}
+                            </div>
+                            <span class="font-medium">{{ $customer->full_name }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        @php $riskClass = match($customer->risk_level ?? '') { 'High' => 'badge-danger', 'Medium' => 'badge-warning', default => 'badge-success' }; @endphp
+                        <span class="badge {{ $riskClass }}">{{ $customer->risk_level ?? 'Unknown' }}</span>
+                    </td>
+                    <td class="font-mono">{{ $customer->risk_score ?? 'N/A' }}</td>
+                    <td>
+                        <a href="/compliance/risk-dashboard/customer/{{ $customer->id }}" class="btn btn-ghost btn-sm">Details</a>
+                    </td>
+                </tr>
+                @empty
+                <tr><td colspan="4" class="text-center py-8 text-[--color-ink-muted]">No customers found</td></tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 </div>
 @endsection

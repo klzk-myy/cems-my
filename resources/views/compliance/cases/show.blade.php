@@ -1,182 +1,99 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Case Detail')
+@section('title', 'Case #' . ($case->id ?? ''))
+
+@section('header-title')
+<div class="flex items-center gap-3">
+    <a href="/compliance/cases" class="btn btn-ghost btn-icon">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+    </a>
+    <div>
+        <h1 class="text-xl font-semibold text-[--color-ink]">Case #{{ $case->id ?? '' }}</h1>
+        <p class="text-sm text-[--color-ink-muted]">{{ $case->type->label() ?? 'Unknown Type' }}</p>
+    </div>
+</div>
+@endsection
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6 flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold">Case {{ $case->case_number }}</h1>
-            <p class="text-gray-600">{{ $case->case_type }} - {{ $case->status->label() }}</p>
-        </div>
-        <a href="{{ route('compliance.cases.index') }}" class="px-4 py-2 border rounded hover:bg-gray-50">Back to Cases</a>
-    </div>
-
-    <div class="grid grid-cols-3 gap-6 mb-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold mb-4">Case Information</h2>
-            <dl class="grid grid-cols-2 gap-4">
-                <div>
-                    <dt class="text-sm text-gray-500">Case Number</dt>
-                    <dd class="font-medium">{{ $case->case_number }}</dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">Case Type</dt>
-                    <dd class="font-medium">{{ $case->case_type }}</dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">Status</dt>
-                    <dd>
-                        <span class="px-2 py-1 rounded text-xs font-medium
-                            @if($case->status->value === 'Open') bg-blue-100 text-blue-700
-                            @elseif($case->status->value === 'UnderReview') bg-yellow-100 text-yellow-700
-                            @elseif($case->status->value === 'Escalated') bg-red-100 text-red-700
-                            @else bg-gray-100 text-gray-700
-                            @endif">
-                            {{ $case->status->label() }}
-                        </span>
-                    </dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">Priority</dt>
-                    <dd>
-                        <span class="px-2 py-1 rounded text-xs font-medium
-                            @if($case->priority->value === 'critical') bg-red-100 text-red-700
-                            @elseif($case->priority->value === 'high') bg-orange-100 text-orange-700
-                            @else bg-gray-100 text-gray-700
-                            @endif">
-                            {{ $case->priority->label() }}
-                        </span>
-                    </dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">SLA Deadline</dt>
-                    <dd class="font-medium {{ $case->isOverdue() ? 'text-red-600' : '' }}">
-                        {{ $case->sla_deadline?->format('Y-m-d H:i') ?? 'N/A' }}
-                    </dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">Created</dt>
-                    <dd class="font-medium">{{ $case->created_at->format('Y-m-d H:i') }}</dd>
-                </div>
-            </dl>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Case Details</h3>
+                @php
+                    $statusClass = match($case->status->value ?? '') {
+                        'Closed' => 'badge-success',
+                        'Escalated' => 'badge-danger',
+                        'InProgress' => 'badge-info',
+                        default => 'badge-warning'
+                    };
+                @endphp
+                <span class="badge {{ $statusClass }}">{{ $case->status->label() ?? 'Open' }}</span>
+            </div>
+            <div class="card-body">
+                <p class="text-[--color-ink]">{{ $case->description ?? 'No description provided.' }}</p>
+            </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold mb-4">Customer</h2>
-            <dl class="grid grid-cols-1 gap-4">
-                <div>
-                    <dt class="text-sm text-gray-500">Customer</dt>
-                    <dd class="font-medium">{{ $case->customer?->full_name ?? 'N/A' }}</dd>
+        @if($case->customer)
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Customer</h3>
+                <a href="/customers/{{ $case->customer_id }}" class="btn btn-ghost btn-sm">View Profile</a>
+            </div>
+            <div class="card-body">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-[--color-canvas-subtle] rounded-lg flex items-center justify-center font-semibold">
+                        {{ substr($case->customer->full_name, 0, 1) }}
+                    </div>
+                    <div>
+                        <p class="font-medium">{{ $case->customer->full_name }}</p>
+                        <p class="text-sm text-[--color-ink-muted]">{{ $case->customer->ic_number }}</p>
+                    </div>
                 </div>
-                @if($case->customer)
-                <div>
-                    <dt class="text-sm text-gray-500">Risk Rating</dt>
-                    <dd class="font-medium">{{ $case->customer->risk_rating ?? 'N/A' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">PEP Status</dt>
-                    <dd class="font-medium">{{ $case->customer->pep_status ? 'Yes' : 'No' }}</dd>
-                </div>
-                @endif
-            </dl>
+            </div>
         </div>
-
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold mb-4">Assignment</h2>
-            <dl class="grid grid-cols-1 gap-4">
-                <div>
-                    <dt class="text-sm text-gray-500">Assigned To</dt>
-                    <dd class="font-medium">{{ $case->assignedTo?->username ?? 'Unassigned' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">Opened By</dt>
-                    <dd class="font-medium">{{ $case->openedBy?->username ?? 'N/A' }}</dd>
-                </div>
-            </dl>
-        </div>
-    </div>
-
-    @if($case->notes)
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 class="text-lg font-semibold mb-4">Case Summary</h2>
-        <p class="text-gray-700">{{ $case->notes }}</p>
-    </div>
-    @endif
-
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 class="text-lg font-semibold mb-4">Linked Alerts</h2>
-        @if($case->alerts && $case->alerts->count() > 0)
-        <table class="w-full">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-2 text-left text-sm">Priority</th>
-                    <th class="px-4 py-2 text-left text-sm">Type</th>
-                    <th class="px-4 py-2 text-left text-sm">Reason</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($case->alerts as $alert)
-                <tr class="border-b">
-                    <td class="px-4 py-2">{{ $alert->priority->label() }}</td>
-                    <td class="px-4 py-2">{{ $alert->type?->value ?? 'N/A' }}</td>
-                    <td class="px-4 py-2">{{ Str::limit($alert->reason, 50) }}</td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-        @else
-        <p class="text-gray-500">No alerts linked to this case</p>
         @endif
-    </div>
 
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold mb-4">Actions</h2>
-        <div class="flex gap-4">
-            <form action="{{ route('compliance.cases.update', $case->id) }}" method="POST" class="inline">
-                @csrf
-                @method('PATCH')
-                <select name="status" class="border rounded px-3 py-2">
-                    <option value="Open" {{ $case->status->value === 'Open' ? 'selected' : '' }}>Open</option>
-                    <option value="UnderReview" {{ $case->status->value === 'UnderReview' ? 'selected' : '' }}>Under Review</option>
-                    <option value="Escalated" {{ $case->status->value === 'Escalated' ? 'selected' : '' }}>Escalated</option>
-                </select>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Update Status</button>
-            </form>
-            @if($case->status->value !== 'Closed')
-            <form action="{{ route('compliance.cases.escalate', $case->id) }}" method="POST" class="inline">
-                @csrf
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Escalate</button>
-            </form>
-            @endif
-
-            @if($case->status->value !== 'Closed')
-            <button type="button" onclick="document.getElementById('mergeModal').classList.remove('hidden')" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
-                Merge Case
-            </button>
-            @endif
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Notes</h3>
+            </div>
+            <div class="card-body">
+                @forelse($case->notes ?? [] as $note)
+                <div class="border-l-2 border-[--color-border] pl-4 mb-4">
+                    <p class="text-sm">{{ $note->content }}</p>
+                    <p class="text-xs text-[--color-ink-muted] mt-1">
+                        {{ $note->creator->username ?? 'System' }} - {{ $note->created_at->diffForHumans() }}
+                    </p>
+                </div>
+                @empty
+                <p class="text-[--color-ink-muted] text-sm">No notes yet</p>
+                @endforelse
+            </div>
         </div>
     </div>
 
-    <!-- Merge Modal -->
-    <div id="mergeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h3 class="text-lg font-semibold mb-4">Merge Case {{ $case->case_number }} Into Another Case</h3>
-            <form action="{{ route('compliance.cases.merge', $case->id) }}" method="POST">
-                @csrf
-                <div class="mb-4">
-                    <label for="target_case_id" class="block text-sm font-medium text-gray-700 mb-2">Target Case Number</label>
-                    <input type="number" name="target_case_id" id="target_case_id" required
-                           class="w-full border rounded px-3 py-2"
-                           placeholder="Enter target case ID">
-                    <p class="text-sm text-gray-500 mt-1">All alerts from this case will be moved to the target case, and this case will be closed.</p>
+    <div class="space-y-6">
+        <div class="card">
+            <div class="card-header"><h3 class="card-title">Details</h3></div>
+            <div class="card-body space-y-3">
+                <div>
+                    <p class="text-sm text-[--color-ink-muted]">Priority</p>
+                    @php $priorityClass = match($case->priority->value ?? '') { 'Critical' => 'badge-danger', 'High' => 'badge-warning', 'Medium' => 'badge-info', default => 'badge-default' }; @endphp
+                    <span class="badge {{ $priorityClass }}">{{ $case->priority->label() ?? 'Low' }}</span>
                 </div>
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="document.getElementById('mergeModal').classList.add('hidden')"
-                            class="px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">Merge Cases</button>
+                <div>
+                    <p class="text-sm text-[--color-ink-muted]">Assigned To</p>
+                    <p class="text-sm font-medium">{{ $case->assignee->username ?? 'Unassigned' }}</p>
                 </div>
-            </form>
+                <div>
+                    <p class="text-sm text-[--color-ink-muted]">Created</p>
+                    <p class="text-sm">{{ $case->created_at->format('d M Y, H:i') }}</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>

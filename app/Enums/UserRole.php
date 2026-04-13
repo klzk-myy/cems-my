@@ -65,6 +65,32 @@ enum UserRole: string
     }
 
     /**
+     * Check if the user can access accounting features.
+     */
+    public function canAccessAccounting(): bool
+    {
+        return $this->isManager();
+    }
+
+    /**
+     * Check if the user can create transactions.
+     * Tellers, managers, and admin can create transactions.
+     */
+    public function canCreateTransaction(): bool
+    {
+        return $this->isTeller() || $this->isManager() || $this === self::Admin;
+    }
+
+    /**
+     * Check if the user has full system access.
+     * Only Admin has full system access.
+     */
+    public function canAccessAll(): bool
+    {
+        return $this->isAdmin();
+    }
+
+    /**
      * Check if the user can manage users.
      */
     public function canManageUsers(): bool

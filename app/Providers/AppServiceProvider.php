@@ -7,6 +7,8 @@ use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
+use App\Helpers\LabelHelper;
+use Illuminate\Support\Facades\Blade;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registerMorphMap();
         $this->registerCarbonMacros();
+        $this->registerBladeDirectives();
     }
 
     /**
@@ -73,6 +76,20 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return $workingDays;
+        });
+    }
+
+    /**
+     * Register Blade directives for common operations.
+     */
+    protected function registerBladeDirectives(): void
+    {
+        Blade::directive('statusLabel', function ($statusExpr, $default = "''") {
+            return "<?php echo \App\Helpers\LabelHelper::getStatusLabel({$statusExpr}, {$default}); ?>";
+        });
+
+        Blade::directive('typeLabel', function ($typeExpr, $default = "''") {
+            return "<?php echo \App\Helpers\LabelHelper::getTypeLabel({$typeExpr}, {$default}); ?>";
         });
     }
 }

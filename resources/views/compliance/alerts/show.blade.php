@@ -1,106 +1,211 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Alert Detail')
+@section('title', 'Alert #' . ($alert->id ?? ''))
+
+@section('header-title')
+<div class="flex items-center gap-3">
+    <a href="/compliance/alerts" class="btn btn-ghost btn-icon">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        </svg>
+    </a>
+    <div>
+        <h1 class="text-xl font-semibold text-[--color-ink]">Alert #{{ $alert->id ?? '' }}</h1>
+        <p class="text-sm text-[--color-ink-muted]">{{ $alert->type->label() ?? 'Unknown Type' }}</p>
+    </div>
+</div>
+@endsection
+
+@section('header-actions')
+<div class="flex items-center gap-3">
+    @if(($alert->status->value ?? '') === 'Pending')
+        <form method="POST" action="/compliance/alerts/{{ $alert->id }}/assign" class="flex items-center gap-2">
+            @csrf
+            <select name="assignee_id" class="form-select w-auto">
+                <option value="">Assign to...</option>
+                @foreach($users ?? [] as $user)
+                    <option value="{{ $user->id }}">{{ $user->username }}</option>
+                @endforeach
+            </select>
+            <button type="submit" class="btn btn-secondary">Assign</button>
+        </form>
+    @endif
+    @if(($alert->status->value ?? '') !== 'Resolved')
+        <form method="POST" action="/compliance/alerts/{{ $alert->id }}/resolve" class="inline">
+            @csrf
+            <button type="submit" class="btn btn-primary">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Resolve
+            </button>
+        </form>
+    @endif
+</div>
+@endsection
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6 flex justify-between items-center">
-        <div>
-            <h1 class="text-2xl font-bold">Alert Detail</h1>
-            <p class="text-gray-600">Alert #{{ $alert->id }}</p>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    {{-- Main Content --}}
+    <div class="lg:col-span-2 space-y-6">
+        {{-- Alert Details --}}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Alert Details</h3>
+                @php
+                    $priorityClass = match($alert->priority->value ?? '') {
+                        'Critical' => 'badge-danger',
+                        'High' => 'badge-warning',
+                        'Medium' => 'badge-info',
+                        default => 'badge-default'
+                    };
+                    $statusClass = match($alert->status->value ?? '') {
+                        'Resolved' => 'badge-success',
+                        'Dismissed' => 'badge-default',
+                        'InProgress' => 'badge-info',
+                        default => 'badge-warning'
+                    };
+                @endphp
+                <div class="flex gap-2">
+                    <span class="badge {{ $priorityClass }}">{{ $alert->priority->label() ?? 'Low' }}</span>
+                    <span class="badge {{ $statusClass }}">{{ $alert->status->label() ?? 'Pending' }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">Description</p>
+                        <p class="text-[--color-ink]">{{ $alert->description }}</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <p class="text-sm text-[--color-ink-muted] mb-1">Alert Type</p>
+                            <p class="font-medium">{{ $alert->type->label() ?? 'Unknown' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-[--color-ink-muted] mb-1">Risk Score</p>
+                            <p class="font-mono">{{ $alert->risk_score ?? 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <a href="{{ route('compliance.alerts.index') }}" class="px-4 py-2 border rounded hover:bg-gray-50">Back to Alerts</a>
-    </div>
 
-    <div class="grid grid-cols-2 gap-6 mb-6">
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold mb-4">Alert Information</h2>
-            <dl class="grid grid-cols-2 gap-4">
-                <div>
-                    <dt class="text-sm text-gray-500">Priority</dt>
-                    <dd>
-                        <span class="px-2 py-1 rounded text-xs font-medium
-                            @if($alert->priority->value === 'critical') bg-red-100 text-red-700
-                            @elseif($alert->priority->value === 'high') bg-orange-100 text-orange-700
-                            @elseif($alert->priority->value === 'medium') bg-yellow-100 text-yellow-700
-                            @else bg-green-100 text-green-700
-                            @endif">
-                            {{ $alert->priority->label() }}
+        {{-- Customer Information --}}
+        @if($alert->customer)
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Related Customer</h3>
+                <a href="/customers/{{ $alert->customer_id }}" class="btn btn-ghost btn-sm">View Profile</a>
+            </div>
+            <div class="card-body">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 bg-[--color-canvas-subtle] rounded-xl flex items-center justify-center">
+                        <span class="text-lg font-semibold">{{ substr($alert->customer->full_name, 0, 1) }}</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-lg">{{ $alert->customer->full_name }}</p>
+                        <p class="text-sm text-[--color-ink-muted]">{{ $alert->customer->ic_number }}</p>
+                        <div class="flex gap-2 mt-2">
+                            <span class="badge badge-default">{{ $alert->customer->cdd_level->label() ?? 'N/A' }}</span>
+                            @if($alert->customer->is_pep ?? false)
+                                <span class="badge badge-warning">PEP</span>
+                            @endif
+                            @if($alert->customer->is_sanctioned ?? false)
+                                <span class="badge badge-danger">Sanctioned</span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- Transaction if related --}}
+        @if($alert->transaction)
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Related Transaction</h3>
+                <a href="/transactions/{{ $alert->transaction_id }}" class="btn btn-ghost btn-sm">View</a>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted]">Transaction ID</p>
+                        <p class="font-mono">#{{ $alert->transaction_id }}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted]">Amount</p>
+                        <p class="font-mono">{{ number_format($alert->transaction->amount_local, 2) }} MYR</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted]">Type</p>
+                        <span class="badge {{ $alert->transaction->type->value === 'Buy' ? 'badge-success' : 'badge-warning' }}">
+                            {{ $alert->transaction->type->label() }}
                         </span>
-                    </dd>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+    </div>
+
+    {{-- Sidebar --}}
+    <div class="space-y-6">
+        {{-- Status & Assignment --}}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Assignment</h3>
+            </div>
+            <div class="card-body space-y-4">
+                <div>
+                    <p class="text-sm text-[--color-ink-muted] mb-1">Assigned To</p>
+                    @if($alert->assignee)
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-[--color-canvas-subtle] rounded-lg flex items-center justify-center text-xs">
+                                {{ substr($alert->assignee->username, 0, 1) }}
+                            </div>
+                            <span class="font-medium">{{ $alert->assignee->username }}</span>
+                        </div>
+                    @else
+                        <span class="badge badge-warning">Unassigned</span>
+                    @endif
                 </div>
                 <div>
-                    <dt class="text-sm text-gray-500">Type</dt>
-                    <dd class="font-medium">{{ $alert->type?->value ?? 'N/A' }}</dd>
+                    <p class="text-sm text-[--color-ink-muted] mb-1">Created At</p>
+                    <p class="text-sm">{{ $alert->created_at->format('d M Y, H:i') }}</p>
                 </div>
                 <div>
-                    <dt class="text-sm text-gray-500">Risk Score</dt>
-                    <dd class="font-medium">{{ $alert->risk_score }}</dd>
+                    <p class="text-sm text-[--color-ink-muted] mb-1">Last Updated</p>
+                    <p class="text-sm">{{ $alert->updated_at->diffForHumans() }}</p>
                 </div>
-                <div>
-                    <dt class="text-sm text-gray-500">Source</dt>
-                    <dd class="font-medium">{{ $alert->source }}</dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">Status</dt>
-                    <dd class="font-medium">{{ $alert->status?->label() ?? 'N/A' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">Created</dt>
-                    <dd class="font-medium">{{ $alert->created_at->format('Y-m-d H:i') }}</dd>
-                </div>
-            </dl>
+            </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold mb-4">Customer Information</h2>
-            <dl class="grid grid-cols-1 gap-4">
-                <div>
-                    <dt class="text-sm text-gray-500">Customer</dt>
-                    <dd class="font-medium">{{ $alert->customer?->full_name ?? 'N/A' }}</dd>
-                </div>
-                @if($alert->customer)
-                <div>
-                    <dt class="text-sm text-gray-500">Risk Rating</dt>
-                    <dd class="font-medium">{{ $alert->customer->risk_rating ?? 'N/A' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-sm text-gray-500">PEP Status</dt>
-                    <dd class="font-medium">{{ $alert->customer->pep_status ? 'Yes' : 'No' }}</dd>
-                </div>
+        {{-- Actions --}}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Actions</h3>
+            </div>
+            <div class="card-body space-y-2">
+                @if(($alert->status->value ?? '') !== 'Resolved')
+                    <form method="POST" action="/compliance/alerts/{{ $alert->id }}/resolve" class="w-full">
+                        @csrf
+                        <button type="submit" class="btn btn-primary w-full">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Mark as Resolved
+                        </button>
+                    </form>
                 @endif
-            </dl>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 class="text-lg font-semibold mb-4">Reason</h2>
-        <p class="text-gray-700">{{ $alert->reason ?? 'No reason provided' }}</p>
-    </div>
-
-    @if($alert->assigned_to)
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 class="text-lg font-semibold mb-4">Assignment</h2>
-        <p><strong>Assigned To:</strong> {{ $alert->assignedTo?->username ?? 'N/A' }}</p>
-        <p><strong>Assigned At:</strong> {{ $alert->updated_at->format('Y-m-d H:i') }}</p>
-    </div>
-    @endif
-
-    <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-lg font-semibold mb-4">Actions</h2>
-        <div class="flex gap-4">
-            @if(!$alert->assigned_to)
-            <form action="{{ route('compliance.alerts.assign', $alert->id) }}" method="POST">
-                @csrf
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Assign to Me</button>
-            </form>
-            @endif
-            @if($alert->assigned_to && $alert->status?->value !== 'resolved')
-            <form action="{{ route('compliance.alerts.resolve', $alert->id) }}" method="POST">
-                @csrf
-                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Resolve</button>
-            </form>
-            @endif
+                <form method="POST" action="/compliance/alerts/{{ $alert->id }}/dismiss" class="w-full">
+                    @csrf
+                    <button type="submit" class="btn btn-secondary w-full">
+                        Dismiss Alert
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>

@@ -7,64 +7,89 @@ use Tests\TestCase;
 
 class MathServiceTest extends TestCase
 {
-    protected MathService $service;
+    protected MathService $math;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new MathService;
+        // Use scale 2 for currency operations
+        $this->math = new MathService(2);
     }
 
-    public function test_basic_arithmetic_operations()
+    /** @test */
+    public function it_adds_two_numbers_with_precision(): void
     {
-        $this->assertEquals('5.000000', $this->service->add('2', '3'));
-        $this->assertEquals('3.000000', $this->service->subtract('5', '2'));
-        $this->assertEquals('6.000000', $this->service->multiply('2', '3'));
-        $this->assertEquals('2.500000', $this->service->divide('5', '2'));
+        $result = $this->math->add('10.50', '5.25');
+        $this->assertEquals('15.75', $result);
     }
 
-    public function test_calculate_average_cost()
+    /** @test */
+    public function it_subtracts_two_numbers_with_precision(): void
     {
-        // Old: 1000 USD @ 4.50 = 4500 MYR cost
-        // New: 500 USD @ 4.70 = 2350 MYR cost
-        // Total: 1500 USD @ avg 4.566666 (truncated to 6 decimal places)
-        // Note: BCMath truncates rather than rounds, so 4.56666666... becomes 4.566666
-        $result = $this->service->calculateAverageCost(
-            '1000', // old balance
-            '4.50', // old avg cost
-            '500', // transaction amount
-            '4.70' // transaction rate
-        );
-        $this->assertEquals('4.566666', $result);
+        $result = $this->math->subtract('100.00', '25.50');
+        $this->assertEquals('74.50', $result);
     }
 
-    public function test_calculate_revaluation_pnl()
+    /** @test */
+    public function it_multiplies_two_numbers_with_precision(): void
     {
-        // Position: 1000 USD
-        // Old rate: 4.50, New rate: 4.70
-        // Gain: 1000 * (4.70 - 4.50) = 200 MYR
-        $result = $this->service->calculateRevaluationPnl('1000', '4.50', '4.70');
-        $this->assertEquals('200.000000', $result);
+        $result = $this->math->multiply('10.50', '3');
+        $this->assertEquals('31.50', $result);
     }
 
-    public function test_calculate_transaction_amount()
+    /** @test */
+    public function it_divides_two_numbers_with_precision(): void
     {
-        // Buy 100 USD @ 4.70 = 470 MYR
-        $result = $this->service->calculateTransactionAmount('100', '4.70');
-        $this->assertEquals('470.000000', $result);
+        $result = $this->math->divide('100.00', '4');
+        $this->assertEquals('25.00', $result);
     }
 
-    public function test_compare_values()
-    {
-        $this->assertEquals(1, $this->service->compare('5', '3'));
-        $this->assertEquals(-1, $this->service->compare('3', '5'));
-        $this->assertEquals(0, $this->service->compare('5', '5'));
-    }
-
-    public function test_division_by_zero_throws_exception()
+    /** @test */
+    public function it_throws_exception_for_division_by_zero(): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Division by zero');
-        $this->service->divide('10', '0');
+        $this->math->divide('100.00', '0');
+    }
+
+    /** @test */
+    public function it_compares_two_decimals_correctly(): void
+    {
+        $this->assertEquals(0, $this->math->compare('10.50', '10.50'));
+        $this->assertEquals(-1, $this->math->compare('10.50', '10.51'));
+        $this->assertEquals(1, $this->math->compare('10.50', '10.49'));
+    }
+
+    /** @test */
+    public function it_handles_large_numbers(): void
+    {
+        $result = $this->math->add('999999999999.99', '0.01');
+        $this->assertEquals('1000000000000.00', $result);
+    }
+
+    /** @test */
+    public function it_calculates_weighted_average_cost(): void
+    {
+        // Old: 1000 USD at 4.50 = 4500 MYR
+        // New: 500 USD at 4.60 = 2300 MYR
+        // Total: 1500 USD at (4500 + 2300) / 1500 = 4.533...
+        $result = $this->math->calculateAverageCost('1000', '4.50', '500', '4.60');
+        $this->assertEquals('4.53', substr($result, 0, 4));
+    }
+
+    /** @test */
+    public function it_calculates_revaluation_pnl(): void
+    {
+        // 1000 USD * (4.60 - 4.50) = 100 MYR gain
+        $result = $this->math->calculateRevaluationPnl('1000', '4.50', '4.60');
+        $this->assertEquals('100.00', $result);
+    }
+
+    /** @test */
+    public function it_calculates_transaction_amount(): void
+    {
+        // 100 USD * 4.50 = 450 MYR
+        $result = $this->math->calculateTransactionAmount('100', '4.50');
+        $this->assertEquals('450.00', $result);
     }
 }

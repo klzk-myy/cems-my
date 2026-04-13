@@ -1,172 +1,93 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
 @section('title', 'Audit Log')
 
-@section('breadcrumbs')
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ol class="breadcrumbs__list">
-        <li class="breadcrumbs__item">
-            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
-            <span class="breadcrumbs__text">Audit Log</span>
-        </li>
-    </ol>
-</nav>
+@section('header-title')
+<div>
+    <h1 class="text-2xl font-semibold text-[--color-ink]">Audit Log</h1>
+    <p class="text-sm text-[--color-ink-muted]">System activity and security events</p>
+</div>
 @endsection
 
 @section('content')
-<h2 class="mb-6">Audit Log</h2>
-
-<div class="filter-panel">
-    <h3 class="mb-4">Filters</h3>
-    <form method="GET" action="{{ route('audit.index') }}">
-        <div class="filter-grid">
-            <div class="filter-group">
-                <label>Date From</label>
-                <input type="date" name="date_from" value="{{ $filters['date_from'] ?? '' }}">
+{{-- Filters --}}
+<div class="card mb-6">
+    <div class="card-body">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="form-group mb-0">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-input" placeholder="Event or user..." value="{{ request('search') }}">
             </div>
-            <div class="filter-group">
-                <label>Date To</label>
-                <input type="date" name="date_to" value="{{ $filters['date_to'] ?? '' }}">
-            </div>
-            <div class="filter-group">
-                <label>User</label>
-                <select name="user_id">
-                    <option value="">All Users</option>
-                    @foreach($users as $user)
-                    <option value="{{ $user->id }}" {{ ($filters['user_id'] ?? '') == $user->id ? 'selected' : '' }}>
-                        {{ $user->username }}
-                    </option>
-                    @endforeach
+            <div class="form-group mb-0">
+                <label class="form-label">Event Type</label>
+                <select name="event_type" class="form-select">
+                    <option value="">All Events</option>
+                    <option value="transaction" {{ request('event_type') === 'transaction' ? 'selected' : '' }}>Transaction</option>
+                    <option value="user" {{ request('event_type') === 'user' ? 'selected' : '' }}>User</option>
+                    <option value="compliance" {{ request('event_type') === 'compliance' ? 'selected' : '' }}>Compliance</option>
+                    <option value="system" {{ request('event_type') === 'system' ? 'selected' : '' }}>System</option>
                 </select>
             </div>
-            <div class="filter-group">
-                <label>Action</label>
-                <select name="action">
-                    <option value="">All Actions</option>
-                    @foreach($actions as $action)
-                    <option value="{{ $action }}" {{ ($filters['action'] ?? '') == $action ? 'selected' : '' }}>
-                        {{ $action }}
-                    </option>
-                    @endforeach
-                </select>
+            <div class="form-group mb-0">
+                <label class="form-label">Date From</label>
+                <input type="date" name="date_from" class="form-input" value="{{ request('date_from') }}">
             </div>
-            <div class="filter-group">
-                <label>Severity</label>
-                <select name="severity">
-                    <option value="">All Severities</option>
-                    @foreach($severities as $severity)
-                    <option value="{{ $severity }}" {{ ($filters['severity'] ?? '') == $severity ? 'selected' : '' }}>
-                        {{ $severity }}
-                    </option>
-                    @endforeach
-                </select>
+            <div class="form-group mb-0">
+                <label class="form-label">Date To</label>
+                <input type="date" name="date_to" class="form-input" value="{{ request('date_to') }}">
             </div>
-        </div>
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary">Apply Filters</button>
-            <a href="{{ route('audit.index') }}" class="btn btn-secondary">Clear</a>
-        </div>
-    </form>
-</div>
-
-<div class="card">
-    <h3>Log Entries</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Timestamp</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Entity</th>
-                <th>Severity</th>
-                <th>IP Address</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($logs as $log)
-            <tr class="log-row" onclick="toggleDetails({{ $log->id }})" data-log-id="{{ $log->id }}">
-                <td>{{ $log->id }}</td>
-                <td>{{ $log->created_at->format('M d, Y H:i:s') }}</td>
-                <td>{{ $log->user->username ?? 'System' }}</td>
-                <td>
-                    {{ $log->action }}
-                    <span class="expand-icon">▼</span>
-                </td>
-                <td>{{ $log->entity_type ? $log->entity_type . ' #' . $log->entity_id : 'N/A' }}</td>
-                <td>
-                    <span class="severity-badge severity-{{ strtolower($log->severity ?? 'info') }}">
-                        {{ $log->severity ?? 'INFO' }}
-                    </span>
-                </td>
-                <td>{{ $log->ip_address }}</td>
-            </tr>
-            <tr id="details-{{ $log->id }}" class="hidden">
-                <td colspan="7">
-                    <div class="p-4">
-                        <h4>Details</h4>
-                        @if($log->old_values)
-                        <p><strong>Old Values:</strong></p>
-                        <div class="json-view show">{{ json_encode($log->old_values, JSON_PRETTY_PRINT) }}</div>
-                        @endif
-                        @if($log->new_values)
-                        <p class="mt-4"><strong>New Values:</strong></p>
-                        <div class="json-view show">{{ json_encode($log->new_values, JSON_PRETTY_PRINT) }}</div>
-                        @endif
-                    </div>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="7" class="text-center text-gray-500">
-                    No audit log entries found.
-                </td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
-
-    <div class="mt-4">
-        {{ $logs->links() }}
+            <div class="md:col-span-4 flex justify-end">
+                <button type="submit" class="btn btn-secondary">Apply Filters</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<div class="export-panel">
-    <h3>Export Audit Log</h3>
-    <form method="POST" action="{{ route('audit.export') }}" class="export-form">
-        @csrf
-        <div class="filter-group">
-            <label>Date From</label>
-            <input type="date" name="date_from" required value="{{ now()->subDays(30)->format('Y-m-d') }}">
+{{-- Audit Log Table --}}
+<div class="card">
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Event</th>
+                    <th>User</th>
+                    <th>IP Address</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($logs ?? [] as $log)
+                <tr>
+                    <td class="font-mono text-xs text-[--color-ink-muted]">
+                        {{ $log->created_at->format('d M Y, H:i:s') }}
+                    </td>
+                    <td>
+                        <span class="badge badge-default">{{ $log->event_type ?? 'System' }}</span>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 bg-[--color-canvas-subtle] rounded flex items-center justify-center text-xs">
+                                {{ substr($log->user->username ?? 'S', 0, 1) }}
+                            </div>
+                            <span class="text-sm">{{ $log->user->username ?? 'System' }}</span>
+                        </div>
+                    </td>
+                    <td class="font-mono text-xs">{{ $log->ip_address ?? 'N/A' }}</td>
+                    <td class="text-sm">{{ $log->description ?? 'No description' }}</td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="5" class="text-center py-8 text-[--color-ink-muted]">No audit logs found</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+    @if($logs && $logs->hasPages())
+        <div class="card-footer">
+            {{ $logs->withQueryString()->links() }}
         </div>
-        <div class="filter-group">
-            <label>Date To</label>
-            <input type="date" name="date_to" required value="{{ now()->format('Y-m-d') }}">
-        </div>
-        <div class="filter-group">
-            <label>Format</label>
-            <select name="format" required>
-                <option value="CSV">CSV</option>
-                <option value="PDF">PDF</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-success">Export</button>
-    </form>
+    @endif
 </div>
-@endsection
-
-@section('scripts')
-<script>
-    function toggleDetails(logId) {
-        const detailsRow = document.getElementById('details-' + logId);
-        if (detailsRow.classList.contains('hidden')) {
-            detailsRow.classList.remove('hidden');
-        } else {
-            detailsRow.classList.add('hidden');
-        }
-    }
-</script>
 @endsection

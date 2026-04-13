@@ -1,69 +1,49 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Overdue Tasks - CEMS-MY')
+@section('title', 'Overdue Tasks')
 
 @section('content')
-<nav class="breadcrumb">
-    <a href="{{ route('dashboard') }}">Dashboard</a>
-    <span>/</span>
-    <span>Overdue Tasks</span>
-</nav>
-
-<div class="page-header">
-    <h1>Overdue Tasks</h1>
-    <p>Tasks past their due date requiring immediate attention</p>
-</div>
-
-<div class="alert alert-warning">
-    <strong>{{ $tasks->total() }}</strong> overdue task(s) found. Please address these as soon as possible.
-</div>
-
-<div class="table-card">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Priority</th>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Assigned To</th>
-                <th>Due Date</th>
-                <th>Days Overdue</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($tasks as $task)
-            <tr>
-                <td>
-                    <span class="priority-badge priority-{{ strtolower($task->priority) }}">
-                        {{ $task->priority }}
-                    </span>
-                </td>
-                <td>
-                    <a href="{{ route('tasks.show', $task) }}">{{ $task->title }}</a>
-                </td>
-                <td>{{ $task->category }}</td>
-                <td>{{ $task->assignedTo->name ?? 'Unassigned' }}</td>
-                <td class="text-danger">{{ $task->due_at->format('Y-m-d') }}</td>
-                <td class="text-danger">{{ $task->due_at->diffInDays(now()) }} days</td>
-                <td>
-                    <a href="{{ route('tasks.show', $task) }}" class="btn btn-sm btn-primary">View</a>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="7" class="text-center p-8">
-                    No overdue tasks. Great job!
-                </td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
-
-    @if($tasks->hasPages())
-    <div class="mt-4">
-        {{ $tasks->links() }}
+<div class="card">
+    <div class="card-header"><h3 class="card-title">Overdue Tasks</h3></div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Assigned To</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($tasks ?? [] as $task)
+                <tr class="@if($task->is_overdue) text-red-600 @endif">
+                    <td><a href="{{ route('tasks.show', $task->id) }}" class="text-primary hover:underline">{{ $task->title ?? 'N/A' }}</a></td>
+                    <td>{{ $task->assigned_to_name ?? 'N/A' }}</td>
+                    <td>{{ $task->category ?? 'N/A' }}</td>
+                    <td>
+                        @if(isset($task->priority))
+                            @statuslabel($task->priority)
+                        @else
+                            <span class="text-[--color-ink-muted]">N/A</span>
+                        @endif
+                    </td>
+                    <td class="font-mono">{{ $task->due_date ?? '-' }}</td>
+                    <td>
+                        @if(isset($task->status))
+                            @statuslabel($task->status)
+                        @else
+                            <span class="text-[--color-ink-muted]">N/A</span>
+                        @endif
+                    </td>
+                </tr>
+                @empty
+                <tr><td colspan="6" class="text-center py-8 text-[--color-ink-muted]">No overdue tasks</td></tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
-    @endif
 </div>
 @endsection

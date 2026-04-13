@@ -1,150 +1,66 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Test Statistics - CEMS-MY')
+@section('title', 'Test Statistics')
 
 @section('content')
 <div class="card">
-    <h1>Test Statistics</h1>
-    
-    <div style="margin-bottom: 1.5rem;">
-        <form action="{{ route('test-results.statistics') }}" method="GET" style="display: flex; gap: 1rem; align-items: center;">
-            <label style="font-weight: 600;">Period:</label>
-            <select name="days" onchange="this.form.submit()" style="padding: 0.5rem; border: 1px solid #e2e8f0; border-radius: 4px;">
-                <option value="7" {{ request('days', 30) == 7 ? 'selected' : '' }}>Last 7 days</option>
-                <option value="30" {{ request('days', 30) == 30 ? 'selected' : '' }}>Last 30 days</option>
-                <option value="90" {{ request('days', 30) == 90 ? 'selected' : '' }}>Last 90 days</option>
-            </select>
-        </form>
+    <div class="card-header flex justify-between items-center">
+        <h3 class="card-title">Test Statistics</h3>
+        <a href="{{ route('test-results.index') }}" class="btn btn-secondary">Back</a>
     </div>
+    <div class="card-body">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="p-4 bg-[--color-surface-elevated] rounded">
+                <dt class="text-sm text-[--color-ink-muted]">Total Runs</dt>
+                <dd class="text-2xl font-mono">{{ $statistics['total_runs'] ?? 0 }}</dd>
+            </div>
+            <div class="p-4 bg-[--color-surface-elevated] rounded">
+                <dt class="text-sm text-[--color-ink-muted]">Average Duration</dt>
+                <dd class="text-2xl font-mono">{{ number_format($statistics['avg_duration'] ?? 0, 2) }}s</dd>
+            </div>
+            <div class="p-4 bg-[--color-surface-elevated] rounded">
+                <dt class="text-sm text-[--color-ink-muted]">Success Rate</dt>
+                <dd class="text-2xl font-mono @if(($statistics['success_rate'] ?? 0) >= 90) text-green-600 @else text-red-600 @endif">
+                    {{ number_format($statistics['success_rate'] ?? 0, 1) }}%
+                </dd>
+            </div>
+            <div class="p-4 bg-[--color-surface-elevated] rounded">
+                <dt class="text-sm text-[--color-ink-muted]">Total Tests</dt>
+                <dd class="text-2xl font-mono">{{ $statistics['total_tests'] ?? 0 }}</dd>
+            </div>
+        </div>
 
-    {{-- Statistics Cards --}}
-    <div class="grid" style="margin-bottom: 2rem;">
-        <div class="card" style="text-align: center; border-top: 4px solid #38a169;">
-            <div style="font-size: 3rem; font-weight: bold; color: #38a169;">{{ number_format($statistics['avg_pass_rate'], 1) }}%</div>
-            <div style="color: #718096;">Average Pass Rate</div>
-        </div>
-        <div class="card" style="text-align: center; border-top: 4px solid #3182ce;">
-            <div style="font-size: 3rem; font-weight: bold; color: #3182ce;">{{ $statistics['total_runs'] }}</div>
-            <div style="color: #718096;">Total Test Runs</div>
-        </div>
-        <div class="card" style="text-align: center; border-top: 4px solid #805ad5;">
-            <div style="font-size: 3rem; font-weight: bold; color: #805ad5;">{{ $statistics['passed_runs'] }}</div>
-            <div style="color: #718096;">Passed Runs</div>
-        </div>
-        <div class="card" style="text-align: center; border-top: 4px solid #e53e3e;">
-            <div style="font-size: 3rem; font-weight: bold; color: #e53e3e;">{{ $statistics['failed_runs'] }}</div>
-            <div style="color: #718096;">Failed Runs</div>
-        </div>
-    </div>
-
-    {{-- Trend Chart --}}
-    <div class="card" style="margin-bottom: 2rem;">
-        <h2>Pass Rate Trend</h2>
-        <div style="height: 300px; background: #f7fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-            @if($trendData->isNotEmpty())
-                <canvas id="trendChart" style="width: 100%; height: 100%;"></canvas>
-            @else
-                <p style="color: #718096;">No data available for the selected period</p>
-            @endif
-        </div>
-    </div>
-
-    {{-- Latest by Suite --}}
-    <div class="card">
-        <h2>Latest Run by Suite</h2>
-        <table>
+        <h4 class="text-sm font-medium text-[--color-ink-muted] mb-4">Latest Results by Suite</h4>
+        <table class="table">
             <thead>
                 <tr>
                     <th>Suite</th>
-                    <th>Status</th>
-                    <th>Pass Rate</th>
-                    <th>Tests</th>
-                    <th>Duration</th>
                     <th>Last Run</th>
-                    <th>Actions</th>
+                    <th>Status</th>
+                    <th class="text-right">Passed</th>
+                    <th class="text-right">Failed</th>
+                    <th class="text-right">Duration</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($latestBySuite as $suite => $result)
-                    @if($result)
-                        <tr>
-                            <td>{{ ucfirst($suite) }}</td>
-                            <td>
-                                <span class="status-badge {{ $result->status_badge_class }}">
-                                    {{ $result->status_label }}
-                                </span>
-                            </td>
-                            <td>{{ number_format($result->pass_rate, 1) }}%</td>
-                            <td>{{ $result->passed }}/{{ $result->total_tests }}</td>
-                            <td>{{ $result->formatted_duration }}</td>
-                            <td>{{ $result->created_at->diffForHumans() }}</td>
-                            <td>
-                                <a href="{{ route('test-results.show', $result) }}" class="btn btn-sm btn-primary">View</a>
-                            </td>
-                        </tr>
-                    @else
-                        <tr>
-                            <td>{{ ucfirst($suite) }}</td>
-                            <td colspan="6" style="color: #a0aec0; text-align: center;">No runs yet</td>
-                        </tr>
-                    @endif
-                @endforeach
+                @forelse($latestBySuite ?? [] as $suite => $result)
+                <tr>
+                    <td class="font-medium">{{ $suite }}</td>
+                    <td class="font-mono">{{ $result['date'] ?? 'N/A' }}</td>
+                    <td>
+                        <span class="badge @if(($result['status'] ?? '') === 'passed') badge-success @else badge-danger @endif">
+                            {{ $result['status'] ?? 'N/A' }}
+                        </span>
+                    </td>
+                    <td class="font-mono text-right text-green-600">{{ $result['passed'] ?? 0 }}</td>
+                    <td class="font-mono text-right text-red-600">{{ $result['failed'] ?? 0 }}</td>
+                    <td class="font-mono text-right">{{ number_format($result['duration'] ?? 0, 2) }}s</td>
+                </tr>
+                @empty
+                <tr><td colspan="6" class="text-center py-8 text-[--color-ink-muted]">No data</td></tr>
+                @endforelse
             </tbody>
         </table>
     </div>
 </div>
-
-@if($trendData->isNotEmpty())
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    const ctx = document.getElementById('trendChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: {!! json_encode($trendData->pluck('date')) !!},
-            datasets: [{
-                label: 'Pass Rate (%)',
-                data: {!! json_encode($trendData->pluck('avg_pass_rate')) !!},
-                borderColor: '#38a169',
-                backgroundColor: 'rgba(56, 161, 105, 0.1)',
-                tension: 0.4,
-                fill: true
-            }, {
-                label: 'Failed Runs',
-                data: {!! json_encode($trendData->pluck('failed_count')) !!},
-                borderColor: '#e53e3e',
-                backgroundColor: 'rgba(229, 62, 62, 0.1)',
-                tension: 0.4,
-                yAxisID: 'y1'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    title: {
-                        display: true,
-                        text: 'Pass Rate (%)'
-                    }
-                },
-                y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: 'Failed Count'
-                    },
-                    grid: {
-                        drawOnChartArea: false,
-                    },
-                }
-            }
-        }
-    });
-</script>
-@endif
 @endsection

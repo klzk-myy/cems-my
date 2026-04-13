@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\AccountLedger;
+use App\Models\ChartOfAccount;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Cash Flow Service
@@ -21,14 +23,31 @@ class CashFlowService
 
     /**
      * Account codes for cash accounts (bank accounts).
+     * Loaded dynamically from ChartOfAccount table with fallback defaults.
      */
-    protected array $cashAccounts = [
+    protected array $cashAccounts = [];
+
+    /**
+     * Default cash accounts for fallback when DB is empty.
+     */
+    protected const DEFAULT_CASH_ACCOUNTS = [
         '1000', '1010', '1020', '1030', '1040', '1050', '1060', '1070', // Cash accounts
         '1100', '1110', '1120', '1130', // Bank accounts
     ];
 
     /**
+     * Cache key for cash accounts lookup.
+     */
+    protected const CACHE_KEY_CASH_ACCOUNTS = 'cash_flow_cash_accounts';
+
+    /**
+     * Cache TTL in seconds (24 hours).
+     */
+    protected const CACHE_TTL = 86400;
+
+    /**
      * Account codes for operating activities.
+     * These are revenue/expense codes that are less likely to change.
      */
     protected array $operatingAccounts = [
         'revenue' => ['5000', '5010', '5020', '5200', '5300', '5400'], // Revenue accounts
@@ -57,6 +76,48 @@ class CashFlowService
     public function __construct(MathService $mathService)
     {
         $this->mathService = $mathService;
+        $this->cashAccounts = $this->getCashAccounts();
+    }
+
+    /**
+     * Get cash account codes dynamically from ChartOfAccount table.
+     *
+     * Caches the result for performance. Falls back to default accounts
+     * if no cash accounts are found in the database.
+     *
+     * @return array Array of cash account codes
+     */
+    protected function getCashAccounts(): array
+    {
+        return Cache::remember(self::CACHE_KEY_CASH_ACCOUNTS, self::CACHE_TTL, function () {
+            // Query cash accounts: Asset type with account_class 'Cash' or account_code starting with '1'
+            $cashAccounts = ChartOfAccount::where('account_type', 'Asset')
+                ->where(function ($query) {
+                    $query->where('account_class', 'Cash')
+                        ->orWhere('account_code', 'LIKE', '1%');
+                })
+                ->where('is_active', true)
+                ->pluck('account_code')
+                ->toArray();
+
+            // If no cash accounts found in DB, use defaults as fallback
+            if (empty($cashAccounts)) {
+                return self::DEFAULT_CASH_ACCOUNTS;
+            }
+
+            return $cashAccounts;
+        });
+    }
+
+    /**
+     * Clear the cash accounts cache.
+     * Call this when chart of accounts is modified.
+     *
+     * @return bool
+     */
+    public function clearCashAccountsCache(): bool
+    {
+        return Cache::forget(self::CACHE_KEY_CASH_ACCOUNTS);
     }
 
     /**

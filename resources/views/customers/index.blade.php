@@ -1,160 +1,161 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Customer Management - CEMS-MY')
+@section('title', 'Customers')
 
-@section('breadcrumbs')
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ol class="breadcrumbs__list">
-        <li class="breadcrumbs__item">
-            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
-            <span class="breadcrumbs__text">Customers</span>
-        </li>
-    </ol>
-</nav>
+@section('header-title')
+<div>
+    <h1 class="text-2xl font-semibold text-[--color-ink]">Customers</h1>
+    <p class="text-sm text-[--color-ink-muted]">Manage customer records and KYC</p>
+</div>
+@endsection
+
+@section('header-actions')
+<div class="flex items-center gap-3">
+    <a href="/customers/create" class="btn btn-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        Add Customer
+    </a>
+</div>
 @endsection
 
 @section('content')
-<div class="page-header">
-    <h1 class="page-header__title">Customer Management</h1>
-    <p class="page-header__subtitle">Manage customer profiles, KYC documents, and risk assessments</p>
-    <div class="page-header__actions">
-        <a href="{{ route('customers.create') }}" class="btn btn--success">+ Add New Customer</a>
+{{-- Filters --}}
+<div class="card mb-6">
+    <div class="card-body">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="form-group mb-0">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-input" placeholder="Name or IC number..." value="{{ request('search') }}">
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">CDD Level</label>
+                <select name="cdd_level" class="form-select">
+                    <option value="">All Levels</option>
+                    <option value="Simplified" {{ request('cdd_level') === 'Simplified' ? 'selected' : '' }}>Simplified</option>
+                    <option value="Standard" {{ request('cdd_level') === 'Standard' ? 'selected' : '' }}>Standard</option>
+                    <option value="Enhanced" {{ request('cdd_level') === 'Enhanced' ? 'selected' : '' }}>Enhanced</option>
+                </select>
+            </div>
+            <div class="form-group mb-0">
+                <label class="form-label">Risk Level</label>
+                <select name="risk_level" class="form-select">
+                    <option value="">All Levels</option>
+                    <option value="Low" {{ request('risk_level') === 'Low' ? 'selected' : '' }}>Low</option>
+                    <option value="Medium" {{ request('risk_level') === 'Medium' ? 'selected' : '' }}>Medium</option>
+                    <option value="High" {{ request('risk_level') === 'High' ? 'selected' : '' }}>High</option>
+                </select>
+            </div>
+            <div class="md:col-span-4 flex justify-end gap-3">
+                <a href="/customers" class="btn btn-ghost">Clear Filters</a>
+                <button type="submit" class="btn btn-secondary">Apply Filters</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- Filters -->
-<form method="GET" action="{{ route('customers.index') }}" class="card mb-6">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-        <div class="mb-0">
-            <label for="search" class="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Search by Name</label>
-            <input type="text" id="search" name="search" value="{{ e(request('search')) }}" placeholder="Customer name..."
-                   class="form-input mb-0">
-        </div>
-        <div class="mb-0">
-            <label for="risk_rating" class="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Risk Rating</label>
-            <select id="risk_rating" name="risk_rating" class="form-select mb-0">
-                <option value="">All Ratings</option>
-                @foreach($riskRatings as $rating)
-                    <option value="{{ $rating }}" {{ request('risk_rating') == $rating ? 'selected' : '' }}>{{ $rating }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="mb-0">
-            <label for="is_active" class="block text-xs font-semibold text-gray-600 uppercase mb-1.5">Status</label>
-            <select id="is_active" name="is_active" class="form-select mb-0">
-                <option value="">All</option>
-                <option value="1" {{ request('is_active') == '1' ? 'selected' : '' }}>Active</option>
-                <option value="0" {{ request('is_active') == '0' ? 'selected' : '' }}>Inactive</option>
-            </select>
-        </div>
-        <div class="flex gap-2">
-            <button type="submit" class="btn btn--primary btn--sm">Filter</button>
-            <a href="{{ route('customers.index') }}" class="btn btn--secondary btn--sm">Clear</a>
-        </div>
-    </div>
-</form>
-
-<!-- Customer List -->
+{{-- Customers Table --}}
 <div class="card">
-    <div class="text-sm text-gray-500 mb-4">
-        Showing {{ $customers->count() }} of {{ $customers->total() }} customers
-    </div>
-
-    <div class="overflow-x-auto">
-        <table class="data-table">
+    <div class="table-container">
+        <table class="table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>ID Type</th>
-                    <th>Nationality</th>
-                    <th>Risk Rating</th>
-                    <th>PEP</th>
+                    <th>Customer</th>
+                    <th>IC Number</th>
+                    <th>CDD Level</th>
+                    <th>Risk Level</th>
+                    <th>Total Transactions</th>
                     <th>Status</th>
-                    <th>Created</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($customers as $customer)
+                @forelse($customers ?? [] as $customer)
                 <tr>
-                    <td class="font-mono text-xs">{{ $customer->id }}</td>
                     <td>
-                        <div class="flex items-center gap-2">
-                            <span class="font-medium">{{ e($customer->full_name) }}</span>
-                            @if($customer->risk_rating === 'High')
-                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
-                                High Risk
-                            </span>
-                            @endif
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-[--color-canvas-subtle] rounded-lg flex items-center justify-center">
+                                <span class="font-semibold">{{ substr($customer->full_name, 0, 1) }}</span>
+                            </div>
+                            <div>
+                                <p class="font-medium">{{ $customer->full_name }}</p>
+                                <p class="text-xs text-[--color-ink-muted]">{{ $customer->email ?? 'No email' }}</p>
+                            </div>
                         </div>
                     </td>
-                    <td class="text-sm">{{ e($customer->id_type) }}</td>
-                    <td class="text-sm">{{ e($customer->nationality) }}</td>
+                    <td class="font-mono">{{ $customer->ic_number }}</td>
                     <td>
-                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full {{ match($customer->risk_rating) {
-                            'Low' => 'bg-green-100 text-green-800',
-                            'Medium' => 'bg-yellow-100 text-yellow-800',
-                            'High' => 'bg-orange-100 text-orange-800',
-                            default => 'bg-gray-100 text-gray-600'
-                        } }}">
-                            {{ e($customer->risk_rating) }}
-                        </span>
+                        @php
+                            $cddClass = match($customer->cdd_level->value ?? '') {
+                                'Simplified' => 'badge-info',
+                                'Standard' => 'badge-warning',
+                                'Enhanced' => 'badge-danger',
+                                default => 'badge-default'
+                            };
+                        @endphp
+                        <span class="badge {{ $cddClass }}">{{ $customer->cdd_level->label() ?? 'N/A' }}</span>
                     </td>
                     <td>
-                        @if($customer->pep_status)
-                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">PEP</span>
+                        @php
+                            $riskClass = match($customer->risk_level ?? '') {
+                                'Low' => 'badge-success',
+                                'Medium' => 'badge-warning',
+                                'High' => 'badge-danger',
+                                default => 'badge-default'
+                            };
+                        @endphp
+                        <span class="badge {{ $riskClass }}">{{ $customer->risk_level ?? 'N/A' }}</span>
+                    </td>
+                    <td class="font-mono">{{ number_format($customer->transactions_count ?? 0) }}</td>
+                    <td>
+                        @if($customer->is_sanctioned ?? false)
+                            <span class="badge badge-danger">Sanctioned</span>
+                        @elseif($customer->is_pep ?? false)
+                            <span class="badge badge-warning">PEP</span>
                         @else
-                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">No</span>
+                            <span class="badge badge-success">Active</span>
                         @endif
                     </td>
                     <td>
-                        @if($customer->is_active ?? true)
-                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>
-                        @else
-                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-500">Inactive</span>
-                        @endif
-                    </td>
-                    <td class="text-sm text-gray-500">{{ $customer->created_at->format('Y-m-d') }}</td>
-                    <td>
-                        <div class="flex gap-2">
-                            <a href="{{ route('customers.show', $customer) }}" class="btn btn--primary btn--sm">View</a>
-                            <a href="{{ route('customers.edit', $customer) }}" class="btn btn--secondary btn--sm">Edit</a>
+                        <div class="table-actions">
+                            <a href="/customers/{{ $customer->id }}" class="btn btn-ghost btn-icon" title="View">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </a>
+                            <a href="/customers/{{ $customer->id }}/edit" class="btn btn-ghost btn-icon" title="Edit">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                            </a>
                         </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" class="text-center py-12 text-gray-500">
-                        No customers found.
+                    <td colspan="7">
+                        <div class="empty-state py-12">
+                            <div class="empty-state-icon">
+                                <svg class="w-8 h-8 text-[--color-ink-muted]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                                </svg>
+                            </div>
+                            <p class="empty-state-title">No customers found</p>
+                            <p class="empty-state-description">Start by adding your first customer</p>
+                            <a href="/customers/create" class="btn btn-primary mt-4">Add Customer</a>
+                        </div>
                     </td>
                 </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
-
-    <div class="mt-6 flex justify-center">
-        {{ $customers->links() }}
-    </div>
-</div>
-
-<!-- Quick Stats -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6">
-    <div class="stat-card stat-card--primary">
-        <div class="stat-card__value">{{ $customers->total() }}</div>
-        <div class="stat-card__label">Total Customers</div>
-    </div>
-    <div class="stat-card stat-card--success">
-        <div class="stat-card__value">{{ $customers->where('risk_rating', '!=', 'High')->count() }}</div>
-        <div class="stat-card__label">Low/Medium Risk</div>
-    </div>
-    <div class="stat-card stat-card--danger">
-        <div class="stat-card__value">{{ $customers->where('risk_rating', 'High')->count() }}</div>
-        <div class="stat-card__label">High Risk</div>
-    </div>
+    @if($customers && $customers->hasPages())
+        <div class="card-footer">
+            {{ $customers->withQueryString()->links() }}
+        </div>
+    @endif
 </div>
 @endsection

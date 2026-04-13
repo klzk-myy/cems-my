@@ -8,9 +8,11 @@ use App\Models\Customer;
 use App\Models\SystemLog;
 use App\Models\Transaction;
 use App\Services\AccountingService;
+use App\Services\AuditService;
 use App\Services\ComplianceService;
 use App\Services\CurrencyPositionService;
 use App\Services\MathService;
+use App\Services\TransactionCancellationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,15 +23,180 @@ class TransactionCancellationController extends Controller
         protected CurrencyPositionService $positionService,
         protected ComplianceService $complianceService,
         protected MathService $mathService,
-        protected AccountingService $accountingService
+        protected AccountingService $accountingService,
+        protected TransactionCancellationService $cancellationService,
+        protected AuditService $auditService
     ) {}
 
     /**
-     * Cancel a transaction.
+     * Request cancellation of a transaction.
+     *
+     * POST /api/transactions/{id}/request-cancellation
+     *
+     * Transitions transaction to PendingCancellation status.
+     * Requires manager or admin role.
+     */
+    public function requestCancellation(Request $request, int $transactionId): JsonResponse
+    {
+        $transaction = Transaction::findOrFail($transactionId);
+
+        if (! $this->canRequestCancellation(auth()->user(), $transaction)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to request cancellation for this transaction.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|min:10|max:1000',
+        ]);
+
+        if (! $this->canBeCancelled($transaction)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This transaction cannot be cancelled in its current state.',
+            ], 400);
+        }
+
+        $result = $this->cancellationService->requestCancellation(
+            $transaction,
+            auth()->user(),
+            $validated['reason']
+        );
+
+        if (! $result) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to request cancellation. Please try again.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cancellation requested successfully. Awaiting supervisor approval.',
+            'data' => [
+                'transaction' => $transaction->fresh(),
+            ],
+        ]);
+    }
+
+    /**
+     * Approve a pending cancellation request.
+     *
+     * POST /api/transactions/{id}/approve-cancellation
+     *
+     * Transitions transaction to Cancelled status.
+     * Requires manager, compliance officer, or admin role.
+     */
+    public function approveCancellation(Request $request, int $transactionId): JsonResponse
+    {
+        $transaction = Transaction::findOrFail($transactionId);
+
+        if (! $this->canApproveCancellation(auth()->user(), $transaction)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to approve cancellation for this transaction.',
+            ], 403);
+        }
+
+        if (! $transaction->status->isPendingCancellation()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This transaction is not pending cancellation.',
+            ], 400);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $result = $this->cancellationService->approveCancellation(
+            $transaction,
+            auth()->user(),
+            $validated['reason'] ?? null
+        );
+
+        if (! $result) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to approve cancellation. Please try again.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cancellation approved. Transaction has been cancelled.',
+            'data' => [
+                'transaction' => $transaction->fresh(),
+            ],
+        ]);
+    }
+
+    /**
+     * Reject a pending cancellation request.
+     *
+     * POST /api/transactions/{id}/reject-cancellation
+     *
+     * Returns transaction to its previous status (InProgress, Completed, etc.).
+     * Requires manager, compliance officer, or admin role.
+     */
+    public function rejectCancellation(Request $request, int $transactionId): JsonResponse
+    {
+        $transaction = Transaction::findOrFail($transactionId);
+
+        if (! $this->canApproveCancellation(auth()->user(), $transaction)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to reject cancellation for this transaction.',
+            ], 403);
+        }
+
+        if (! $transaction->status->isPendingCancellation()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This transaction is not pending cancellation.',
+            ], 400);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|min:10|max:500',
+        ]);
+
+        $previousStatus = $transaction->status;
+
+        $result = $this->cancellationService->rejectCancellation(
+            $transaction,
+            auth()->user(),
+            $validated['reason']
+        );
+
+        if (! $result) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to reject cancellation. Transaction history may be corrupted.',
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cancellation rejected. Transaction has been restored to its previous status.',
+            'data' => [
+                'transaction' => $transaction->fresh(),
+                'previous_status' => $previousStatus->value,
+            ],
+        ]);
+    }
+
+    /**
+     * Cancel a transaction (legacy direct cancel).
+     *
+     * POST /api/transactions/{id}/cancel
      *
      * State transitions:
      * - draft, pending_approval, approved, processing, failed, rejected -> cancelled
      * - completed -> reversed (not cancelled; creates refund transaction)
+     *
+     * @deprecated Use requestCancellation/approveCancellation for proper segregation of duties
      */
     public function cancel(Request $request, int $transactionId): JsonResponse
     {
@@ -125,7 +292,24 @@ class TransactionCancellationController extends Controller
     }
 
     /**
-     * Check if user can cancel transaction
+     * Check if user can request cancellation
+     */
+    protected function canRequestCancellation($user, Transaction $transaction): bool
+    {
+        return $user->isAdmin() || $user->isManager();
+    }
+
+    /**
+     * Check if user can approve cancellation (approve or reject)
+     */
+    protected function canApproveCancellation($user, Transaction $transaction): bool
+    {
+        // Manager, compliance officer, or admin
+        return $user->isAdmin() || $user->isManager() || $user->isComplianceOfficer();
+    }
+
+    /**
+     * Check if user can cancel transaction (legacy direct cancel)
      */
     protected function canCancel($user, Transaction $transaction): bool
     {

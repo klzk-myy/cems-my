@@ -205,7 +205,7 @@ class RegulatoryReportController extends \App\Http\Controllers\Report\ReportCont
         $nextBusinessDay = now()->parse($date)->addWeekday()->format('Y-m-d');
         $isToday = $date === now()->toDateString();
 
-        return view('reports.msb2', compact('date', 'summary', 'stats', 'reportGenerated', 'nextBusinessDay', 'isToday'));
+        return view('reports.msb2.index', compact('date', 'summary', 'stats', 'reportGenerated', 'nextBusinessDay', 'isToday'));
     }
 
     public function msb2Generate(Request $request)

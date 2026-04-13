@@ -1,68 +1,43 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
 @section('title', 'EDD Templates')
 
-@section('breadcrumbs')
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ol class="breadcrumbs__list">
-        <li class="breadcrumbs__item">
-            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item">
-            <a href="{{ route('compliance') }}" class="breadcrumbs__link">Compliance</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
-            <span class="breadcrumbs__text">EDD Templates</span>
-        </li>
-    </ol>
-</nav>
+@section('header-title')
+<div>
+    <h1 class="text-2xl font-semibold text-[--color-ink]">EDD Templates</h1>
+    <p class="text-sm text-[--color-ink-muted]">Manage questionnaire templates</p>
+</div>
 @endsection
 
 @section('content')
-<div class="page-header">
-    <h1 class="page-header__title">EDD Workflow Templates</h1>
-</div>
-
 <div class="card">
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Questions</th>
-                <th>Usage Count</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($templates as $template)
-            <tr>
-                <td>{{ $template->name }}</td>
-                <td>
-                    <span class="status-badge status-badge--active">
-                        {{ $template->type->label() }}
-                    </span>
-                </td>
-                <td>
-                    <span class="status-badge {{ $template->is_active ? 'status-badge--active' : 'status-badge--inactive' }}">
-                        {{ $template->is_active ? 'Active' : 'Inactive' }}
-                    </span>
-                </td>
-                <td>{{ $template->getTotalQuestions() }}</td>
-                <td>{{ $template->enhanced_diligence_records_count ?? 0 }}</td>
-                <td>
-                    <a href="{{ route('compliance.edd-templates.show', $template->id) }}" class="btn btn-primary btn-sm">View</a>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="6" class="text-center text-gray-500 py-8">No templates created yet</td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Questions</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($templates ?? [] as $template)
+                <tr>
+                    <td class="font-medium">{{ $template->name }}</td>
+                    <td><span class="badge badge-default">{{ $template->type->label() ?? 'N/A' }}</span></td>
+                    <td>{{ $template->questions->count() ?? 0 }}</td>
+                    <td>
+                        <a href="/compliance/edd-templates/{{ $template->id }}" class="btn btn-ghost btn-sm">View</a>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="4" class="text-center py-12 text-[--color-ink-muted]">No templates found</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 </div>
 @endsection

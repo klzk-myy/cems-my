@@ -36,7 +36,7 @@ class EddTemplate extends Model
 
     public function enhancedDiligenceRecords(): HasMany
     {
-        return $this->hasMany(EnhancedDiligenceRecord::class, 'template_id');
+        return $this->hasMany(EnhancedDiligenceRecord::class);
     }
 
     public function scopeActive($query)

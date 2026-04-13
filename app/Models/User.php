@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * User Model
@@ -42,6 +43,7 @@ class User extends Authenticatable
         'branch_id',
         'username',
         'email',
+        'password',
         'password_hash',
         'role',
         'mfa_enabled',
@@ -82,6 +84,26 @@ class User extends Authenticatable
     public function getAuthPassword()
     {
         return $this->password_hash;
+    }
+
+    /**
+     * Alias for password_hash to satisfy Laravel's default authentication expectations.
+     *
+     * @return string
+     */
+    public function getPasswordAttribute(): string
+    {
+        return $this->password_hash;
+    }
+
+    /**
+     * When password is set, automatically hash it and store in password_hash.
+     *
+     * @param string $value
+     */
+    public function setPasswordAttribute($value): void
+    {
+        $this->password_hash = Hash::make($value);
     }
 
     /**

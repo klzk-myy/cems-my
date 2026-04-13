@@ -1,75 +1,47 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'My Tasks - CEMS-MY')
+@section('title', 'My Tasks')
 
 @section('content')
-<nav class="breadcrumb">
-    <a href="{{ route('dashboard') }}">Dashboard</a>
-    <span>/</span>
-    <span>My Tasks</span>
-</nav>
-
-<div class="page-header">
-    <h1>My Tasks</h1>
-    <p>Tasks assigned to you</p>
-</div>
-
-<div class="table-card">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Priority</th>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Due Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($tasks as $task)
-            <tr>
-                <td>
-                    <span class="priority-badge priority-{{ strtolower($task->priority) }}">
-                        {{ $task->priority }}
-                    </span>
-                </td>
-                <td>
-                    <a href="{{ route('tasks.show', $task) }}">{{ $task->title }}</a>
-                </td>
-                <td>{{ $task->category }}</td>
-                <td>
-                    @if($task->due_at)
-                        <span class="{{ $task->isOverdue() ? 'text-danger' : '' }}">
-                            {{ $task->due_at->format('Y-m-d') }}
-                        </span>
-                    @else
-                        -
-                    @endif
-                </td>
-                <td>
-                    <span class="status-badge status-{{ strtolower($task->status) }}">
-                        {{ $task->status }}
-                    </span>
-                </td>
-                <td>
-                    <a href="{{ route('tasks.show', $task) }}" class="btn btn-sm btn-primary">View</a>
-                </td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="6" class="text-center p-8">
-                    No tasks assigned to you.
-                </td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
-
-    @if($tasks->hasPages())
-    <div class="mt-4">
-        {{ $tasks->links() }}
+<div class="card">
+    <div class="card-header"><h3 class="card-title">My Tasks</h3></div>
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($tasks ?? [] as $task)
+                <tr>
+                    <td><a href="{{ route('tasks.show', $task->id) }}" class="text-primary hover:underline">{{ $task->title ?? 'N/A' }}</a></td>
+                    <td>{{ $task->category ?? 'N/A' }}</td>
+                    <td>
+                        @if(isset($task->priority))
+                            @statuslabel($task->priority)
+                        @else
+                            <span class="text-[--color-ink-muted]">N/A</span>
+                        @endif
+                    </td>
+                    <td class="font-mono">{{ $task->due_date ?? '-' }}</td>
+                    <td>
+                        @if(isset($task->status))
+                            @statuslabel($task->status)
+                        @else
+                            <span class="text-[--color-ink-muted]">N/A</span>
+                        @endif
+                    </td>
+                </tr>
+                @empty
+                <tr><td colspan="5" class="text-center py-8 text-[--color-ink-muted]">No tasks assigned to you</td></tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
-    @endif
 </div>
 @endsection

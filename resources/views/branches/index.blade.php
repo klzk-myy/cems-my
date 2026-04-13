@@ -1,149 +1,95 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Branches - CEMS-MY')
+@section('title', 'Branches')
 
-@section('breadcrumbs')
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ol class="breadcrumbs__list">
-        <li class="breadcrumbs__item">
-            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
-            <span class="breadcrumbs__text">Branches</span>
-        </li>
-    </ol>
-</nav>
+@section('header-title')
+<div>
+    <h1 class="text-2xl font-semibold text-[--color-ink]">Branches</h1>
+    <p class="text-sm text-[--color-ink-muted]">Manage branch locations</p>
+</div>
+@endsection
+
+@section('header-actions')
+@if(auth()->user()->isAdmin())
+<div class="flex items-center gap-3">
+    <a href="/branches/create" class="btn btn-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        Add Branch
+    </a>
+</div>
+@endif
 @endsection
 
 @section('content')
-<div class="page-header">
-    <div class="page-header__content">
-        <h1 class="page-header__title">Branches</h1>
-    </div>
-    <div class="page-header__actions">
-        <a href="{{ route('branches.create') }}" class="btn btn-primary">+ Add New Branch</a>
-    </div>
-</div>
-
-<!-- Summary Cards -->
-<div class="stats-grid mb-6">
-    <div class="stat-card stat-card--primary">
-        <div class="stat-card__value">{{ $branches->total() }}</div>
-        <div class="stat-card__label">Total Branches</div>
-    </div>
-    <div class="stat-card stat-card--success">
-        <div class="stat-card__value">{{ $branches->where('is_active', true)->count() }}</div>
-        <div class="stat-card__label">Active</div>
-    </div>
-    <div class="stat-card stat-card--warning">
-        <div class="stat-card__value">{{ $branches->where('is_main', true)->count() }}</div>
-        <div class="stat-card__label">Head Offices</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card__value">{{ $branches->where('type', 'branch')->count() }}</div>
-        <div class="stat-card__label">Branches</div>
-    </div>
-</div>
-
-<div class="card">
-    <div class="card-body p-0">
-        @if(session('success'))
-            <div class="p-4 bg-green-50 border-b border-green-200">
-                <div class="alert alert-success mb-0">{{ session('success') }}</div>
-            </div>
-        @endif
-
-        @if(session('error'))
-            <div class="p-4 bg-red-50 border-b border-red-200">
-                <div class="alert alert-error mb-0">{{ session('error') }}</div>
-            </div>
-        @endif
-
-        @if($branches->count() > 0)
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Code</th>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>City</th>
-                    <th>Status</th>
-                    <th>Main</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($branches as $branch)
-                <tr>
-                    <td><strong>{{ $branch->code }}</strong></td>
-                    <td>{{ $branch->name }}</td>
-                    <td>
-                        @php
-                            $typeClass = match($branch->type) {
-                                'head_office' => 'status-badge--primary',
-                                'branch' => 'status-badge--active',
-                                default => 'status-badge--inactive'
-                            };
-                            $typeLabel = match($branch->type) {
-                                'head_office' => 'Head Office',
-                                'branch' => 'Branch',
-                                default => 'Sub-Branch'
-                            };
-                        @endphp
-                        <span class="status-badge {{ $typeClass }}">{{ $typeLabel }}</span>
-                    </td>
-                    <td>{{ $branch->city ?: '-' }}</td>
-                    <td>
-                        @if($branch->is_active)
-                            <span class="status-badge status-badge--active">Active</span>
-                        @else
-                            <span class="status-badge status-badge--inactive">Inactive</span>
-                        @endif
-                    </td>
-                    <td>
-                        @if($branch->is_main)
-                            <span class="status-badge status-badge--success">Main</span>
-                        @else
-                            <span class="text-gray-400">-</span>
-                        @endif
-                    </td>
-                    <td>
-                        <div class="flex gap-2">
-                            <a href="{{ route('branches.show', $branch) }}" class="btn btn--primary btn--sm">View</a>
-                            <a href="{{ route('branches.edit', $branch) }}" class="btn btn--secondary btn--sm">Edit</a>
-                            @if($branch->is_active && !$branch->is_main)
-                                <form action="{{ route('branches.destroy', $branch) }}" method="POST">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn--danger btn--sm" onclick="return confirm('Are you sure you want to deactivate this branch?');">
-                                        Deactivate
-                                    </button>
-                                </form>
-                            @endif
-                        </div>
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-        @else
-        <div class="p-12 text-center">
-            <div class="text-5xl mb-4 text-gray-300">
-                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                </svg>
-            </div>
-            <h3 class="text-lg font-semibold text-gray-800 mb-2">No Branches</h3>
-            <p class="text-gray-500">No branches have been created yet.</p>
-            <a href="{{ route('branches.create') }}" class="btn btn--primary mt-4">+ Create First Branch</a>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    @forelse($branches ?? [] as $branch)
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">{{ $branch->name }}</h3>
+            @if($branch->is_active)
+                <span class="badge badge-success">Active</span>
+            @else
+                <span class="badge badge-default">Inactive</span>
+            @endif
         </div>
-        @endif
+        <div class="card-body">
+            <div class="space-y-3">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-[--color-ink-muted] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-medium">Address</p>
+                        <p class="text-sm text-[--color-ink-muted]">{{ $branch->address ?? 'N/A' }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-[--color-ink-muted] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-medium">{{ $branch->phone ?? 'N/A' }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-[--color-ink-muted] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                    <div>
+                        <p class="text-sm text-[--color-ink-muted]">{{ $branch->email ?? 'N/A' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer flex gap-2">
+            <a href="/branches/{{ $branch->id }}" class="btn btn-ghost btn-sm flex-1">View</a>
+            @if(auth()->user()->isAdmin())
+                <a href="/branches/{{ $branch->id }}/edit" class="btn btn-secondary btn-sm flex-1">Edit</a>
+            @endif
+        </div>
     </div>
-    @if($branches->hasPages())
-    <div class="p-4 border-t border-gray-200">
-        {{ $branches->links() }}
+    @empty
+    <div class="col-span-full">
+        <div class="card">
+            <div class="card-body">
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <svg class="w-8 h-8 text-[--color-ink-muted]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <p class="empty-state-title">No branches found</p>
+                    <p class="empty-state-description">Create your first branch to get started</p>
+                    @if(auth()->user()->isAdmin())
+                        <a href="/branches/create" class="btn btn-primary mt-4">Add Branch</a>
+                    @endif
+                </div>
+            </div>
+        </div>
     </div>
-    @endif
+    @endforelse
 </div>
 @endsection

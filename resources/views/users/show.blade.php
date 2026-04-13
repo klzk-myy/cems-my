@@ -1,189 +1,57 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'User Details - CEMS-MY')
+@section('title', 'User Details')
 
 @section('content')
-<div class="user-header">
-    <h2>User Details</h2>
-    <div class="header-actions">
-        <a href="{{ route('users.edit', $user) }}" class="btn btn-primary">Edit User</a>
-        <a href="{{ route('users.index') }}" class="btn btn-secondary">Back to List</a>
-    </div>
-</div>
-
-<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));">
-    <!-- User Information -->
-    <div class="card">
-        <h2>Basic Information</h2>
-        <table class="detail-table">
-            <tr>
-                <th>User ID</th>
-                <td>{{ $user->id }}</td>
-            </tr>
-            <tr>
-                <th>Username</th>
-                <td>{{ $user->username }}</td>
-            </tr>
-            <tr>
-                <th>Email</th>
-                <td>{{ $user->email }}</td>
-            </tr>
-            <tr>
-                <th>Role</th>
-                <td>
-                    <span class="role-badge role-{{ $user->role }}">
-                        {{ ucfirst(str_replace('_', ' ', $user->role)) }}
-                    </span>
-                </td>
-            </tr>
-            <tr>
-                <th>Status</th>
-                <td>
-                    <span class="status-badge {{ $user->is_active ? 'status-active' : 'status-inactive' }}">
-                        {{ $user->is_active ? 'Active' : 'Inactive' }}
-                    </span>
-                </td>
-            </tr>
-            <tr>
-                <th>MFA Enabled</th>
-                <td>
-                    <span class="status-badge {{ $user->mfa_enabled ? 'status-active' : 'status-inactive' }}">
-                        {{ $user->mfa_enabled ? 'Yes' : 'No' }}
-                    </span>
-                </td>
-            </tr>
-            <tr>
-                <th>Created</th>
-                <td>{{ $user->created_at->format('Y-m-d H:i:s') }}</td>
-            </tr>
-            <tr>
-                <th>Last Login</th>
-                <td>{{ $user->last_login_at ? $user->last_login_at->format('Y-m-d H:i:s') : 'Never' }}</td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- Permissions -->
-    <div class="card">
-        <h2>Role Permissions</h2>
-        <div class="permissions-grid">
-            <div class="permission-item">
-                <span class="permission-label">Create Transactions</span>
-                <span class="permission-value {{ in_array($user->role, ['teller', 'manager', 'compliance_officer', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['teller', 'manager', 'compliance_officer', 'admin']) ? 'Yes' : 'No' }}
-                </span>
-            </div>
-            <div class="permission-item">
-                <span class="permission-label">Approve Transactions >= RM 50k</span>
-                <span class="permission-value {{ in_array($user->role, ['manager', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['manager', 'admin']) ? 'Yes' : 'No' }}
-                </span>
-            </div>
-            <div class="permission-item">
-                <span class="permission-label">View Compliance Portal</span>
-                <span class="permission-value {{ in_array($user->role, ['compliance_officer', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['compliance_officer', 'admin']) ? 'Yes' : 'No' }}
-                </span>
-            </div>
-            <div class="permission-item">
-                <span class="permission-label">Manage Stock/Cash</span>
-                <span class="permission-value {{ in_array($user->role, ['manager', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['manager', 'admin']) ? 'Yes' : 'No' }}
-                </span>
-            </div>
-            <div class="permission-item">
-                <span class="permission-label">Run Reports</span>
-                <span class="permission-value {{ in_array($user->role, ['manager', 'compliance_officer', 'admin']) ? 'granted' : 'denied' }}">
-                    {{ in_array($user->role, ['manager', 'compliance_officer', 'admin']) ? 'Yes' : 'No' }}
-                </span>
-            </div>
-            <div class="permission-item">
-                <span class="permission-label">Manage Users</span>
-                <span class="permission-value {{ $user->role === 'admin' ? 'granted' : 'denied' }}">
-                    {{ $user->role === 'admin' ? 'Yes' : 'No' }}
-                </span>
-            </div>
+<div class="card">
+    <div class="card-header flex justify-between items-center">
+        <h3 class="card-title">{{ $user->name ?? 'N/A' }}</h3>
+        <div class="flex gap-2">
+            <a href="{{ route('users.edit', $user->id ?? 0) }}" class="btn btn-secondary">Edit</a>
+            <a href="{{ route('users.index') }}" class="btn btn-secondary">Back</a>
         </div>
     </div>
-</div>
-
-<!-- Transaction History (if applicable) -->
-<div class="card">
-    <h2>Recent Transactions</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Type</th>
-                <th>Currency</th>
-                <th>Amount</th>
-                <th>Rate</th>
-                <th>Status</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($user->transactions()->latest()->take(10)->get() as $transaction)
-            <tr>
-                <td>{{ $transaction->id }}</td>
-                <td>{{ $transaction->type }}</td>
-                <td>{{ $transaction->currency_code }}</td>
-                <td>RM {{ number_format($transaction->amount_local, 2) }}</td>
-                <td>{{ $transaction->rate }}</td>
-                <td>
-                    <span class="status-badge status-{{ strtolower($transaction->status) }}">
-                        {{ $transaction->status }}
-                    </span>
-                </td>
-                <td>{{ $transaction->created_at->format('Y-m-d H:i') }}</td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="7" class="text-center p-8 text-gray">
-                    No transactions found for this user.
-                </td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
-</div>
-
-<!-- System Log Activity -->
-<div class="card">
-    <h2>Recent System Activity</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Action</th>
-                <th>Entity</th>
-                <th>Description</th>
-                <th>IP Address</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            @php
-            $logs = App\Models\SystemLog::where('user_id', $user->id)
-                ->latest()
-                ->take(10)
-                ->get();
-            @endphp
-            @forelse($logs as $log)
-            <tr>
-                <td>{{ $log->action }}</td>
-                <td>{{ $log->entity_type }} {{ $log->entity_id }}</td>
-                <td>{{ Str::limit($log->description ?? '-', 50) }}</td>
-                <td>{{ $log->ip_address }}</td>
-                <td>{{ $log->created_at->format('Y-m-d H:i') }}</td>
-            </tr>
-            @empty
-            <tr>
-                <td colspan="5" class="text-center p-8 text-gray">
-                    No activity logs found for this user.
-                </td>
-            </tr>
-            @endforelse
-        </tbody>
-    </table>
+    <div class="card-body">
+        <dl class="grid grid-cols-2 gap-6">
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Email</dt>
+                <dd class="font-medium">{{ $user->email ?? 'N/A' }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Role</dt>
+                <dd>
+                    @if(isset($user->role))
+                        @statuslabel($user->role)
+                    @else
+                        <span class="text-[--color-ink-muted]">N/A</span>
+                    @endif
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Branch</dt>
+                <dd>{{ $user->branch_name ?? 'N/A' }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Status</dt>
+                <dd>
+                    @if(isset($user->is_active))
+                        <span class="badge {{ $user->is_active ? 'badge-success' : 'badge-danger' }}">
+                            {{ $user->is_active ? 'Active' : 'Inactive' }}
+                        </span>
+                    @else
+                        <span class="text-[--color-ink-muted]">N/A</span>
+                    @endif
+                </dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Created At</dt>
+                <dd class="font-mono">{{ $user->created_at ?? 'N/A' }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm text-[--color-ink-muted]">Last Login</dt>
+                <dd class="font-mono">{{ $user->last_login_at ?? 'N/A' }}</dd>
+            </div>
+        </dl>
+    </div>
 </div>
 @endsection

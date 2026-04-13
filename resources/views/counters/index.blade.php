@@ -1,94 +1,81 @@
-@extends('layouts.app')
+@extends('layouts.base')
 
-@section('title', 'Counter Management - CEMS-MY')
+@section('title', 'Counters')
 
-@section('breadcrumbs')
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-    <ol class="breadcrumbs__list">
-        <li class="breadcrumbs__item">
-            <a href="{{ route('dashboard') }}" class="breadcrumbs__link">Dashboard</a>
-            <svg class="breadcrumbs__separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-        </li>
-        <li class="breadcrumbs__item breadcrumbs__item--current" aria-current="page">
-            <span class="breadcrumbs__text">Counters</span>
-        </li>
-    </ol>
-</nav>
+@section('header-title')
+<div>
+    <h1 class="text-2xl font-semibold text-[--color-ink]">Counters</h1>
+    <p class="text-sm text-[--color-ink-muted]">Manage till/counter sessions</p>
+</div>
+@endsection
+
+@section('header-actions')
+<div class="flex items-center gap-3">
+    @if(auth()->user()->role->isTeller())
+        @php $openCounter = auth()->user()->getOpenCounter(); @endphp
+        @if($openCounter)
+            <a href="/counters/{{ $openCounter->id }}/close" class="btn btn-danger">
+                Close Counter
+            </a>
+        @else
+            <a href="/counters/open" class="btn btn-primary">
+                Open Counter
+            </a>
+        @endif
+    @endif
+</div>
 @endsection
 
 @section('content')
-<div class="page-header">
-    <div class="page-header__content">
-        <h1 class="page-header__title">Counter Management</h1>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    @forelse($counters ?? [] as $counter)
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">{{ $counter->name }}</h3>
+            @php
+                $statusClass = match($counter->status->value ?? '') {
+                    'Open' => 'badge-success',
+                    'Closed' => 'badge-default',
+                    'Paused' => 'badge-warning',
+                    default => 'badge-default'
+                };
+            @endphp
+            <span class="badge {{ $statusClass }}">{{ $counter->status->label() ?? 'Unknown' }}</span>
+        </div>
+        <div class="card-body">
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-sm text-[--color-ink-muted]">Branch</span>
+                    <span class="text-sm font-medium">{{ $counter->branch->name ?? 'N/A' }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-[--color-ink-muted]">Operator</span>
+                    <span class="text-sm font-medium">{{ $counter->operator->username ?? 'Unassigned' }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-sm text-[--color-ink-muted]">Opening Float</span>
+                    <span class="text-sm font-medium font-mono">{{ number_format($counter->opening_float ?? 0, 2) }} MYR</span>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer flex gap-2">
+            <a href="/counters/{{ $counter->id }}" class="btn btn-ghost btn-sm flex-1">View</a>
+            @if($counter->status->value === 'Open' && auth()->user()->role->isTeller())
+                <a href="/counters/{{ $counter->id }}/handover" class="btn btn-secondary btn-sm flex-1">Handover</a>
+            @endif
+        </div>
     </div>
-</div>
-
-<!-- Summary Cards -->
-<div class="stats-grid mb-6">
-    <div class="stat-card stat-card--primary">
-        <div class="stat-card__value">{{ $stats['total'] }}</div>
-        <div class="stat-card__label">Total Counters</div>
+    @empty
+    <div class="col-span-full">
+        <div class="card">
+            <div class="card-body">
+                <div class="empty-state">
+                    <p class="empty-state-title">No counters found</p>
+                    <p class="empty-state-description">Create a counter to get started</p>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="stat-card stat-card--success">
-        <div class="stat-card__value">{{ $stats['open'] }}</div>
-        <div class="stat-card__label">Open Counters</div>
-    </div>
-    <div class="stat-card stat-card--primary">
-        <div class="stat-card__value">{{ $stats['available'] }}</div>
-        <div class="stat-card__label">Available Counters</div>
-    </div>
-</div>
-
-<!-- Counters Table -->
-<div class="card">
-    <h3 class="text-lg font-semibold text-gray-800 mb-4">All Counters</h3>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Code</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th>Current User</th>
-                <th>Session Time</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($counters as $counter)
-            <tr>
-                <td>{{ $counter->code }}</td>
-                <td>{{ $counter->name }}</td>
-                <td>
-                    <span class="status-badge {{ $counter->status === 'active' ? 'status-badge--active' : 'status-badge--inactive' }}">
-                        {{ $counter->status === 'active' ? 'Active' : 'Inactive' }}
-                    </span>
-                </td>
-                <td>
-                    @if($counter->sessions->count() > 0)
-                        {{ $counter->sessions->first()->user->name }}
-                    @else
-                        <em class="text-gray-500">None</em>
-                    @endif
-                </td>
-                <td>
-                    @if($counter->sessions->count() > 0)
-                        {{ $counter->sessions->first()->opened_at->format('H:i') }}
-                    @else
-                        <em class="text-gray-400">-</em>
-                    @endif
-                </td>
-                <td>
-                    @if($counter->sessions->count() > 0)
-                        <a href="{{ route('counters.close.show', $counter) }}" class="btn btn--warning btn--sm">Close</a>
-                        <a href="{{ route('counters.handover.show', $counter) }}" class="btn btn--primary btn--sm">Handover</a>
-                    @else
-                        <a href="{{ route('counters.open.show', $counter) }}" class="btn btn--success btn--sm">Open</a>
-                    @endif
-                    <a href="{{ route('counters.history', $counter) }}" class="btn btn--secondary btn--sm">History</a>
-                </td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+    @endforelse
 </div>
 @endsection

@@ -1,13 +1,16 @@
 <?php
 
 use App\Http\Controllers\Api\V1\BranchController;
+use App\Http\Controllers\Api\V1\BulkImportController;
 use App\Http\Controllers\Api\V1\Compliance\AlertController;
 use App\Http\Controllers\Api\V1\Compliance\CaseController;
+use App\Http\Controllers\Api\V1\Compliance\CtosReportController;
 use App\Http\Controllers\Api\V1\Compliance\DashboardController;
 use App\Http\Controllers\Api\V1\Compliance\EddController;
 use App\Http\Controllers\Api\V1\Compliance\FindingController;
 use App\Http\Controllers\Api\V1\Compliance\RiskController;
 use App\Http\Controllers\Api\V1\CustomerController;
+use App\Http\Controllers\Api\V1\EodReconciliationController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SanctionController;
 use App\Http\Controllers\Api\V1\StrController;
@@ -41,6 +44,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/transactions/{transaction}', [TransactionController::class, 'show']);
     Route::post('/transactions/{transaction}/approve', [TransactionApprovalController::class, 'approve'])
         ->middleware(['role:manager', 'mfa.verified']);
+    Route::post('/transactions/{transaction}/request-cancellation', [TransactionCancellationController::class, 'requestCancellation'])
+        ->middleware(['role:manager', 'mfa.verified']);
+    Route::post('/transactions/{transaction}/approve-cancellation', [TransactionCancellationController::class, 'approveCancellation'])
+        ->middleware(['role:manager,compliance', 'mfa.verified']);
+    Route::post('/transactions/{transaction}/reject-cancellation', [TransactionCancellationController::class, 'rejectCancellation'])
+        ->middleware(['role:manager,compliance', 'mfa.verified']);
     Route::post('/transactions/{transaction}/cancel', [TransactionCancellationController::class, 'cancel'])
         ->middleware(['role:manager', 'mfa.verified']);
 
@@ -131,6 +140,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/edd/{id}/reject', [EddController::class, 'reject'])
             ->middleware('role:compliance');
 
+        // CTOS API - Compliance Officer only
+        Route::get('/ctos', [CtosReportController::class, 'index'])
+            ->middleware('role:compliance');
+        Route::get('/ctos/{id}', [CtosReportController::class, 'show'])
+            ->middleware('role:compliance');
+        Route::post('/ctos/{id}/submit', [CtosReportController::class, 'submit'])
+            ->middleware(['role:compliance', 'mfa.verified']);
+
         // Dashboard API
         Route::get('/dashboard', [DashboardController::class, 'kpis']);
         Route::get('/calendar', [DashboardController::class, 'calendar']);
@@ -148,6 +165,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/risk/{customerId}/lock', [RiskController::class, 'lock']);
     Route::post('/risk/{customerId}/unlock', [RiskController::class, 'unlock']);
 
+    // EOD Reconciliation API - Manager or Compliance Officer
+    Route::prefix('eod')->group(function () {
+        Route::get('/reconciliation/{date}', [EodReconciliationController::class, 'show'])
+            ->middleware('role:manager,compliance');
+        Route::get('/reconciliation/{date}/counters/{counterId}', [EodReconciliationController::class, 'counterReconciliation'])
+            ->middleware('role:manager,compliance');
+        Route::get('/reconciliation/{date}/report', [EodReconciliationController::class, 'report'])
+            ->middleware('role:manager,compliance');
+    });
+
     // Branches API (Admin only for index, store, update, destroy)
     // show, counters, users accessible to admin OR user's own branch
     Route::middleware(['role:admin'])->group(function () {
@@ -161,4 +188,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('branches/{id}', [BranchController::class, 'show']);
     Route::get('branches/{id}/counters', [BranchController::class, 'counters']);
     Route::get('branches/{id}/users', [BranchController::class, 'users']);
+
+    // Bulk Import API - Admin or Manager only
+    Route::middleware(['role:admin,manager'])->group(function () {
+        Route::post('import/customers', [BulkImportController::class, 'importCustomers']);
+        Route::post('import/transactions', [BulkImportController::class, 'importTransactions']);
+        Route::get('import/status/{jobId}', [BulkImportController::class, 'getStatus']);
+        Route::get('import/errors/{jobId}', [BulkImportController::class, 'getErrors']);
+    });
 });

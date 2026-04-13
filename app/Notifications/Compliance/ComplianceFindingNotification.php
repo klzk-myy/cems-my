@@ -3,11 +3,12 @@
 namespace App\Notifications\Compliance;
 
 use App\Models\Compliance\ComplianceFinding;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
-use Illuminate\Queue\Queueable;
 use Illuminate\Queue\SerializesModels;
 
-class ComplianceFindingNotification extends Notification
+class ComplianceFindingNotification extends Notification implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
