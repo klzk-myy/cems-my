@@ -246,24 +246,20 @@ class ComplianceService
     {
         $lookbackDays = config('cems.aggregate_lookback_days', 7);
         $lookbackPeriod = now()->subDays($lookbackDays);
-        $relatedTransactions = Transaction::where('customer_id', $customerId)
+
+        // Use SQL aggregate for sum - more efficient than loading all rows
+        $query = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $lookbackPeriod)
-            ->where('status', '!=', 'Cancelled')
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->where('status', '!=', 'Cancelled');
 
-        $totalAggregate = $this->mathService->add($currentAmount, '0');
-        $relatedIds = [];
+        // Get sum efficiently using SQL
+        $existingSum = (string) ($query->sum('amount_local') ?? '0');
 
-        foreach ($relatedTransactions as $txn) {
-            // Skip if same transaction
-            if ($txn->id === null) {
-                continue;
-            }
+        // Get IDs separately (only needed if threshold is exceeded)
+        $relatedIds = $query->pluck('id')->toArray();
 
-            $totalAggregate = $this->mathService->add($totalAggregate, (string) $txn->amount_local);
-            $relatedIds[] = $txn->id;
-        }
+        // Add current transaction amount to get total aggregate
+        $totalAggregate = $this->mathService->add($currentAmount, $existingSum);
 
         $thresholdExceeded = $this->mathService->compare(
             $totalAggregate,

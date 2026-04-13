@@ -188,7 +188,8 @@ class JournalEntry extends Model
         $mathService = new MathService;
         $total = '0';
 
-        foreach ($this->lines()->get() as $line) {
+        // Use $this->lines which respects eager loading - no new query if already loaded
+        foreach ($this->lines as $line) {
             $total = $mathService->add($total, (string) $line->debit);
         }
 
@@ -203,7 +204,8 @@ class JournalEntry extends Model
         $mathService = new MathService;
         $total = '0';
 
-        foreach ($this->lines()->get() as $line) {
+        // Use $this->lines which respects eager loading - no new query if already loaded
+        foreach ($this->lines as $line) {
             $total = $mathService->add($total, (string) $line->credit);
         }
 

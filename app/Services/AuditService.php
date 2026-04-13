@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\SystemLog;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 
 class AuditService
@@ -53,40 +54,44 @@ class AuditService
 
     /**
      * Log with severity level (tamper-evident with hash chaining)
+     *
+     * Wrapped in transaction to prevent race conditions in hash chain.
      */
     public function logWithSeverity(
         string $action,
         array $data = [],
         string $severity = 'INFO'
     ): SystemLog {
-        $userId = $data['user_id'] ?? auth()->id();
-        $previousHash = $this->getLastEntryHash();
-        $timestamp = now()->toIso8601String();
+        return DB::transaction(function () use ($action, $data, $severity) {
+            $userId = $data['user_id'] ?? auth()->id();
+            $previousHash = $this->getLastEntryHash();
+            $timestamp = now()->toIso8601String();
 
-        // Compute entry hash for tamper detection
-        $entryHash = $this->computeEntryHash(
-            $timestamp,
-            $userId,
-            $action,
-            $data['entity_type'] ?? null,
-            $data['entity_id'] ?? null,
-            $previousHash
-        );
+            // Compute entry hash for tamper detection
+            $entryHash = $this->computeEntryHash(
+                $timestamp,
+                $userId,
+                $action,
+                $data['entity_type'] ?? null,
+                $data['entity_id'] ?? null,
+                $previousHash
+            );
 
-        return SystemLog::create([
-            'user_id' => $userId,
-            'action' => $action,
-            'severity' => $severity,
-            'entity_type' => $data['entity_type'] ?? null,
-            'entity_id' => $data['entity_id'] ?? null,
-            'old_values' => ! empty($data['old_values'] ?? []) ? $data['old_values'] : null,
-            'new_values' => ! empty($data['new_values'] ?? []) ? $data['new_values'] : null,
-            'ip_address' => Request::ip(),
-            'user_agent' => Request::userAgent(),
-            'session_id' => session()->getId(),
-            'previous_hash' => $previousHash,
-            'entry_hash' => $entryHash,
-        ]);
+            return SystemLog::create([
+                'user_id' => $userId,
+                'action' => $action,
+                'severity' => $severity,
+                'entity_type' => $data['entity_type'] ?? null,
+                'entity_id' => $data['entity_id'] ?? null,
+                'old_values' => ! empty($data['old_values'] ?? []) ? $data['old_values'] : null,
+                'new_values' => ! empty($data['new_values'] ?? []) ? $data['new_values'] : null,
+                'ip_address' => Request::ip(),
+                'user_agent' => Request::userAgent(),
+                'session_id' => session()->getId(),
+                'previous_hash' => $previousHash,
+                'entry_hash' => $entryHash,
+            ]);
+        });
     }
 
     /**

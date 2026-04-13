@@ -45,37 +45,6 @@ class TransactionService
         $userId = $userId ?? auth()->id();
         $ipAddress = $ipAddress ?? request()->ip();
 
-        // Check for duplicate transaction via idempotency key
-        if (! empty($data['idempotency_key'])) {
-            $existingByKey = Transaction::where('idempotency_key', $data['idempotency_key'])->first();
-            if ($existingByKey) {
-                return $existingByKey;
-            }
-        }
-
-        // Check for recent similar transaction (potential double-submit)
-        $recentWindow = now()->subSeconds(30);
-        $recentAmount = Transaction::where('user_id', $userId)
-            ->where('created_at', '>=', $recentWindow)
-            ->where('amount_foreign', $data['amount_foreign'])
-            ->where('currency_code', $data['currency_code'])
-            ->first();
-
-        if ($recentAmount) {
-            $this->auditService->logWithSeverity(
-                'potential_duplicate_detected',
-                [
-                    'user_id' => $userId,
-                    'entity_type' => 'Transaction',
-                    'entity_id' => $recentAmount->id,
-                    'description' => "Similar transaction {$recentAmount->id} found within 30 seconds",
-                ],
-                'WARNING'
-            );
-
-            throw new \InvalidArgumentException('Potential duplicate transaction detected. Please wait 30 seconds before submitting again or check your recent transactions.');
-        }
-
         // Verify till is open for this currency
         $tillBalance = TillBalance::where('till_id', $data['till_id'])
             ->where('currency_code', $data['currency_code'])

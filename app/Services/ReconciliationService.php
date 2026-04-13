@@ -211,6 +211,43 @@ class ReconciliationService
     }
 
     /**
+     * Get reconciliation report transformed for view consumption.
+     *
+     * Transforms raw report data into format expected by the reconciliation view.
+     */
+    public function getReconciliationViewData(string $accountCode, string $fromDate, string $toDate): array
+    {
+        $rawReport = $this->getReconciliationReport($accountCode, $fromDate, $toDate);
+
+        // Transform unmatched items to match view expectations
+        $outstandingChecks = collect();
+        $outstandingDeposits = collect();
+        foreach ($rawReport['unmatched_items'] as $item) {
+            $itemData = [
+                'date' => $item->statement_date?->toDateString(),
+                'reference' => $item->reference,
+                'amount' => $item->getAmount(),
+            ];
+            if ($item->debit > 0) {
+                $outstandingChecks->push($itemData);
+            } else {
+                $outstandingDeposits->push($itemData);
+            }
+        }
+
+        return [
+            'book_balance' => $rawReport['statement_balance'] ?? 0,
+            'outstanding_checks' => $outstandingChecks->sum(fn ($i) => $i['amount']),
+            'outstanding_deposits' => $outstandingDeposits->sum(fn ($i) => abs($i['amount'])),
+            'adjusted_balance' => ($rawReport['statement_balance'] ?? 0)
+                + $outstandingChecks->sum(fn ($i) => $i['amount'])
+                - $outstandingDeposits->sum(fn ($i) => abs($i['amount'])),
+            'outstanding_checks_list' => $outstandingChecks->toArray(),
+            'outstanding_deposits_list' => $outstandingDeposits->toArray(),
+        ];
+    }
+
+    /**
      * Get outstanding checks report
      *
      * Returns checks that have been issued but not yet cleared,

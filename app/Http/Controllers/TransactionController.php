@@ -90,9 +90,7 @@ class TransactionController extends Controller
             'idempotency_key' => 'nullable|string|max:100',
         ]);
 
-        // Sanitize text inputs to prevent XSS
-        $validated['purpose'] = strip_tags($validated['purpose']);
-        $validated['source_of_funds'] = strip_tags($validated['source_of_funds']);
+        // Note: XSS protection is handled by Blade's automatic escaping on output
 
         try {
             $transaction = $this->transactionService->createTransaction(
