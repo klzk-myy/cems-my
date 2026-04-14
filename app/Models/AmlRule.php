@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\AmlRuleType;
+use App\Enums\TransactionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -201,7 +202,7 @@ class AmlRule extends Model
         $recentTransactions = Transaction::where('customer_id', $transaction->customer_id)
             ->where('created_at', '>=', $windowStart)
             ->where('id', '!=', $transaction->id)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->get();
 
         $count = $recentTransactions->count() + 1; // Include current
@@ -210,9 +211,10 @@ class AmlRule extends Model
             return false;
         }
 
-        $totalAmount = $recentTransactions->sum('amount_local') + (float) $transaction->amount_local;
+        $recentSum = (string) ($recentTransactions->sum('amount_local') ?? '0');
+        $totalAmount = bcadd($recentSum, (string) $transaction->amount_local, 4);
 
-        return bccomp((string) $totalAmount, (string) $aggregateThreshold, 4) >= 0;
+        return bccomp($totalAmount, (string) $aggregateThreshold, 4) >= 0;
     }
 
     /**

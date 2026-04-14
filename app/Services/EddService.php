@@ -88,12 +88,10 @@ class EddService
 
     public function isRecordComplete(EnhancedDiligenceRecord $record): bool
     {
-        $required = [
-            $record->source_of_funds,
-            $record->purpose_of_transaction,
-        ];
+        $source = is_string($record->source_of_funds) ? trim($record->source_of_funds) : null;
+        $purpose = is_string($record->purpose_of_transaction) ? trim($record->purpose_of_transaction) : null;
 
-        return ! in_array(null, $required, true) && ! empty($record->source_of_funds);
+        return $source !== null && $source !== '' && $purpose !== null && $purpose !== '';
     }
 
     protected function generateEddReference(): string

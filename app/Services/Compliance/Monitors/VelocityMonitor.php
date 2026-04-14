@@ -4,6 +4,7 @@ namespace App\Services\Compliance\Monitors;
 
 use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
+use App\Enums\TransactionStatus;
 use App\Models\Customer;
 use App\Models\Transaction;
 
@@ -30,7 +31,7 @@ class VelocityMonitor extends BaseMonitor
         $cutoffTime = now()->subHours(self::LOOKBACK_HOURS);
 
         $customerIds = Transaction::where('created_at', '>=', $cutoffTime)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->distinct('customer_id')
             ->pluck('customer_id');
 
@@ -50,12 +51,12 @@ class VelocityMonitor extends BaseMonitor
 
         $totalAmount = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $cutoffTime)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->sum('amount_local');
 
         $transactionCount = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $cutoffTime)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->count();
 
         if ($this->math->compare((string) $totalAmount, self::THRESHOLD) >= 0) {

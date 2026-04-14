@@ -3,11 +3,19 @@
 namespace Tests\Unit;
 
 use App\Models\EnhancedDiligenceRecord;
+use App\Models\SanctionEntry;
+use App\Models\SanctionList;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\EddService;
+use App\Services\ComplianceService;
+use App\Services\EncryptionService;
 use App\Services\MathService;
 use App\Enums\EddStatus;
+use App\Enums\AmlRuleType;
+use App\Enums\TransactionStatus;
+use App\Models\AmlRule;
+use App\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -112,12 +120,28 @@ class FaultAnalysisTest extends TestCase
      */
     public function test_sanctions_query_escapes_wildcard_characters(): void
     {
-        $customerName = 'John 100% Senior'; // Contains % which is LIKE wildcard
-        $escapedName = str_replace(['%', '_'], ['\\%', '\\_'], $customerName);
+        $customer = Customer::factory()->create(['full_name' => 'John 100% Senior']);
+        $list = SanctionList::factory()->create();
 
-        // The escaped name should have backslash before wildcards
-        $this->assertStringContainsString('\\%', $escapedName);
-        $this->assertEquals('John 100\\% Senior', $escapedName);
+        // If wildcards are NOT escaped, '%" would match too broadly (e.g. "John 100X Senior").
+        SanctionEntry::create([
+            'list_id' => $list->id,
+            'entity_name' => 'John 100X Senior',
+            'aliases' => [],
+            'details' => [],
+        ]);
+
+        $service = new ComplianceService(new EncryptionService(), new MathService());
+        $this->assertFalse($service->checkSanctionMatch($customer));
+
+        // Exact-like match should still work
+        SanctionEntry::create([
+            'list_id' => $list->id,
+            'entity_name' => 'John 100% Senior',
+            'aliases' => [],
+            'details' => [],
+        ]);
+        $this->assertTrue($service->checkSanctionMatch($customer));
     }
 
     /**
@@ -128,21 +152,58 @@ class FaultAnalysisTest extends TestCase
      */
     public function test_working_days_calculation_inclusive_range(): void
     {
+        $service = new ComplianceService(new EncryptionService(), new MathService());
+
         $from = new \Carbon\Carbon('2026-04-13'); // Monday
         $to = new \Carbon\Carbon('2026-04-14');   // Tuesday
 
-        // With lt(), only Monday is counted
-        $days = 0;
-        $current = $from->copy();
-        while ($current->lt($to)) {
-            if (! $current->isWeekend()) {
-                $days++;
-            }
-            $current->addDay();
-        }
+        $ref = new \ReflectionClass($service);
+        $method = $ref->getMethod('countWorkingDays');
+        $method->setAccessible(true);
 
-        // This shows the bug: 2 consecutive weekdays should be 2 working days
-        // but the algorithm only counts 1 (Monday)
-        $this->assertEquals(1, $days); // Bug: should be 2
+        $days = $method->invoke($service, $from, $to);
+        $this->assertEquals(2, $days);
+    }
+
+    /**
+     * AML structuring evaluation must not use float math.
+     *
+     * With float math: 0.1 + 0.2001 can become 0.300099999..., which (at scale 4)
+     * compares as 0.3000 and fails a 0.3001 threshold check.
+     */
+    public function test_aml_structuring_uses_precise_decimal_math(): void
+    {
+        $customer = Customer::factory()->create();
+
+        $recent = Transaction::factory()->create([
+            'customer_id' => $customer->id,
+            'amount_local' => '0.1000',
+            'status' => TransactionStatus::Completed,
+        ]);
+
+        $current = Transaction::factory()->create([
+            'customer_id' => $customer->id,
+            'amount_local' => '0.2001',
+            'status' => TransactionStatus::Completed,
+        ]);
+
+        $rule = AmlRule::create([
+            'rule_code' => 'STRUCT-TEST',
+            'rule_name' => 'Structuring precision test',
+            'rule_type' => AmlRuleType::Structuring->value,
+            'conditions' => [
+                'window_days' => 1,
+                'min_transaction_count' => 2,
+                'aggregate_threshold' => '0.3001',
+            ],
+            'action' => 'flag',
+            'risk_score' => 10,
+            'is_active' => true,
+        ]);
+
+        $result = $rule->evaluate($current);
+        $this->assertTrue($result['triggered']);
+        $this->assertSame('flag', $result['action']);
+        $this->assertGreaterThan(0, $result['risk_score']);
     }
 }

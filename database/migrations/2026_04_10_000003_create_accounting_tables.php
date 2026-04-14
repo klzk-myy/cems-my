@@ -31,7 +31,7 @@ return new class extends Migration
             Schema::create('chart_of_accounts', function (Blueprint $table) {
                 $table->string('account_code', 20)->primary();
                 $table->string('account_name', 255);
-                $table->enum('account_type', ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense']);
+                $table->enum('account_type', ['Asset', 'Liability', 'Equity', 'Revenue', 'Expense', 'Off-Balance']);
                 $table->string('account_class', 50)->nullable();
                 $table->string('parent_code', 20)->nullable();
                 $table->boolean('is_active')->default(true);

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,6 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // SQLite can't reliably drop/recreate foreign keys via ALTER TABLE in Laravel.
+            return;
+        }
+
         // Add missing foreign keys to str_reports
         Schema::table('str_reports', function (Blueprint $table) {
             $table->foreign('customer_id')->references('id')->on('customers')->onDelete('restrict');
@@ -44,6 +50,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
         // Revert str_reports foreign keys
         Schema::table('str_reports', function (Blueprint $table) {
             $table->dropForeign(['customer_id']);

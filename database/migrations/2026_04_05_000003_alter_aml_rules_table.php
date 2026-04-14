@@ -2,12 +2,18 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // SQLite test runs use the consolidated AML rules migration instead.
+            return;
+        }
+
         // MySQL: use renameColumn for efficiency
         Schema::table('aml_rules', function (Blueprint $table) {
             $table->renameColumn('is_enabled', 'is_active');

@@ -21,7 +21,9 @@ return new class extends Migration
         DB::statement("UPDATE journal_entries SET status = 'Draft' WHERE status IS NULL");
 
         // Modify the enum column to include 'Rejected' and change default
-        DB::statement("ALTER TABLE journal_entries MODIFY COLUMN status ENUM('Draft', 'Pending', 'Posted', 'Reversed', 'Rejected') DEFAULT 'Draft'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE journal_entries MODIFY COLUMN status ENUM('Draft', 'Pending', 'Posted', 'Reversed', 'Rejected') DEFAULT 'Draft'");
+        }
     }
 
     /**
@@ -29,6 +31,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("ALTER TABLE journal_entries MODIFY COLUMN status ENUM('Draft', 'Pending', 'Posted', 'Reversed') DEFAULT 'Posted'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE journal_entries MODIFY COLUMN status ENUM('Draft', 'Pending', 'Posted', 'Reversed') DEFAULT 'Posted'");
+        }
     }
 };

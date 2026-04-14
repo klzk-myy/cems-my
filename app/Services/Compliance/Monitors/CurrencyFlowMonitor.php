@@ -4,6 +4,7 @@ namespace App\Services\Compliance\Monitors;
 
 use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
+use App\Enums\TransactionStatus;
 use App\Models\Customer;
 use App\Models\Transaction;
 
@@ -31,7 +32,7 @@ class CurrencyFlowMonitor extends BaseMonitor
 
         // Get all customers with transactions in the lookback period
         $customerIds = Transaction::where('created_at', '>=', $cutoffTime)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->distinct('customer_id')
             ->pluck('customer_id');
 
@@ -55,7 +56,7 @@ class CurrencyFlowMonitor extends BaseMonitor
         // Get recent transactions
         $recentTransactions = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $cutoffTime)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -122,9 +123,11 @@ class CurrencyFlowMonitor extends BaseMonitor
                     }
 
                     // Calculate round-trip amount (use smaller of sell/buy foreign amount)
-                    $sellForeign = abs((float) $sell->amount_foreign);
-                    $buyForeign = abs((float) $buy->amount_foreign);
-                    $roundTripAmount = min($sellForeign, $buyForeign);
+                    $sellForeign = ltrim((string) $sell->amount_foreign, '-');
+                    $buyForeign = ltrim((string) $buy->amount_foreign, '-');
+                    $roundTripAmount = $this->math->compare($sellForeign, $buyForeign) <= 0
+                        ? $sellForeign
+                        : $buyForeign;
 
                     // Only flag if above threshold
                     if ($this->math->compare((string) $roundTripAmount, self::ROUND_TRIP_THRESHOLD) < 0) {
@@ -142,7 +145,7 @@ class CurrencyFlowMonitor extends BaseMonitor
                         'buy_amount_local' => (string) $buy->amount_local,
                         'buy_at' => $buy->created_at->toDateTimeString(),
                         'hours_between' => $hoursDiff,
-                        'round_trip_foreign_amount' => (string) round($roundTripAmount, 2),
+                        'round_trip_foreign_amount' => $roundTripAmount,
                     ];
                 }
             }

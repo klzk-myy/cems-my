@@ -10,7 +10,9 @@ return new class extends Migration
     public function up(): void
     {
         // MySQL - modify enum and add columns
-        DB::statement("ALTER TABLE transactions MODIFY COLUMN status ENUM('Pending', 'Completed', 'OnHold', 'Rejected', 'Reversed', 'Cancelled') DEFAULT 'Pending'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE transactions MODIFY COLUMN status ENUM('Pending', 'Completed', 'OnHold', 'Rejected', 'Reversed', 'Cancelled') DEFAULT 'Pending'");
+        }
 
         Schema::table('transactions', function (Blueprint $table) {
             $table->timestamp('cancelled_at')->nullable()->after('approved_at');
@@ -40,6 +42,8 @@ return new class extends Migration
             ]);
         });
 
-        DB::statement("ALTER TABLE transactions MODIFY COLUMN status ENUM('Pending', 'Completed', 'OnHold', 'Rejected', 'Reversed') DEFAULT 'Pending'");
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE transactions MODIFY COLUMN status ENUM('Pending', 'Completed', 'OnHold', 'Rejected', 'Reversed') DEFAULT 'Pending'");
+        }
     }
 };

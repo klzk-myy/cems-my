@@ -4,6 +4,7 @@ namespace App\Services\Compliance\Monitors;
 
 use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
+use App\Enums\TransactionStatus;
 use App\Models\Customer;
 use App\Models\Transaction;
 
@@ -51,7 +52,7 @@ class CustomerLocationAnomalyMonitor extends BaseMonitor
         // Get recent high-value transactions for this customer
         $recentTransactions = Transaction::where('customer_id', $customer->id)
             ->where('created_at', '>=', $cutoffTime)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->where('amount_local', '>=', self::HIGH_VALUE_THRESHOLD)
             ->get();
 
@@ -79,7 +80,8 @@ class CustomerLocationAnomalyMonitor extends BaseMonitor
         $annualEstimate = $customer->annual_volume_estimate;
         if ($annualEstimate !== null) {
             $weeklyEstimate = $this->math->divide((string) $annualEstimate, '52');
-            $expectedWeekly = $this->math->multiply($weeklyEstimate, (string) self::LOOKBACK_DAYS / 7);
+            $lookbackProportion = $this->math->divide((string) self::LOOKBACK_DAYS, '7');
+            $expectedWeekly = $this->math->multiply($weeklyEstimate, $lookbackProportion);
 
             if ($this->math->compare($totalAmount, $expectedWeekly) > 0) {
                 $anomalyDetected = true;

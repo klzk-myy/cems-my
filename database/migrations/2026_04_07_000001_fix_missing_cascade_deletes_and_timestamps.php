@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -20,6 +21,11 @@ return new class extends Migration
         Schema::table('sanction_entries', function (Blueprint $table) {
             $table->timestamps();
         });
+
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // SQLite can't drop/recreate foreign keys via ALTER TABLE in Laravel.
+            return;
+        }
 
         // sanction_entries.list_id -> sanction_lists.id
         Schema::table('sanction_entries', function (Blueprint $table) {
@@ -51,6 +57,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // Best-effort rollback: timestamps are still removed below.
+        } else {
         // Revert sanction_entries.list_id cascade
         Schema::table('sanction_entries', function (Blueprint $table) {
             $table->dropForeign(['list_id']);
@@ -74,6 +83,7 @@ return new class extends Migration
             $table->dropForeign(['customer_id']);
             $table->foreign('customer_id')->references('id')->on('customers')->onDelete('restrict');
         });
+        }
 
         // Remove timestamps from sanction_entries
         Schema::table('sanction_entries', function (Blueprint $table) {

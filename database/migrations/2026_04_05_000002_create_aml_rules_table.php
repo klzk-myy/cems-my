@@ -2,12 +2,18 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // SQLite test runs use the consolidated AML rules migration instead.
+            return;
+        }
+
         Schema::create('aml_rules', function (Blueprint $table) {
             $table->id();
             $table->string('rule_code', 50)->unique();

@@ -60,12 +60,12 @@ class AlertTriageService
         $transaction = $transaction ?? $flaggedTransaction->transaction;
 
         if ($transaction) {
-            $amount = (float) $transaction->amount_local;
-            if ($amount >= 50000) {
+            $amount = (string) $transaction->amount_local;
+            if (bccomp($amount, '50000', 4) >= 0) {
                 $score += 30;
-            } elseif ($amount >= 30000) {
+            } elseif (bccomp($amount, '30000', 4) >= 0) {
                 $score += 20;
-            } elseif ($amount >= 10000) {
+            } elseif (bccomp($amount, '10000', 4) >= 0) {
                 $score += 10;
             }
         }

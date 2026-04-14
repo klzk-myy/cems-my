@@ -13,7 +13,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement('ALTER TABLE users MODIFY COLUMN mfa_secret TEXT');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE users MODIFY COLUMN mfa_secret TEXT');
+        }
     }
 
     /**
@@ -21,6 +23,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement('ALTER TABLE users MODIFY COLUMN mfa_secret VARCHAR(32)');
+        if (DB::connection()->getDriverName() === 'mysql') {
+            DB::statement('ALTER TABLE users MODIFY COLUMN mfa_secret VARCHAR(32)');
+        }
     }
 };

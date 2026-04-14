@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\CddLevel;
 use App\Enums\ComplianceFlagType;
+use App\Enums\TransactionStatus;
 use App\Models\Customer;
 use App\Models\CustomerDocument;
 use App\Models\FlaggedTransaction;
@@ -120,12 +121,23 @@ class ComplianceService
      */
     public function checkSanctionMatch(Customer $customer): bool
     {
-        // Query sanction_entries for fuzzy match using parameterized queries
         $customerName = $customer->full_name;
+        if (! is_string($customerName) || trim($customerName) === '') {
+            return false;
+        }
+
+        // Escape LIKE wildcards to prevent false matches (e.g. % and _ in names)
+        // Also escape backslash so our ESCAPE clause behaves predictably.
+        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $customerName);
+        $pattern = '%'.$escaped.'%';
+
+        $driver = DB::connection()->getDriverName();
+        $operator = $driver === 'pgsql' ? 'ILIKE' : 'LIKE';
+        $escapeClause = $driver === 'sqlite' ? " ESCAPE '\\'" : " ESCAPE '\\\\'";
 
         $matches = DB::table('sanction_entries')
-            ->where('entity_name', 'ilike', '%'.$customerName.'%')
-            ->orWhere('aliases', 'ilike', '%'.$customerName.'%')
+            ->whereRaw("entity_name {$operator} ?{$escapeClause}", [$pattern])
+            ->orWhereRaw("aliases {$operator} ?{$escapeClause}", [$pattern])
             ->count();
 
         return $matches > 0;
@@ -254,7 +266,7 @@ class ComplianceService
         // Use SQL aggregate for sum - more efficient than loading all rows
         $query = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $lookbackPeriod)
-            ->where('status', '!=', 'Cancelled');
+            ->where('status', '!=', TransactionStatus::Cancelled->value);
 
         // Get sum efficiently using SQL
         $existingSum = (string) ($query->sum('amount_local') ?? '0');
@@ -322,10 +334,22 @@ class ComplianceService
      */
     protected function countWorkingDays(Carbon $from, Carbon $to): int
     {
-        $days = 0;
-        $current = $from->copy();
+        $fromDay = $from->copy()->startOfDay();
+        $toDay = $to->copy()->startOfDay();
 
-        while ($current->lt($to)) {
+        if ($fromDay->equalTo($toDay)) {
+            return $fromDay->isWeekend() ? 0 : 1;
+        }
+
+        if ($fromDay->gt($toDay)) {
+            return -1 * $this->countWorkingDays($toDay, $fromDay);
+        }
+
+        $days = 0;
+        $current = $fromDay->copy();
+
+        // Inclusive range to match BNM “within N working days” expectations and existing fault test.
+        while ($current->lte($toDay)) {
             if (! $current->isWeekend()) {
                 $days++;
             }

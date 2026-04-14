@@ -12,6 +12,20 @@ return new class extends Migration
     {
         // Helper to check if index exists
         $indexExists = function (string $table, string $index): bool {
+            $driver = DB::connection()->getDriverName();
+
+            if ($driver === 'sqlite') {
+                $rows = DB::select("PRAGMA index_list('{$table}')");
+                foreach ($rows as $row) {
+                    if (($row->name ?? null) === $index) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            // MySQL / MariaDB
             $indexes = DB::select("SHOW INDEX FROM {$table} WHERE Key_name = ?", [$index]);
 
             return count($indexes) > 0;
@@ -49,6 +63,19 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            DB::statement('DROP INDEX IF EXISTS transactions_currency_created_idx');
+            DB::statement('DROP INDEX IF EXISTS transactions_status_created_idx');
+            DB::statement('DROP INDEX IF EXISTS currency_positions_currency_till_unique');
+            DB::statement('DROP INDEX IF EXISTS flagged_transactions_flag_type_created_idx');
+            DB::statement('DROP INDEX IF EXISTS flagged_transactions_status_created_idx');
+            DB::statement('DROP INDEX IF EXISTS system_logs_user_action_created_idx');
+
+            return;
+        }
+
         DB::statement('DROP INDEX transactions_currency_created_idx ON transactions');
         DB::statement('DROP INDEX transactions_status_created_idx ON transactions');
         DB::statement('DROP INDEX currency_positions_currency_till_unique ON currency_positions');

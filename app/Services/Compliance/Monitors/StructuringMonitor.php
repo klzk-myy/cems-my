@@ -4,6 +4,7 @@ namespace App\Services\Compliance\Monitors;
 
 use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
+use App\Enums\TransactionStatus;
 use App\Models\Customer;
 use App\Models\Transaction;
 
@@ -31,7 +32,7 @@ class StructuringMonitor extends BaseMonitor
 
         $customerIds = Transaction::where('created_at', '>=', $cutoffTime)
             ->where('amount_local', '<', self::SUB_THRESHOLD)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->distinct('customer_id')
             ->pluck('customer_id');
 
@@ -52,7 +53,7 @@ class StructuringMonitor extends BaseMonitor
         $smallTransactions = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $cutoffTime)
             ->where('amount_local', '<', self::SUB_THRESHOLD)
-            ->where('status', '!=', 'Cancelled')
+            ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->orderBy('created_at', 'desc')
             ->get();
 
