@@ -23,8 +23,9 @@ class MfaService
 
     private string $issuer;
 
-    public function __construct()
-    {
+    public function __construct(
+        protected AuditService $auditService,
+    ) {
         $this->period = config('cems.mfa.period', 30);
         $this->digits = config('cems.mfa.digits', 6);
         $this->issuer = config('cems.mfa.issuer', 'CEMS-MY');
@@ -221,7 +222,7 @@ class MfaService
         $user->save();
 
         // Log the change
-        app(AuditService::class)->logWithSeverity(
+        $this->auditService->logWithSeverity(
             'mfa_enabled',
             [
                 'user_id' => $user->id,
@@ -248,7 +249,7 @@ class MfaService
         MfaRecoveryCode::where('user_id', $user->id)->delete();
 
         // Log the change
-        app(AuditService::class)->logWithSeverity(
+        $this->auditService->logWithSeverity(
             'mfa_disabled',
             [
                 'user_id' => $user->id,

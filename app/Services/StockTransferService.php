@@ -14,6 +14,7 @@ class StockTransferService
 
     public function __construct(
         protected MathService $mathService,
+        protected AuditService $auditService,
         ?User $requester = null,
     ) {
         $this->requester = $requester ?? auth()->user();
@@ -158,7 +159,7 @@ class StockTransferService
                                 '100'
                             );
                             if (bccomp($variancePercent, '5', 4) > 0) {
-                                app(AuditService::class)->logWithSeverity(
+                                $this->auditService->logWithSeverity(
                                     'stock_transfer_variance_exceeded',
                                     [
                                         'entity_type' => 'StockTransfer',

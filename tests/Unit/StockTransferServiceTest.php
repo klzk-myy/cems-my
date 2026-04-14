@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Enums\UserRole;
 use App\Models\StockTransfer;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Services\MathService;
 use App\Services\StockTransferService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -27,7 +28,7 @@ class StockTransferServiceTest extends TestCase
             'password' => 'password',
             'role' => UserRole::Manager,
         ]);
-        $this->stockTransferService = new StockTransferService(new MathService, $this->user);
+        $this->stockTransferService = new StockTransferService(new MathService, new AuditService, $this->user);
     }
 
     public function test_create_request_validates_source_and_destination_branches(): void
