@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\CddLevel;
+use App\Models\Customer;
+use Illuminate\Support\Facades\Log;
+
+class TransactionPreValidationService
+{
+    public function __construct(
+        protected SanctionScreeningService $sanctionScreeningService,
+        protected ComplianceService $complianceService,
+        protected HistoricalRiskAnalysisService $historicalRiskAnalysisService,
+        protected AuditService $auditService
+    ) {}
+
+    /**
+     * Run complete pre-transaction validation
+     */
+    public function validate(
+        Customer $customer,
+        string $amount,
+        string $currencyCode
+    ): PreValidationResult {
+        $result = new PreValidationResult();
+        
+        // 1. Sanctions screening (blocking)
+        $sanctionResult = $this->checkSanctions($customer);
+        if ($sanctionResult->isBlocked()) {
+            $result->addBlock('sanctions', $sanctionResult->getMessage());
+            return $result;
+        }
+        
+        // 2. CDD level determination
+        $cddLevel = $this->complianceService->determineCDDLevel($amount, $customer);
+        $result->setCDDLevel($cddLevel);
+        
+        // 3. Historical risk analysis (for returning customers)
+        if ($this->isReturningCustomer($customer)) {
+            $riskResult = $this->historicalRiskAnalysisService->analyze($customer, $amount);
+            $result->setRiskFlags($riskResult->getFlags());
+        }
+        
+        // 4. Determine hold status
+        $holdRequired = $this->determineHoldRequired($result);
+        $result->setHoldRequired($holdRequired);
+        
+        $this->auditService->logTransaction('pre_validation_completed', null, [
+            'customer_id' => $customer->id,
+            'amount' => $amount,
+            'cdd_level' => $cddLevel->value,
+            'hold_required' => $holdRequired,
+            'risk_flags' => $result->getRiskFlags(),
+        ]);
+        
+        return $result;
+    }
+
+    private function checkSanctions(Customer $customer): SanctionCheckResult
+    {
+        return $this->sanctionScreeningService->checkCustomer($customer);
+    }
+
+    private function isReturningCustomer(Customer $customer): bool
+    {
+        return $customer->transactions()->count() > 0;
+    }
+
+    private function determineHoldRequired(PreValidationResult $result): bool
+    {
+        // Hold if Enhanced CDD
+        if ($result->getCDDLevel() === CddLevel::Enhanced) {
+            return true;
+        }
+        
+        // Hold if any critical risk flags
+        foreach ($result->getRiskFlags() as $flag) {
+            if ($flag['severity'] === 'critical') {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+}
