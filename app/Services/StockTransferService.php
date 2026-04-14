@@ -21,7 +21,51 @@ class StockTransferService
 
     public function createRequest(array $data): StockTransfer
     {
-        return DB::transaction(function () use ($data) {
+        // Validate business rules
+        if (empty($data['source_branch_name']) || empty($data['destination_branch_name'])) {
+            throw new \InvalidArgumentException('Source and destination branches are required');
+        }
+
+        if ($data['source_branch_name'] === $data['destination_branch_name']) {
+            throw new \InvalidArgumentException('Source and destination branches cannot be the same');
+        }
+
+        if (empty($data['items']) || ! is_array($data['items'])) {
+            throw new \InvalidArgumentException('At least one item is required');
+        }
+
+        // Validate each item
+        foreach ($data['items'] as $item) {
+            if (empty($item['currency_code'])) {
+                throw new \InvalidArgumentException('Currency code is required for each item');
+            }
+
+            if (! isset($item['quantity']) || $item['quantity'] <= 0) {
+                throw new \InvalidArgumentException('Quantity must be a positive number');
+            }
+
+            if (! isset($item['rate']) || $item['rate'] <= 0) {
+                throw new \InvalidArgumentException('Rate must be a positive number');
+            }
+
+            // Verify currency exists
+            if (! \App\Models\Currency::where('code', $item['currency_code'])->exists()) {
+                throw new \InvalidArgumentException("Currency {$item['currency_code']} does not exist");
+            }
+        }
+
+        // Calculate and validate total value
+        $calculatedTotal = '0';
+        foreach ($data['items'] as $item) {
+            $itemValue = bcmul($item['quantity'], $item['rate'], 4);
+            $calculatedTotal = bcadd($calculatedTotal, $itemValue, 4);
+        }
+
+        if (isset($data['total_value_myr']) && bccomp($data['total_value_myr'], $calculatedTotal, 4) !== 0) {
+            throw new \InvalidArgumentException('Total value does not match sum of item values');
+        }
+
+        return DB::transaction(function () use ($data, $calculatedTotal) {
             $transfer = StockTransfer::create([
                 'transfer_number' => StockTransfer::generateTransferNumber(),
                 'type' => $data['type'] ?? StockTransfer::TYPE_STANDARD,
@@ -31,15 +75,15 @@ class StockTransferService
                 'requested_by' => $this->requester->id,
                 'requested_at' => now(),
                 'notes' => $data['notes'] ?? null,
-                'total_value_myr' => $data['total_value_myr'] ?? '0.00',
+                'total_value_myr' => $calculatedTotal,
             ]);
 
-            foreach ($data['items'] ?? [] as $item) {
+            foreach ($data['items'] as $item) {
                 $transfer->items()->create([
                     'currency_code' => $item['currency_code'],
                     'quantity' => $item['quantity'],
                     'rate' => $item['rate'],
-                    'value_myr' => $item['value_myr'],
+                    'value_myr' => bcmul($item['quantity'], $item['rate'], 4),
                 ]);
             }
 

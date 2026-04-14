@@ -3,10 +3,10 @@
 namespace App\Services;
 
 use App\Enums\StrStatus;
+use App\Jobs\SendNotificationJob;
 use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
 use App\Models\User;
-use App\Jobs\SendNotificationJob;
 use App\Notifications\Compliance\StrEscalationNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -630,7 +630,7 @@ class StrReportService
     /**
      * Validate certificate configuration
      */
-    protected function validateCertificateConfiguration(): array
+    public function validateCertificateConfiguration(): array
     {
         $config = config('services.goaml', []);
         $missing = [];
@@ -641,8 +641,73 @@ class StrReportService
         foreach ($required as $key) {
             if (empty($config[$key])) {
                 $missing[] = $key;
-            } elseif (! file_exists($config[$key])) {
-                $missing[] = "{$key} (file not found: {$config[$key]})";
+
+                continue;
+            }
+
+            $path = $config[$key];
+
+            if (! file_exists($path)) {
+                $missing[] = "{$key} (file not found: {$path})";
+
+                continue;
+            }
+
+            if (! is_readable($path)) {
+                $missing[] = "{$key} (file not readable: {$path})";
+
+                continue;
+            }
+
+            // Validate certificate/key content
+            if ($key === 'cert_path') {
+                $content = file_get_contents($path);
+                if (strpos($content, '-----BEGIN CERTIFICATE-----') === false) {
+                    $missing[] = "{$key} (invalid certificate format: {$path})";
+                }
+            } elseif ($key === 'key_path') {
+                $content = file_get_contents($path);
+                if (strpos($content, '-----BEGIN') === false) {
+                    $missing[] = "{$key} (invalid key format: {$path})";
+                }
+            } elseif ($key === 'ca_path') {
+                $content = file_get_contents($path);
+                if (strpos($content, '-----BEGIN CERTIFICATE-----') === false) {
+                    $missing[] = "{$key} (invalid CA certificate format: {$path})";
+                }
+            }
+        }
+
+        // Validate certificate and key match if both are present
+        if (! in_array('cert_path', $missing) && ! in_array('key_path', $missing)) {
+            try {
+                $certPath = $config['cert_path'];
+                $keyPath = $config['key_path'];
+
+                // Extract public key from certificate
+                $certContent = file_get_contents($certPath);
+                $cert = openssl_x509_read($certContent);
+                if (! $cert) {
+                    $missing[] = 'cert_path (unable to read certificate)';
+                } else {
+                    $certPubKey = openssl_pkey_get_public($cert);
+                    $keyContent = file_get_contents($keyPath);
+                    $key = openssl_pkey_get_private($keyContent, $config['key_password'] ?? '');
+
+                    if (! $key) {
+                        $missing[] = 'key_path (unable to read private key)';
+                    } else {
+                        // Check if key matches certificate
+                        $keyDetails = openssl_pkey_get_details($key);
+                        $certDetails = openssl_pkey_get_details($certPubKey);
+
+                        if ($keyDetails['key'] !== $certDetails['key']) {
+                            $missing[] = 'key_path (private key does not match certificate)';
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                $missing[] = 'certificate validation failed: '.$e->getMessage();
             }
         }
 

@@ -145,7 +145,7 @@ class ReconciliationService
     /**
      * Auto-match statement lines to journal entries
      */
-    protected function autoMatch(string $accountCode): void
+    public function autoMatch(string $accountCode): void
     {
         $unmatched = BankReconciliation::where('account_code', $accountCode)
             ->where('status', 'unmatched')
@@ -160,11 +160,12 @@ class ReconciliationService
             // Look for matching journal entry
             $amount = abs($record->getAmount());
             $isDebit = $record->getAmount() > 0;
+            $column = $isDebit ? 'debit' : 'credit';
 
             $matchingEntry = JournalEntry::where('status', 'Posted')
-                ->whereHas('lines', function ($query) use ($accountCode, $amount, $isDebit) {
+                ->whereHas('lines', function ($query) use ($accountCode, $amount, $column) {
                     $query->where('account_code', $accountCode)
-                        ->where($isDebit ? 'debit' : 'credit', $amount);
+                        ->where($column, $amount);
                 })
                 ->whereDate('entry_date', $record->statement_date)
                 ->first();
