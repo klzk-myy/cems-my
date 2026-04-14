@@ -15,7 +15,10 @@ class StrReportServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->strReportService = new StrReportService;
+        $this->strReportService = new StrReportService(
+            app(\App\Services\ComplianceService::class),
+            app(\App\Services\AuditService::class)
+        );
     }
 
     public function test_validate_certificate_configuration_detects_missing_cert_path(): void
