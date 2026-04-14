@@ -112,6 +112,7 @@ class TransactionWorkflowTest extends TestCase
             'user_id' => $this->teller->id,
             'till_id' => $this->counter->code,
             'status' => TransactionStatus::Completed,
+            'cdd_level' => 'Simplified',
         ]);
 
         // Test authenticated request
@@ -136,6 +137,7 @@ class TransactionWorkflowTest extends TestCase
             'user_id' => $this->teller->id,
             'till_id' => $this->counter->code,
             'status' => TransactionStatus::Completed,
+            'cdd_level' => 'Simplified',
         ]);
 
         $response = $this->actingAs($this->teller, 'sanctum')
