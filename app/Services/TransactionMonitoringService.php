@@ -132,7 +132,7 @@ class TransactionMonitoringService
             ->where('created_at', '>=', now()->subDays(90))
             ->avg('amount_local');
 
-        if (! $customerAvg || $customerAvg == 0) {
+        if (! $customerAvg || (float) $customerAvg === 0.0) {
             return false;
         }
 

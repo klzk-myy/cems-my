@@ -329,8 +329,6 @@ class ReconciliationService
                 $days30->push($check);
             } elseif ($daysOutstanding <= 90) {
                 $days60->push($check);
-            } elseif ($daysOutstanding <= 90) {
-                $days90->push($check);
             } else {
                 $over90->push($check);
             }
