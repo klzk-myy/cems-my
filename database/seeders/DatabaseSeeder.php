@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             CostCenterSeeder::class,
             EnhancedChartOfAccountsSeeder::class,
             BranchSeeder::class,
+            CounterSeeder::class,
         ]);
     }
 }

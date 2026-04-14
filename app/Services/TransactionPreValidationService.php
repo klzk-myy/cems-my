@@ -46,13 +46,21 @@ class TransactionPreValidationService
         $holdRequired = $this->determineHoldRequired($result);
         $result->setHoldRequired($holdRequired);
 
-        $this->auditService->logTransaction('pre_validation_completed', null, [
-            'customer_id' => $customer->id,
-            'amount' => $amount,
-            'cdd_level' => $cddLevel->value,
-            'hold_required' => $holdRequired,
-            'risk_flags' => $result->getRiskFlags(),
-        ]);
+        $this->auditService->logWithSeverity(
+            'pre_validation_completed',
+            [
+                'entity_type' => 'PreTransaction',
+                'entity_id' => $customer->id,
+                'new_values' => [
+                    'customer_id' => $customer->id,
+                    'amount' => $amount,
+                    'cdd_level' => $cddLevel->value,
+                    'hold_required' => $holdRequired,
+                    'risk_flags' => $result->getRiskFlags(),
+                ],
+            ],
+            'INFO'
+        );
 
         return $result;
     }

@@ -14,9 +14,6 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        // Refresh database if using RefreshDatabase
-        // Database is already refreshed via trait in feature tests
     }
 
     /**
