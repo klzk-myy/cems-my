@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Customer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SanctionScreeningService
 {
@@ -162,5 +164,76 @@ class SanctionScreeningService
         fclose($handle);
 
         return $count;
+    }
+
+    /**
+     * Check customer for sanctions - returns structured result
+     */
+    public function checkCustomer(Customer $customer): SanctionCheckResult
+    {
+        $fullName = $customer->full_name;
+        
+        // Escape LIKE wildcards
+        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $fullName);
+        $pattern = '%' . $escaped . '%';
+        
+        // Check against sanction entries
+        $matches = DB::table('sanction_entries')
+            ->whereRaw("entity_name LIKE ?", [$pattern])
+            ->orWhereRaw("aliases LIKE ?", [$pattern])
+            ->get();
+        
+        foreach ($matches as $match) {
+            $similarity = $this->calculateSimilarity(
+                strtolower($fullName),
+                strtolower($match->entity_name)
+            );
+            
+            // Block if similarity > 80%
+            if ($similarity >= 0.80) {
+                Log::warning('Sanctions match detected', [
+                    'customer_id' => $customer->id,
+                    'customer_name' => $fullName,
+                    'matched_entity' => $match->entity_name,
+                    'similarity' => $similarity,
+                    'list_name' => $match->list_name ?? 'Unknown',
+                ]);
+                
+                // Audit log
+                $this->auditService->logSanctionEvent('sanction_screening_hit', $customer->id, [
+                    'customer_name' => $fullName,
+                    'matched_entity' => $match->entity_name,
+                    'similarity' => $similarity,
+                    'action' => 'blocked',
+                ]);
+                
+                return SanctionCheckResult::blocked(
+                    'Sanctions list match detected. Transaction blocked.',
+                    $similarity,
+                    $match->entity_name
+                );
+            }
+            
+            // Flag for review if similarity > 60%
+            if ($similarity >= 0.60) {
+                $this->auditService->logSanctionEvent('sanction_screening_flag', $customer->id, [
+                    'customer_name' => $fullName,
+                    'matched_entity' => $match->entity_name,
+                    'similarity' => $similarity,
+                    'action' => 'flagged',
+                ]);
+                
+                // Create compliance flag
+                \App\Models\FlaggedTransaction::create([
+                    'customer_id' => $customer->id,
+                    'flag_type' => \App\Enums\ComplianceFlagType::SanctionMatch,
+                    'severity' => 'warning',
+                    'description' => "Possible sanctions match: {$match->entity_name} ({$similarity}% similar)",
+                    'status' => 'open',
+                ]);
+            }
+        }
+        
+        return SanctionCheckResult::passed();
     }
 }
