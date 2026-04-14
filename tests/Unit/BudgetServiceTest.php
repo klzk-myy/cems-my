@@ -25,8 +25,8 @@ class BudgetServiceTest extends TestCase
         $this->adminUser = User::factory()->create(['role' => \App\Enums\UserRole::Admin]);
 
         $this->budgetService = new BudgetService(
-            new AccountingService(new MathService),
-            new MathService
+            app(AccountingService::class),
+            app(MathService::class)
         );
 
         // Seed chart of accounts

@@ -32,6 +32,23 @@ class TransactionService
     ) {}
 
     /**
+     * Validate currency code exists in system.
+     *
+     * @param  string  $currencyCode  Currency code to validate
+     * @throws \InvalidArgumentException If currency code is invalid
+     */
+    protected function validateCurrencyCode(string $currencyCode): void
+    {
+        $currency = \App\Models\Currency::where('code', $currencyCode)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $currency) {
+            throw new \InvalidArgumentException("Invalid or inactive currency code: {$currencyCode}");
+        }
+    }
+
+    /**
      * Create a new transaction with full validation and compliance checks.
      *
      * @param  array  $data  Validated transaction data
@@ -42,6 +59,8 @@ class TransactionService
      */
     public function createTransaction(array $data, ?int $userId = null, ?string $ipAddress = null): Transaction
     {
+        $this->validateCurrencyCode($data['currency_code']);
+
         $userId = $userId ?? auth()->id();
         $ipAddress = $ipAddress ?? request()->ip();
 
@@ -76,10 +95,10 @@ class TransactionService
         if ($customer->pep_status) {
             $cddTriggers[] = 'PEP customer';
         }
-        if ($this->mathService->compare($amountLocal, '50000') >= 0) {
-            $cddTriggers[] = 'Large amount >= RM 50,000';
-        } elseif ($this->mathService->compare($amountLocal, '3000') >= 0) {
-            $cddTriggers[] = 'Standard amount >= RM 3,000';
+        if ($this->mathService->compare($amountLocal, $this->complianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
+            $cddTriggers[] = 'Large amount >= RM '.number_format((float) $this->complianceService::LARGE_TRANSACTION_THRESHOLD);
+        } elseif ($this->mathService->compare($amountLocal, $this->complianceService::STANDARD_CDD_THRESHOLD) >= 0) {
+            $cddTriggers[] = 'Standard amount >= RM '.number_format((float) $this->complianceService::STANDARD_CDD_THRESHOLD);
         }
         if ($customer->risk_rating === 'High') {
             $cddTriggers[] = 'High risk customer';
@@ -107,7 +126,7 @@ class TransactionService
         $approvedBy = null;
 
         if ($holdCheck['requires_hold']) {
-            if ($this->mathService->compare($amountLocal, '50000') >= 0) {
+            if ($this->mathService->compare($amountLocal, $this->complianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
                 $status = TransactionStatus::Pending;
                 $holdReason = ComplianceFlagType::EddRequired->label().': '.implode(', ', $holdCheck['reasons']);
             } else {
@@ -217,7 +236,26 @@ class TransactionService
 
             // Generate CTOS report if transaction qualifies (>= RM 10,000 cash transaction)
             if ($this->ctosReportService->qualifiesForCtos($transaction)) {
-                $this->ctosReportService->createFromTransaction($transaction, $userId);
+                try {
+                    $this->ctosReportService->createFromTransaction($transaction, $userId);
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('CTOS report creation failed', [
+                        'transaction_id' => $transaction->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    $this->auditService->logWithSeverity(
+                        'ctos_report_creation_failed',
+                        [
+                            'entity_type' => 'Transaction',
+                            'entity_id' => $transaction->id,
+                            'new_values' => [
+                                'error' => $e->getMessage(),
+                                'requires_manual_submission' => true,
+                            ],
+                        ],
+                        'WARNING'
+                    );
+                }
             }
 
             // Dispatch event for async processing
@@ -228,11 +266,26 @@ class TransactionService
     }
 
     /**
+     * Verify till is still open for operations.
+     *
+     * @param  TillBalance  $tillBalance  The till balance to verify
+     * @throws \InvalidArgumentException If till is closed
+     */
+    protected function verifyTillIsOpen(TillBalance $tillBalance): void
+    {
+        if ($tillBalance->closed_at !== null) {
+            throw new \InvalidArgumentException('Till is closed. Cannot perform operations on closed till.');
+        }
+    }
+
+    /**
      * Update till balance after transaction.
      * Uses lockForUpdate to prevent race conditions on concurrent transactions.
      */
     protected function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
     {
+        $this->verifyTillIsOpen($tillBalance);
+
         // Re-fetch with lock to prevent race conditions
         $lockedBalance = TillBalance::where('id', $tillBalance->id)
             ->lockForUpdate()

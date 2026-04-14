@@ -45,25 +45,8 @@ class TransactionServiceTest extends TestCase
     {
         parent::setUp();
 
-        // Create dependencies
-        $mathService = new MathService;
-        $encryptionService = new \App\Services\EncryptionService;
-        $complianceService = new ComplianceService($encryptionService, $mathService);
-        $positionService = new CurrencyPositionService($mathService);
-        $accountingService = new \App\Services\AccountingService($mathService);
-        $auditService = new AuditService;
-        $monitoringService = new \App\Services\TransactionMonitoringService($complianceService, $mathService, $auditService);
-        $ctosReportService = new \App\Services\CtosReportService($auditService);
-
-        $this->transactionService = new TransactionService(
-            $mathService,
-            $complianceService,
-            $positionService,
-            $accountingService,
-            $auditService,
-            $monitoringService,
-            $ctosReportService
-        );
+        // Use Laravel container to resolve services with correct dependencies
+        $this->transactionService = app(TransactionService::class);
 
         // Setup test data
         $this->setupTestData();
@@ -342,7 +325,7 @@ class TransactionServiceTest extends TestCase
 
         // Till balance should be updated
         $this->assertNotEquals($initialTotal, $this->tillBalance->transaction_total);
-        $this->assertEquals('450.000000', $this->tillBalance->transaction_total);
+        $this->assertEquals('450.0000', $this->tillBalance->transaction_total);
     }
 
     public function test_transaction_assigns_correct_cdd_level(): void

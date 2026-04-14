@@ -26,13 +26,20 @@ class AccountingService
     protected MathService $mathService;
 
     /**
+     * Audit service for tamper-evident logging.
+     */
+    protected AuditService $auditService;
+
+    /**
      * Create a new AccountingService instance.
      *
      * @param  MathService  $mathService  Math service for precise calculations
+     * @param  AuditService  $auditService  Audit service for tamper-evident logging
      */
-    public function __construct(MathService $mathService)
+    public function __construct(MathService $mathService, AuditService $auditService)
     {
         $this->mathService = $mathService;
+        $this->auditService = $auditService;
     }
 
     /**
@@ -97,25 +104,25 @@ class AccountingService
                 JournalLine::create([
                     'journal_entry_id' => $entry->id,
                     'account_code' => $line['account_code'],
-                    'debit' => $line['debit'] ?? 0,
-                    'credit' => $line['credit'] ?? 0,
+                    'debit' => $line['debit'] ?? '0',
+                    'credit' => $line['credit'] ?? '0',
                     'description' => $line['description'] ?? null,
                 ]);
             }
 
-            SystemLog::create([
-                'user_id' => $createdBy,
-                'action' => 'journal_entry_created',
-                'entity_type' => 'JournalEntry',
-                'entity_id' => $entry->id,
-                'new_values' => [
+            $this->auditService->log(
+                'journal_entry_created',
+                $createdBy,
+                'JournalEntry',
+                $entry->id,
+                [],
+                [
                     'reference_type' => $referenceType,
                     'reference_id' => $referenceId,
                     'description' => $description,
                     'status' => 'Draft',
-                ],
-                'ip_address' => request()->ip(),
-            ]);
+                ]
+            );
 
             return $entry->fresh()->load('lines');
         });
@@ -147,15 +154,9 @@ class AccountingService
                 'status' => 'Pending',
             ]);
 
-            SystemLog::create([
-                'user_id' => $submittedBy,
-                'action' => 'journal_entry_submitted',
-                'entity_type' => 'JournalEntry',
-                'entity_id' => $entry->id,
-                'new_values' => [
-                    'status' => 'Pending',
-                ],
-                'ip_address' => request()->ip(),
+            $this->auditService->logJournalWorkflowEvent('journal_entry_submitted', $entry->id, [
+                'old' => ['status' => 'Draft'],
+                'new' => ['status' => 'Pending'],
             ]);
 
             // Return the entry from inside the transaction - the model's attributes are updated
@@ -219,17 +220,13 @@ class AccountingService
             // Post to the ledger
             $this->updateLedger($entry);
 
-            SystemLog::create([
-                'user_id' => $approvedBy,
-                'action' => 'journal_entry_approved',
-                'entity_type' => 'JournalEntry',
-                'entity_id' => $entry->id,
-                'new_values' => [
+            $this->auditService->logJournalWorkflowEvent('journal_entry_approved', $entry->id, [
+                'old' => ['status' => 'Pending'],
+                'new' => [
                     'status' => 'Posted',
                     'approved_by' => $approvedBy,
                     'approval_notes' => $approvalNotes,
                 ],
-                'ip_address' => request()->ip(),
             ]);
 
             return $entry->fresh();
@@ -269,16 +266,12 @@ class AccountingService
                 'approval_notes' => $rejectionNotes,
             ]);
 
-            SystemLog::create([
-                'user_id' => $rejectedBy,
-                'action' => 'journal_entry_rejected',
-                'entity_type' => 'JournalEntry',
-                'entity_id' => $entry->id,
-                'new_values' => [
+            $this->auditService->logJournalWorkflowEvent('journal_entry_rejected', $entry->id, [
+                'old' => ['status' => 'Pending'],
+                'new' => [
                     'status' => 'Rejected',
                     'rejection_notes' => $rejectionNotes,
                 ],
-                'ip_address' => request()->ip(),
             ]);
 
             return $entry->fresh();

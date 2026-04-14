@@ -87,7 +87,7 @@ class TransactionController extends Controller
             'purpose' => 'required|string|max:255',
             'source_of_funds' => 'required|string|max:255',
             'till_id' => 'required|string',
-            'idempotency_key' => 'nullable|string|max:100',
+            'idempotency_key' => 'required|string|max:100|unique:transactions,idempotency_key',
         ]);
 
         // Note: XSS protection is handled by Blade's automatic escaping on output

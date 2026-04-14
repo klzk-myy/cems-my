@@ -3,6 +3,10 @@
 namespace Tests\Feature;
 
 use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
+use App\Enums\UserRole;
+use App\Models\Currency;
+use App\Models\CurrencyPosition;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Models\User;
@@ -13,9 +17,21 @@ class TransactionTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        
+        // Disable CSRF for tests
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
+
+        // Ensure core currencies exist
+        Currency::firstOrCreate(['code' => 'USD'], ['name' => 'US Dollar', 'symbol' => '$', 'decimal_places' => 2, 'is_active' => true]);
+        Currency::firstOrCreate(['code' => 'MYR'], ['name' => 'Malaysian Ringgit', 'symbol' => 'RM', 'decimal_places' => 2, 'is_active' => true]);
+    }
+
     public function test_teller_can_access_transaction_create(): void
     {
-        $teller = User::factory()->create(['role' => \App\Enums\UserRole::Teller]);
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
 
         $response = $this->actingAs($teller)->get('/transactions/create');
 
@@ -25,68 +41,182 @@ class TransactionTest extends TestCase
     public function test_can_view_transaction_list(): void
     {
         $user = User::factory()->create();
-        $customer = Customer::factory()->create();
+        $customer = $this->createTestCustomer();
 
         $response = $this->actingAs($user)->get('/transactions');
 
         $response->assertStatus(200);
     }
 
-    // /**
-    //  * Test viewing transaction details - requires complex view setup
-    //  */
-    // public function test_can_view_transaction_details(): void
-    // {
-    //     $user = User::factory()->create();
-    //     $customer = Customer::factory()->create();
-    //     $transaction = Transaction::factory()->create([
-    //         'customer_id' => $customer->id,
-    //     ]);
-    //
-    //     $response = $this->actingAs($user)->get("/transactions/{$transaction->id}");
-    //
-    //     $response->assertStatus(200);
-    // }
-
     /**
-     * Test teller can create buy transaction - requires till balance setup
+     * Test teller can create buy transaction
      */
     public function test_teller_can_create_buy_transaction(): void
     {
-        $this->markTestSkipped('Integration test - requires TillBalance setup');
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
+        $customer = $this->createTestCustomer();
+        $counter = $this->setupOpenTill($teller, 'USD');
+
+        $response = $this->actingAs($teller)->post('/transactions', [
+            'type' => TransactionType::Buy->value,
+            'currency_code' => 'USD',
+            'amount_foreign' => '100.00',
+            'rate' => '4.50',
+            'customer_id' => $customer->id,
+            'purpose' => 'Travel',
+            'source_of_funds' => 'Savings',
+            'till_id' => (string)$counter->id,
+            'idempotency_key' => uniqid('test_', true),
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $this->assertDatabaseHas('transactions', [
+            'currency_code' => 'USD',
+            'amount_foreign' => '100.00',
+            'status' => TransactionStatus::Completed,
+        ]);
     }
 
     public function test_sell_updates_currency_position(): void
     {
-        $this->markTestSkipped('Integration test - requires TillBalance setup');
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
+        $customer = $this->createTestCustomer();
+        $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        
+        // Setup initial position
+        CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => (string)$counter->id,
+            'balance' => '500.00',
+            'avg_cost_rate' => '4.40',
+        ]);
+
+        $response = $this->actingAs($teller)->post('/transactions', [
+            'type' => TransactionType::Sell->value,
+            'currency_code' => 'USD',
+            'amount_foreign' => '100.00',
+            'rate' => '4.60',
+            'customer_id' => $customer->id,
+            'purpose' => 'Travel',
+            'source_of_funds' => 'Savings',
+            'till_id' => (string)$counter->id,
+            'idempotency_key' => uniqid('test_', true),
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $this->assertDatabaseHas('currency_positions', [
+            'currency_code' => 'USD',
+            'till_id' => (string)$counter->id,
+            'balance' => '400.00',
+        ]);
     }
 
     public function test_buy_updates_currency_position(): void
     {
-        $this->markTestSkipped('Integration test - requires TillBalance setup');
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
+        $customer = $this->createTestCustomer();
+        $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        
+        // Setup initial position
+        CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => (string)$counter->id,
+            'balance' => '500.00',
+            'avg_cost_rate' => '4.40',
+        ]);
+
+        $response = $this->actingAs($teller)->post('/transactions', [
+            'type' => TransactionType::Buy->value,
+            'currency_code' => 'USD',
+            'amount_foreign' => '100.00',
+            'rate' => '4.50',
+            'customer_id' => $customer->id,
+            'purpose' => 'Investment',
+            'source_of_funds' => 'Salary',
+            'till_id' => (string)$counter->id,
+            'idempotency_key' => uniqid('test_', true),
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $this->assertDatabaseHas('currency_positions', [
+            'currency_code' => 'USD',
+            'till_id' => (string)$counter->id,
+            'balance' => '600.00',
+        ]);
     }
 
     public function test_sell_fails_with_insufficient_stock(): void
     {
-        $this->markTestSkipped('Integration test - requires TillBalance setup');
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
+        $customer = $this->createTestCustomer();
+        $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        
+        // Setup low initial position
+        CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => (string)$counter->id,
+            'balance' => '50.00',
+            'avg_cost_rate' => '4.40',
+        ]);
+
+        $response = $this->actingAs($teller)->post('/transactions', [
+            'type' => TransactionType::Sell->value,
+            'currency_code' => 'USD',
+            'amount_foreign' => '100.00',
+            'rate' => '4.60',
+            'customer_id' => $customer->id,
+            'purpose' => 'Travel',
+            'source_of_funds' => 'Savings',
+            'till_id' => (string)$counter->id,
+            'idempotency_key' => uniqid('test_', true),
+        ]);
+
+        $response->assertSessionHas('error'); // TransactionService throws exception which is caught and put in flash error
+        $this->assertDatabaseMissing('transactions', [
+            'type' => TransactionType::Sell,
+            'amount_foreign' => '100.00',
+        ]);
     }
 
     public function test_transaction_requires_positive_amount(): void
     {
-        $this->markTestSkipped('Integration test - requires TillBalance setup');
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
+        $customer = $this->createTestCustomer();
+        $counter = $this->setupOpenTill($teller, 'USD');
+
+        $response = $this->actingAs($teller)->post('/transactions', [
+            'type' => TransactionType::Buy->value,
+            'currency_code' => 'USD',
+            'amount_foreign' => '-100.00',
+            'rate' => '4.50',
+            'customer_id' => $customer->id,
+            'purpose' => 'Travel',
+            'source_of_funds' => 'Savings',
+            'till_id' => (string)$counter->id,
+            'idempotency_key' => uniqid('test_', true),
+        ]);
+
+        $response->assertSessionHasErrors('amount_foreign');
     }
 
     public function test_transaction_requires_valid_currency(): void
     {
-        $user = User::factory()->create();
-        $customer = Customer::factory()->create();
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
+        $customer = $this->createTestCustomer();
 
-        $response = $this->actingAs($user)->post('/transactions', [
-            'type' => 'Buy',
+        $response = $this->actingAs($teller)->post('/transactions', [
+            'type' => TransactionType::Buy->value,
             'currency_code' => 'INVALID',
             'amount_foreign' => '1000',
             'rate' => '4.50',
             'customer_id' => $customer->id,
+            'purpose' => 'Travel',
+            'source_of_funds' => 'Savings',
+            'till_id' => '1',
+            'idempotency_key' => uniqid('test_', true),
         ]);
 
         $response->assertSessionHasErrors('currency_code');
@@ -94,14 +224,36 @@ class TransactionTest extends TestCase
 
     public function test_large_transaction_requires_approval(): void
     {
-        $this->markTestSkipped('Integration test - requires TillBalance setup');
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
+        $customer = $this->createTestCustomer();
+        $counter = $this->setupOpenTill($teller, 'USD');
+
+        // threshold is 50,000 MYR. At 4.5 rate, 12,000 USD is 54,000 MYR
+        $response = $this->actingAs($teller)->post('/transactions', [
+            'type' => TransactionType::Buy->value,
+            'currency_code' => 'USD',
+            'amount_foreign' => '12000.00',
+            'rate' => '4.50',
+            'customer_id' => $customer->id,
+            'purpose' => 'Business',
+            'source_of_funds' => 'Revenue',
+            'till_id' => (string)$counter->id,
+            'idempotency_key' => uniqid('test_', true),
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $this->assertDatabaseHas('transactions', [
+            'amount_foreign' => '12000.00',
+            'status' => TransactionStatus::Pending,
+        ]);
     }
 
     public function test_teller_cannot_approve_transaction(): void
     {
-        $teller = User::factory()->create(['role' => \App\Enums\UserRole::Teller]);
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
         $transaction = Transaction::factory()->create([
-            'status' => TransactionStatus::OnHold,
+            'status' => TransactionStatus::Pending,
         ]);
 
         $response = $this->actingAs($teller)->post("/transactions/{$transaction->id}/approve");
@@ -111,6 +263,36 @@ class TransactionTest extends TestCase
 
     public function test_manager_can_approve_transaction(): void
     {
-        $this->markTestSkipped('Integration test - requires TillBalance setup');
+        $teller = User::factory()->create(['role' => UserRole::Teller]);
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $customer = $this->createTestCustomer();
+        $counter = $this->setupOpenTill($teller, 'USD');
+
+        // Create a pending transaction
+        $transaction = Transaction::create([
+            'type' => TransactionType::Buy,
+            'currency_code' => 'USD',
+            'amount_foreign' => '12000.00',
+            'rate' => '4.50',
+            'amount_local' => '54000.00',
+            'customer_id' => $customer->id,
+            'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
+            'till_id' => (string)$counter->id,
+            'status' => TransactionStatus::Pending,
+            'cdd_level' => 'Enhanced',
+            'purpose' => 'Business',
+            'source_of_funds' => 'Revenue',
+            'idempotency_key' => uniqid('test_', true),
+        ]);
+
+        $response = $this->actingAs($manager)->post("/transactions/{$transaction->id}/approve");
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('transactions', [
+            'id' => $transaction->id,
+            'status' => TransactionStatus::Completed,
+            'approved_by' => $manager->id,
+        ]);
     }
 }

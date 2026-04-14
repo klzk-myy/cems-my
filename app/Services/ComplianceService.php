@@ -99,11 +99,11 @@ class ComplianceService
             return CddLevel::Enhanced;
         }
 
-        if ($this->mathService->compare($amount, '50000') >= 0 || $customer->risk_rating === 'High') {
+        if ($this->mathService->compare($amount, self::LARGE_TRANSACTION_THRESHOLD) >= 0 || $customer->risk_rating === 'High') {
             return CddLevel::Enhanced;
         }
 
-        if ($this->mathService->compare($amount, '3000') >= 0) {
+        if ($this->mathService->compare($amount, self::STANDARD_CDD_THRESHOLD) >= 0) {
             return CddLevel::Standard;
         }
 
@@ -172,7 +172,7 @@ class ComplianceService
             'amount_24h' => (string) $velocity,
             'with_new_transaction' => $total,
             'threshold_exceeded' => $this->mathService->compare($total, self::LARGE_TRANSACTION_THRESHOLD) >= 0,
-            'threshold_amount' => '50000',
+            'threshold_amount' => self::LARGE_TRANSACTION_THRESHOLD,
         ];
     }
 
@@ -220,7 +220,7 @@ class ComplianceService
     {
         $reasons = [];
 
-        if ($this->mathService->compare($amount, '50000') >= 0) {
+        if ($this->mathService->compare($amount, self::LARGE_TRANSACTION_THRESHOLD) >= 0) {
             $reasons[] = ComplianceFlagType::EddRequired->value;
         }
 

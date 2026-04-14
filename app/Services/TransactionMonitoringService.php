@@ -50,7 +50,7 @@ class TransactionMonitoringService
 
             // Structuring detection - multiple small transactions
             if ($this->complianceService->checkStructuring($transaction->customer_id)) {
-                $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, 'Potential structuring: 3+ transactions under RM 3,000 within 1 hour');
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, "Potential structuring: 3+ transactions under RM ".number_format((float) $this->complianceService::STANDARD_CDD_THRESHOLD)." within 1 hour");
                 $this->auditService->logAmlMonitorEvent('aml_structuring_detected', $transaction->id, [
                     'entity_type' => 'Transaction',
                     'new' => [
@@ -150,7 +150,7 @@ class TransactionMonitoringService
             return false;
         }
 
-        if ($this->mathService->compare($transaction->amount_local, '3000') < 0) {
+        if ($this->mathService->compare($transaction->amount_local, $this->complianceService::STANDARD_CDD_THRESHOLD) < 0) {
             return false;
         }
 
@@ -163,11 +163,11 @@ class TransactionMonitoringService
 
     protected function isRoundAmount(Transaction $transaction): bool
     {
-        if ($this->mathService->compare($transaction->amount_local, '10000') < 0) {
+        if ($this->mathService->compare($transaction->amount_local, $this->complianceService::CTOS_THRESHOLD) < 0) {
             return false;
         }
 
-        $remainder = bcmod((string) $transaction->amount_local, '10000');
+        $remainder = bcmod((string) $transaction->amount_local, $this->complianceService::CTOS_THRESHOLD);
 
         return $this->mathService->compare($remainder, '0') === 0;
     }
@@ -190,7 +190,8 @@ class TransactionMonitoringService
         $startOfMonth = now()->startOfMonth();
         $currentMonthVolume = Transaction::where('customer_id', $transaction->customer_id)
             ->where('created_at', '>=', $startOfMonth)
-            ->sum('amount_local');
+            ->selectRaw('CAST(SUM(amount_local) AS CHAR) as total')
+            ->value('total') ?? '0';
 
         return $this->mathService->compare((string) $currentMonthVolume, $monthlyThreshold) > 0;
     }

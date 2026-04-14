@@ -49,8 +49,7 @@ abstract class TestCase extends BaseTestCase
     {
         return \App\Models\Counter::create(array_merge([
             'name' => 'Test Counter',
-            'code' => 'CTR-'.uniqid(),
-            'branch_id' => $this->createTestBranch()->id,
+            'code' => substr(uniqid(), -8),
             'is_active' => true,
         ], $attributes));
     }
@@ -62,12 +61,41 @@ abstract class TestCase extends BaseTestCase
     {
         return \App\Models\Customer::create(array_merge([
             'full_name' => 'Test Customer',
-            'id_type' => 'IC',
+            'id_type' => 'MyKad',
             'id_number_encrypted' => encrypt('123456789012'),
             'nationality' => 'MY',
-            'risk_rating' => 'LOW',
+            'date_of_birth' => '1990-01-01',
+            'risk_rating' => 'Low',
             'cdd_level' => 'Simplified',
             'is_active' => true,
         ], $attributes));
+    }
+
+
+    /**
+     * Set up an open till for a user and currency.
+     */
+    protected function setupOpenTill(\App\Models\User $user, string $currencyCode = 'USD', string $openingBalance = '1000.00'): \App\Models\Counter
+    {
+        $counter = $this->createTestCounter();
+        
+        \App\Models\CounterSession::create([
+            'counter_id' => $counter->id,
+            'user_id' => $user->id,
+            'session_date' => now()->toDateString(),
+            'opened_at' => now(),
+            'opened_by' => $user->id,
+            'status' => \App\Enums\CounterSessionStatus::Open,
+        ]);
+
+        \App\Models\TillBalance::create([
+            'till_id' => (string) $counter->id,
+            'currency_code' => $currencyCode,
+            'opening_balance' => $openingBalance,
+            'date' => now()->toDateString(),
+            'opened_by' => $user->id,
+        ]);
+
+        return $counter;
     }
 }

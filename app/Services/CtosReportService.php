@@ -16,6 +16,8 @@ class CtosReportService
 {
     public function __construct(
         protected AuditService $auditService,
+        protected MathService $mathService,
+        protected ComplianceService $complianceService,
     ) {}
 
     /**
@@ -105,8 +107,6 @@ class CtosReportService
         }
 
         // Must be >= RM 10,000
-        $mathService = new MathService;
-
-        return $mathService->compare($transaction->amount_local, '10000') >= 0;
+        return $this->mathService->compare($transaction->amount_local, $this->complianceService::CTOS_THRESHOLD) >= 0;
     }
 }
