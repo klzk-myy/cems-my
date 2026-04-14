@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\CddLevel;
 use App\Enums\ComplianceFlagType;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
@@ -12,6 +13,7 @@ use App\Models\TillBalance;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Transaction Service
@@ -311,8 +313,79 @@ class TransactionService
 
     /**
      * Create accounting journal entries for transaction.
+     * For Enhanced CDD transactions, defers creation until approval.
      */
     protected function createAccountingEntries(Transaction $transaction): void
+    {
+        // Check if Enhanced CDD and not yet approved (status is PendingApproval)
+        if ($transaction->cdd_level === CddLevel::Enhanced
+            && $transaction->status !== TransactionStatus::Completed) {
+            Log::info('Deferring journal entry creation for Enhanced CDD transaction', [
+                'transaction_id' => $transaction->id,
+                'status' => $transaction->status->value,
+                'cdd_level' => $transaction->cdd_level->value,
+            ]);
+
+            $this->auditService->logTransaction('journal_entries_deferred', $transaction->id, [
+                'cdd_level' => $transaction->cdd_level->value,
+                'status' => $transaction->status->value,
+                'reason' => 'Enhanced CDD requires approval before bookkeeping',
+            ]);
+
+            return;
+        }
+
+        // Create entries immediately for Simplified/Standard CDD or approved Enhanced CDD
+        $this->createImmediateAccountingEntries($transaction);
+    }
+
+    /**
+     * Create deferred journal entries for Enhanced CDD transactions.
+     * Called when transaction is approved.
+     */
+    public function createDeferredAccountingEntries(int $transactionId): void
+    {
+        $transaction = Transaction::findOrFail($transactionId);
+
+        // Verify it's Enhanced CDD
+        if ($transaction->cdd_level !== CddLevel::Enhanced) {
+            throw new \InvalidArgumentException('Only Enhanced CDD transactions support deferred entries');
+        }
+
+        // Verify it's completed (approved)
+        if ($transaction->status !== TransactionStatus::Completed) {
+            throw new \InvalidArgumentException('Transaction must be completed to create journal entries');
+        }
+
+        // Verify entries weren't already created
+        if ($transaction->journal_entry_id !== null) {
+            Log::info('Journal entries already exist for transaction', [
+                'transaction_id' => $transactionId,
+                'journal_entry_id' => $transaction->journal_entry_id,
+            ]);
+
+            return;
+        }
+
+        // Create the entries
+        $this->createImmediateAccountingEntries($transaction);
+
+        // Update tracking fields
+        $transaction->journal_entries_created_at = now();
+        $transaction->save();
+
+        $this->auditService->logTransaction('deferred_journal_entries_created', $transaction->id, [
+            'transaction_id' => $transaction->id,
+            'journal_entry_id' => $transaction->journal_entry_id,
+            'deferred_until' => now(),
+            'approver_id' => $transaction->approved_by,
+        ]);
+    }
+
+    /**
+     * Create accounting journal entries immediately.
+     */
+    protected function createImmediateAccountingEntries(Transaction $transaction): void
     {
         $entries = [];
 
