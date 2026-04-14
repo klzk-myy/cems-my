@@ -22,6 +22,11 @@ use Illuminate\Support\Facades\Log;
  */
 class StrReportService
 {
+    public function __construct(
+        protected ComplianceService $complianceService,
+        protected AuditService $auditService,
+    ) {}
+
     /**
      * Generate a new STR number
      */
@@ -90,7 +95,7 @@ class StrReportService
             ]);
 
             // Calculate and store filing deadline
-            $complianceService = app(ComplianceService::class);
+            $complianceService = $this->complianceService;
             $deadlineInfo = $complianceService->calculateStrDeadline($suspicionDate);
             $strReport->filing_deadline = $deadlineInfo['deadline'];
             $strReport->save();
@@ -108,7 +113,7 @@ class StrReportService
             ]);
 
             // Audit log for STR generation
-            $auditService = app(AuditService::class);
+            $auditService = $this->auditService;
             $auditService->logStrAction('str_generated', $strReport->id, [
                 'new' => [
                     'str_no' => $strReport->str_no,
@@ -187,7 +192,7 @@ class StrReportService
                 ]);
 
                 // Audit log
-                $auditService = app(AuditService::class);
+                $auditService = $this->auditService;
                 $auditService->logStrAction('str_submitted', $report->id, [
                     'str_no' => $report->str_no,
                     'bnm_reference' => $result['reference'] ?? null,
@@ -314,7 +319,7 @@ class StrReportService
         ]);
 
         // Audit log
-        $auditService = app(AuditService::class);
+        $auditService = $this->auditService;
         $auditService->logStrAction('str_submission_failed', $report->id, [
             'str_no' => $report->str_no,
             'retry_count' => $newRetryCount,
@@ -458,7 +463,7 @@ class StrReportService
         ]);
 
         // Audit log
-        $auditService = app(AuditService::class);
+        $auditService = $this->auditService;
         $auditService->logStrAction('str_escalated', $report->id, [
             'str_no' => $report->str_no,
             'retry_count' => $report->retry_count,

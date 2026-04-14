@@ -35,12 +35,9 @@ class TransactionCancellationService
     public function __construct(
         protected MathService $mathService,
         protected AuditService $auditService,
-        protected ?CurrencyPositionService $positionService = null,
-        protected ?AccountingService $accountingService = null,
-    ) {
-        $this->positionService = $positionService ?? new CurrencyPositionService($mathService);
-        $this->accountingService = $accountingService ?? app(AccountingService::class);
-    }
+        protected AccountingService $accountingService,
+        protected CurrencyPositionService $positionService,
+    ) {}
 
     /**
      * Request cancellation of a transaction.

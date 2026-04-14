@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Mail;
 
 class AlertService
 {
+    public function __construct(
+        protected MonitorService $monitorService,
+    ) {}
+
     /**
      * Send an alert
      */
@@ -240,8 +244,7 @@ EOT;
      */
     public function sendDailySummary(): ?SystemAlert
     {
-        $monitorService = app(MonitorService::class);
-        $status = $monitorService->getStatusSummary();
+        $status = $this->monitorService->getStatusSummary();
 
         $counts = SystemAlert::getUnacknowledgedCounts();
         $yesterdayAlerts = SystemAlert::betweenDates(
