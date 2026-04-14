@@ -15,6 +15,7 @@ class EnhancedDiligenceRecord extends Model
         'flagged_transaction_id',
         'customer_id',
         'edd_reference',
+        'edd_template_id',
         'status',
         'risk_level',
         'source_of_funds',
@@ -59,6 +60,11 @@ class EnhancedDiligenceRecord extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Compliance\EddQuestionnaireTemplate::class, 'edd_template_id');
     }
 
     public function isComplete(): bool

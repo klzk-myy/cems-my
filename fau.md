@@ -1,386 +1,393 @@
-# CEMS-MY Comprehensive Fault Analysis - Third Iteration
+# CEMS-MY Fault Analysis Report
 
-**Analysis Date:** 2026-04-14
-**System:** Currency Exchange Management System for Malaysian Money Services Businesses
-**Scope:** Full codebase analysis including services, controllers, models, middleware, and database schema
-
----
-
-## Executive Summary
-
-This is the third comprehensive fault analysis of the CEMS-MY codebase. Previous iterations identified and resolved 47 faults across critical, high, medium, and low severity levels. This analysis examines the codebase for any remaining or newly introduced faults.
-
-**Overall Assessment:** The codebase demonstrates significant improvements from previous iterations. Most critical security vulnerabilities have been addressed, and the system now implements robust security controls including proper authentication, authorization, encryption, audit logging, and rate limiting.
-
-**Key Findings:**
-- **Total Faults Identified:** 3 (all medium priority)
-- **Critical Faults:** 0
-- **High Priority Faults:** 0
-- **Medium Priority Faults:** 3
-- **Low Priority Faults:** 0
+**Date:** 2026-04-14
+**System:** CEMS-MY Laravel Currency Exchange Management System
+**Analysis:** Comprehensive fault identification across logical, workflow, coding, security, and data integrity categories
 
 ---
 
-## Fault Analysis
+## Test Suite Status
 
-### Medium Priority Faults
+- **187 passed, 33 skipped** - Core functionality working but several integration tests pending setup
+- **0 failures** - No test suite failures at time of analysis
 
-#### FAULT-1: Potential SQL Injection in ReconciliationService Auto-Match Query
+---
 
-**Location:** `app/Services/ReconciliationService.php:165-168`
+## CRITICAL FAULTS
 
-**Severity:** Medium
+### 1. EDD Record Completion Check Bypass - Logical/Workflow
 
-**Description:**
-The `autoMatch` method in `ReconciliationService` uses direct comparison with `$isDebit` boolean to determine which column to query. While this is not a direct SQL injection vulnerability, the code structure could be improved for clarity and maintainability.
+**File:** `app/Services/EddService.php` (lines 89-97)
 
-**Current Code:**
 ```php
-$matchingEntry = JournalEntry::where('status', 'Posted')
-    ->whereHas('lines', function ($query) use ($accountCode, $amount, $isDebit) {
-        $query->where('account_code', $accountCode)
-            ->where($isDebit ? 'debit' : 'credit', $amount);
-    })
-    ->whereDate('entry_date', $record->statement_date)
+public function isRecordComplete(EnhancedDiligenceRecord $record): bool
+{
+    $required = [
+        $record->source_of_funds,
+        $record->purpose_of_transaction,
+    ];
+
+    return ! in_array(null, $required, true) && ! empty($record->source_of_funds);
+}
+```
+
+**Issue:** The method returns `true` if `source_of_funds` is non-null AND non-empty. However, it does NOT validate `purpose_of_transaction` is non-empty - only that it's not null. An empty string `""` would pass the null check but fail business validation.
+
+**Impact:** EDD records can be marked complete and submitted for review even when `purpose_of_transaction` is an empty string, allowing incomplete compliance records to progress through approval workflow.
+
+**Fix:**
+```php
+return ! empty($record->source_of_funds) && ! empty($record->purpose_of_transaction);
+```
+
+---
+
+### 2. TillBalance Query Defaults to 'MAIN' - Data Integrity
+
+**File:** `app/Services/TransactionService.php` (line 416)
+
+```php
+$tillBalance = TillBalance::where('till_id', $lockedTransaction->till_id ?? 'MAIN')
+```
+
+**Issue:** When `till_id` is null, the code defaults to `'MAIN'` string. This creates a silent fallback that could:
+- Create till balances for a non-existent 'MAIN' till
+- Mask missing till_id configuration issues
+- Cause transactions to be recorded against wrong till
+
+**Impact:** Transactions could be incorrectly associated with a default till rather than failing fast on missing configuration.
+
+**Fix:** Remove default; require valid till_id or throw exception.
+
+---
+
+### 3. Counter Handover Race Condition - Coding
+
+**File:** `app/Services/CounterService.php` (lines 401-424)
+
+```php
+$lockedBalance = TillBalance::where('id', $existingBalance->id)
+    ->lockForUpdate()
     ->first();
-```
 
-**Issue:**
-The ternary operator inside the closure is not a security issue per se, but it could be improved for better readability and to avoid potential confusion about column selection.
-
-**Recommendation:**
-Refactor to use explicit column selection for better clarity:
-```php
-$column = $isDebit ? 'debit' : 'credit;
-$matchingEntry = JournalEntry::where('status', 'Posted')
-    ->whereHas('lines', function ($query) use ($accountCode, $amount, $column) {
-        $query->where('account_code', $accountCode)
-            ->where($column, $amount);
-    })
-    ->whereDate('entry_date', $record->statement_date)
-    ->first();
-```
-
-**Impact:** Low - This is primarily a code quality issue that improves maintainability.
-
----
-
-#### FAULT-2: Missing Input Validation in StockTransferService
-
-**Location:** `app/Services/StockTransferService.php:22-48`
-
-**Severity:** Medium
-
-**Description:**
-The `createRequest` method in `StockTransferService` does not validate the input data before creating the stock transfer. While the database has constraints, the service should validate business rules before attempting to create records.
-
-**Current Code:**
-```php
-public function createRequest(array $data): StockTransfer
-{
-    return DB::transaction(function () use ($data) {
-        $transfer = StockTransfer::create([
-            'transfer_number' => StockTransfer::generateTransferNumber(),
-            'type' => $data['type'] ?? StockTransfer::TYPE_STANDARD,
-            'status' => StockTransfer::STATUS_REQUESTED,
-            'source_branch_name' => $data['source_branch_name'],
-            'destination_branch_name' => $data['destination_branch_name'],
-            'requested_by' => $this->requester->id,
-            'requested_at' => now(),
-            'notes' => $data['notes'] ?? null,
-            'total_value_myr' => $data['total_value_myr'] ?? '0.00',
-        ]);
-
-        foreach ($data['items'] ?? [] as $item) {
-            $transfer->items()->create([
-                'currency_code' => $item['currency_code'],
-                'quantity' => $item['quantity'],
-                'rate' => $item['rate'],
-                'value_myr' => $item['value_myr'],
-            ]);
-        }
-
-        return $transfer->load('items');
-    });
+if ($lockedBalance) {
+    $lockedBalance->closing_balance = $count['amount'];
+    // ... multiple field updates ...
+    $lockedBalance->save();
 }
 ```
 
-**Issues:**
-1. No validation that `source_branch_name` and `destination_branch_name` are not the same
-2. No validation that `items` array is not empty
-3. No validation that currency codes exist in the system
-4. No validation that quantities and rates are positive numbers
-5. No validation that `total_value_myr` matches the sum of item values
+**Issue:** The code updates the `lockedBalance` object but does NOT re-lock it with `lockForUpdate()` before saving. Between the `lockForUpdate()` call and the `save()` call, another concurrent process could modify the same row.
 
-**Recommendation:**
-Add comprehensive input validation:
+**Impact:** In high-volume counter scenarios, handover variance calculations could be corrupted by concurrent updates.
+
+---
+
+### 4. Handover Creates Duplicate TillBalance Records - Data Integrity
+
+**File:** `app/Services/CounterService.php` (lines 417-424)
+
 ```php
-public function createRequest(array $data): StockTransfer
+// Create a new balance record for the new session user
+TillBalance::create([
+    'till_id' => (string) $newSession->counter_id,
+    'currency_code' => $currencyCode,
+    'opening_balance' => $count['amount'],
+    'date' => $today,
+    'opened_by' => $toUser->id,
+]);
+```
+
+**Issue:** After updating `closing_balance` and `variance` on the existing record, the code creates a NEW TillBalance record. However, there may already be an existing open TillBalance for this till/date/currency, potentially creating duplicate records.
+
+**Impact:** Could result in multiple open TillBalance records for same till/date/currency combination, breaking balance calculations.
+
+---
+
+### 5. Sanctions Screening SQL LIKE Wildcards Not Escaped - Security
+
+**File:** `app/Services/ComplianceService.php` (lines 121-132)
+
+```php
+public function checkSanctionMatch(Customer $customer): bool
 {
-    // Validate business rules
-    if (empty($data['source_branch_name']) || empty($data['destination_branch_name'])) {
-        throw new \InvalidArgumentException('Source and destination branches are required');
-    }
+    $customerName = $customer->full_name;
 
-    if ($data['source_branch_name'] === $data['destination_branch_name']) {
-        throw new \InvalidArgumentException('Source and destination branches cannot be the same');
-    }
+    $matches = DB::table('sanction_entries')
+        ->where('entity_name', 'ilike', '%'.$customerName.'%')
+        ->orWhere('aliases', 'ilike', '%'.$customerName.'%')
+        ->count();
 
-    if (empty($data['items']) || !is_array($data['items'])) {
-        throw new \InvalidArgumentException('At least one item is required');
-    }
-
-    // Validate each item
-    foreach ($data['items'] as $item) {
-        if (empty($item['currency_code'])) {
-            throw new \InvalidArgumentException('Currency code is required for each item');
-        }
-
-        if (!isset($item['quantity']) || $item['quantity'] <= 0) {
-            throw new \InvalidArgumentException('Quantity must be a positive number');
-        }
-
-        if (!isset($item['rate']) || $item['rate'] <= 0) {
-            throw new \InvalidArgumentException('Rate must be a positive number');
-        }
-
-        // Verify currency exists
-        if (!\App\Models\Currency::where('code', $item['currency_code'])->exists()) {
-            throw new \InvalidArgumentException("Currency {$item['currency_code']} does not exist");
-        }
-    }
-
-    // Calculate and validate total value
-    $calculatedTotal = '0';
-    foreach ($data['items'] as $item) {
-        $itemValue = bcmul($item['quantity'], $item['rate'], 4);
-        $calculatedTotal = bcadd($calculatedTotal, $itemValue, 4);
-    }
-
-    if (isset($data['total_value_myr']) && bccomp($data['total_value_myr'], $calculatedTotal, 4) !== 0) {
-        throw new \InvalidArgumentException('Total value does not match sum of item values');
-    }
-
-    return DB::transaction(function () use ($data, $calculatedTotal) {
-        $transfer = StockTransfer::create([
-            'transfer_number' => StockTransfer::generateTransferNumber(),
-            'type' => $data['type'] ?? StockTransfer::TYPE_STANDARD,
-            'status' => StockTransfer::STATUS_REQUESTED,
-            'source_branch_name' => $data['source_branch_name'],
-            'destination_branch_name' => $data['destination_branch_name'],
-            'requested_by' => $this->requester->id,
-            'requested_at' => now(),
-            'notes' => $data['notes'] ?? null,
-            'total_value_myr' => $calculatedTotal,
-        ]);
-
-        foreach ($data['items'] as $item) {
-            $transfer->items()->create([
-                'currency_code' => $item['currency_code'],
-                'quantity' => $item['quantity'],
-                'rate' => $item['rate'],
-                'value_myr' => bcmul($item['quantity'], $item['rate'], 4),
-            ]);
-        }
-
-        return $transfer->load('items');
-    });
+    return $matches > 0;
 }
 ```
 
-**Impact:** Medium - Missing validation could lead to invalid data being stored in the database, potentially causing business logic errors or data integrity issues.
+**Issue:** The `$customerName` is directly interpolated into the SQL query without escaping LIKE wildcards (`%`, `_`). If `$customerName` contains these characters, they cause unexpected matching behavior.
+
+**Impact:** False positives/negatives in sanctions screening - critical compliance failure.
+
+**Fix:**
+```php
+$escapedName = str_replace(['%', '_'], ['\\%', '\\_'], $customerName);
+```
 
 ---
 
-#### FAULT-3: Incomplete Error Handling in StrReportService Certificate Validation
+## HIGH SEVERITY
 
-**Location:** `app/Services/StrReportService.php:633-650`
+### 6. Till Balance Race Condition on Close - Coding
 
-**Severity:** Medium
+**File:** `app/Services/CounterService.php` (lines 116-120)
 
-**Description:**
-The `validateCertificateConfiguration` method checks for certificate file existence but does not validate that the files are readable and contain valid certificate data. This could lead to runtime errors when attempting to use invalid certificates.
-
-**Current Code:**
 ```php
-protected function validateCertificateConfiguration(): array
+$tillBalances = TillBalance::where('till_id', (string) $session->counter_id)
+    ->where('date', $session->session_date)
+    ->whereNull('closed_at')
+    ->get()
+    ->keyBy('currency_code');
+```
+
+**Issue:** The query fetches all open till balances and keys them by currency. But if another process closes one of these balances between the `get()` and subsequent updates, the update could fail silently or overwrite closed data.
+
+**Impact:** Variance tracking could be lost if concurrent close occurs.
+
+---
+
+### 7. Refund Copies Original approved_by/approved_at - Data Integrity
+
+**File:** `app/Services/TransactionCancellationService.php` (lines 450-468)
+
+```php
+return Transaction::create([
+    // ... other fields ...
+    'approved_by' => $original->approved_by,    // Copies original approver
+    'approved_at' => $original->approved_at,   // Copies original approval time
+]);
+```
+
+**Issue:** The refund transaction copies `approved_by` and `approved_at` from the original transaction. But the refund should be treated as a new transaction with its own approval trail.
+
+**Impact:** Refund transactions appear to have been "approved" at the original transaction's time, even though no new approval occurred.
+
+---
+
+### 8. JournalEntry Reversal Bypasses Approval Workflow - Workflow
+
+**File:** `app/Services/JournalEntryWorkflowService.php` (lines 287-306)
+
+```php
+$reversalEntry = JournalEntry::create([
+    // ...
+    'status' => 'Posted',  // Direct Posted status!
+    'created_by' => $userId,
+    'posted_by' => $userId,
+    'posted_at' => now(),
+]);
+```
+
+**Issue:** The reversal entry is created directly in `Posted` status without going through the Draft -> Pending -> Posted workflow. This bypasses the segregation of duties where the creator cannot be the approver.
+
+**Impact:** A user can reverse their own journal entries without independent approval, violating internal controls.
+
+---
+
+### 9. Bulk Operations N+1 Query - Coding
+
+**File:** `app/Services/AlertTriageService.php` (lines 280-304)
+
+```php
+foreach ($alertIds as $alertId) {
+    try {
+        $alert = Alert::find($alertId);  // N+1 query problem
+```
+
+**Issue:** For bulk operations with large arrays, using `find()` in a loop creates N database queries. Should use `whereIn()` for batch retrieval.
+
+**Impact:** Performance degradation for large bulk operations (e.g., resolving 1000+ alerts).
+
+---
+
+### 10. countWorkingDays Off-by-One Error - Coding
+
+**File:** `app/Services/ComplianceService.php` (lines 323-336)
+
+```php
+protected function countWorkingDays(Carbon $from, Carbon $to): int
 {
-    $config = config('services.goaml', []);
-    $missing = [];
+    $days = 0;
+    $current = $from->copy();
 
-    // Required for production
-    $required = ['cert_path', 'key_path', 'ca_path'];
-
-    foreach ($required as $key) {
-        if (empty($config[$key])) {
-            $missing[] = $key;
-        } elseif (! file_exists($config[$key])) {
-            $missing[] = "{$key} (file not found: {$config[$key]})";
+    while ($current->lt($to)) {  // <-- Uses less-than
+        if (! $current->isWeekend()) {
+            $days++;
         }
+        $current->addDay();
     }
 
-    return $missing;
+    return $days;
 }
 ```
 
-**Issues:**
-1. No validation that files are readable
-2. No validation that files contain valid certificate/key data
-3. No validation that certificate and key match
-4. No validation that CA certificate is valid
+**Issue:** The `while ($current->lt($to))` means if `from` = Monday and `to` = Tuesday, only Monday is counted. The deadline calculation may be off by 1.
 
-**Recommendation:**
-Enhance certificate validation:
+**Impact:** For STR deadline tracking, `days_remaining` calculation may be off by 1, potentially showing drafts as overdue when they are not.
+
+---
+
+### 11. STR Transaction Query Missing Status Filter - Logical
+
+**File:** `app/Services/StrAutomationService.php` (line 177)
+
 ```php
-protected function validateCertificateConfiguration(): array
+protected function getTransactions(array $ids): Collection
 {
-    $config = config('services.goaml', []);
-    $missing = [];
-
-    // Required for production
-    $required = ['cert_path', 'key_path', 'ca_path'];
-
-    foreach ($required as $key) {
-        if (empty($config[$key])) {
-            $missing[] = $key;
-            continue;
-        }
-
-        $path = $config[$key];
-
-        if (! file_exists($path)) {
-            $missing[] = "{$key} (file not found: {$path})";
-            continue;
-        }
-
-        if (! is_readable($path)) {
-            $missing[] = "{$key} (file not readable: {$path})";
-            continue;
-        }
-
-        // Validate certificate/key content
-        if ($key === 'cert_path') {
-            $content = file_get_contents($path);
-            if (strpos($content, '-----BEGIN CERTIFICATE-----') === false) {
-                $missing[] = "{$key} (invalid certificate format: {$path})";
-            }
-        } elseif ($key === 'key_path') {
-            $content = file_get_contents($path);
-            if (strpos($content, '-----BEGIN') === false) {
-                $missing[] = "{$key} (invalid key format: {$path})";
-            }
-        } elseif ($key === 'ca_path') {
-            $content = file_get_contents($path);
-            if (strpos($content, '-----BEGIN CERTIFICATE-----') === false) {
-                $missing[] = "{$key} (invalid CA certificate format: {$path})";
-            }
-        }
-    }
-
-    // Validate certificate and key match if both are present
-    if (! in_array('cert_path', $missing) && ! in_array('key_path', $missing)) {
-        try {
-            $certPath = $config['cert_path'];
-            $keyPath = $config['key_path'];
-
-            // Extract public key from certificate
-            $certContent = file_get_contents($certPath);
-            $cert = openssl_x509_read($certContent);
-            if (!$cert) {
-                $missing[] = 'cert_path (unable to read certificate)';
-            } else {
-                $certPubKey = openssl_pkey_get_public($cert);
-                $keyContent = file_get_contents($keyPath);
-                $key = openssl_pkey_get_private($keyContent, $config['key_password'] ?? '');
-
-                if (!$key) {
-                    $missing[] = 'key_path (unable to read private key)';
-                } else {
-                    // Check if key matches certificate
-                    $keyDetails = openssl_pkey_get_details($key);
-                    $certDetails = openssl_pkey_get_details($certPubKey);
-
-                    if ($keyDetails['key'] !== $certDetails['key']) {
-                        $missing[] = 'key_path (private key does not match certificate)';
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            $missing[] = 'certificate validation failed: '.$e->getMessage();
-        }
-    }
-
-    return $missing;
+    return Transaction::whereIn('id', $ids)->get();  // No status filter
 }
 ```
 
-**Impact:** Medium - Invalid certificates could cause STR submission failures at runtime, potentially missing regulatory filing deadlines.
+**Issue:** Retrieves transactions regardless of status (Cancelled, Reversed, etc.). For STR reporting, only active/completed transactions should be included.
+
+**Impact:** STR reports could include cancelled transactions, distorting the suspicious activity narrative.
 
 ---
 
-## Positive Findings
+### 12. Position Reversal Without Balance Check - Logical
 
-The following areas have been properly implemented and show no faults:
+**File:** `app/Services/TransactionCancellationService.php` (lines 481-522)
 
-### Security Controls
-1. **Authentication:** Proper password hashing with Laravel's built-in authentication
-2. **Authorization:** Role-based access control using enums and middleware
-3. **MFA:** Comprehensive MFA implementation with TOTP, recovery codes, and trusted devices
-4. **Encryption:** PBKDF2 key derivation with random IV for AES-256-CBC encryption
-5. **Audit Logging:** Tamper-evident audit trail with SHA-256 hash chaining
-6. **Rate Limiting:** Comprehensive rate limiting with IP blocking and sliding window
-7. **CSRF Protection:** Laravel's built-in CSRF protection is properly configured
-8. **SQL Injection Prevention:** Proper use of parameterized queries and Eloquent ORM
-9. **XSS Protection:** Blade's automatic escaping on output
+```php
+public function reversePositions(Transaction $transaction): void
+{
+    $positionService = $this->positionService;
+    $position = $positionService->getPosition(...);
+    // No check if position has sufficient balance for reversal
+    $positionService->updatePosition(...);
+}
+```
 
-### Business Logic
-1. **Transaction Management:** Proper state management with optimistic locking
-2. **Compliance:** Comprehensive CDD level determination and AML monitoring
-3. **Accounting:** Double-entry accounting with proper journal entry management
-4. **Counter Management:** Proper session lifecycle with variance tracking
-5. **Stock Transfers:** Multi-stage approval workflow with proper validation
-6. **STR Reporting:** Comprehensive STR workflow with retry logic and escalation
+**Issue:** For Sell transactions being reversed (which would be a Buy), there's no check that the position has sufficient foreign currency balance. If the original Sell consumed the position, the reversal (Buy) might fail or create negative position.
 
-### Code Quality
-1. **Service Layer:** Proper separation of concerns with service classes
-2. **Error Handling:** Comprehensive error handling with proper logging
-3. **Validation:** Input validation using Laravel's validation rules
-4. **Testing:** Comprehensive test suite with automated tests
-5. **Documentation:** Well-documented code with clear comments
+**Impact:** Position could go negative, violating invariant that position balance >= 0.
 
 ---
 
-## Recommendations
+## MEDIUM SEVERITY
 
-### Immediate Actions (Medium Priority)
+### 13. EDD Customer ID Can Be Null - Data Integrity
 
-1. **Fix FAULT-1:** Refactor ReconciliationService auto-match query for better clarity
-2. **Fix FAULT-2:** Add comprehensive input validation to StockTransferService
-3. **Fix FAULT-3:** Enhance certificate validation in StrReportService
+**File:** `app/Services/EddService.php` (lines 25-30)
 
-### Future Improvements
+```php
+$recordData = [
+    'customer_id' => $flag->customer_id ?? $flag->getAttribute('customer_id'),
+```
 
-1. **Add Integration Tests:** Consider adding integration tests for complex workflows
-2. **Performance Monitoring:** Implement application performance monitoring (APM)
-3. **Security Headers:** Ensure all security headers are properly configured
-4. **Dependency Updates:** Regularly update dependencies for security patches
-5. **Code Review:** Implement mandatory code review process for all changes
+**Issue:** Uses null coalescing but `flag->customer_id` might be null from the flag record, and `getAttribute()` fallback may also be null. No validation that customer_id is set before creating EDD record.
 
----
-
-## Conclusion
-
-The CEMS-MY codebase has undergone significant improvements from previous iterations. All critical and high-priority security vulnerabilities have been addressed. The three medium-priority faults identified in this analysis are primarily related to input validation and error handling improvements rather than fundamental security flaws.
-
-The system demonstrates:
-- Strong security controls with proper authentication, authorization, and encryption
-- Comprehensive compliance features meeting BNM requirements
-- Robust business logic with proper state management
-- Good code quality with proper separation of concerns
-
-Addressing the three medium-priority faults will further improve the system's reliability and maintainability. Overall, the codebase is in good condition and ready for production deployment with the recommended fixes applied.
+**Impact:** EDD records without customer linkage cannot be properly tracked in compliance workflow.
 
 ---
 
-**Analysis Completed:** 2026-04-14
-**Next Review Recommended:** After implementing the recommended fixes
+### 14. Hardcoded 'Posted' Status String - Coding
+
+**File:** `app/Services/JournalEntryWorkflowService.php` (line 292)
+
+```php
+'status' => 'Posted',  // Hardcoded string
+```
+
+**Issue:** Uses hardcoded string 'Posted' instead of referencing a constant or enum. If status values change, this could break.
+
+**Impact:** Maintenance risk; status string duplication across codebase.
+
+---
+
+### 15. Supervisor/Manager Role Conflation - Coding
+
+**File:** `app/Services/ApprovalWorkflowService.php` (lines 292-300)
+
+```php
+protected function canApprove(User $user, string $requiredRole): bool
+{
+    return match ($requiredRole) {
+        'supervisor' => $user->role->isManager(), // Supervisors are managers in this system
+        'manager' => $user->role->isManager(),
+        'admin' => $user->role->isAdmin(),
+        default => false,
+    };
+}
+```
+
+**Issue:** The comment says "Supervisors are managers in this system" but there's no `isSupervisor()` method on the role. The system conflates supervisor and manager roles.
+
+**Impact:** Supervisor-level approvals may actually require manager-level authorization, reducing the tiered approval structure.
+
+---
+
+### 16. Transaction Cancellation approved_by Not Properly Set - Logical
+
+**File:** `app/Services/TransactionCancellationService.php` (lines 172-177)
+
+```php
+$result = $stateMachine->transitionTo(TransactionStatus::Cancelled, [
+    'reason' => $reason ?? 'Cancellation approved',
+    'user_id' => $approver->id,
+    'approved_by' => $approver->id,  // <-- This is stored in transition context
+]);
+```
+
+**Issue:** The `approved_by` is passed to `transitionTo()` but the model's `approved_by` field may not be updated depending on how `transitionTo` handles the context array.
+
+**Impact:** Audit trail gap - cannot trace who approved cancellation from transaction record alone.
+
+---
+
+## SUMMARY TABLE
+
+| # | File | Line | Category | Severity | Description |
+|---|------|------|----------|----------|-------------|
+| 1 | EddService.php | 89-97 | Logical | Critical | isRecordComplete() doesn't validate non-empty purpose |
+| 2 | TransactionService.php | 416 | Data | Critical | Defaults to 'MAIN' till masking null till_id |
+| 3 | CounterService.php | 401-424 | Coding | High | Race condition on handover balance update |
+| 4 | CounterService.php | 417-424 | Data | High | Creates duplicate TillBalance on handover |
+| 5 | ComplianceService.php | 121-132 | Security | High | SQL LIKE wildcards not escaped in sanctions check |
+| 6 | CounterService.php | 116-120 | Coding | Medium | Till balance query not locked during iteration |
+| 7 | TransactionCancellationService.php | 450-468 | Data | Medium | Refund copies original approved_by/approved_at |
+| 8 | JournalEntryWorkflowService.php | 287-306 | Workflow | Medium | Reversal bypasses approval workflow |
+| 9 | AlertTriageService.php | 280-304 | Coding | Medium | N+1 query in bulk resolve |
+| 10 | ComplianceService.php | 323-336 | Coding | Medium | countWorkingDays off-by-one error |
+| 11 | StrAutomationService.php | 177 | Logical | Medium | Transaction query missing status filter |
+| 12 | TransactionCancellationService.php | 481-522 | Logical | Medium | Position reversal without balance check |
+| 13 | EddService.php | 25-30 | Data | Low | EDD customer_id can be null |
+| 14 | JournalEntryWorkflowService.php | 292 | Coding | Low | Hardcoded 'Posted' status string |
+| 15 | ApprovalWorkflowService.php | 292-300 | Coding | Low | Supervisor/Manager conflation |
+| 16 | TransactionCancellationService.php | 172-177 | Logical | Low | approved_by not properly set on cancellation |
+
+---
+
+## RECOMMENDED ACTIONS
+
+### Immediate (Critical):
+1. Fix `isRecordComplete()` to validate non-empty purpose_of_transaction
+2. Escape LIKE wildcards in sanctions screening query
+3. Remove 'MAIN' default; fail fast on null till_id
+
+### High Priority:
+4. Add proper locking around TillBalance updates in CounterService
+5. Prevent duplicate TillBalance creation during handover
+6. Add position balance validation before reversal
+
+### Medium Priority:
+7. Implement chunk-based bulk operations in AlertTriageService
+8. Fix working day calculation off-by-one
+9. Add status filter to transaction queries for STR generation
+10. Use constants/enums for status values instead of strings
+
+### Low Priority:
+11. Add customer_id validation in EddService
+12. Implement proper supervisor role separate from manager
+13. Ensure cancellation properly sets approved_by on transaction model
+
+---
+
+*Report generated: 2026-04-14*
