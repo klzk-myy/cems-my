@@ -206,4 +206,21 @@ class FaultAnalysisTest extends TestCase
         $this->assertSame('flag', $result['action']);
         $this->assertGreaterThan(0, $result['risk_score']);
     }
+
+    /**
+     * MathService::compare must correctly handle string amounts near thresholds.
+     */
+    public function test_math_service_comparison_precision(): void
+    {
+        $math = new MathService();
+
+        // Test comparison at threshold boundaries
+        $this->assertTrue($math->compare('50000.00', '50000.00') >= 0);
+        $this->assertTrue($math->compare('50000.01', '50000.00') > 0);
+        $this->assertTrue($math->compare('49999.99', '50000.00') < 0);
+
+        // Test precision with small decimals
+        $this->assertTrue($math->compare('0.3001', '0.3001') === 0);
+        $this->assertTrue($math->compare('0.30009999', '0.3001') < 0);
+    }
 }

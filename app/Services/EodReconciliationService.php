@@ -28,7 +28,7 @@ class EodReconciliationService
     /**
      * Large transaction threshold (RM 10,000) for CTOS reporting.
      */
-    private const LARGE_TRANSACTION_THRESHOLD = 10000.00;
+    private const LARGE_TRANSACTION_THRESHOLD = '10000.00';
 
     /**
      * Generate daily reconciliation summary for all counters.
@@ -90,7 +90,7 @@ class EodReconciliationService
             ->get();
 
         $largeTransactions = $transactions->filter(function ($tx) {
-            return (float) $tx->amount_local >= self::LARGE_TRANSACTION_THRESHOLD;
+            return BcmathHelper::gte((string) $tx->amount_local, self::LARGE_TRANSACTION_THRESHOLD);
         });
 
         $flaggedTransactions = FlaggedTransaction::with(['transaction', 'transaction.customer'])
@@ -209,7 +209,7 @@ class EodReconciliationService
 
         // Large transactions (> RM 10k)
         $largeTransactions = $transactions->filter(function ($tx) {
-            return (float) $tx->amount_local >= self::LARGE_TRANSACTION_THRESHOLD;
+            return BcmathHelper::gte((string) $tx->amount_local, self::LARGE_TRANSACTION_THRESHOLD);
         });
 
         // Flagged transactions

@@ -17,6 +17,7 @@ class CustomerRiskScoringService
         protected SanctionScreeningService $sanctionService,
         protected ComplianceService $complianceService,
         protected AuditService $auditService,
+        protected MathService $mathService,
     ) {}
 
     /**
@@ -215,11 +216,12 @@ class CustomerRiskScoringService
             ->map(fn ($day) => $day->sum('amount_local'));
 
         foreach ($dailyAmounts as $date => $amount) {
-            if ((float) $amount >= 50000) {
+            $amountStr = (string) $amount;
+            if ($this->mathService->compare($amountStr, '50000') >= 0) {
                 $score += 30;
-            } elseif ((float) $amount >= 30000) {
+            } elseif ($this->mathService->compare($amountStr, '30000') >= 0) {
                 $score += 20;
-            } elseif ((float) $amount >= 10000) {
+            } elseif ($this->mathService->compare($amountStr, '10000') >= 0) {
                 $score += 10;
             }
         }
@@ -231,7 +233,9 @@ class CustomerRiskScoringService
     {
         $score = 0;
 
-        $subThreshold = $transactions->filter(fn ($t) => (float) $t->amount_local < 50000);
+        $subThreshold = $transactions->filter(
+            fn ($t) => $this->mathService->compare((string) $t->amount_local, '50000') < 0
+        );
         $hourlyGroups = $subThreshold->groupBy(fn ($t) => $t->created_at->format('Y-m-d H'));
 
         foreach ($hourlyGroups as $hour => $txns) {
@@ -274,22 +278,24 @@ class CustomerRiskScoringService
     {
         $score = 0;
 
-        $maxTransaction = $transactions->max('amount_local') ?? 0;
+        $maxTransaction = (string) ($transactions->max('amount_local') ?? '0');
 
-        if ((float) $maxTransaction >= 50000) {
+        if ($this->mathService->compare($maxTransaction, '50000') >= 0) {
             $score += 30;
-        } elseif ((float) $maxTransaction >= 30000) {
+        } elseif ($this->mathService->compare($maxTransaction, '30000') >= 0) {
             $score += 20;
-        } elseif ((float) $maxTransaction >= 10000) {
+        } elseif ($this->mathService->compare($maxTransaction, '10000') >= 0) {
             $score += 10;
         }
 
-        $monthlyVolume = $transactions->where('created_at', '>=', now()->subDays(30))
+        $monthlyVolume = (string) $transactions->where('created_at', '>=', now()->subDays(30))
             ->sum('amount_local');
 
         if ($customer->annual_volume_estimate) {
-            $expectedMonthly = (float) $customer->annual_volume_estimate / 12;
-            if ((float) $monthlyVolume > 2 * $expectedMonthly) {
+            $annualEstimate = (string) $customer->annual_volume_estimate;
+            $expectedMonthly = $this->mathService->divide($annualEstimate, '12', 2);
+            $threshold = $this->mathService->multiply($expectedMonthly, '2', 2);
+            if ($this->mathService->compare($monthlyVolume, $threshold) > 0) {
                 $score += 10;
             }
         }
