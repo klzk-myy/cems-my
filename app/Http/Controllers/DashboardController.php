@@ -6,16 +6,24 @@ use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
 use App\Services\AuditService;
 use App\Services\CurrencyPositionService;
+use App\Services\MathService;
 use App\Services\RateApiService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     protected AuditService $auditService;
+    protected CurrencyPositionService $currencyPositionService;
+    protected RateApiService $rateApiService;
 
-    public function __construct(AuditService $auditService)
-    {
+    public function __construct(
+        AuditService $auditService,
+        CurrencyPositionService $currencyPositionService,
+        RateApiService $rateApiService
+    ) {
         $this->auditService = $auditService;
+        $this->currencyPositionService = $currencyPositionService;
+        $this->rateApiService = $rateApiService;
     }
 
     public function index()
@@ -172,9 +180,8 @@ class DashboardController extends Controller
             abort(403, 'Unauthorized. Manager access required.');
         }
 
-        $service = new CurrencyPositionService(new \App\Services\MathService);
-        $positions = $service->getAllPositions();
-        $totalPnl = $service->getTotalPnl();
+        $positions = $this->currencyPositionService->getAllPositions();
+        $totalPnl = $this->currencyPositionService->getTotalPnl();
 
         return view('accounting', compact('positions', 'totalPnl'));
     }
@@ -199,8 +206,7 @@ class DashboardController extends Controller
      */
     public function rateHistory(string $currencyCode)
     {
-        $service = new RateApiService;
-        $trend = $service->getRateTrend($currencyCode, 30);
+        $trend = $this->rateApiService->getRateTrend($currencyCode, 30);
 
         return response()->json([
             'currency' => $trend['currency'],
