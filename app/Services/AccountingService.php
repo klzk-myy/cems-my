@@ -7,7 +7,6 @@ use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
-use App\Models\SystemLog;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -145,7 +144,7 @@ class AccountingService
         $submittedBy = $submittedBy ?? auth()->id();
 
         // Perform the status update inside transaction, then refresh AFTER commit
-        $entry = DB::transaction(function () use ($entry, $submittedBy) {
+        $entry = DB::transaction(function () use ($entry) {
             if (! $entry->isDraft()) {
                 throw new \InvalidArgumentException('Only draft entries can be submitted for approval');
             }
@@ -253,7 +252,7 @@ class AccountingService
     ): JournalEntry {
         $rejectedBy = $rejectedBy ?? auth()->id();
 
-        return DB::transaction(function () use ($entry, $rejectedBy, $rejectionNotes) {
+        return DB::transaction(function () use ($entry, $rejectionNotes) {
             // Re-fetch to ensure we see the latest committed state
             $entry = JournalEntry::find($entry->id);
 

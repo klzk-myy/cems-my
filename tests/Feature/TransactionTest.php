@@ -7,7 +7,6 @@ use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
-use App\Models\Customer;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,7 +19,7 @@ class TransactionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Disable CSRF for tests
         $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
 
@@ -65,7 +64,7 @@ class TransactionTest extends TestCase
             'customer_id' => $customer->id,
             'purpose' => 'Travel',
             'source_of_funds' => 'Savings',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'idempotency_key' => uniqid('test_', true),
         ]);
 
@@ -83,11 +82,11 @@ class TransactionTest extends TestCase
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
-        
+
         // Setup initial position
         CurrencyPosition::create([
             'currency_code' => 'USD',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'balance' => '500.00',
             'avg_cost_rate' => '4.40',
         ]);
@@ -100,7 +99,7 @@ class TransactionTest extends TestCase
             'customer_id' => $customer->id,
             'purpose' => 'Travel',
             'source_of_funds' => 'Savings',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'idempotency_key' => uniqid('test_', true),
         ]);
 
@@ -108,7 +107,7 @@ class TransactionTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('currency_positions', [
             'currency_code' => 'USD',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'balance' => '400.00',
         ]);
     }
@@ -118,11 +117,11 @@ class TransactionTest extends TestCase
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
-        
+
         // Setup initial position
         CurrencyPosition::create([
             'currency_code' => 'USD',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'balance' => '500.00',
             'avg_cost_rate' => '4.40',
         ]);
@@ -135,7 +134,7 @@ class TransactionTest extends TestCase
             'customer_id' => $customer->id,
             'purpose' => 'Investment',
             'source_of_funds' => 'Salary',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'idempotency_key' => uniqid('test_', true),
         ]);
 
@@ -143,7 +142,7 @@ class TransactionTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('currency_positions', [
             'currency_code' => 'USD',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'balance' => '600.00',
         ]);
     }
@@ -153,11 +152,11 @@ class TransactionTest extends TestCase
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
-        
+
         // Setup low initial position
         CurrencyPosition::create([
             'currency_code' => 'USD',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'balance' => '50.00',
             'avg_cost_rate' => '4.40',
         ]);
@@ -170,7 +169,7 @@ class TransactionTest extends TestCase
             'customer_id' => $customer->id,
             'purpose' => 'Travel',
             'source_of_funds' => 'Savings',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'idempotency_key' => uniqid('test_', true),
         ]);
 
@@ -195,7 +194,7 @@ class TransactionTest extends TestCase
             'customer_id' => $customer->id,
             'purpose' => 'Travel',
             'source_of_funds' => 'Savings',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'idempotency_key' => uniqid('test_', true),
         ]);
 
@@ -237,7 +236,7 @@ class TransactionTest extends TestCase
             'customer_id' => $customer->id,
             'purpose' => 'Business',
             'source_of_funds' => 'Revenue',
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'idempotency_key' => uniqid('test_', true),
         ]);
 
@@ -278,7 +277,7 @@ class TransactionTest extends TestCase
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
             'branch_id' => $counter->branch_id,
-            'till_id' => (string)$counter->id,
+            'till_id' => (string) $counter->id,
             'status' => TransactionStatus::Pending,
             'cdd_level' => 'Enhanced',
             'purpose' => 'Business',

@@ -71,14 +71,13 @@ abstract class TestCase extends BaseTestCase
         ], $attributes));
     }
 
-
     /**
      * Set up an open till for a user and currency.
      */
     protected function setupOpenTill(\App\Models\User $user, string $currencyCode = 'USD', string $openingBalance = '1000.00'): \App\Models\Counter
     {
         $counter = $this->createTestCounter();
-        
+
         \App\Models\CounterSession::create([
             'counter_id' => $counter->id,
             'user_id' => $user->id,

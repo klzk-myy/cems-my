@@ -50,7 +50,7 @@ class TransactionMonitoringService
 
             // Structuring detection - multiple small transactions
             if ($this->complianceService->checkStructuring($transaction->customer_id)) {
-                $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, "Potential structuring: 3+ transactions under RM ".number_format((float) $this->complianceService::STANDARD_CDD_THRESHOLD)." within 1 hour");
+                $flags[] = $this->createFlag($transaction, ComplianceFlagType::Structuring, 'Potential structuring: 3+ transactions under RM '.number_format((float) $this->complianceService::STANDARD_CDD_THRESHOLD).' within 1 hour');
                 $this->auditService->logAmlMonitorEvent('aml_structuring_detected', $transaction->id, [
                     'entity_type' => 'Transaction',
                     'new' => [

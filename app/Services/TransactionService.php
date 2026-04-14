@@ -35,6 +35,7 @@ class TransactionService
      * Validate currency code exists in system.
      *
      * @param  string  $currencyCode  Currency code to validate
+     *
      * @throws \InvalidArgumentException If currency code is invalid
      */
     protected function validateCurrencyCode(string $currencyCode): void
@@ -269,6 +270,7 @@ class TransactionService
      * Verify till is still open for operations.
      *
      * @param  TillBalance  $tillBalance  The till balance to verify
+     *
      * @throws \InvalidArgumentException If till is closed
      */
     protected function verifyTillIsOpen(TillBalance $tillBalance): void

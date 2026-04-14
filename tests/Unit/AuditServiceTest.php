@@ -6,6 +6,7 @@ use App\Models\SystemLog;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AuditServiceTest extends TestCase
@@ -81,7 +82,32 @@ class AuditServiceTest extends TestCase
 
     public function test_verify_chain_integrity_detects_tampering(): void
     {
-        $this->markTestSkipped('Requires implementation of verifyChainIntegrity method');
+        $user = User::factory()->create();
+
+        // Create chain of entries
+        $previousHash = null;
+        $entryIds = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $entry = SystemLog::create([
+                'user_id' => $user->id,
+                'action' => 'test_action_'.$i,
+                'description' => 'Test log '.$i,
+                'previous_hash' => $previousHash,
+            ]);
+            $entryIds[] = $entry->id;
+            $previousHash = $entry->entry_hash;
+        }
+
+        // Tamper with the middle entry's entry_hash directly in DB
+        // This simulates someone modifying the stored hash value
+        DB::table('system_logs')
+            ->where('id', $entryIds[1])
+            ->update(['entry_hash' => 'tampered_hash_value']);
+
+        $result = $this->auditService->verifyChainIntegrity();
+
+        $this->assertFalse($result['valid']);
+        $this->assertNotNull($result['broken_at']);
     }
 
     public function test_log_with_severity_creates_entry(): void
