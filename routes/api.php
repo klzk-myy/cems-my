@@ -15,6 +15,7 @@ use App\Http\Controllers\SanctionController;
 use App\Http\Controllers\StrController;
 use App\Http\Controllers\Transaction\TransactionApprovalController;
 use App\Http\Controllers\Transaction\TransactionCancellationController;
+use App\Http\Controllers\TransactionWizardController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -53,6 +54,20 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware(['role:manager', 'mfa.verified']);
     Route::post('/transactions/{transaction}/cancel', [TransactionCancellationController::class, 'cancel'])
         ->middleware(['role:manager', 'mfa.verified']);
+
+    // Transaction Wizard API
+    Route::prefix('wizard/transactions')->middleware('role:teller')->group(function () {
+        Route::post('/step1', [TransactionWizardController::class, 'step1'])
+            ->name('api.wizard.transactions.step1');
+        Route::post('/step2', [TransactionWizardController::class, 'step2'])
+            ->name('api.wizard.transactions.step2');
+        Route::post('/step3', [TransactionWizardController::class, 'step3'])
+            ->name('api.wizard.transactions.step3');
+        Route::get('/{sessionId}/status', [TransactionWizardController::class, 'status'])
+            ->name('api.wizard.transactions.status');
+        Route::delete('/{sessionId}', [TransactionWizardController::class, 'cancel'])
+            ->name('api.wizard.transactions.cancel');
+    });
 
     // Customers API (V1 JSON endpoints)
     Route::get('/customers', [V1CustomerController::class, 'index']);
