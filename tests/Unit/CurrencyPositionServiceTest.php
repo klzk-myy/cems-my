@@ -2,11 +2,6 @@
 
 namespace Tests\Unit;
 
-use App\Models\CurrencyPosition;
-use App\Models\Transaction;
-use App\Models\Customer;
-use App\Models\User;
-use App\Services\CurrencyPositionService;
 use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,7 +15,7 @@ class CurrencyPositionServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mathService = new MathService();
+        $this->mathService = new MathService;
     }
 
     public function test_creates_position_on_first_buy(): void

@@ -2,15 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
 use App\Models\Customer;
 use App\Models\Transaction;
-use App\Enums\TransactionType;
-use App\Enums\TransactionStatus;
-use App\Jobs\ProcessCustomerImport;
-use App\Jobs\ProcessTransactionImport;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Bulk Import Service
@@ -60,20 +57,23 @@ class BulkImportService
 
         if (! file_exists($filePath)) {
             $this->errors[] = "File not found: {$filePath}";
+
             return $this->getResult(false);
         }
 
         $handle = fopen($filePath, 'r');
         if ($handle === false) {
             $this->errors[] = "Cannot open file: {$filePath}";
+
             return $this->getResult(false);
         }
 
         // Read header row
         $headers = fgetcsv($handle);
         if ($headers === false) {
-            $this->errors[] = "Cannot read CSV header";
+            $this->errors[] = 'Cannot read CSV header';
             fclose($handle);
+
             return $this->getResult(false);
         }
 
@@ -91,6 +91,7 @@ class BulkImportService
             if ($validationError !== null) {
                 $this->errors[] = $validationError;
                 $this->stats['error_count']++;
+
                 continue;
             }
 
@@ -126,7 +127,7 @@ class BulkImportService
             try {
                 Customer::insert($customers);
             } catch (\Exception $e) {
-                $this->errors[] = "Bulk insert failed: " . $e->getMessage();
+                $this->errors[] = 'Bulk insert failed: '.$e->getMessage();
                 Log::error('Customer bulk import failed', [
                     'error' => $e->getMessage(),
                     'customers_count' => count($customers),
@@ -157,20 +158,23 @@ class BulkImportService
 
         if (! file_exists($filePath)) {
             $this->errors[] = "File not found: {$filePath}";
+
             return $this->getResult(false);
         }
 
         $handle = fopen($filePath, 'r');
         if ($handle === false) {
             $this->errors[] = "Cannot open file: {$filePath}";
+
             return $this->getResult(false);
         }
 
         // Read header row
         $headers = fgetcsv($handle);
         if ($headers === false) {
-            $this->errors[] = "Cannot read CSV header";
+            $this->errors[] = 'Cannot read CSV header';
             fclose($handle);
+
             return $this->getResult(false);
         }
 
@@ -189,6 +193,7 @@ class BulkImportService
                 $this->errors[] = $validationError;
                 $this->stats['error_count']++;
                 $this->stats['failed']++;
+
                 continue;
             }
 
@@ -307,6 +312,7 @@ class BulkImportService
         }
 
         $encryptedId = encrypt($data['id_number']);
+
         return Customer::where('id_number_encrypted', $encryptedId)->first();
     }
 
@@ -370,7 +376,7 @@ class BulkImportService
             Transaction::insert($transactions);
         } catch (\Exception $e) {
             foreach ($transactions as $txn) {
-                $this->errors[] = "Failed to insert transaction: " . $e->getMessage();
+                $this->errors[] = 'Failed to insert transaction: '.$e->getMessage();
                 $this->stats['failed']++;
                 $this->stats['created']--;
             }
@@ -394,7 +400,7 @@ class BulkImportService
      */
     public function storeImportStatus(string $jobId, array $status): void
     {
-        Cache::put(self::STATUS_CACHE_KEY . $jobId, $status, self::STATUS_CACHE_TTL);
+        Cache::put(self::STATUS_CACHE_KEY.$jobId, $status, self::STATUS_CACHE_TTL);
     }
 
     /**
@@ -402,7 +408,7 @@ class BulkImportService
      */
     public function getImportStatus(string $jobId): ?array
     {
-        return Cache::get(self::STATUS_CACHE_KEY . $jobId);
+        return Cache::get(self::STATUS_CACHE_KEY.$jobId);
     }
 
     /**

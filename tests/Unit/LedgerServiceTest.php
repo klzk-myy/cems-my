@@ -2,11 +2,6 @@
 
 namespace Tests\Unit;
 
-use App\Models\User;
-use App\Models\JournalEntry;
-use App\Models\JournalLine;
-use App\Models\ChartOfAccount;
-use App\Services\LedgerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

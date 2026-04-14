@@ -2,12 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
-use App\Models\Transaction;
-use App\Models\Customer;
-use App\Models\CurrencyPosition;
-use App\Enums\TransactionStatus;
-use App\Enums\TransactionType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

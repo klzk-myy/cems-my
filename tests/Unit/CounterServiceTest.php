@@ -2,14 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Models\User;
-use App\Models\Transaction;
-use App\Models\CurrencyPosition;
-use App\Services\CounterService;
-use App\Services\MathService;
-use App\Enums\TransactionType;
 use App\Enums\CounterSessionStatus;
 use App\Enums\UserRole;
+use App\Models\User;
+use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -22,7 +18,7 @@ class CounterServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mathService = new MathService();
+        $this->mathService = new MathService;
     }
 
     public function test_can_open_counter_session(): void

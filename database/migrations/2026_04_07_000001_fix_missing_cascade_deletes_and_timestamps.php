@@ -60,29 +60,29 @@ return new class extends Migration
         if (DB::connection()->getDriverName() === 'sqlite') {
             // Best-effort rollback: timestamps are still removed below.
         } else {
-        // Revert sanction_entries.list_id cascade
-        Schema::table('sanction_entries', function (Blueprint $table) {
-            $table->dropForeign(['list_id']);
-            $table->foreign('list_id')->references('id')->on('sanction_lists')->onDelete('restrict');
-        });
+            // Revert sanction_entries.list_id cascade
+            Schema::table('sanction_entries', function (Blueprint $table) {
+                $table->dropForeign(['list_id']);
+                $table->foreign('list_id')->references('id')->on('sanction_lists')->onDelete('restrict');
+            });
 
-        // Revert customer_risk_history cascade
-        Schema::table('customer_risk_history', function (Blueprint $table) {
-            $table->dropForeign(['customer_id']);
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('restrict');
-        });
+            // Revert customer_risk_history cascade
+            Schema::table('customer_risk_history', function (Blueprint $table) {
+                $table->dropForeign(['customer_id']);
+                $table->foreign('customer_id')->references('id')->on('customers')->onDelete('restrict');
+            });
 
-        // Revert customer_documents cascade
-        Schema::table('customer_documents', function (Blueprint $table) {
-            $table->dropForeign(['customer_id']);
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('restrict');
-        });
+            // Revert customer_documents cascade
+            Schema::table('customer_documents', function (Blueprint $table) {
+                $table->dropForeign(['customer_id']);
+                $table->foreign('customer_id')->references('id')->on('customers')->onDelete('restrict');
+            });
 
-        // Revert enhanced_diligence_records cascade
-        Schema::table('enhanced_diligence_records', function (Blueprint $table) {
-            $table->dropForeign(['customer_id']);
-            $table->foreign('customer_id')->references('id')->on('customers')->onDelete('restrict');
-        });
+            // Revert enhanced_diligence_records cascade
+            Schema::table('enhanced_diligence_records', function (Blueprint $table) {
+                $table->dropForeign(['customer_id']);
+                $table->foreign('customer_id')->references('id')->on('customers')->onDelete('restrict');
+            });
         }
 
         // Remove timestamps from sanction_entries

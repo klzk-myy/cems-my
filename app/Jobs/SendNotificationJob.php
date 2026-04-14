@@ -61,7 +61,6 @@ class SendNotificationJob implements ShouldQueue
      * Create a new job instance.
      *
      * @param  \Illuminate\Notifications\Notifiable|\Illuminate\Notifications\AnonymousNotifiable|iterable  $notifiable
-     * @param  \Illuminate\Notifications\Notification  $notification
      * @param  array|null  $channels  Optional channel override
      * @param  string|null  $queueName  Optional queue name override
      */
@@ -127,8 +126,10 @@ class SendNotificationJob implements ShouldQueue
         $notifiable = $this->notifiable;
 
         // Create a proxy that overrides via() to return our custom channels
-        $proxyNotification = new class($notification, $this->channels) extends Notification {
+        $proxyNotification = new class($notification, $this->channels) extends Notification
+        {
             private Notification $innerNotification;
+
             private array $customChannels;
 
             public function __construct(Notification $innerNotification, array $customChannels)

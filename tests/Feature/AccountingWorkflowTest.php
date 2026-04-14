@@ -17,9 +17,13 @@ class AccountingWorkflowTest extends TestCase
     use RefreshDatabase;
 
     protected User $manager;
+
     protected Branch $branch;
+
     protected FiscalYear $fiscalYear;
+
     protected ChartOfAccount $cashAccount;
+
     protected ChartOfAccount $revenueAccount;
 
     protected function setUp(): void
@@ -28,7 +32,7 @@ class AccountingWorkflowTest extends TestCase
 
         // Create test branch with unique code
         $this->branch = Branch::create([
-            'code' => 'HQ' . substr(uniqid(), -4),
+            'code' => 'HQ'.substr(uniqid(), -4),
             'name' => 'Test Head Office',
             'address' => '123 Test Street',
             'phone' => '+60312345678',
@@ -38,8 +42,8 @@ class AccountingWorkflowTest extends TestCase
 
         // Create manager user with unique username
         $this->manager = User::create([
-            'username' => 'manager' . substr(uniqid(), -6),
-            'email' => 'manager-' . uniqid() . '@test.com',
+            'username' => 'manager'.substr(uniqid(), -6),
+            'email' => 'manager-'.uniqid().'@test.com',
             'password_hash' => bcrypt('password'),
             'role' => UserRole::Manager,
             'branch_id' => $this->branch->id,

@@ -2,11 +2,6 @@
 
 namespace Tests\Unit;
 
-use App\Models\User;
-use App\Models\JournalEntry;
-use App\Models\JournalLine;
-use App\Models\ChartOfAccount;
-use App\Services\AccountingService;
 use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,7 +15,7 @@ class AccountingServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mathService = new MathService();
+        $this->mathService = new MathService;
     }
 
     public function test_journal_entry_must_be_balanced(): void
@@ -50,8 +45,8 @@ class AccountingServiceTest extends TestCase
             'credits' => ['1500.00'],
         ];
 
-        $debitSum = array_sum(array_map(fn($d) => (float)$d, $entry['debits']));
-        $creditSum = array_sum(array_map(fn($c) => (float)$c, $entry['credits']));
+        $debitSum = array_sum(array_map(fn ($d) => (float) $d, $entry['debits']));
+        $creditSum = array_sum(array_map(fn ($c) => (float) $c, $entry['credits']));
 
         $this->assertEquals($debitSum, $creditSum);
     }
@@ -63,8 +58,8 @@ class AccountingServiceTest extends TestCase
             'credits' => ['500.00'],
         ];
 
-        $debitSum = array_sum(array_map(fn($d) => (float)$d, $entry['debits']));
-        $creditSum = array_sum(array_map(fn($c) => (float)$c, $entry['credits']));
+        $debitSum = array_sum(array_map(fn ($d) => (float) $d, $entry['debits']));
+        $creditSum = array_sum(array_map(fn ($c) => (float) $c, $entry['credits']));
 
         $this->assertNotEquals($debitSum, $creditSum);
     }
@@ -170,8 +165,8 @@ class AccountingServiceTest extends TestCase
         $debits = ['1000.00', '2000.00', '500.00'];
         $credits = ['2500.00', '1000.00'];
 
-        $totalDebits = array_reduce($debits, fn($carry, $d) => bcadd($carry, $d, 2), '0.00');
-        $totalCredits = array_reduce($credits, fn($carry, $c) => bcadd($carry, $c, 2), '0.00');
+        $totalDebits = array_reduce($debits, fn ($carry, $d) => bcadd($carry, $d, 2), '0.00');
+        $totalCredits = array_reduce($credits, fn ($carry, $c) => bcadd($carry, $c, 2), '0.00');
 
         $this->assertEquals('3500.00', $totalDebits);
         $this->assertEquals('3500.00', $totalCredits);
@@ -182,8 +177,8 @@ class AccountingServiceTest extends TestCase
         $debits = ['0.00', '0.00'];
         $credits = ['0.00', '0.00'];
 
-        $totalDebits = array_sum(array_map(fn($d) => (float)$d, $debits));
-        $totalCredits = array_sum(array_map(fn($c) => (float)$c, $credits));
+        $totalDebits = array_sum(array_map(fn ($d) => (float) $d, $debits));
+        $totalCredits = array_sum(array_map(fn ($c) => (float) $c, $credits));
 
         $this->assertEquals(0, $totalDebits);
         $this->assertEquals(0, $totalCredits);

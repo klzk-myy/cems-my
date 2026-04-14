@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Services\EodReconciliationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Response;
 use PDF;
 
 /**
@@ -26,9 +24,7 @@ class EodReconciliationController extends Controller
     /**
      * Get daily reconciliation summary.
      *
-     * @param  Request  $request
      * @param  string  $date  Date in YYYY-MM-DD format
-     * @return JsonResponse
      */
     public function show(Request $request, string $date): JsonResponse
     {
@@ -79,10 +75,8 @@ class EodReconciliationController extends Controller
     /**
      * Get counter-specific reconciliation.
      *
-     * @param  Request  $request
      * @param  string  $date  Date in YYYY-MM-DD format
      * @param  int  $counterId  Counter ID
-     * @return JsonResponse
      */
     public function counterReconciliation(Request $request, string $date, int $counterId): JsonResponse
     {
@@ -119,7 +113,6 @@ class EodReconciliationController extends Controller
     /**
      * Generate and download PDF reconciliation report.
      *
-     * @param  Request  $request
      * @param  string  $date  Date in YYYY-MM-DD format
      * @return JsonResponse|\Symfony\Component\HttpFoundation\StreamedResponse
      */

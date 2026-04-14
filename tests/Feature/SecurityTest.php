@@ -18,7 +18,7 @@ class SecurityTest extends TestCase
         $user = User::factory()->create();
 
         // Classic injection attempt
-        $response = $this->actingAs($user)->get('/customers?search=' . urlencode("' OR '1'='1"));
+        $response = $this->actingAs($user)->get('/customers?search='.urlencode("' OR '1'='1"));
 
         // Should not expose SQL error, should just return empty or safe response
         $response->assertStatus(200);
@@ -32,7 +32,7 @@ class SecurityTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get('/transactions?search=' . urlencode("'; DROP TABLE transactions;--"));
+        $response = $this->actingAs($user)->get('/transactions?search='.urlencode("'; DROP TABLE transactions;--"));
 
         $response->assertStatus(200);
         $this->assertStringNotContainsString('SQLSTATE', $response->getContent());
@@ -55,7 +55,7 @@ class SecurityTest extends TestCase
         // If accepted, it should be escaped when displayed
         $this->assertTrue(
             $response->isRedirect() || // Redirected (validation)
-            !$this->hasUnescapedScript($response) // Or response is safe
+            ! $this->hasUnescapedScript($response) // Or response is safe
         );
     }
 
@@ -165,7 +165,7 @@ class SecurityTest extends TestCase
         $user = User::factory()->create();
 
         // Attempt to set admin role via mass assignment
-        $response = $this->actingAs($user)->put('/users/' . $user->id, [
+        $response = $this->actingAs($user)->put('/users/'.$user->id, [
             'name' => 'Test',
             'role' => 'Admin', // Should be ignored or rejected
         ]);
@@ -240,6 +240,7 @@ class SecurityTest extends TestCase
     private function hasUnescapedScript($response): bool
     {
         $content = $response->getContent();
+
         return str_contains($content, '<script>alert') ||
                str_contains($content, 'onerror=alert');
     }

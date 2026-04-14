@@ -88,8 +88,6 @@ class User extends Authenticatable
 
     /**
      * Alias for password_hash to satisfy Laravel's default authentication expectations.
-     *
-     * @return string
      */
     public function getPasswordAttribute(): string
     {
@@ -99,7 +97,7 @@ class User extends Authenticatable
     /**
      * When password is set, automatically hash it and store in password_hash.
      *
-     * @param string $value
+     * @param  string  $value
      */
     public function setPasswordAttribute($value): void
     {

@@ -2,8 +2,8 @@
 
 namespace Tests\Unit;
 
-use App\Models\User;
 use App\Models\SystemLog;
+use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -17,7 +17,7 @@ class AuditServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->auditService = new AuditService();
+        $this->auditService = new AuditService;
     }
 
     public function test_system_log_can_be_created(): void
@@ -67,8 +67,8 @@ class AuditServiceTest extends TestCase
         for ($i = 0; $i < 3; $i++) {
             SystemLog::create([
                 'user_id' => $user->id,
-                'action' => 'test_action_' . $i,
-                'description' => 'Test log ' . $i,
+                'action' => 'test_action_'.$i,
+                'description' => 'Test log '.$i,
                 'previous_hash' => $previousHash,
             ]);
         }

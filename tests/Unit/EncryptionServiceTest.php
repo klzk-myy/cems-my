@@ -14,7 +14,7 @@ class EncryptionServiceTest extends TestCase
         parent::setUp();
         // Set a test encryption key (32 bytes or longer will be derived to 32)
         config(['app.encryption_key' => 'test-encryption-key-for-unit-testing-32-bytes!']);
-        $this->encryptionService = new EncryptionService();
+        $this->encryptionService = new EncryptionService;
     }
 
     public function test_can_encrypt_and_decrypt_data(): void

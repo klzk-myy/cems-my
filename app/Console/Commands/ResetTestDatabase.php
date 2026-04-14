@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Enums\CounterSessionStatus;
-use App\Enums\TransactionStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -128,15 +127,17 @@ class ResetTestDatabase extends Command
 
         // Get teller user
         $teller = DB::table('users')->where('username', 'teller1')->first();
-        if (!$teller) {
+        if (! $teller) {
             $this->error('Teller user not found. Run seeders first.');
+
             return;
         }
 
         // Get counter
         $counter = DB::table('counters')->where('code', 'C01')->first();
-        if (!$counter) {
+        if (! $counter) {
             $this->error('Counter C01 not found.');
+
             return;
         }
 
@@ -159,12 +160,12 @@ class ResetTestDatabase extends Command
         foreach ($currencies as $currencyCode) {
             // Get currency
             $currency = DB::table('currencies')->where('code', $currencyCode)->first();
-            if (!$currency) {
+            if (! $currency) {
                 continue;
             }
 
             // Create opening position for counter
-            $openingAmount = match($currencyCode) {
+            $openingAmount = match ($currencyCode) {
                 'USD' => '50000.0000',
                 'EUR' => '30000.0000',
                 'GBP' => '20000.0000',
@@ -189,7 +190,7 @@ class ResetTestDatabase extends Command
                 'currency_code' => $currencyCode,
                 'till_id' => (string) $counter->id,
                 'balance' => $openingAmount,
-                'avg_cost_rate' => match($currencyCode) {
+                'avg_cost_rate' => match ($currencyCode) {
                     'USD' => '4.7200',
                     'EUR' => '5.1200',
                     'GBP' => '5.9500',
@@ -197,7 +198,7 @@ class ResetTestDatabase extends Command
                     'THB' => '0.1350',
                     default => '1.0000',
                 },
-                'last_valuation_rate' => match($currencyCode) {
+                'last_valuation_rate' => match ($currencyCode) {
                     'USD' => '4.7200',
                     'EUR' => '5.1200',
                     'GBP' => '5.9500',

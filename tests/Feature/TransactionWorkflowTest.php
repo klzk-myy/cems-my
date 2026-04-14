@@ -19,10 +19,15 @@ class TransactionWorkflowTest extends TestCase
     use RefreshDatabase;
 
     protected User $teller;
+
     protected User $manager;
+
     protected Branch $branch;
+
     protected Counter $counter;
+
     protected Currency $currency;
+
     protected Customer $customer;
 
     protected function setUp(): void
@@ -34,7 +39,7 @@ class TransactionWorkflowTest extends TestCase
 
         // Create test branch with unique code
         $this->branch = Branch::create([
-            'code' => 'HQ' . substr(uniqid(), -4),
+            'code' => 'HQ'.substr(uniqid(), -4),
             'name' => 'Test Head Office',
             'address' => '123 Test Street',
             'phone' => '+60312345678',
@@ -45,7 +50,7 @@ class TransactionWorkflowTest extends TestCase
         // Create test counter (used as till_id)
         $this->counter = Counter::create([
             'name' => 'Test Counter 1',
-            'code' => 'CTR' . substr(uniqid(), -4),
+            'code' => 'CTR'.substr(uniqid(), -4),
             'branch_id' => $this->branch->id,
             'is_active' => true,
         ]);
@@ -54,7 +59,7 @@ class TransactionWorkflowTest extends TestCase
         $this->customer = Customer::create([
             'full_name' => 'John Doe',
             'id_type' => 'MyKad',
-            'id_number_encrypted' => encrypt('123456789012' . uniqid()),
+            'id_number_encrypted' => encrypt('123456789012'.uniqid()),
             'nationality' => 'MY',
             'date_of_birth' => '1990-01-15',
             'risk_rating' => 'Low',
@@ -64,8 +69,8 @@ class TransactionWorkflowTest extends TestCase
 
         // Create test users with unique usernames
         $this->teller = User::create([
-            'username' => 'teller' . substr(uniqid(), -6),
-            'email' => 'teller-' . uniqid() . '@test.com',
+            'username' => 'teller'.substr(uniqid(), -6),
+            'email' => 'teller-'.uniqid().'@test.com',
             'password_hash' => bcrypt('password'),
             'role' => UserRole::Teller,
             'branch_id' => $this->branch->id,
@@ -73,8 +78,8 @@ class TransactionWorkflowTest extends TestCase
         ]);
 
         $this->manager = User::create([
-            'username' => 'manager' . substr(uniqid(), -6),
-            'email' => 'manager-' . uniqid() . '@test.com',
+            'username' => 'manager'.substr(uniqid(), -6),
+            'email' => 'manager-'.uniqid().'@test.com',
             'password_hash' => bcrypt('password'),
             'role' => UserRole::Manager,
             'branch_id' => $this->branch->id,

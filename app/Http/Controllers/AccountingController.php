@@ -16,9 +16,13 @@ use Illuminate\Http\Request;
 class AccountingController extends Controller
 {
     protected AccountingService $accountingService;
+
     protected BudgetService $budgetService;
+
     protected MathService $mathService;
+
     protected PeriodCloseService $periodCloseService;
+
     protected ReconciliationService $reconciliationService;
 
     public function __construct(

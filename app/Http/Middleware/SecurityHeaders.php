@@ -106,24 +106,32 @@ class SecurityHeaders
      */
     protected function applyCsp(Response $response): void
     {
-        $csp = $this->buildCsp();
-
         // Use Content-Security-Policy-Report-Only in development
+        // Exclude upgrade-insecure-requests in Report-Only mode as it's not valid there
         if (app()->environment('local', 'development')) {
+            $csp = $this->buildCsp(true);
             $response->headers->set('Content-Security-Policy-Report-Only', $csp);
         } else {
+            $csp = $this->buildCsp(false);
             $response->headers->set('Content-Security-Policy', $csp);
         }
     }
 
     /**
      * Build Content Security Policy string.
+     *
+     * @param  bool  $reportOnly  Whether building for Report-Only mode
      */
-    protected function buildCsp(): string
+    protected function buildCsp(bool $reportOnly = false): string
     {
         $directives = [];
 
         foreach ($this->cspDirectives as $directive => $value) {
+            // Skip upgrade-insecure-requests in Report-Only mode (not valid there)
+            if ($reportOnly && $directive === 'upgrade-insecure-requests') {
+                continue;
+            }
+
             if ($value === '') {
                 $directives[] = $directive;
             } else {

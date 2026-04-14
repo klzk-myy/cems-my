@@ -25,8 +25,8 @@ class BudgetServiceTest extends TestCase
         $this->adminUser = User::factory()->create(['role' => \App\Enums\UserRole::Admin]);
 
         $this->budgetService = new BudgetService(
-            new AccountingService(new MathService()),
-            new MathService()
+            new AccountingService(new MathService),
+            new MathService
         );
 
         // Seed chart of accounts
@@ -39,7 +39,7 @@ class BudgetServiceTest extends TestCase
 
         // Create a budget for testing
         $account = ChartOfAccount::where('account_type', 'Expense')->first();
-        if (!$account) {
+        if (! $account) {
             $this->markTestSkipped('No expense account found');
         }
 
@@ -66,7 +66,7 @@ class BudgetServiceTest extends TestCase
         $periodCode = now()->format('Y-m');
 
         $account = ChartOfAccount::where('account_type', 'Expense')->first();
-        if (!$account) {
+        if (! $account) {
             $this->markTestSkipped('No expense account found');
         }
 
@@ -94,7 +94,7 @@ class BudgetServiceTest extends TestCase
         $periodCode = now()->format('Y-m');
 
         $account = ChartOfAccount::where('account_type', 'Expense')->first();
-        if (!$account) {
+        if (! $account) {
             $this->markTestSkipped('No expense account found');
         }
 
@@ -119,7 +119,7 @@ class BudgetServiceTest extends TestCase
         $expenseAccount = ChartOfAccount::where('account_type', 'Expense')->first();
         $revenueAccount = ChartOfAccount::where('account_type', 'Revenue')->first();
 
-        if (!$expenseAccount || !$revenueAccount) {
+        if (! $expenseAccount || ! $revenueAccount) {
             $this->markTestSkipped('No expense or revenue account found');
         }
 
@@ -170,7 +170,7 @@ class BudgetServiceTest extends TestCase
         $periodCode = now()->format('Y-m');
 
         $account = ChartOfAccount::where('account_type', 'Expense')->first();
-        if (!$account) {
+        if (! $account) {
             $this->markTestSkipped('No expense account found');
         }
 
@@ -191,7 +191,7 @@ class BudgetServiceTest extends TestCase
         $periodCode = now()->format('Y-m');
 
         $account = ChartOfAccount::where('account_type', 'Expense')->first();
-        if (!$account) {
+        if (! $account) {
             $this->markTestSkipped('No expense account found');
         }
 
@@ -211,7 +211,7 @@ class BudgetServiceTest extends TestCase
         $periodCode = now()->format('Y-m');
 
         $account = ChartOfAccount::where('account_type', 'Expense')->first();
-        if (!$account) {
+        if (! $account) {
             $this->markTestSkipped('No expense account found');
         }
 

@@ -13,8 +13,6 @@ use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Support\BcmathHelper;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 /**
  * EOD Reconciliation Service

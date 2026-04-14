@@ -15,7 +15,7 @@ class BoundaryValueTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mathService = new MathService();
+        $this->mathService = new MathService;
     }
 
     /**

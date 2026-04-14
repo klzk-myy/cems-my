@@ -168,6 +168,7 @@ class CurrencyPositionService
      * @param  string  $currencyCode  Currency code (e.g., 'USD', 'EUR')
      * @param  string  $tillId  Till identifier (required)
      * @return CurrencyPosition|null Position model or null if not found
+     *
      * @throws \InvalidArgumentException If till_id is empty or invalid
      */
     public function getPositionForTransaction(string $currencyCode, string $tillId): ?CurrencyPosition

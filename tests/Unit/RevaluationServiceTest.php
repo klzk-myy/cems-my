@@ -2,8 +2,6 @@
 
 namespace Tests\Unit;
 
-use App\Models\CurrencyPosition;
-use App\Services\RevaluationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

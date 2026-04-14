@@ -6,14 +6,15 @@ use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
 use App\Services\AuditService;
 use App\Services\CurrencyPositionService;
-use App\Services\MathService;
 use App\Services\RateApiService;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     protected AuditService $auditService;
+
     protected CurrencyPositionService $currencyPositionService;
+
     protected RateApiService $rateApiService;
 
     public function __construct(

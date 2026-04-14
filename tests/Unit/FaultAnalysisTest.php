@@ -2,20 +2,20 @@
 
 namespace Tests\Unit;
 
+use App\Enums\AmlRuleType;
+use App\Enums\EddStatus;
+use App\Enums\TransactionStatus;
+use App\Models\AmlRule;
+use App\Models\Customer;
 use App\Models\EnhancedDiligenceRecord;
 use App\Models\SanctionEntry;
 use App\Models\SanctionList;
-use App\Models\Customer;
+use App\Models\Transaction;
 use App\Models\User;
-use App\Services\EddService;
 use App\Services\ComplianceService;
+use App\Services\EddService;
 use App\Services\EncryptionService;
 use App\Services\MathService;
-use App\Enums\EddStatus;
-use App\Enums\AmlRuleType;
-use App\Enums\TransactionStatus;
-use App\Models\AmlRule;
-use App\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -34,7 +34,7 @@ class FaultAnalysisTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->eddService = new EddService(new MathService());
+        $this->eddService = new EddService(new MathService);
     }
 
     /**
@@ -131,7 +131,7 @@ class FaultAnalysisTest extends TestCase
             'details' => [],
         ]);
 
-        $service = new ComplianceService(new EncryptionService(), new MathService());
+        $service = new ComplianceService(new EncryptionService, new MathService);
         $this->assertFalse($service->checkSanctionMatch($customer));
 
         // Exact-like match should still work
@@ -152,7 +152,7 @@ class FaultAnalysisTest extends TestCase
      */
     public function test_working_days_calculation_inclusive_range(): void
     {
-        $service = new ComplianceService(new EncryptionService(), new MathService());
+        $service = new ComplianceService(new EncryptionService, new MathService);
 
         $from = new \Carbon\Carbon('2026-04-13'); // Monday
         $to = new \Carbon\Carbon('2026-04-14');   // Tuesday
@@ -212,7 +212,7 @@ class FaultAnalysisTest extends TestCase
      */
     public function test_math_service_comparison_precision(): void
     {
-        $math = new MathService();
+        $math = new MathService;
 
         // Test comparison at threshold boundaries
         $this->assertTrue($math->compare('50000.00', '50000.00') >= 0);

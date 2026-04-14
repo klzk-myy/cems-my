@@ -33,7 +33,7 @@ abstract class TestCase extends BaseTestCase
     protected function createTestBranch(array $attributes = []): \App\Models\Branch
     {
         return \App\Models\Branch::create(array_merge([
-            'code' => 'TEST-' . uniqid(),
+            'code' => 'TEST-'.uniqid(),
             'name' => 'Test Branch',
             'address' => '123 Test Street',
             'phone' => '+60312345678',
@@ -49,7 +49,7 @@ abstract class TestCase extends BaseTestCase
     {
         return \App\Models\Counter::create(array_merge([
             'name' => 'Test Counter',
-            'code' => 'CTR-' . uniqid(),
+            'code' => 'CTR-'.uniqid(),
             'branch_id' => $this->createTestBranch()->id,
             'is_active' => true,
         ], $attributes));

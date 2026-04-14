@@ -112,8 +112,6 @@ class CashFlowService
     /**
      * Clear the cash accounts cache.
      * Call this when chart of accounts is modified.
-     *
-     * @return bool
      */
     public function clearCashAccountsCache(): bool
     {

@@ -2,17 +2,8 @@
 
 namespace Tests\Unit;
 
-use App\Models\Transaction;
-use App\Models\Customer;
-use App\Models\CurrencyPosition;
-use App\Models\User;
-use App\Services\TransactionService;
-use App\Services\CurrencyPositionService;
-use App\Services\MathService;
-use App\Services\ComplianceService;
-use App\Enums\TransactionType;
-use App\Enums\TransactionStatus;
 use App\Enums\CddLevel;
+use App\Services\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -25,7 +16,7 @@ class ComplianceServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->mathService = new MathService();
+        $this->mathService = new MathService;
     }
 
     public function test_simplified_cdd_for_small_amounts(): void
