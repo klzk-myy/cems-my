@@ -6,8 +6,10 @@ use App\Enums\CddLevel;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
+use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -21,19 +23,20 @@ class TransactionWizardTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->teller = User::factory()->create(['role' => UserRole::Teller]);
         Currency::factory()->create(['code' => 'USD', 'is_active' => true]);
+        Counter::factory()->create(['id' => '1', 'code' => 'T1']);
     }
 
     public function test_step1_returns_cdd_level_and_required_documents(): void
     {
         $customer = Customer::factory()->create(['risk_rating' => 'Low']);
-        
+
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
-                'type' => 'buy',
+                'type' => 'Buy',
                 'currency_code' => 'USD',
                 'amount_foreign' => '100.00',
                 'rate' => '4.50',
@@ -41,7 +44,11 @@ class TransactionWizardTest extends TestCase
                 'purpose' => 'Travel',
                 'source_of_funds' => 'Salary',
             ]);
-        
+
+        if ($response->status() !== 200) {
+            dump($response->json());
+        }
+
         $response->assertStatus(200)
             ->assertJson([
                 'status' => 'success',
@@ -60,7 +67,7 @@ class TransactionWizardTest extends TestCase
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
-                'type' => 'buy',
+                'type' => 'Buy',
                 'currency_code' => 'USD',
                 'amount_foreign' => '100.00',
                 'rate' => '4.50',
@@ -89,7 +96,7 @@ class TransactionWizardTest extends TestCase
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
-                'type' => 'buy',
+                'type' => 'Buy',
                 'currency_code' => 'USD',
                 'amount_foreign' => '100.00',
                 'rate' => '4.50',
@@ -111,7 +118,7 @@ class TransactionWizardTest extends TestCase
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
-                'type' => 'buy',
+                'type' => 'Buy',
                 'currency_code' => 'USD',
                 'amount_foreign' => '100.00',
                 'rate' => '4.50',
@@ -134,7 +141,7 @@ class TransactionWizardTest extends TestCase
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
-                'type' => 'buy',
+                'type' => 'Buy',
                 'currency_code' => 'USD',
                 'amount_foreign' => '60000.00',
                 'rate' => '4.50',

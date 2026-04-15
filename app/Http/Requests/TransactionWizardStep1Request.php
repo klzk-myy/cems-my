@@ -10,7 +10,7 @@ class TransactionWizardStep1Request extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->role->canCreateTransactions();
+        return $this->user()->role->canCreateTransaction();
     }
 
     public function rules(): array

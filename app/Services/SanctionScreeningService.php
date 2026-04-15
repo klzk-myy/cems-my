@@ -171,6 +171,26 @@ class SanctionScreeningService
      */
     public function checkCustomer(Customer $customer): SanctionCheckResult
     {
+        // First check if customer is already flagged as sanction hit
+        if ($customer->sanction_hit) {
+            Log::warning('Customer flagged as sanction hit', [
+                'customer_id' => $customer->id,
+                'customer_name' => $customer->full_name,
+            ]);
+
+            $this->auditService->logSanctionEvent('sanction_screening_hit', $customer->id, [
+                'customer_name' => $customer->full_name,
+                'action' => 'blocked',
+                'source' => 'sanction_hit_flag',
+            ]);
+
+            return SanctionCheckResult::blocked(
+                'Customer is flagged on sanctions list. Transaction blocked.',
+                1.0,
+                'Customer flagged via sanction_hit'
+            );
+        }
+
         $fullName = $customer->full_name;
         
         // Escape LIKE wildcards
