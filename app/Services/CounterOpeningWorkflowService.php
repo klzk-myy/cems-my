@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\TellerAllocationStatus;
 use App\Models\Branch;
 use App\Models\Counter;
+use App\Models\CounterSession;
 use App\Models\TellerAllocation;
 use App\Models\User;
 use Exception;
@@ -56,7 +57,7 @@ class CounterOpeningWorkflowService
         foreach ($approvedAmounts as $currency => $amount) {
             $allocation = TellerAllocation::where('user_id', $teller->id)
                 ->where('currency_code', $currency)
-                ->where('session_date', $today)
+                ->whereDate('session_date', $today)
                 ->where('status', TellerAllocationStatus::PENDING->value)
                 ->first();
 

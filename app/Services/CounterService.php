@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\CounterSessionStatus;
+use App\Enums\TellerAllocationStatus;
 use App\Models\Counter;
 use App\Models\CounterSession;
 use App\Models\Currency;
