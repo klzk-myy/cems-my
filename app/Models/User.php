@@ -115,6 +115,16 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the branch this user belongs to.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    /**
      * Check if user has admin role.
      *
      * @return bool True if user has admin role
