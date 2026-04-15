@@ -17,9 +17,12 @@ use Illuminate\Support\Facades\Log;
  *
  * Thresholds:
  * - < RM 3,000: Auto-approve (no approval needed)
- * - RM 3,000 - 9,999.99: Supervisor approval required
+ * - RM 3,000 - 9,999.99: Manager approval required
  * - RM 10,000 - 49,999.99: Manager approval required
  * - >= RM 50,000: Admin approval required
+ *
+ * Note: This system does not have a separate "Supervisor" role - Manager role handles
+ * all approval tiers below RM 50,000.
  */
 class ApprovalWorkflowService
 {
