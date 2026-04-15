@@ -2,15 +2,19 @@
 
 namespace App\Services;
 
+use App\Enums\AccountCode;
 use App\Enums\CddLevel;
 use App\Enums\ComplianceFlagType;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
+use App\Enums\UserRole;
 use App\Events\TransactionApproved;
 use App\Events\TransactionCreated;
+use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\TillBalance;
 use App\Models\Transaction;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -31,6 +35,7 @@ class TransactionService
         protected AuditService $auditService,
         protected TransactionMonitoringService $monitoringService,
         protected CtosReportService $ctosReportService,
+        protected TellerAllocationService $tellerAllocationService,
     ) {}
 
     /**
@@ -42,7 +47,7 @@ class TransactionService
      */
     protected function validateCurrencyCode(string $currencyCode): void
     {
-        $currency = \App\Models\Currency::where('code', $currencyCode)
+        $currency = Currency::where('code', $currencyCode)
             ->where('is_active', true)
             ->first();
 
@@ -88,6 +93,35 @@ class TransactionService
         $amountForeign = (string) $data['amount_foreign'];
         $rate = (string) $data['rate'];
         $amountLocal = $this->mathService->multiply($amountForeign, $rate);
+
+        // Validate against teller allocation (only for tellers, not manager/admin overrides)
+        // Only validate for Buy transactions (teller sells foreign currency and needs allocation)
+        // For Sell transactions, no allocation check is needed upfront
+        $user = User::find($userId);
+        $allocationForUpdate = null;
+        if ($user && $user->role === UserRole::Teller) {
+            $isBuy = ($data['type'] === TransactionType::Buy->value);
+            if ($isBuy) {
+                $validationResult = $this->tellerAllocationService->validateTransaction(
+                    $user,
+                    $data['currency_code'],
+                    $amountLocal,
+                    $isBuy
+                );
+
+                if (! $validationResult['valid']) {
+                    throw new \InvalidArgumentException('Allocation validation failed: '.$validationResult['reason']);
+                }
+
+                $allocationForUpdate = $validationResult['allocation'];
+            } else {
+                // For Sell transactions, get allocation for update after transaction completes
+                $allocationForUpdate = $this->tellerAllocationService->getActiveAllocation(
+                    $user,
+                    $data['currency_code']
+                );
+            }
+        }
 
         // Determine CDD level
         $cddLevel = $this->complianceService->determineCDDLevel($amountLocal, $customer);
@@ -216,6 +250,18 @@ class TransactionService
                     $data['till_id']
                 );
                 $this->updateTillBalance($tillBalance, $data['type'], $amountLocal, $amountForeign);
+
+                // Update teller allocation if this was a teller transaction
+                if ($allocationForUpdate) {
+                    $isBuy = ($data['type'] === TransactionType::Buy->value);
+                    if ($isBuy) {
+                        $allocationForUpdate->deduct($amountForeign);
+                    } else {
+                        $allocationForUpdate->add($amountForeign);
+                    }
+                    $allocationForUpdate->addDailyUsed($amountLocal);
+                }
+
                 $this->createAccountingEntries($transaction);
             }
 
@@ -242,7 +288,7 @@ class TransactionService
                 try {
                     $this->ctosReportService->createFromTransaction($transaction, $userId);
                 } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('CTOS report creation failed', [
+                    Log::error('CTOS report creation failed', [
                         'transaction_id' => $transaction->id,
                         'error' => $e->getMessage(),
                     ]);
@@ -392,13 +438,13 @@ class TransactionService
         if ($transaction->type->isBuy()) {
             $entries = [
                 [
-                    'account_code' => \App\Enums\AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
+                    'account_code' => AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
                     'debit' => $transaction->amount_local,
                     'credit' => '0',
                     'description' => "Buy {$transaction->amount_foreign} {$transaction->currency_code} @ {$transaction->rate}",
                 ],
                 [
-                    'account_code' => \App\Enums\AccountCode::CASH_MYR->value,
+                    'account_code' => AccountCode::CASH_MYR->value,
                     'debit' => '0',
                     'credit' => $transaction->amount_local,
                     'description' => "Payment for {$transaction->currency_code} purchase",
@@ -413,13 +459,13 @@ class TransactionService
 
             $entries = [
                 [
-                    'account_code' => \App\Enums\AccountCode::CASH_MYR->value,
+                    'account_code' => AccountCode::CASH_MYR->value,
                     'debit' => $transaction->amount_local,
                     'credit' => '0',
                     'description' => "Sale of {$transaction->amount_foreign} {$transaction->currency_code}",
                 ],
                 [
-                    'account_code' => \App\Enums\AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
+                    'account_code' => AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
                     'debit' => '0',
                     'credit' => $costBasis,
                     'description' => "Cost of {$transaction->currency_code} sold",
@@ -428,14 +474,14 @@ class TransactionService
 
             if ($isGain) {
                 $entries[] = [
-                    'account_code' => \App\Enums\AccountCode::FOREX_TRADING_REVENUE->value,
+                    'account_code' => AccountCode::FOREX_TRADING_REVENUE->value,
                     'debit' => '0',
                     'credit' => $revenue,
                     'description' => "Gain on {$transaction->currency_code} sale",
                 ];
             } else {
                 $entries[] = [
-                    'account_code' => \App\Enums\AccountCode::FOREX_LOSS->value,
+                    'account_code' => AccountCode::FOREX_LOSS->value,
                     'debit' => $this->mathService->multiply($revenue, '-1'),
                     'credit' => '0',
                     'description' => "Loss on {$transaction->currency_code} sale",

@@ -4,64 +4,52 @@ namespace App\Enums;
 
 enum TellerAllocationStatus: string
 {
-    case Pending = 'pending';
-    case Approved = 'approved';
-    case Active = 'active';
-    case Returned = 'returned';
-    case Closed = 'closed';
-    case AutoReturned = 'auto_returned';
+    case PENDING = 'pending';
+    case APPROVED = 'approved';
+    case ACTIVE = 'active';
+    case RETURNED = 'returned';
+    case CLOSED = 'closed';
+    case AUTO_RETURNED = 'auto_returned';
 
     public function isPending(): bool
     {
-        return $this === self::Pending;
+        return $this === self::PENDING;
     }
 
     public function isApproved(): bool
     {
-        return $this === self::Approved;
+        return $this === self::APPROVED;
     }
 
     public function isActive(): bool
     {
-        return $this === self::Active;
+        return $this === self::ACTIVE;
     }
 
     public function isReturned(): bool
     {
-        return $this === self::Returned;
+        return $this === self::RETURNED;
     }
 
     public function isClosed(): bool
     {
-        return $this === self::Closed;
+        return $this === self::CLOSED;
     }
 
     public function isAutoReturned(): bool
     {
-        return $this === self::AutoReturned;
+        return $this === self::AUTO_RETURNED;
     }
 
     public function label(): string
     {
         return match ($this) {
-            self::Pending => 'Pending',
-            self::Approved => 'Approved',
-            self::Active => 'Active',
-            self::Returned => 'Returned',
-            self::Closed => 'Closed',
-            self::AutoReturned => 'Auto Returned',
-        };
-    }
-
-    public function color(): string
-    {
-        return match ($this) {
-            self::Pending => 'warning',
-            self::Approved => 'info',
-            self::Active => 'success',
-            self::Returned => 'primary',
-            self::Closed => 'secondary',
-            self::AutoReturned => 'danger',
+            self::PENDING => 'Pending',
+            self::APPROVED => 'Approved',
+            self::ACTIVE => 'Active',
+            self::RETURNED => 'Returned',
+            self::CLOSED => 'Closed',
+            self::AUTO_RETURNED => 'Auto Returned',
         };
     }
 }

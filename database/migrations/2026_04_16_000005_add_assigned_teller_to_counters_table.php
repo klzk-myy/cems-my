@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('counters', function (Blueprint $table) {
-            $table->foreignId('assigned_teller_id')->nullable()->after('status')->constrained('users')->nullOnDelete();
+            $table->foreignId('assigned_teller_id')->nullable()->after('branch_id')->constrained('users')->onDelete('set null');
         });
     }
 

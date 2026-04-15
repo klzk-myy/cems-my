@@ -35,11 +35,11 @@ class TellerAllocation extends Model
         'requested_amount' => 'decimal:4',
         'daily_limit_myr' => 'decimal:4',
         'daily_used_myr' => 'decimal:4',
+        'status' => TellerAllocationStatus::class,
         'session_date' => 'date',
         'approved_at' => 'datetime',
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
-        'status' => TellerAllocationStatus::class,
     ];
 
     public function user(): BelongsTo
@@ -82,56 +82,52 @@ class TellerAllocation extends Model
         return $this->status->isReturned();
     }
 
-    public function hasAvailable($amount): bool
+    public function hasAvailable(float|string $amount): bool
     {
-        return bccomp($this->current_balance, $amount, 4) >= 0;
+        return bccomp($this->current_balance, (string) $amount, 4) >= 0;
     }
 
-    public function deduct($amount): void
+    public function deduct(float|string $amount): void
     {
-        $this->current_balance = bcsub($this->current_balance, $amount, 4);
-        $this->save();
+        $this->decrement('current_balance', $amount);
     }
 
-    public function add($amount): void
+    public function add(float|string $amount): void
     {
-        $this->current_balance = bcadd($this->current_balance, $amount, 4);
-        $this->save();
+        $this->increment('current_balance', $amount);
     }
 
-    public function addDailyUsed($amountMyr): void
+    public function addDailyUsed(float|string $amountMyr): void
     {
-        $this->daily_used_myr = bcadd($this->daily_used_myr, $amountMyr, 4);
-        $this->save();
+        $this->increment('daily_used_myr', $amountMyr);
     }
 
-    public function hasDailyLimitRemaining($amountMyr): bool
+    public function hasDailyLimitRemaining(float|string $amountMyr): bool
     {
         if ($this->daily_limit_myr === null) {
             return true;
         }
+        $remaining = bcsub((string) $this->daily_limit_myr, (string) $this->daily_used_myr, 4);
 
-        $remaining = bcsub($this->daily_limit_myr, $this->daily_used_myr, 4);
-
-        return bccomp($remaining, $amountMyr, 4) >= 0;
+        return bccomp($remaining, (string) $amountMyr, 4) >= 0;
     }
 
-    public function approve(User $approver, $allocatedAmount, $dailyLimitMyr = null): void
+    public function approve(User $approver, float|string $allocatedAmount, float|string|null $dailyLimitMyr = null): void
     {
         $this->update([
-            'status' => TellerAllocationStatus::Approved,
             'approved_by' => $approver->id,
             'approved_at' => now(),
             'allocated_amount' => $allocatedAmount,
             'current_balance' => $allocatedAmount,
             'daily_limit_myr' => $dailyLimitMyr,
+            'status' => TellerAllocationStatus::APPROVED,
         ]);
     }
 
     public function activate(): void
     {
         $this->update([
-            'status' => TellerAllocationStatus::Active,
+            'status' => TellerAllocationStatus::ACTIVE,
             'opened_at' => now(),
         ]);
     }
@@ -139,7 +135,7 @@ class TellerAllocation extends Model
     public function returnToPool(): void
     {
         $this->update([
-            'status' => TellerAllocationStatus::Returned,
+            'status' => TellerAllocationStatus::RETURNED,
             'closed_at' => now(),
         ]);
     }
@@ -147,7 +143,7 @@ class TellerAllocation extends Model
     public function forceReturn(): void
     {
         $this->update([
-            'status' => TellerAllocationStatus::AutoReturned,
+            'status' => TellerAllocationStatus::AUTO_RETURNED,
             'closed_at' => now(),
         ]);
     }

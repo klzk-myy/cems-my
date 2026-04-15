@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Enums\CounterSessionStatus;
+use App\Enums\TellerAllocationStatus;
 use App\Models\Counter;
 use App\Models\CounterSession;
 use App\Models\Currency;
+use App\Models\TellerAllocation;
 use App\Models\TillBalance;
 use App\Models\User;
 use App\Support\BcmathHelper;
@@ -14,6 +16,10 @@ use Illuminate\Support\Facades\DB;
 
 class CounterService
 {
+    public function __construct(
+        protected TellerAllocationService $tellerAllocationService,
+    ) {}
+
     private const VARIANCE_THRESHOLD_YELLOW = 100.00;
 
     private const VARIANCE_THRESHOLD_RED = 500.00;
@@ -391,6 +397,16 @@ class CounterService
                 'opened_by' => $supervisor->id,
                 'status' => CounterSessionStatus::Open,
             ]);
+
+            // Transfer teller allocations from outgoing to incoming teller
+            $activeAllocations = TellerAllocation::where('user_id', $fromUser->id)
+                ->where('status', TellerAllocationStatus::ACTIVE->value)
+                ->whereDate('session_date', $today)
+                ->get();
+
+            foreach ($activeAllocations as $allocation) {
+                $this->tellerAllocationService->transferToTeller($allocation, $toUser);
+            }
 
             // Update existing till balances to transfer to new user (preserve audit trail)
             // The handover details are captured in CounterHandover table (variance_myr, etc.)

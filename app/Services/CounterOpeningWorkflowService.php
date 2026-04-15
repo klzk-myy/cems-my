@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\TellerAllocationStatus;
 use App\Models\Branch;
 use App\Models\Counter;
 use App\Models\CounterSession;
@@ -20,6 +21,10 @@ class CounterOpeningWorkflowService
     public function initiateOpeningRequest(User $teller, Counter $counter, array $requestedAmounts): array
     {
         $branch = $teller->branch;
+
+        if (! $branch) {
+            throw new Exception('Teller must be assigned to a branch');
+        }
 
         $requests = [];
         foreach ($requestedAmounts as $currency => $amount) {
@@ -52,8 +57,8 @@ class CounterOpeningWorkflowService
         foreach ($approvedAmounts as $currency => $amount) {
             $allocation = TellerAllocation::where('user_id', $teller->id)
                 ->where('currency_code', $currency)
-                ->where('session_date', $today)
-                ->where('status', 'pending')
+                ->whereDate('session_date', $today)
+                ->where('status', TellerAllocationStatus::PENDING->value)
                 ->first();
 
             if (! $allocation) {
@@ -67,10 +72,13 @@ class CounterOpeningWorkflowService
             $tellerAllocations[] = $allocation;
         }
 
-        $openingFloats = collect($tellerAllocations)->mapWithKeys(fn ($a) => [$a->currency_code => [
-            'currency_id' => $a->currency_code,
-            'amount' => $a->current_balance,
-        ]])->toArray();
+        $openingFloats = [];
+        foreach ($tellerAllocations as $allocation) {
+            $openingFloats[] = [
+                'currency_id' => $allocation->currency_code,
+                'amount' => $allocation->current_balance,
+            ];
+        }
 
         $session = $this->counterService->openSession($counter, $teller, $openingFloats);
 
@@ -83,7 +91,8 @@ class CounterOpeningWorkflowService
 
     public function getPendingRequestsForBranch(Branch $branch): array
     {
-        return $this->tellerAllocationService->getPendingAllocationsForBranch($branch)
-            ->groupBy(fn ($a) => $a->user_id);
+        $pending = $this->tellerAllocationService->getPendingAllocationsForBranch($branch);
+
+        return $pending->groupBy('user_id')->toArray();
     }
 }
