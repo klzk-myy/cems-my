@@ -60,23 +60,38 @@ class HistoricalRiskAnalysisServiceTest extends TestCase
     public function test_detects_pattern_reversal(): void
     {
         $customer = Customer::factory()->create();
-        
-        // Create 8 buy transactions
-        Transaction::factory()->count(8)->create([
+
+        // Create buys: some older, some newer than the sells
+        // Older buys (before first sell)
+        Transaction::factory()->count(4)->create([
             'customer_id' => $customer->id,
             'type' => TransactionType::Buy,
-            'created_at' => now()->subDays(5),
+            'created_at' => now()->subDays(6),
         ]);
-        
-        // Now selling
+
+        // First sell (older)
         Transaction::factory()->create([
             'customer_id' => $customer->id,
             'type' => TransactionType::Sell,
-            'created_at' => now()->subDay(),
+            'created_at' => now()->subDays(5),
         ]);
-        
+
+        // More buys (newer than first sell but older than last sell)
+        Transaction::factory()->count(4)->create([
+            'customer_id' => $customer->id,
+            'type' => TransactionType::Buy,
+            'created_at' => now()->subDays(4),
+        ]);
+
+        // Final sell (most recent)
+        Transaction::factory()->create([
+            'customer_id' => $customer->id,
+            'type' => TransactionType::Sell,
+            'created_at' => now()->subHours(12),
+        ]);
+
         $result = $this->service->analyze($customer, '1000.00');
-        
+
         $flags = $result->getFlags();
         $patternFlags = array_filter($flags, fn($f) => $f['type'] === 'pattern_reversal');
         $this->assertNotEmpty($patternFlags);

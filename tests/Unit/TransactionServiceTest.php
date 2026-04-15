@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Enums\CddLevel;
+use App\Enums\TellerAllocationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
@@ -10,6 +11,7 @@ use App\Models\Branch;
 use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\TellerAllocation;
 use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\User;
@@ -108,6 +110,24 @@ class TransactionServiceTest extends TestCase
             'transaction_total' => '0',
             'foreign_total' => '0',
             'opened_by' => $this->teller->id,
+        ]);
+
+        // Create active teller allocation for the currency (required by TransactionService)
+        TellerAllocation::create([
+            'user_id' => $this->teller->id,
+            'branch_id' => $this->branch->id,
+            'counter_id' => $this->counter->id,
+            'currency_code' => $this->currency->code,
+            'allocated_amount' => '60000.0000',
+            'current_balance' => '60000.0000',
+            'requested_amount' => '60000.0000',
+            'daily_limit_myr' => '500000.0000',
+            'daily_used_myr' => '0.0000',
+            'status' => TellerAllocationStatus::ACTIVE,
+            'session_date' => today(),
+            'approved_by' => $this->manager->id,
+            'approved_at' => now(),
+            'opened_at' => now(),
         ]);
     }
 

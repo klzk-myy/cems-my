@@ -73,7 +73,8 @@ abstract class TestCase extends BaseTestCase
      */
     protected function setupOpenTill(\App\Models\User $user, string $currencyCode = 'USD', string $openingBalance = '1000.00'): \App\Models\Counter
     {
-        $counter = $this->createTestCounter();
+        $branch = $this->createTestBranch();
+        $counter = $this->createTestCounter(['branch_id' => $branch->id]);
 
         \App\Models\CounterSession::create([
             'counter_id' => $counter->id,
@@ -87,11 +88,35 @@ abstract class TestCase extends BaseTestCase
         \App\Models\TillBalance::create([
             'till_id' => (string) $counter->id,
             'currency_code' => $currencyCode,
+            'branch_id' => $branch->id,
             'opening_balance' => $openingBalance,
             'date' => now()->toDateString(),
             'opened_by' => $user->id,
         ]);
 
+        // Create active teller allocation (required by TransactionService for Buy transactions)
+        \App\Models\TellerAllocation::create([
+            'user_id' => $user->id,
+            'branch_id' => $branch->id,
+            'counter_id' => $counter->id,
+            'currency_code' => $currencyCode,
+            'allocated_amount' => $openingBalance,
+            'current_balance' => $openingBalance,
+            'requested_amount' => $openingBalance,
+            'daily_limit_myr' => '500000.0000',
+            'daily_used_myr' => '0.0000',
+            'status' => \App\Enums\TellerAllocationStatus::ACTIVE,
+            'session_date' => now()->toDateString(),
+        ]);
+
         return $counter;
+    }
+
+    /**
+     * Set MFA verification session values for a user (required for web route transactions).
+     */
+    protected function setMfaVerification(\App\Models\User $user): void
+    {
+        session(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp]);
     }
 }

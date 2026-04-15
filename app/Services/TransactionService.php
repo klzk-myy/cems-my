@@ -173,7 +173,7 @@ class TransactionService
             }
         }
 
-        return DB::transaction(function () use ($data, $userId, $tillBalance, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy) {
+        return DB::transaction(function () use ($data, $userId, $tillBalance, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy, &$allocationForUpdate) {
             // For Sell transactions, acquire position lock FIRST to prevent race conditions
             // where two concurrent transactions could both pass the duplicate check
             // before either acquires the lock

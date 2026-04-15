@@ -105,7 +105,9 @@ class TellerAllocationTest extends TestCase
 
     public function test_has_daily_limit_remaining_returns_true_when_no_limit(): void
     {
-        $allocation = TellerAllocation::factory()->create([
+        // daily_limit_myr is NOT NULL in the DB schema, so test the null-branch
+        // via an unsaved model instance to avoid the constraint violation.
+        $allocation = new TellerAllocation([
             'daily_limit_myr' => null,
             'daily_used_myr' => '0.0000',
         ]);
@@ -177,7 +179,8 @@ class TellerAllocationTest extends TestCase
 
     public function test_belongs_to_counter(): void
     {
-        $allocation = TellerAllocation::factory()->create();
+        // Factory defaults counter_id to a new Counter; explicitly null it out.
+        $allocation = TellerAllocation::factory()->create(['counter_id' => null]);
 
         $this->assertNull($allocation->counter);
 

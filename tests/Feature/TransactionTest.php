@@ -56,7 +56,11 @@ class TransactionTest extends TestCase
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD');
 
-        $response = $this->actingAs($teller)->post('/transactions', [
+        $this->actingAs($teller)->withSession([
+            'mfa_verified' => true,
+            'mfa_verified_at' => now()->timestamp,
+        ]);
+        $response = $this->post('/transactions', [
             'type' => TransactionType::Buy->value,
             'currency_code' => 'USD',
             'amount_foreign' => '100.00',
@@ -87,11 +91,14 @@ class TransactionTest extends TestCase
         CurrencyPosition::create([
             'currency_code' => 'USD',
             'till_id' => (string) $counter->id,
+            'branch_id' => $counter->branch_id,
             'balance' => '500.00',
             'avg_cost_rate' => '4.40',
         ]);
 
-        $response = $this->actingAs($teller)->post('/transactions', [
+        $this->actingAs($teller);
+        $this->setMfaVerification($teller);
+        $response = $this->post('/transactions', [
             'type' => TransactionType::Sell->value,
             'currency_code' => 'USD',
             'amount_foreign' => '100.00',
@@ -122,11 +129,14 @@ class TransactionTest extends TestCase
         CurrencyPosition::create([
             'currency_code' => 'USD',
             'till_id' => (string) $counter->id,
+            'branch_id' => $counter->branch_id,
             'balance' => '500.00',
             'avg_cost_rate' => '4.40',
         ]);
 
-        $response = $this->actingAs($teller)->post('/transactions', [
+        $this->actingAs($teller);
+        $this->setMfaVerification($teller);
+        $response = $this->post('/transactions', [
             'type' => TransactionType::Buy->value,
             'currency_code' => 'USD',
             'amount_foreign' => '100.00',
@@ -157,11 +167,14 @@ class TransactionTest extends TestCase
         CurrencyPosition::create([
             'currency_code' => 'USD',
             'till_id' => (string) $counter->id,
+            'branch_id' => $counter->branch_id,
             'balance' => '50.00',
             'avg_cost_rate' => '4.40',
         ]);
 
-        $response = $this->actingAs($teller)->post('/transactions', [
+        $this->actingAs($teller);
+        $this->setMfaVerification($teller);
+        $response = $this->post('/transactions', [
             'type' => TransactionType::Sell->value,
             'currency_code' => 'USD',
             'amount_foreign' => '100.00',
@@ -186,7 +199,9 @@ class TransactionTest extends TestCase
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD');
 
-        $response = $this->actingAs($teller)->post('/transactions', [
+        $this->actingAs($teller);
+        $this->setMfaVerification($teller);
+        $response = $this->post('/transactions', [
             'type' => TransactionType::Buy->value,
             'currency_code' => 'USD',
             'amount_foreign' => '-100.00',
@@ -205,8 +220,11 @@ class TransactionTest extends TestCase
     {
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
+        $counter = $this->setupOpenTill($teller, 'USD');
 
-        $response = $this->actingAs($teller)->post('/transactions', [
+        $this->actingAs($teller);
+        $this->setMfaVerification($teller);
+        $response = $this->post('/transactions', [
             'type' => TransactionType::Buy->value,
             'currency_code' => 'INVALID',
             'amount_foreign' => '1000',
@@ -214,7 +232,7 @@ class TransactionTest extends TestCase
             'customer_id' => $customer->id,
             'purpose' => 'Travel',
             'source_of_funds' => 'Savings',
-            'till_id' => '1',
+            'till_id' => (string) $counter->id,
             'idempotency_key' => uniqid('test_', true),
         ]);
 
@@ -225,10 +243,14 @@ class TransactionTest extends TestCase
     {
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
-        $counter = $this->setupOpenTill($teller, 'USD');
 
         // threshold is 50,000 MYR. At 4.5 rate, 12,000 USD is 54,000 MYR
-        $response = $this->actingAs($teller)->post('/transactions', [
+        // Need openingBalance > 54000 MYR for allocation to pass
+        $counter = $this->setupOpenTill($teller, 'USD', '60000.00');
+
+        $this->actingAs($teller);
+        $this->setMfaVerification($teller);
+        $response = $this->post('/transactions', [
             'type' => TransactionType::Buy->value,
             'currency_code' => 'USD',
             'amount_foreign' => '12000.00',
