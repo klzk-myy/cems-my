@@ -260,6 +260,57 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if this user can view a teller's allocation.
+     * Managers can view allocations of tellers in their branch; admins can view all.
+     */
+    public function canViewTellerAllocation(User $teller): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->isManager()) {
+            return $this->branch_id === $teller->branch_id;
+        }
+
+        return $this->id === $teller->id;
+    }
+
+    /**
+     * Check if this user can view branch pools for a given branch.
+     * Managers can view pools for their own branch; admins can view all.
+     */
+    public function canViewBranchPools(Branch $branch): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->isManager()) {
+            return $this->branch_id === $branch->id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if this user can modify a teller's allocation.
+     * Managers can modify allocations of tellers in their branch; admins can modify all.
+     */
+    public function canModifyAllocation(User $teller): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->isManager()) {
+            return $this->branch_id === $teller->branch_id;
+        }
+
+        return false;
+    }
+
+    /**
      * Check if a notification channel is enabled for this user.
      */
     public function isNotificationChannelEnabled(string $type, string $channel): bool
