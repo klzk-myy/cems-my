@@ -271,11 +271,9 @@ class GoAmlXmlGenerator
         $transactionList = $report->transactions();
 
         if ($transactionList->isEmpty()) {
-            // Add placeholder if no transactions
-            $txn = $dom->createElement('transaction');
-            $txn->appendChild($dom->createElement('transaction_id', 'N/A'));
-            $txn->appendChild($dom->createElement('description', 'No transaction data available'));
-            $transactions->appendChild($txn);
+            // Add empty transactions node with count attribute
+            $transactions->setAttribute('count', '0');
+            $transactions->appendChild($dom->createElement('note', 'No transactions included in this report'));
         } else {
             foreach ($transactionList as $transaction) {
                 $txn = $dom->createElement('transaction');
