@@ -192,6 +192,33 @@ class CounterService
     }
 
     /**
+     * Close a counter session and return teller allocation to branch pool.
+     *
+     * This is the EOD workflow that:
+     * 1. Gets the teller allocation linked to this session
+     * 2. Calls closeSession() to perform variance calculation
+     * 3. Returns the allocation to the branch pool
+     * 4. Returns the closed session
+     */
+    public function closeSessionAndReturnToPool(
+        CounterSession $session,
+        User $user,
+        array $closingFloats,
+        ?string $notes = null,
+        ?User $supervisor = null
+    ): CounterSession {
+        $allocation = $session->tellerAllocation;
+
+        $closedSession = $this->closeSession($session, $user, $closingFloats, $notes, $supervisor);
+
+        if ($allocation) {
+            $allocation->returnToPool();
+        }
+
+        return $closedSession;
+    }
+
+    /**
      * Get counter status
      */
     public function getCounterStatus(Counter $counter): array

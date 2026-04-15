@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CounterSessionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,6 +13,7 @@ class CounterSession extends Model
     protected $fillable = [
         'counter_id',
         'user_id',
+        'teller_allocation_id',
         'session_date',
         'opened_at',
         'closed_at',
@@ -25,7 +27,7 @@ class CounterSession extends Model
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
         'session_date' => 'date',
-        'status' => \App\Enums\CounterSessionStatus::class,
+        'status' => CounterSessionStatus::class,
     ];
 
     public function counter()
@@ -36,6 +38,11 @@ class CounterSession extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function tellerAllocation()
+    {
+        return $this->belongsTo(TellerAllocation::class);
     }
 
     public function openedByUser()
