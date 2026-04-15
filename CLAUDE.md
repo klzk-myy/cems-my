@@ -1,6 +1,4 @@
-analyx# CLAUDE.md0
-
-# All permission granted. Directly proceed. Never ask for permission
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -47,20 +45,10 @@ app/
 ├── Events/  # Event classes (TransactionCreated, CounterSessionOpened, etc.)
 ├── Http/
 │   ├── Controllers/  # Thin controllers, delegate to services
-│   └── Middleware/  # CheckRole, CheckRoleAny, EnsureMfaEnabled, EnsureMfaVerified, DataBreachDetection, SessionTimeout, SecurityHeaders, IpBlocker, StrictRateLimit, LogRequests, QueryPerformanceMonitor
+│   └── Middleware/  # CheckRole, EnsureMfaEnabled, DataBreachDetection, StrictRateLimit, etc.
 ├── Models/  # Eloquent models (57 models)
 └── Services/  # Business logic (55 services)
 ```
-
-### Full Documentation
-
-See `docs/` directory:
-- `USER_MANUAL.md` - End-user guide
-- `DEPLOYMENT.md` - Production deployment
-- `API.md` - REST API reference
-- `DATABASE_SCHEMA.md` - Schema documentation
-- `trading-module-analysis.md` - System architecture
-- `logical-faults-analysis.md` - Security review
 
 ### Key Architectural Patterns
 
@@ -68,14 +56,7 @@ See `docs/` directory:
 All role checks use PHP enums in `App\Enums\`:
 - `UserRole::Teller`, `UserRole::Manager`, `UserRole::ComplianceOfficer`, `UserRole::Admin`
 - Permission methods on enums: `$role->canApproveLargeTransactions()`, `$role->canViewReports()`
-- All status/type enums organized by domain:
-  - **Transaction**: `TransactionStatus`, `TransactionType`, `TransactionImportStatus`
-  - **Customer**: `CddLevel`, `EddStatus`, `EddRiskLevel`, `EddDocumentStatus`, `EddTemplateType`, `RiskTrend`
-  - **Session**: `CounterSessionStatus`
-  - **Compliance**: `FlagStatus`, `StrStatus`, `AmlRuleType`, `ComplianceFlagType`, `FindingSeverity`, `FindingType`, `FindingStatus`, `ComplianceCaseType`, `ComplianceCaseStatus`, `ComplianceCasePriority`, `CaseResolution`, `CaseStatus`, `CaseNoteType`, `AlertPriority`, `ReportStatus`, `RecalculationTrigger`
-  - **Accounting**: `AccountCode`
-  - **CTOS**: `CtosStatus`
-  - **Alert**: `AlertPriority`
+- All status/type enums organized by domain (Transaction, Customer, Session, Compliance, Accounting, Alert)
 - Models return enum instances, not strings
 
 **2. Service Layer**
@@ -109,11 +90,8 @@ All monetary calculations use `App\Services\MathService` (BCMath), not floats. N
   - `CounterfeitAlertMonitor` - Counterfeit currency detection
 - `AlertTriageService` triages and assigns compliance alerts
 - `CustomerRiskScoringService` calculates customer risk scores with lock/unlock capability
-- `ComplianceReportingService` provides dashboard KPIs, calendar, case aging, audit trail
-- `CaseManagementService` manages compliance cases with notes, documents, links
 - **CTOS Submission**: `POST /api/v1/compliance/ctos/{id}/submit` - Submit CTOS reports to BNM with compliance officer sign-off
 - All cancellations require manager approval via `PendingCancellation` status (segregation of duties)
-- **Refunds** are processed through compliance pipeline
 
 **6. Event-Driven Architecture**
 Events fire for critical operations (`TransactionCreated`, `CounterSessionOpened`, etc.) with listeners for audit logging, notifications, and compliance triggers.
@@ -130,225 +108,58 @@ Permissions inherit upward: `Admin` > `ComplianceOfficer` > `Manager` > `Teller`
 - MFA required for ALL roles including Tellers (BNM compliance)
 - IP-based blocking after 10 failed login attempts (5-minute window, 1-hour block duration)
 - Strict rate limiting on sensitive endpoints (login: 5/min, API: 30/min, transactions: 10/min, STR: 3/min, bulk: 1/5min, export: 5/min, sensitive: 3/min)
-- Rate limit monitoring with 3 hits in 10 minutes alerting
 - Session timeout (configurable, default 8 hours)
 - Audit log with cryptographic hash chaining (tampering protection)
 - Password complexity requirements (min 12 chars, mixed case, number, special char, max 5 attempts, 15-min lockout)
 - HSTS support (configurable max-age, includeSubDomains, preload)
 - IP whitelist support (exact IPs and CIDR notation)
 
-**Note on MFA scope**: MFA is enforced on sensitive operations (transaction creation, approvals, admin functions). Non-sensitive read operations (viewing transactions, customers, counters) do not require MFA. This balances security with usability while meeting BNM requirements for MFA on high-risk activities.
+**Note on MFA scope**: MFA is enforced on sensitive operations (transaction creation, approvals, admin functions). Non-sensitive read operations (viewing transactions, customers, counters) do not require MFA.
 
 ### Middleware Stack
 
 Routes use these middleware:
 - `auth` - All authenticated users
-- `role:manager` - Manager or admin only (CheckRole)
-- `role:compliance` - Compliance officer or admin only
-- `CheckRoleAny` - Multiple role support (e.g., `role.manager,compliance`)
-- `EnsureMfaEnabled` - MFA enforcement (redirects to MFA setup if not enabled)
-- `EnsureMfaVerified` - MFA verification required (`mfa.verified`)
+- `role:manager` / `role:compliance` / `CheckRoleAny` - Role-based access control
+- `EnsureMfaEnabled` / `EnsureMfaVerified` - MFA enforcement
 - `DataBreachDetection` - Data breach monitoring and alerting
-- `StrictRateLimit` - BNM-compliant rate limiting with burst protection (login, api, transactions, str, bulk, export, sensitive)
+- `StrictRateLimit` - BNM-compliant rate limiting with burst protection
 - `IpBlocker` - IP-based blocking after repeated failed attempts
 - `SecurityHeaders` - HSTS, CSP, X-Frame-Options, X-Content-Type-Options, etc.
 - `session.timeout` - Idle session timeout
 - `CheckBranchAccess` - Branch-based access control
-- `EncryptCookies` - Cookie encryption
-- `PreventRequestsDuringMaintenance` - Maintenance mode check
-- `RedirectIfAuthenticated` - Redirect authenticated users from auth pages
-- `TrimStrings` - Input string trimming
-- `TrustHosts` - Trusted host validation
-- `TrustProxies` - Trusted proxy configuration
-- `ValidateSignature` - Signed URL validation
-- `VerifyCsrfToken` - CSRF token verification
-- `LogRequests` - Request logging
-- `QueryPerformanceMonitor` - Query performance monitoring
+- `LogRequests` / `QueryPerformanceMonitor` - Request logging and monitoring
 
-### Navigation Structure
+### Key Services
 
-The sidebar navigation is organized by function with logical grouping:
+| Service | Purpose |
+|---------|---------|
+| `AccountingService` | Journal entry creation and reversal |
+| `LedgerService` | Trial balance, P&L, balance sheet |
+| `RevaluationService` | Monthly currency revaluation |
+| `CounterService` | Till/counter lifecycle (open, close, handover) |
+| `TransactionService` | Core transaction operations |
+| `ComplianceService` | CDD determination and CTOS reporting |
+| `TransactionMonitoringService` | Automated compliance monitoring |
+| `CustomerRiskScoringService` | Customer risk scoring with lock/unlock |
+| `StrReportService` | Suspicious Transaction Report generation |
+| `EddService` | Enhanced Due Diligence workflow |
+| `CaseManagementService` | Compliance case management |
+| `MathService` | BCMath precision calculations |
+| `AuditService` | Audit log with hash chaining verification |
 
-**Main**
-- Dashboard (`/dashboard`)
+### Counter Management
 
-**Operations**
-- Transactions (`/transactions`)
-- Customers (`/customers`)
+Counters (tills) with full lifecycle:
+- `/counters/{counter}/open` - Open counter with opening floats
+- `/counters/{counter}/close` - Close counter with closing floats
+- `/counters/{counter}/handover` - Transfer custody between users
+- `/counters/{counter}/status` - Real-time counter status
 
-**Counter Management**
-- Counters (`/counters`)
-- Branches (`/branches`) - Admin only
-
-**Stock Management**
-- Stock & Cash (`/stock-cash`)
-- Stock Transfers (`/stock-transfers`)
-
-**Compliance & AML** - 12 items:
-- Compliance Dashboard (`/compliance`)
-- Compliance Workspace (`/compliance/workspace`)
-- Alert Triage (`/compliance/alerts`)
-- Cases (`/compliance/cases`)
-- Flagged Transactions (`/compliance/flagged`)
-- EDD Records (`/compliance/edd`)
-- EDD Templates (`/compliance/edd-templates`)
-- AML Rules (`/compliance/rules`)
-- Risk Dashboard (`/compliance/risk-dashboard`)
-- STR Studio (`/compliance/str-studio`)
-- Compliance Reporting (`/compliance/reporting`)
-- STR Reports (`/str`)
-
-**Accounting** - 13 items:
-- Accounting Dashboard (`/accounting`)
-- Journal Entries (`/accounting/journal`)
-- Ledger (`/accounting/ledger`)
-- Trial Balance (`/accounting/trial-balance`)
-- Profit & Loss (`/accounting/profit-loss`)
-- Balance Sheet (`/accounting/balance-sheet`)
-- Cash Flow (`/accounting/cash-flow`)
-- Financial Ratios (`/accounting/ratios`)
-- Revaluation (`/accounting/revaluation`)
-- Reconciliation (`/accounting/reconciliation`)
-- Budget (`/accounting/budget`)
-- Periods (`/accounting/periods`)
-- Fiscal Years (`/accounting/fiscal-years`)
-
-**Reports** - 7 items:
-- Reports Dashboard (`/reports`)
-- MSB2 Report (`/reports/msb2`)
-- LCTR (`/reports/lctr`)
-- LMCA (`/reports/lmca`)
-- Quarterly LVR (`/reports/quarterly-lvr`)
-- Position Limits (`/reports/position-limit`)
-- Report History (`/reports/history`)
-
-**System** - 5 items:
-- Tasks (`/tasks`)
-- Transaction Imports (`/transactions/batch-upload`)
-- Audit Log (`/audit`)
-- Users (`/users`) - Admin only
-- Data Breach Alerts (`/data-breach-alerts`) - Admin only
-
-Configuration: `app/Config/Navigation.php`
-
-### Key Models
-
-| Model | Purpose |
-|-------|---------|
-| `Branch` | Multi-branch support (HQ, branches) with contact info |
-| `Transaction` | Buy/sell currency transactions with optimistic locking |
-| `Customer` | KYC data, risk ratings, CDD levels |
-| `CurrencyPosition` | Stock tracking with weighted avg cost |
-| `JournalEntry` | Double-entry accounting records |
-| `JournalLine` | Individual debit/credit lines |
-| `AccountLedger` | Running balance ledger entries |
-| `ChartOfAccount` | COA with 18+ accounts, cost centers |
-| `Department` | Organizational departments |
-| `CostCenter` | Cost center tracking |
-| `FiscalYear` | Annual fiscal year management |
-| `AccountingPeriod` | Monthly periods for financial reporting |
-| `Budget` | Budget vs actual tracking |
-| `TillBalance` | Daily till opening/closing |
-| `FlaggedTransaction` | AML alerts requiring review |
-| `StrReport` | Suspicious Transaction Reports |
-| `ComplianceCase` | Compliance investigation case management |
-| `ComplianceFinding` | Automated findings from monitoring engine |
-| `TransactionConfirmation` | Large transaction manager confirmation |
-| `BankReconciliation` | Bank reconciliation with check tracking |
-| `CounterSession` | Till session with open/close lifecycle |
-| `AuditLog` | Tamper-evident audit trail with hash chaining |
-| `SystemLog` | Cryptographically chained system events |
-| `EnhancedDiligenceRecord` | EDD questionnaire records |
-| `Alert` | System alerts requiring attention |
-| `AmlRule` | AML rule engine configuration |
-| `Counter` | Till/counter master record with currency inventory |
-| `CounterHandover` | Till custody transfer between users |
-| `CustomerDocument` | Customer KYC document storage |
-| `CustomerRiskHistory` | Customer risk score change history |
-| `DataBreachAlert` | Data breach alerts and notifications |
-| `DeviceComputations` | Device trust score computations |
-| `EddTemplate` | EDD questionnaire templates |
-| `ExchangeRateHistory` | Historical exchange rate tracking |
-| `MfaRecoveryCode` | MFA recovery codes for account recovery |
-| `ReportGenerated` | Generated compliance reports |
-| `ReportRun` | Report generation execution logs |
-| `ReportSchedule` | Scheduled report configurations |
-| `ReportTemplate` | Report template definitions |
-| `RevaluationEntry` | Currency revaluation journal entries |
-| `RiskScoreSnapshot` | Periodic risk score snapshots |
-| `SanctionEntry` | Individual sanctions screening entries |
-| `SanctionList` | Sanctions list master data |
-| `StockTransfer` | Inter-branch stock transfers |
-| `StockTransferItem` | Stock transfer line items |
-| `StrDraft` | STR draft before submission |
-
-### Accounting Module
-
-**Chart of Accounts** (18 accounts):
-- Asset: 1000-2200 (Cash, Inventory, Receivables)
-- Liability: 3000-3100 (Payables, Accruals)
-- Equity: 4000-4200 (Capital, Retained Earnings)
-- Revenue: 5000-5100 (Forex Trading, Revaluation Gains)
-- Expense: 6000-6200 (Forex Loss, Revaluation Loss, Operating)
-
-**Services**:
-- `AccountingService` - Journal entry creation and reversal
-- `LedgerService` - Trial balance, P&L, balance sheet
-- `RevaluationService` - Monthly currency revaluation
-- `PeriodCloseService` - Period closing with validation
-- `BudgetService` - Budget vs actual reporting
-- `ReconciliationService` - Bank reconciliation with outstanding checks
-- `JournalEntryWorkflowService` - Draft → Pending → Posted workflow
-- `CashFlowService` - Cash flow statement (operating/investing/financing)
-- `FinancialRatioService` - Liquidity, profitability, leverage, efficiency ratios
-- `FiscalYearService` - Fiscal year closing with income summary entries
-- `EddService` - Enhanced Due Diligence workflow management
-- `StrReportService` - Suspicious Transaction Report generation and submission
-- `CounterService` - Till/counter lifecycle management (open, close, handover)
-- `AuditService` - Audit log and system event management
-- `SanctionScreeningService` - Customer/transaction sanctions screening
-- `RiskRatingService` - Customer risk rating calculation
-- `AlertTriageService` - Alert triage and assignment workflow
-- `CaseManagementService` - Compliance case management with notes and documents
-- `ComplianceReportingService` - Dashboard KPIs, calendar, case aging, audit trail
-- `CustomerRiskScoringService` - Customer risk scoring with lock/unlock
-- `EddTemplateService` - EDD questionnaire template management
-- `StrAutomationService` - STR automated preparation and submission
-- `TransactionImportService` - Bulk transaction import handling
-- `TransactionMonitoringService` - Automated compliance monitoring (velocity, structuring, sanctions rescreening)
-- `AmlRuleService` - AML rule engine configuration
-- `ApprovalWorkflowService` - Multi-stage approval workflow
-- `BranchScopeService` - Branch-based data scoping
-- `BranchService` - Branch management
-- `CounterService` - Till/counter lifecycle management (open, close, handover)
-- `CurrencyPositionService` - Stock/position tracking
-- `EncryptionService` - Data encryption with random IV
-- `ExportService` - Data export utilities
-- `LogRotationService` - Audit log rotation
-- `MathService` - BCMath precision calculations
-- `MfaService` - MFA management
-- `RateApiService` - Exchange rate API integration
-- `ReportingService` - Report generation
-- `RiskRatingService` - Customer risk rating
-- `SanctionScreeningService` - Sanctions list screening
-- `StockTransferService` - Inter-branch transfers
-- `StrReportService` - STR report management
-- `TaskService` - Task management
-- `TransactionCancellationService` - Transaction cancellation
-- `TransactionErrorHandler` - Error logging
-- `TransactionRecoveryService` - Recovery workflows
-- `TransactionService` - Core transaction operations
-- `TransactionStateMachine` - Transaction state management
-
-**Database Seeders**:
-- `ChartOfAccountsSeeder` - Creates 18 default accounts
-- `AccountingPeriodSeeder` - Creates current + 2 months
-- `BudgetSeeder` - Sample monthly budgets
-- `DepartmentSeeder` - Organizational departments
-- `CostCenterSeeder` - Cost center tracking
-- `EnhancedChartOfAccountsSeeder` - 50+ accounts for complete accounting
-
-**Routes** (`/accounting`): Journal entries, ledgers, trial balance, P&L, balance sheet, cash flow, ratios, revaluation, periods, fiscal years, bank reconciliation, and budget. See `php artisan route:list --path=accounting` for full list.
+**EOD Reconciliation** (`EodReconciliationService`):
+- `GET /api/v1/eod/reconciliation/{date}` - Daily reconciliation summary
+- `GET /api/v1/eod/reconciliation/{date}/counters/{counterId}` - Counter-specific reconciliation
+- Artisan command: `php artisan report:eod --date=YYYY-MM-DD`
 
 ### Compliance & AML
 
@@ -357,32 +168,9 @@ Configuration: `app/Config/Navigation.php`
 - `Standard` - RM 3,000 to RM 49,999
 - `Enhanced` - ≥ RM 50,000 OR PEP OR Sanction match
 
-**Compliance Flags** (`ComplianceFlagType` enum):
-- LargeAmount, SanctionMatch, Velocity, Structuring, EddRequired, PepStatus, HighRiskCustomer, etc.
-
-**Finding Types** (from monitoring services): VelocityExceeded, StructuringPattern, AggregateTransaction, StrDeadline, SanctionMatch, LocationAnomaly, CurrencyFlowAnomaly, CounterfeitAlert, RiskScoreChange
-
 **CTOS Reporting**: Applies to ALL cash transactions (Buy and Sell) ≥ RM 10,000
 
 **Structuring Detection**: 7-day lookback for aggregate transactions (configurable)
-
-**Compliance Routes** (`/compliance`):
-- `/compliance` - Compliance dashboard
-- `/compliance/flagged` - Flagged transactions review
-- `/compliance/edd` - Enhanced Due Diligence records
-- `/compliance/edd/create` - New EDD record
-- `/str` - Suspicious Transaction Reports
-
-**Compliance API Routes** (`/api/compliance`):
-
-- `/api/compliance/dashboard` - Dashboard KPIs
-- `/api/compliance/calendar` - BNM regulatory filing calendar
-- `/api/compliance/case-aging` - Case aging summary
-- `/api/compliance/audit-trail` - Audit trail with export
-- `/api/compliance/findings` - List/filter compliance findings
-- `/api/compliance/cases` - Case management CRUD
-- `/api/compliance/edd` - EDD records and questionnaires
-- `/api/risk/portfolio` - Risk portfolio overview
 
 ### Report Generation
 
@@ -414,27 +202,6 @@ Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`.
 - `tests/Unit/CashFlowServiceTest.php` - Cash flow statement generation
 - `tests/Unit/RiskRatingServiceTest.php` - Risk scoring (uses real DB, not facade mocks)
 - `tests/Unit/ComplianceServiceTest.php` - CDD levels, sanctions, velocity, structuring (uses real DB)
-
-### Counter Management
-
-Counters (tills) with full lifecycle:
-- `/counters/{counter}/open` - Open counter with opening floats
-- `/counters/{counter}/close` - Close counter with closing floats
-- `/counters/{counter}/handover` - Transfer custody between users
-- `/counters/{counter}/status` - Real-time counter status
-- `/counters/{counter}/history` - Transaction history
-
-**EOD Reconciliation** (`EodReconciliationService`):
-- `GET /api/v1/eod/reconciliation/{date}` - Daily reconciliation summary
-- `GET /api/v1/eod/reconciliation/{date}/counters/{counterId}` - Counter-specific reconciliation
-- `GET /api/v1/eod/reconciliation/{date}/report` - PDF report download
-- Artisan command: `php artisan report:eod --date=YYYY-MM-DD`
-
-**Bulk Import** (`BulkImportService`):
-- `POST /api/v1/import/customers` - Upload and import customers CSV
-- `POST /api/v1/import/transactions` - Upload and import transactions CSV
-- `GET /api/v1/import/status/{jobId}` - Check import job status
-- `GET /api/v1/import/errors/{jobId}` - Get import errors
 
 ## Important Conventions
 
