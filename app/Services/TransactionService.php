@@ -36,6 +36,7 @@ class TransactionService
         protected TransactionMonitoringService $monitoringService,
         protected CtosReportService $ctosReportService,
         protected TellerAllocationService $tellerAllocationService,
+        protected ApprovalWorkflowService $approvalWorkflowService,
     ) {}
 
     /**
@@ -588,6 +589,9 @@ class TransactionService
                 );
             }
 
+            // Track if this was a PendingApproval transaction (has ApprovalTask)
+            $wasPendingApproval = $lockedTransaction->status === TransactionStatus::PendingApproval;
+
             // Update the locked transaction
             $lockedTransaction->update([
                 'status' => TransactionStatus::Completed,
@@ -649,6 +653,12 @@ class TransactionService
                 ],
             ]);
 
+            // Sync ApprovalTask if this was a PendingApproval transaction
+            // This ensures the approval workflow audit trail is complete
+            if ($wasPendingApproval) {
+                $this->syncApprovalTaskOnCompletion($lockedTransaction, $approverId);
+            }
+
             // Dispatch event for async compliance processing
             Event::dispatch(new TransactionApproved($lockedTransaction));
 
@@ -658,5 +668,48 @@ class TransactionService
                 'transaction' => $lockedTransaction->fresh(),
             ];
         });
+    }
+
+    /**
+     * Sync the ApprovalTask when a PendingApproval transaction is completed.
+     *
+     * This ensures the approval workflow audit trail is complete by marking
+     * the associated ApprovalTask as approved.
+     */
+    protected function syncApprovalTaskOnCompletion(Transaction $transaction, int $approverId): void
+    {
+        // Find the pending ApprovalTask for this transaction
+        $task = \App\Models\ApprovalTask::where('transaction_id', $transaction->id)
+            ->where('status', \App\Models\ApprovalTask::STATUS_PENDING)
+            ->first();
+
+        if (! $task) {
+            Log::warning('ApprovalTask not found for PendingApproval transaction', [
+                'transaction_id' => $transaction->id,
+            ]);
+
+            return;
+        }
+
+        // Get the approver user
+        $approver = User::find($approverId);
+
+        if (! $approver) {
+            Log::warning('Approver not found when syncing ApprovalTask', [
+                'transaction_id' => $transaction->id,
+                'approver_id' => $approverId,
+            ]);
+
+            return;
+        }
+
+        // Approve the task via ApprovalWorkflowService
+        $this->approvalWorkflowService->approve($task, $approver, 'Transaction completed via approveTransaction');
+
+        Log::info('ApprovalTask synced on transaction completion', [
+            'transaction_id' => $transaction->id,
+            'approval_task_id' => $task->id,
+            'approver_id' => $approverId,
+        ]);
     }
 }
