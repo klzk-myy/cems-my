@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\RiskRating;
 use App\Models\Customer;
 use App\Models\CustomerRiskHistory;
 use Illuminate\Support\Facades\DB;
@@ -101,12 +102,12 @@ class RiskRatingService
         return $largeCashCount > 3;
     }
 
-    public function getRefreshFrequency(string $rating): int
+    public function getRefreshFrequency(RiskRating $rating): int
     {
         return match ($rating) {
-            'Low' => 3, // 3 years
-            'Medium' => 2, // 2 years
-            'High' => 1, // 1 year
+            RiskRating::Low => 3, // 3 years
+            RiskRating::Medium => 2, // 2 years
+            RiskRating::High => 1, // 1 year
         };
     }
 }

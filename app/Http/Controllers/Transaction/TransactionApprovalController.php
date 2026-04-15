@@ -51,6 +51,11 @@ class TransactionApprovalController extends Controller
             return back()->with('error', 'Transaction is not pending approval.');
         }
 
+        // Prevent self-approval (segregation of duties - AML/CFT compliance)
+        if ($transaction->created_by === auth()->id()) {
+            return back()->with('error', 'You cannot approve your own transaction. Segregation of duties requires a different approver.');
+        }
+
         try {
             $result = $this->transactionService->approveTransaction(
                 $transaction,
@@ -138,6 +143,12 @@ class TransactionApprovalController extends Controller
         if (! $confirmation) {
             return redirect()->route('transactions.show', $transaction)
                 ->with('error', 'No pending confirmation found.');
+        }
+
+        // Prevent self-confirmation (segregation of duties - AML/CFT compliance)
+        if ($transaction->created_by === auth()->id()) {
+            return redirect()->route('transactions.show', $transaction)
+                ->with('error', 'You cannot confirm your own transaction. Segregation of duties requires a different approver.');
         }
 
         if ($confirmation->isExpired()) {

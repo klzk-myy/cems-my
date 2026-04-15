@@ -186,6 +186,11 @@ class TransactionService
                     $availableBalance = $position ? $position->balance : '0';
                     throw new \InvalidArgumentException("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
                 }
+            } elseif ($data['type'] === TransactionType::Buy->value) {
+                // For Buy transactions, acquire position lock to prevent race conditions
+                // where concurrent transactions could cause inconsistent position updates.
+                // Unlike Sell, Buy does not require stock validation (we are acquiring currency).
+                $position = $this->positionService->getPositionWithLock($data['currency_code'], $data['till_id']);
             }
 
             // Check for duplicate transaction via idempotency key (inside transaction to prevent race)

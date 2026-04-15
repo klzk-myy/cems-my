@@ -38,6 +38,9 @@ use App\Http\Controllers\TransactionBatchController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\TransactionReportController;
 use App\Http\Controllers\UserController;
+use App\Modules\Pos\Controllers\PosInventoryController;
+use App\Modules\Pos\Controllers\PosRateController;
+use App\Modules\Pos\Controllers\PosTransactionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -81,6 +84,26 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // POS Module - Point of Sale Interface
+    Route::prefix('pos')->name('pos.')->group(function () {
+        // Rates
+        Route::get('/rates', [PosRateController::class, 'index'])->name('rates.index');
+        Route::get('/rates/today', [PosRateController::class, 'getTodayRates'])->name('rates.today');
+        Route::post('/rates/set', [PosRateController::class, 'setDailyRates'])->name('rates.set');
+        Route::post('/rates/copy-yesterday', [PosRateController::class, 'copyYesterdayRates'])->name('rates.copy-yesterday');
+        Route::get('/rates/history', [PosRateController::class, 'getRateHistory'])->name('rates.history');
+
+        // Transactions
+        Route::get('/transactions/create', [PosTransactionController::class, 'create'])->name('transactions.create');
+        Route::post('/transactions/quote', [PosTransactionController::class, 'quote'])->name('transactions.quote');
+
+        // Inventory
+        Route::get('/inventory', [PosInventoryController::class, 'index'])->name('inventory.index');
+        Route::get('/inventory/aggregate', [PosInventoryController::class, 'aggregate'])->name('inventory.aggregate');
+        Route::get('/inventory/low-stock', [PosInventoryController::class, 'lowStock'])->name('inventory.low-stock');
+        Route::post('/inventory/eod', [PosInventoryController::class, 'eod'])->name('inventory.eod');
+    });
 
     // MFA Setup & Verification
     Route::prefix('mfa')->name('mfa.')->group(function () {

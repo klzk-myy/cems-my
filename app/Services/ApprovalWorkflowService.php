@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Models\ApprovalTask;
 use App\Models\Transaction;
 use App\Models\User;
@@ -56,35 +57,35 @@ class ApprovalWorkflowService
      */
     public function requiresApproval(Transaction $transaction): bool
     {
-        return $this->getRequiredRole($transaction) !== 'none';
+        return $this->getRequiredRole($transaction) !== null;
     }
 
     /**
      * Get the required role for approving a transaction.
      *
-     * @return string 'supervisor', 'manager', 'admin', or 'none'
+     * @return UserRole|null UserRole enum case or null if no approval required
      */
-    public function getRequiredRole(Transaction $transaction): string
+    public function getRequiredRole(Transaction $transaction): ?UserRole
     {
         $amount = $transaction->amount_local;
 
         // Auto-approve: < RM 3,000
         if ($this->mathService->compare($amount, self::AUTO_APPROVE_THRESHOLD) < 0) {
-            return 'none';
+            return null;
         }
 
         // Supervisor: RM 3,000 - 9,999.99
         if ($this->mathService->compare($amount, self::SUPERVISOR_THRESHOLD) < 0) {
-            return 'supervisor';
+            return UserRole::Manager; // Supervisors are managers in this system
         }
 
         // Manager: RM 10,000 - 49,999.99
         if ($this->mathService->compare($amount, self::MANAGER_THRESHOLD) < 0) {
-            return 'manager';
+            return UserRole::Manager;
         }
 
         // Admin: >= RM 50,000
-        return 'admin';
+        return UserRole::Admin;
     }
 
     /**
@@ -126,7 +127,7 @@ class ApprovalWorkflowService
     {
         $requiredRole = $this->getRequiredRole($transaction);
 
-        if ($requiredRole === 'none') {
+        if ($requiredRole === null) {
             return null;
         }
 
@@ -137,7 +138,7 @@ class ApprovalWorkflowService
             'transaction_id' => $transaction->id,
             'status' => ApprovalTask::STATUS_PENDING,
             'threshold_amount' => $thresholdAmount,
-            'required_role' => $requiredRole,
+            'required_role' => $requiredRole->value,
             'expires_at' => $expiresAt,
         ]);
     }
@@ -247,8 +248,8 @@ class ApprovalWorkflowService
             ->first();
 
         return [
-            'requires_approval' => $requiredRole !== 'none',
-            'required_role' => $requiredRole,
+            'requires_approval' => $requiredRole !== null,
+            'required_role' => $requiredRole?->value,
             'threshold_amount' => $thresholdAmount,
             'has_pending_task' => $task?->isPending() ?? false,
             'task_status' => $task?->status,
@@ -291,10 +292,19 @@ class ApprovalWorkflowService
      */
     protected function canApprove(User $user, string $requiredRole): bool
     {
-        return match ($requiredRole) {
-            'supervisor' => $user->role->isManager(), // Supervisors are managers in this system
-            'manager' => $user->role->isManager(),
-            'admin' => $user->role->isAdmin(),
+        $required = match ($requiredRole) {
+            'supervisor', 'manager' => UserRole::Manager,
+            'admin' => UserRole::Admin,
+            default => null,
+        };
+
+        if ($required === null) {
+            return false;
+        }
+
+        return match ($required) {
+            UserRole::Manager => $user->role->isManager(),
+            UserRole::Admin => $user->role->isAdmin(),
             default => false,
         };
     }
