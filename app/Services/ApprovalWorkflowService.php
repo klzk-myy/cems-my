@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\TransactionStatus;
 use App\Enums\UserRole;
 use App\Models\ApprovalTask;
 use App\Models\Transaction;
@@ -137,13 +138,19 @@ class ApprovalWorkflowService
         $thresholdAmount = $this->getThresholdAmount($transaction);
         $expiresAt = now()->addHours(self::DEFAULT_EXPIRATION_HOURS);
 
-        return ApprovalTask::create([
-            'transaction_id' => $transaction->id,
-            'status' => ApprovalTask::STATUS_PENDING,
-            'threshold_amount' => $thresholdAmount,
-            'required_role' => $requiredRole->value,
-            'expires_at' => $expiresAt,
-        ]);
+        return DB::transaction(function () use ($transaction, $thresholdAmount, $requiredRole, $expiresAt) {
+            // Update transaction status to PendingApproval
+            $transaction->status = TransactionStatus::PendingApproval;
+            $transaction->save();
+
+            return ApprovalTask::create([
+                'transaction_id' => $transaction->id,
+                'status' => ApprovalTask::STATUS_PENDING,
+                'threshold_amount' => $thresholdAmount,
+                'required_role' => $requiredRole->value,
+                'expires_at' => $expiresAt,
+            ]);
+        });
     }
 
     /**
@@ -365,5 +372,112 @@ class ApprovalWorkflowService
             });
 
         return $count;
+    }
+
+    /**
+     * Sync transaction status with its approval task status.
+     *
+     * Updates the transaction status based on the current approval task status:
+     * - Pending task -> PendingApproval
+     * - Approved task -> Approved
+     * - Rejected task -> Rejected
+     * - Expired task -> no change (transaction remains in current state)
+     *
+     * @return bool True if sync was successful
+     */
+    public function syncTransactionStatusWithApprovalTask(Transaction $transaction): bool
+    {
+        $task = ApprovalTask::where('transaction_id', $transaction->id)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (! $task) {
+            return false;
+        }
+
+        $newStatus = match ($task->status) {
+            ApprovalTask::STATUS_PENDING => TransactionStatus::PendingApproval,
+            ApprovalTask::STATUS_APPROVED => TransactionStatus::Approved,
+            ApprovalTask::STATUS_REJECTED => TransactionStatus::Rejected,
+            ApprovalTask::STATUS_EXPIRED => null, // No change on expiry
+            default => null,
+        };
+
+        if ($newStatus === null) {
+            return false;
+        }
+
+        $transaction->status = $newStatus;
+
+        return $transaction->save();
+    }
+
+    /**
+     * Check consistency between transaction status and its approval task status.
+     *
+     * Returns true if the transaction status is consistent with its latest approval task,
+     * or if no approval task exists and the transaction doesn't require approval.
+     *
+     * @return array{consistent: bool, transaction_status: string|null, task_status: string|null, message: string}
+     */
+    public function checkStatusConsistency(Transaction $transaction): array
+    {
+        $task = ApprovalTask::where('transaction_id', $transaction->id)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        // No approval task exists
+        if (! $task) {
+            $requiresApproval = $this->requiresApproval($transaction);
+
+            if ($requiresApproval) {
+                return [
+                    'consistent' => false,
+                    'transaction_status' => $transaction->status->value,
+                    'task_status' => null,
+                    'message' => 'Transaction requires approval but no approval task exists',
+                ];
+            }
+
+            return [
+                'consistent' => true,
+                'transaction_status' => $transaction->status->value,
+                'task_status' => null,
+                'message' => 'No approval task required, status is consistent',
+            ];
+        }
+
+        // Check if statuses are in sync
+        $expectedStatus = match ($task->status) {
+            ApprovalTask::STATUS_PENDING => TransactionStatus::PendingApproval,
+            ApprovalTask::STATUS_APPROVED => TransactionStatus::Approved,
+            ApprovalTask::STATUS_REJECTED => TransactionStatus::Rejected,
+            default => null,
+        };
+
+        if ($expectedStatus === null) {
+            return [
+                'consistent' => true,
+                'transaction_status' => $transaction->status->value,
+                'task_status' => $task->status,
+                'message' => 'Task is expired, no status sync required',
+            ];
+        }
+
+        if ($transaction->status === $expectedStatus) {
+            return [
+                'consistent' => true,
+                'transaction_status' => $transaction->status->value,
+                'task_status' => $task->status,
+                'message' => 'Transaction and approval task statuses are consistent',
+            ];
+        }
+
+        return [
+            'consistent' => false,
+            'transaction_status' => $transaction->status->value,
+            'task_status' => $task->status,
+            'message' => "Transaction status '{$transaction->status->value}' does not match expected '{$expectedStatus->value}' for task status '{$task->status}'",
+        ];
     }
 }

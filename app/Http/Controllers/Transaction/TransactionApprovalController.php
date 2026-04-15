@@ -10,6 +10,7 @@ use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\TransactionConfirmation;
 use App\Services\AccountingService;
+use App\Services\ApprovalWorkflowService;
 use App\Services\AuditService;
 use App\Services\ComplianceService;
 use App\Services\CurrencyPositionService;
@@ -30,7 +31,8 @@ class TransactionApprovalController extends Controller
         protected TransactionMonitoringService $monitoringService,
         protected MathService $mathService,
         protected AccountingService $accountingService,
-        protected AuditService $auditService
+        protected AuditService $auditService,
+        protected ApprovalWorkflowService $approvalWorkflowService
     ) {}
 
     /**
@@ -168,45 +170,25 @@ class TransactionApprovalController extends Controller
             if ($validated['confirmation_action'] === 'confirm') {
                 $confirmation->markConfirmed(auth()->id(), $validated['notes'] ?? null);
 
-                // Complete the transaction
+                // Set transaction to PendingApproval and create approval task
+                // This routes >= RM 50,000 transactions through ApprovalWorkflowService
+                // instead of bypassing it
                 $updated = Transaction::where('id', $transaction->id)
                     ->whereIn('status', [TransactionStatus::Pending, TransactionStatus::OnHold])
                     ->update([
-                        'status' => TransactionStatus::Completed,
-                        'approved_by' => auth()->id(),
-                        'approved_at' => now(),
+                        'status' => TransactionStatus::PendingApproval,
                     ]);
 
                 if (! $updated) {
                     DB::rollBack();
 
-                    return back()->with('error', 'Transaction could not be completed. Status may have changed.');
+                    return back()->with('error', 'Transaction could not be updated. Status may have changed.');
                 }
 
                 $transaction->refresh();
 
-                // Update positions and create accounting entries
-                $tillBalance = TillBalance::where('till_id', $transaction->till_id ?? 'MAIN')
-                    ->where('currency_code', $transaction->currency_code)
-                    ->whereDate('date', today())
-                    ->whereNull('closed_at')
-                    ->first();
-
-                if ($tillBalance) {
-                    $this->positionService->updatePosition(
-                        $transaction->currency_code,
-                        (string) $transaction->amount_foreign,
-                        (string) $transaction->rate,
-                        $transaction->type->value,
-                        $transaction->till_id ?? 'MAIN'
-                    );
-                    $this->updateTillBalance($tillBalance, $transaction->type->value,
-                        (string) $transaction->amount_local,
-                        (string) $transaction->amount_foreign
-                    );
-                }
-
-                $this->createAccountingEntries($transaction);
+                // Create an approval task - for >= RM 50,000 this will require Admin role
+                $approvalTask = $this->approvalWorkflowService->createApprovalTask($transaction);
 
                 SystemLog::create([
                     'user_id' => auth()->id(),
@@ -216,17 +198,15 @@ class TransactionApprovalController extends Controller
                     'new_values' => [
                         'confirmation_id' => $confirmation->id,
                         'confirmed_by' => auth()->id(),
+                        'approval_task_id' => $approvalTask?->id,
                     ],
                     'ip_address' => $request->ip(),
                 ]);
 
                 DB::commit();
 
-                // Dispatch event for async processing
-                \App\Events\TransactionCreated::dispatch($transaction);
-
                 return redirect()->route('transactions.show', $transaction)
-                    ->with('success', 'Transaction confirmed and completed successfully.');
+                    ->with('success', 'Transaction confirmed and pending final approval.');
 
             } else {
                 // Reject the transaction

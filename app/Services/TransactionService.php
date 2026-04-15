@@ -421,8 +421,8 @@ class TransactionService
         // Create the entries
         $this->createImmediateAccountingEntries($transaction);
 
-        // Update tracking fields
-        $transaction->journal_entries_created_at = now();
+        // Mark as having deferred accounting (Enhanced CDD was deferred until approval)
+        $transaction->has_deferred_accounting = true;
         $transaction->save();
 
         $this->auditService->logTransaction('deferred_journal_entries_created', $transaction->id, [
@@ -494,12 +494,18 @@ class TransactionService
             }
         }
 
-        $this->accountingService->createJournalEntry(
+        $journalEntry = $this->accountingService->createJournalEntry(
             $entries,
             'Transaction',
             $transaction->id,
             "Transaction #{$transaction->id} - {$transaction->type->value} {$transaction->currency_code}"
         );
+
+        // Link journal entry to transaction
+        $transaction->journal_entry_id = $journalEntry->id;
+        $transaction->journal_entries_created_at = now();
+        $transaction->has_deferred_accounting = false;
+        $transaction->save();
     }
 
     /**
@@ -525,8 +531,9 @@ class TransactionService
             throw new \InvalidArgumentException('Invalid IP address format.');
         }
 
-        // Validate transaction is in pending status
-        if ($transaction->status !== TransactionStatus::Pending) {
+        // Validate transaction is in pending or pending approval status
+        // Pending = normal approval flow, PendingApproval = confirmation flow with ApprovalTask
+        if (! in_array($transaction->status, [TransactionStatus::Pending, TransactionStatus::PendingApproval], true)) {
             throw new \InvalidArgumentException(
                 'Transaction is not pending approval. Current status: '.$transaction->status->label()
             );
@@ -568,8 +575,9 @@ class TransactionService
 
         return DB::transaction(function () use ($transaction, $approverId, $amlResult) {
             // Optimistic locking with pessimistic lock to prevent race conditions
+            // Handle both Pending (normal flow) and PendingApproval (confirmation flow)
             $lockedTransaction = Transaction::where('id', $transaction->id)
-                ->where('status', TransactionStatus::Pending)
+                ->whereIn('status', [TransactionStatus::Pending, TransactionStatus::PendingApproval])
                 ->where('version', $transaction->version)
                 ->lockForUpdate()
                 ->first();
@@ -620,7 +628,12 @@ class TransactionService
             );
 
             // Create double-entry accounting journal entries
-            $this->createAccountingEntries($lockedTransaction);
+            // For Enhanced CDD transactions, use deferred entry creation (approval triggers it)
+            if ($lockedTransaction->cdd_level === CddLevel::Enhanced) {
+                $this->createDeferredAccountingEntries($lockedTransaction->id);
+            } else {
+                $this->createAccountingEntries($lockedTransaction);
+            }
 
             // Audit logging for the approval action
             $this->auditService->logTransaction('transaction_approved', $lockedTransaction->id, [

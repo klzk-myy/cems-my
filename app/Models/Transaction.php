@@ -86,6 +86,10 @@ class Transaction extends Model
         'failure_reason',
         'rejection_reason',
         'reversal_reason',
+        'journal_entry_id',
+        'deferred_journal_entry_id',
+        'journal_entries_created_at',
+        'has_deferred_accounting',
     ];
 
     /**
@@ -106,6 +110,8 @@ class Transaction extends Model
         'cancelled_at' => 'datetime',
         'rate_override_approved_at' => 'datetime',
         'transition_history' => 'array',
+        'journal_entries_created_at' => 'datetime',
+        'has_deferred_accounting' => 'boolean',
     ];
 
     /**
