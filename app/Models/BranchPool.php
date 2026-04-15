@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Services\MathService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,21 +29,17 @@ class BranchPool extends Model
 
     public function hasAvailable(string $amount): bool
     {
-        $math = new MathService;
-
-        return $math->compare($this->available_balance, $amount) >= 0;
+        return bccomp($this->available_balance, $amount, 4) >= 0;
     }
 
     public function allocate(string $amount): bool
     {
-        $math = new MathService;
-
         if (! $this->hasAvailable($amount)) {
             return false;
         }
 
-        $this->available_balance = $math->subtract($this->available_balance, $amount);
-        $this->allocated_balance = $math->add($this->allocated_balance, $amount);
+        $this->available_balance = bcsub($this->available_balance, $amount, 4);
+        $this->allocated_balance = bcadd($this->allocated_balance, $amount, 4);
         $this->save();
 
         return true;
@@ -52,14 +47,12 @@ class BranchPool extends Model
 
     public function deallocate(string $amount): bool
     {
-        $math = new MathService;
-
-        if ($math->compare($this->allocated_balance, $amount) < 0) {
+        if (bccomp($this->allocated_balance, $amount, 4) < 0) {
             return false;
         }
 
-        $this->available_balance = $math->add($this->available_balance, $amount);
-        $this->allocated_balance = $math->subtract($this->allocated_balance, $amount);
+        $this->available_balance = bcadd($this->available_balance, $amount, 4);
+        $this->allocated_balance = bcsub($this->allocated_balance, $amount, 4);
         $this->save();
 
         return true;

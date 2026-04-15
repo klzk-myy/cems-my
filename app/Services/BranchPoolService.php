@@ -85,12 +85,31 @@ class BranchPoolService
     public function replenish(Branch $branch, string $currencyCode, float|string $amount, int $approvedBy): BranchPool
     {
         $amount = (string) $amount;
-        $pool = $this->getOrCreateForBranch($branch, $currencyCode);
 
-        $pool->available_balance = $this->mathService->add($pool->available_balance, $amount);
-        $pool->save();
+        return DB::transaction(function () use ($branch, $currencyCode, $amount) {
+            $pool = BranchPool::where('branch_id', $branch->id)
+                ->where('currency_code', $currencyCode)
+                ->lockForUpdate()
+                ->first();
 
-        return $pool;
+            if (! $pool) {
+                $pool = BranchPool::create([
+                    'branch_id' => $branch->id,
+                    'currency_code' => $currencyCode,
+                    'available_balance' => '0.0000',
+                    'allocated_balance' => '0.0000',
+                ]);
+                $pool = BranchPool::where('branch_id', $branch->id)
+                    ->where('currency_code', $currencyCode)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            $pool->available_balance = $this->mathService->add($pool->available_balance, $amount);
+            $pool->save();
+
+            return $pool;
+        });
     }
 
     public function getAllPoolsForBranch(Branch $branch): Collection
