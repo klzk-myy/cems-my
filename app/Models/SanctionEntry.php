@@ -20,6 +20,10 @@ class SanctionEntry extends Model
         'nationality',
         'date_of_birth',
         'details',
+        'normalized_name',
+        'soundex_code',
+        'metaphone_code',
+        'status',
     ];
 
     protected $casts = [

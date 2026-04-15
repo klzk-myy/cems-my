@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\CounterSession;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\CounterSession>
+ * @extends Factory<CounterSession>
  */
 class CounterSessionFactory extends Factory
 {
@@ -17,7 +18,9 @@ class CounterSessionFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'session_date' => now()->toDateString(),
+            'opened_at' => now(),
+            'status' => 'open',
         ];
     }
 }

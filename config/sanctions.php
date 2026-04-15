@@ -193,4 +193,17 @@ return [
         'allowed_ips' => explode(',', env('SANCTIONS_WEBHOOK_ALLOWED_IPS', '')),
         'rate_limit' => env('SANCTIONS_WEBHOOK_RATE_LIMIT', 10), // requests per minute
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Real-time Screening Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for real-time transaction and customer screening.
+    |
+    */
+
+    'realtime_screening_enabled' => env('SANCTIONS_REALTIME_ENABLED', true),
+    'screening_block_threshold' => env('SANCTIONS_BLOCK_THRESHOLD', 0.90),
+    'screening_flag_threshold' => env('SANCTIONS_FLAG_THRESHOLD', 0.75),
 ];

@@ -53,9 +53,9 @@ class ComplianceService
     public const STANDARD_CDD_THRESHOLD = '3000';
 
     /**
-     * Cash Transaction Report threshold (RM 10,000).
+     * Cash Transaction Report threshold (RM 25,000).
      */
-    public const CTOS_THRESHOLD = '10000';
+    public const CTOS_THRESHOLD = '25000';
 
     /**
      * Create a new ComplianceService instance.

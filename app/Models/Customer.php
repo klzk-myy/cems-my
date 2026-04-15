@@ -56,6 +56,7 @@ class Customer extends Model
         'email',
         'pep_status',
         'sanction_hit',
+        'is_pep_associate',
         'risk_score',
         'risk_rating',
         'cdd_level',
@@ -122,6 +123,35 @@ class Customer extends Model
     public function riskScoreSnapshots()
     {
         return $this->hasMany(RiskScoreSnapshot::class);
+    }
+
+    /**
+     * Get PEP relations for this customer.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function pepRelations()
+    {
+        return $this->hasMany(CustomerRelation::class, 'customer_id');
+    }
+
+    /**
+     * Get associate relations where this customer is the related party.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function associateRelations()
+    {
+        return $this->hasMany(CustomerRelation::class, 'related_customer_id');
+    }
+
+    /**
+     * Determine if this customer is a PEP associate.
+     * Returns true if any PEP relation exists.
+     */
+    public function isPepAssociate(): bool
+    {
+        return $this->pepRelations()->where('is_pep', true)->exists();
     }
 
     /**
