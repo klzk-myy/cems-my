@@ -18,17 +18,16 @@ class SanctionsWebhookController extends Controller
      */
     public function __invoke(Request $request): JsonResponse
     {
-        // Validate webhook token if configured
-        $configuredToken = config('sanctions.webhook.token');
-        if ($configuredToken !== null && $configuredToken !== '') {
-            $providedToken = $request->header('X-Webhook-Token', '');
-            if (! hash_equals($configuredToken, $providedToken)) {
-                Log::warning('Sanctions webhook received with invalid token', [
-                    'ip' => $request->ip(),
-                ]);
+        // Validate webhook token - always required when configured
+        $configuredToken = config('sanctions.webhook.token', '');
+        $providedToken = $request->header('X-Webhook-Token', '');
 
-                return response()->json(['error' => 'Unauthorized'], 401);
-            }
+        if (! hash_equals($configuredToken, $providedToken)) {
+            Log::warning('Sanctions webhook received with invalid or missing token', [
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         // Log webhook receipt
