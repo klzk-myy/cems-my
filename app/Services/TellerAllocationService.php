@@ -17,7 +17,7 @@ class TellerAllocationService
         protected MathService $mathService,
     ) {}
 
-    public function requestAllocation(User $teller, User $approver, string $currencyCode, $requestedAmount, $dailyLimitMyr = null, ?Counter $counter = null): TellerAllocation
+    public function requestAllocation(User $teller, User $approver, string $currencyCode, string $requestedAmount, ?string $dailyLimitMyr = null, ?Counter $counter = null): TellerAllocation
     {
         $branch = $teller->branch;
 
@@ -40,7 +40,7 @@ class TellerAllocationService
             'allocated_amount' => $requestedAmount,
             'current_balance' => 0,
             'daily_used_myr' => 0,
-            'status' => 'pending',
+            'status' => TellerAllocationStatus::PENDING->value,
             'session_date' => now()->toDateString(),
         ];
 
@@ -53,7 +53,7 @@ class TellerAllocationService
         return $allocation;
     }
 
-    public function approveAllocation(TellerAllocation $allocation, User $approver, $approvedAmount, $dailyLimitMyr = null): TellerAllocation
+    public function approveAllocation(TellerAllocation $allocation, User $approver, string $approvedAmount, ?string $dailyLimitMyr = null): TellerAllocation
     {
         $branch = $allocation->branch;
 
@@ -77,7 +77,7 @@ class TellerAllocationService
         return $allocation;
     }
 
-    public function modifyAllocation(TellerAllocation $allocation, User $modifier, $newAmount, bool $isIncrease): TellerAllocation
+    public function modifyAllocation(TellerAllocation $allocation, User $modifier, string $newAmount, bool $isIncrease): TellerAllocation
     {
         $branch = $allocation->branch;
 
@@ -89,7 +89,7 @@ class TellerAllocationService
             $allocation->allocated_amount = bcadd($allocation->allocated_amount, $newAmount, 4);
         } else {
             $availableToReturn = bcsub($allocation->allocated_amount, $allocation->current_balance, 4);
-            $returnAmount = min((float) $newAmount, (float) $availableToReturn);
+            $returnAmount = $this->mathService->compare($newAmount, $availableToReturn) < 0 ? $newAmount : $availableToReturn;
 
             if ($returnAmount > 0) {
                 $this->branchPoolService->deallocateFromTeller($branch, $allocation->currency_code, $returnAmount);
@@ -169,7 +169,7 @@ class TellerAllocationService
         return $allocation;
     }
 
-    public function validateTransaction(User $teller, string $currencyCode, $amountMyr, bool $isBuy): array
+    public function validateTransaction(User $teller, string $currencyCode, string $amountMyr, bool $isBuy): array
     {
         $allocation = $this->getActiveAllocation($teller, $currencyCode);
 
