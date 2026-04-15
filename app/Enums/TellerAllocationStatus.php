@@ -11,6 +11,36 @@ enum TellerAllocationStatus: string
     case CLOSED = 'closed';
     case AUTO_RETURNED = 'auto_returned';
 
+    public function isPending(): bool
+    {
+        return $this === self::PENDING;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this === self::APPROVED;
+    }
+
+    public function isActive(): bool
+    {
+        return $this === self::ACTIVE;
+    }
+
+    public function isReturned(): bool
+    {
+        return $this === self::RETURNED;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this === self::CLOSED;
+    }
+
+    public function isAutoReturned(): bool
+    {
+        return $this === self::AUTO_RETURNED;
+    }
+
     public function label(): string
     {
         return match ($this) {

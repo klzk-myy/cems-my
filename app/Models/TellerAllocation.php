@@ -35,6 +35,7 @@ class TellerAllocation extends Model
         'requested_amount' => 'decimal:4',
         'daily_limit_myr' => 'decimal:4',
         'daily_used_myr' => 'decimal:4',
+        'status' => TellerAllocationStatus::class,
         'session_date' => 'date',
         'approved_at' => 'datetime',
         'opened_at' => 'datetime',
@@ -63,22 +64,22 @@ class TellerAllocation extends Model
 
     public function isPending(): bool
     {
-        return $this->status === TellerAllocationStatus::PENDING;
+        return $this->status->isPending();
     }
 
     public function isApproved(): bool
     {
-        return $this->status === TellerAllocationStatus::APPROVED;
+        return $this->status->isApproved();
     }
 
     public function isActive(): bool
     {
-        return $this->status === TellerAllocationStatus::ACTIVE;
+        return $this->status->isActive();
     }
 
     public function isReturned(): bool
     {
-        return $this->status === TellerAllocationStatus::RETURNED;
+        return $this->status->isReturned();
     }
 
     public function hasAvailable(float|string $amount): bool
