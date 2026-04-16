@@ -485,5 +485,11 @@
     </div>
 
     @stack('scripts')
-</body>
+    
+    {{-- Loading Overlay --}}
+    @include('components.loading')
+    
+    {{-- Notifications --}}
+    @include('components.notifications')
+    </body>
 </html>

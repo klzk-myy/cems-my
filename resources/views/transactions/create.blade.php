@@ -179,4 +179,52 @@
         </div>
     </form>
 </div>
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const amountForeignInput = document.querySelector('input[name="amount_foreign"]');
+    const rateInput = document.querySelector('input[name="rate"]');
+    const myrValueInput = document.querySelector('input[readonly]');
+    
+    function calculateMyrValue() {
+        const amountForeign = parseFloat(amountForeignInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+        const myrValue = amountForeign * rate;
+        
+        myrValueInput.value = myrValue.toFixed(2);
+    }
+    
+    // Calculate on input change
+    amountForeignInput.addEventListener('input', calculateMyrValue);
+    rateInput.addEventListener('input', calculateMyrValue);
+    
+    // Initial calculation
+    calculateMyrValue();
+    
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const amountForeign = parseFloat(amountForeignInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+        
+        if (amountForeign <= 0) {
+            e.preventDefault();
+            alert('Foreign amount must be greater than 0');
+            return false;
+        }
+        
+        if (rate <= 0) {
+            e.preventDefault();
+            alert('Exchange rate must be greater than 0');
+            return false;
+        }
+        
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span> Creating...';
+    });
+});
+</script>
 @endsection

@@ -8,6 +8,7 @@ use App\Enums\TransactionStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TransactionMonitoringService
 {
@@ -196,14 +197,98 @@ class TransactionMonitoringService
         return $this->mathService->compare((string) $currentMonthVolume, $monthlyThreshold) > 0;
     }
 
+    /**
+     * Check for existing flags of the same type for a transaction.
+     *
+     * @param  Transaction  $transaction  The transaction to check
+     * @param  ComplianceFlagType  $flagType  The flag type to check for
+     * @return FlaggedTransaction|null Existing flag or null if none found
+     */
+    protected function checkExistingFlags(Transaction $transaction, ComplianceFlagType $flagType): ?FlaggedTransaction
+    {
+        return FlaggedTransaction::where('transaction_id', $transaction->id)
+            ->where('flag_type', $flagType)
+            ->where('status', '!=', FlagStatus::Resolved)
+            ->first();
+    }
+
     protected function createFlag(Transaction $transaction, ComplianceFlagType $type, string $reason): FlaggedTransaction
     {
-        return FlaggedTransaction::create([
+        // Check for existing flag of same type
+        $existingFlag = $this->checkExistingFlags($transaction, $type);
+
+        if ($existingFlag) {
+            // Check if reason differs significantly using similarity comparison
+            $existingReason = $existingFlag->flag_reason;
+            $similarity = 0;
+            similar_text($existingReason, $reason, $similarity);
+
+            if ($similarity > 80) {
+                // Very similar reason (>80%), skip creating duplicate
+                Log::info('Prevented duplicate AML flag', [
+                    'transaction_id' => $transaction->id,
+                    'flag_type' => $type->value,
+                    'existing_reason' => $existingReason,
+                    'new_reason' => $reason,
+                    'similarity' => $similarity,
+                ]);
+
+                $this->auditService->logAmlMonitorEvent('aml_flag_duplicate_prevented', $transaction->id, [
+                    'entity_type' => 'Transaction',
+                    'new' => [
+                        'flag_type' => $type->value,
+                        'similarity' => $similarity,
+                        'existing_flag_id' => $existingFlag->id,
+                    ],
+                ]);
+
+                return $existingFlag;
+            }
+
+            // Different reason (<80% similarity), update existing flag
+            $existingFlag->update([
+                'flag_reason' => $reason,
+                'status' => FlagStatus::Open,
+            ]);
+
+            Log::info('Updated existing AML flag with new reason', [
+                'transaction_id' => $transaction->id,
+                'flag_type' => $type->value,
+                'flag_id' => $existingFlag->id,
+                'old_reason' => $existingReason,
+                'new_reason' => $reason,
+                'similarity' => $similarity,
+            ]);
+
+            $this->auditService->logAmlMonitorEvent('aml_flag_updated', $transaction->id, [
+                'entity_type' => 'Transaction',
+                'old' => [
+                    'flag_reason' => $existingReason,
+                ],
+                'new' => [
+                    'flag_reason' => $reason,
+                    'similarity' => $similarity,
+                ],
+            ]);
+
+            return $existingFlag;
+        }
+
+        // No existing flag, create new one
+        $flag = FlaggedTransaction::create([
             'transaction_id' => $transaction->id,
             'flag_type' => $type,
             'flag_reason' => $reason,
             'status' => FlagStatus::Open,
         ]);
+
+        Log::info('Created new AML flag', [
+            'transaction_id' => $transaction->id,
+            'flag_type' => $type->value,
+            'flag_id' => $flag->id,
+        ]);
+
+        return $flag;
     }
 
     public function getOpenFlags(): array
