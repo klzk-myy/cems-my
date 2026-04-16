@@ -29,7 +29,7 @@ class StockCashController extends Controller
         $service = new CurrencyPositionService($this->mathService);
 
         // Get current positions
-        $positions = CurrencyPosition::with('currency')->get();
+        $positions = $service->getVisiblePositionsForUser(auth()->user());
         $totalPnl = $service->getTotalPnl();
 
         // Get till information

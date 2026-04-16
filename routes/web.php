@@ -522,6 +522,7 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::post('/cleanup', [TestResultsController::class, 'cleanup'])->name('cleanup');
         Route::get('/{testResult}/output', [TestResultsController::class, 'output'])->name('output');
     });
+
 });
 
 require __DIR__.'/auth.php';

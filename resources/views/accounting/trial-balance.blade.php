@@ -20,10 +20,10 @@
             </thead>
             <tbody>
                 @php $totalDebit = 0; $totalCredit = 0; @endphp
-                @forelse($trialBalance ?? [] as $account)
+                @forelse($trialBalance['accounts'] ?? [] as $account)
                 <tr>
-                    <td class="font-mono">{{ $account['code'] }}</td>
-                    <td>{{ $account['name'] }}</td>
+                    <td class="font-mono">{{ $account['account_code'] }}</td>
+                    <td>{{ $account['account_name'] }}</td>
                     <td class="font-mono text-right">{{ number_format($account['debit'] ?? 0, 2) }}</td>
                     <td class="font-mono text-right">{{ number_format($account['credit'] ?? 0, 2) }}</td>
                 </tr>
@@ -31,10 +31,10 @@
                 @empty
                 <tr><td colspan="4" class="text-center py-8 text-[--color-ink-muted]">No data</td></tr>
                 @endforelse
-                <tr class="font-semibold bg-[--color-canvas-subtle]">
+                 <tr class="font-semibold bg-[--color-canvas-subtle]">
                     <td colspan="2">Total</td>
-                    <td class="font-mono text-right">{{ number_format($totalDebit, 2) }}</td>
-                    <td class="font-mono text-right">{{ number_format($totalCredit, 2) }}</td>
+                    <td class="font-mono text-right">{{ number_format($trialBalance['total_debits'] ?? 0, 2) }}</td>
+                    <td class="font-mono text-right">{{ number_format($trialBalance['total_credits'] ?? 0, 2) }}</td>
                 </tr>
             </tbody>
         </table>

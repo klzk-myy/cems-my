@@ -20,8 +20,8 @@
                 <div>
                     <label class="form-label">Role</label>
                     <select name="role" class="form-input" required>
-                        @foreach($roles ?? [] as $role)
-                        <option value="{{ $role->value }}">{{ $role->label() }}</option>
+                        @foreach($roles ?? [] as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>

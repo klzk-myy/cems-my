@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\CounterSessionStatus;
 use App\Enums\TransactionType;
+use App\Models\CounterSession;
 use App\Models\CurrencyPosition;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -213,5 +216,73 @@ class CurrencyPositionService
         }
 
         return $totalUnrealized;
+    }
+
+    /**
+     * Get all currency positions visible to the given user.
+     *
+     * Admin/Manager/Compliance can see all positions.
+     * Tellers can only see positions for their currently open counter session.
+     */
+    public function getVisiblePositionsForUser(User $user): \Illuminate\Database\Eloquent\Collection
+    {
+        if ($user->role->canManageAllBranches() || $user->role->isComplianceOfficer() || $user->role->isManager()) {
+            return CurrencyPosition::with('currency')->get();
+        }
+
+        $activeSession = CounterSession::where('user_id', $user->id)
+            ->where('status', CounterSessionStatus::Open)
+            ->first();
+
+        if ($activeSession) {
+            return $this->getAllPositions($activeSession->till_id);
+        }
+
+        return collect();
+    }
+
+    /**
+     * Aggregate currency position totals grouped by user role visibility.
+     *
+     * Returns aggregated totals across all positions visible to the user.
+     * Uses MathService for precision-safe calculations.
+     */
+    public function aggregateForUser(User $user): array
+    {
+        $positions = $this->getVisiblePositionsForUser($user);
+
+        $aggregates = [
+            'total_balance_myr' => '0',
+            'total_unrealized_pnl' => '0',
+            'total_positions' => $positions->count(),
+            'currencies' => [],
+        ];
+
+        foreach ($positions as $position) {
+            $myrEquivalent = $this->mathService->multiply(
+                $position->balance,
+                $position->last_valuation_rate
+            );
+
+            $aggregates['total_balance_myr'] = $this->mathService->add(
+                $aggregates['total_balance_myr'],
+                $myrEquivalent
+            );
+
+            $aggregates['total_unrealized_pnl'] = $this->mathService->add(
+                $aggregates['total_unrealized_pnl'],
+                $position->unrealized_pnl
+            );
+
+            $aggregates['currencies'][] = [
+                'currency_code' => $position->currency_code,
+                'balance' => $position->balance,
+                'myr_equivalent' => $myrEquivalent,
+                'avg_cost_rate' => $position->avg_cost_rate,
+                'unrealized_pnl' => $position->unrealized_pnl,
+            ];
+        }
+
+        return $aggregates;
     }
 }

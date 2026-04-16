@@ -10,7 +10,6 @@ use App\Models\Alert;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\StrReport;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -61,6 +60,7 @@ class StrAutomationService
                 'alert_id' => $alert->id,
                 'customer_id' => $alert->customer_id,
             ]);
+
             return null;
         }
 
@@ -301,5 +301,35 @@ class StrAutomationService
     public function isTriggerEnabled(string $trigger): bool
     {
         return $this->autoStrTriggers[$trigger]['enabled'] ?? false;
+    }
+
+    public function getFilingDeadlineSummary(): array
+    {
+        $upcoming = StrReport::whereIn('status', [
+            StrStatus::Draft,
+            StrStatus::PendingReview,
+            StrStatus::PendingApproval,
+        ])
+            ->where('filing_deadline', '>=', now())
+            ->orderBy('filing_deadline', 'asc')
+            ->get();
+
+        $overdue = StrReport::whereIn('status', [
+            StrStatus::Draft,
+            StrStatus::PendingReview,
+            StrStatus::PendingApproval,
+        ])
+            ->where('filing_deadline', '<', now())
+            ->orderBy('filing_deadline', 'asc')
+            ->get();
+
+        return [
+            'upcoming_count' => $upcoming->count(),
+            'overdue_count' => $overdue->count(),
+            'upcoming_reports' => $upcoming->values(),
+            'overdue_reports' => $overdue->values(),
+            'next_deadline' => $upcoming->first()?->filing_deadline,
+            'urgent_count' => $upcoming->where('filing_deadline', '<=', now()->addHours(24))->count(),
+        ];
     }
 }

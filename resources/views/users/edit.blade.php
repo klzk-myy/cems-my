@@ -21,8 +21,8 @@
                 <div>
                     <label class="form-label">Role</label>
                     <select name="role" class="form-input" required>
-                        @foreach($roles ?? [] as $role)
-                        <option value="{{ $role->value }}" @if($user->role->value === $role->value) selected @endif>{{ $role->label() }}</option>
+                        @foreach($roles ?? [] as $value => $label)
+                        <option value="{{ $value }}" @if($user->role->value === $value) selected @endif>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
