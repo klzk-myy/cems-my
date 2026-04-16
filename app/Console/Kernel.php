@@ -6,6 +6,8 @@ use App\Jobs\Compliance\CounterfeitAlertJob;
 use App\Jobs\Compliance\CurrencyFlowJob;
 use App\Jobs\Compliance\CustomerLocationAnomalyJob;
 use App\Jobs\Compliance\SanctionsRescreeningJob;
+use App\Jobs\ImportSanctionsJob;
+use App\Jobs\RescreenHighRiskCustomersJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -130,6 +132,27 @@ class Kernel extends ConsoleKernel
         $schedule->command('sanctions:status')
             ->dailyAt('08:00')
             ->appendOutputTo(storage_path('logs/sanctions-status-check.log'));
+
+        // UN Consolidated sanctions list - Daily at 1 AM
+        $schedule->job(new ImportSanctionsJob)
+            ->dailyAt('01:00')
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/sanctions-import-un.log'));
+
+        // MOHA Malaysia sanctions list - Weekly on Sunday at 2 AM
+        $schedule->job(new ImportSanctionsJob)
+            ->weeklyOn(0, '02:00')
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/sanctions-import-moha.log'));
+
+        // High risk customer rescreening - Daily at 4 AM
+        $schedule->job(new RescreenHighRiskCustomersJob)
+            ->dailyAt('04:00')
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/sanctions-rescreen-highrisk.log'));
 
         // ============ BACKUP & RECOVERY ============
         // https://github.com/spatie/laravel-backup
