@@ -5,13 +5,11 @@ namespace Database\Seeders;
 use App\Enums\CddLevel;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
-use App\Enums\UserRole;
 use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\TillBalance;
 use App\Models\Transaction;
-use App\Models\User;
 use Illuminate\Database\Seeder;
 
 class TestTransactionWizardSeeder extends Seeder
@@ -187,7 +185,7 @@ class TestTransactionWizardSeeder extends Seeder
     private function seedTransactionHistory(): void
     {
         $returningCustomer = Customer::where('email', 'returning@example.com')->first();
-        
+
         if ($returningCustomer && $returningCustomer->transactions()->count() === 0) {
             // Create 5 recent transactions for velocity testing
             for ($i = 0; $i < 5; $i++) {

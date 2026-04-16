@@ -7,7 +7,7 @@ use App\Models\Customer;
 use App\Services\AuditService;
 use App\Services\EncryptionService;
 use App\Services\RiskRatingService;
-use App\Services\SanctionScreeningService;
+use App\Services\UnifiedSanctionScreeningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +17,7 @@ class CustomerController extends Controller
     public function __construct(
         protected AuditService $auditService,
         protected EncryptionService $encryptionService,
-        protected SanctionScreeningService $sanctionService,
+        protected UnifiedSanctionScreeningService $sanctionService,
         protected RiskRatingService $riskRatingService
     ) {}
 
@@ -102,8 +102,8 @@ class CustomerController extends Controller
             ]);
 
             // Screen against sanctions
-            $sanctionMatches = $this->sanctionService->screenName($validated['full_name']);
-            if (! empty($sanctionMatches)) {
+            $sanctionResponse = $this->sanctionService->screenName($validated['full_name']);
+            if ($sanctionResponse->matches->isNotEmpty()) {
                 $customer->update([
                     'risk_rating' => 'High',
                     'sanction_hit' => true,
@@ -114,7 +114,7 @@ class CustomerController extends Controller
                     'new' => [
                         'risk_rating' => 'High',
                         'sanction_hit' => true,
-                        'matches' => array_map(fn ($m) => $m['name'] ?? 'Unknown', $sanctionMatches),
+                        'matches' => $sanctionResponse->matches->map(fn ($m) => $m->entityName)->toArray(),
                     ],
                 ]);
             }

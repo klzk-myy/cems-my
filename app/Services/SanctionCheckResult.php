@@ -5,8 +5,11 @@ namespace App\Services;
 class SanctionCheckResult
 {
     private bool $blocked;
+
     private string $message;
+
     private float $matchScore;
+
     private ?string $matchedEntity;
 
     public function __construct(

@@ -35,7 +35,6 @@ class DeferredAccountingReconciliationFailedNotification extends Notification im
     /**
      * Get the notification channels.
      *
-     * @param  object  $notifiable
      * @return array<string>
      */
     public function via(object $notifiable): array
@@ -82,7 +81,6 @@ class DeferredAccountingReconciliationFailedNotification extends Notification im
     /**
      * Get the array representation of the notification.
      *
-     * @param  object  $notifiable
      * @return array<string, mixed>
      */
     public function toArray(object $notifiable): array

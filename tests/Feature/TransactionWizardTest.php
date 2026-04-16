@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\CddLevel;
-use App\Enums\TransactionStatus;
-use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Models\Counter;
 use App\Models\Currency;
@@ -63,7 +61,7 @@ class TransactionWizardTest extends TestCase
     public function test_step1_blocks_sanctioned_customers(): void
     {
         $customer = Customer::factory()->create(['sanction_hit' => true]);
-        
+
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
@@ -75,7 +73,7 @@ class TransactionWizardTest extends TestCase
                 'purpose' => 'Travel',
                 'source_of_funds' => 'Salary',
             ]);
-        
+
         $response->assertStatus(403)
             ->assertJson([
                 'status' => 'blocked',
@@ -86,13 +84,13 @@ class TransactionWizardTest extends TestCase
     public function test_step1_detects_velocity_risk(): void
     {
         $customer = Customer::factory()->create();
-        
+
         // Create 3 recent transactions
         Transaction::factory()->count(3)->create([
             'customer_id' => $customer->id,
             'created_at' => now()->subHours(2),
         ]);
-        
+
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
@@ -104,7 +102,7 @@ class TransactionWizardTest extends TestCase
                 'purpose' => 'Travel',
                 'source_of_funds' => 'Salary',
             ]);
-        
+
         $response->assertStatus(200)
             ->assertJsonPath('risk_flags', function ($flags) {
                 return count($flags) > 0;
@@ -114,7 +112,7 @@ class TransactionWizardTest extends TestCase
     public function test_teller_can_override_to_collect_additional_details(): void
     {
         $customer = Customer::factory()->create(['risk_rating' => 'Low']);
-        
+
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
@@ -127,7 +125,7 @@ class TransactionWizardTest extends TestCase
                 'source_of_funds' => 'Salary',
                 'collect_additional_details' => true,
             ]);
-        
+
         $response->assertStatus(200)
             ->assertJson([
                 'cdd_level' => CddLevel::Standard->value,
@@ -137,7 +135,7 @@ class TransactionWizardTest extends TestCase
     public function test_enhanced_cdd_requires_hold(): void
     {
         $customer = Customer::factory()->create(['pep_status' => true]);
-        
+
         $response = $this->actingAs($this->teller)
             ->postJson('/api/wizard/transactions/step1', [
                 'customer_id' => $customer->id,
@@ -149,7 +147,7 @@ class TransactionWizardTest extends TestCase
                 'purpose' => 'Investment',
                 'source_of_funds' => 'Business',
             ]);
-        
+
         $response->assertStatus(200)
             ->assertJson([
                 'cdd_level' => CddLevel::Enhanced->value,

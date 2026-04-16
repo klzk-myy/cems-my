@@ -24,15 +24,15 @@ class HistoricalRiskAnalysisServiceTest extends TestCase
     public function test_detects_velocity_risk(): void
     {
         $customer = Customer::factory()->create();
-        
+
         // Create 3 recent transactions
         Transaction::factory()->count(3)->create([
             'customer_id' => $customer->id,
             'created_at' => now()->subHours(2),
         ]);
-        
+
         $result = $this->service->analyze($customer, '1000.00');
-        
+
         $flags = $result->getFlags();
         $this->assertNotEmpty($flags);
         $this->assertEquals('velocity', $flags[0]['type']);
@@ -41,16 +41,16 @@ class HistoricalRiskAnalysisServiceTest extends TestCase
     public function test_detects_structuring_risk(): void
     {
         $customer = Customer::factory()->create();
-        
+
         // Create 2 transactions just below RM 3,000
         Transaction::factory()->count(2)->create([
             'customer_id' => $customer->id,
             'amount_local' => '2900.00',
             'created_at' => now()->subMinutes(30),
         ]);
-        
+
         $result = $this->service->analyze($customer, '1000.00');
-        
+
         $flags = $result->getFlags();
         $this->assertNotEmpty($flags);
         $this->assertEquals('structuring', $flags[0]['type']);
@@ -93,16 +93,16 @@ class HistoricalRiskAnalysisServiceTest extends TestCase
         $result = $this->service->analyze($customer, '1000.00');
 
         $flags = $result->getFlags();
-        $patternFlags = array_filter($flags, fn($f) => $f['type'] === 'pattern_reversal');
+        $patternFlags = array_filter($flags, fn ($f) => $f['type'] === 'pattern_reversal');
         $this->assertNotEmpty($patternFlags);
     }
 
     public function test_no_flags_for_new_customer(): void
     {
         $customer = Customer::factory()->create();
-        
+
         $result = $this->service->analyze($customer, '1000.00');
-        
+
         $this->assertEmpty($result->getFlags());
         $this->assertFalse($result->hasCriticalFlags());
     }

@@ -17,7 +17,7 @@ class TransactionWizardStep2Request extends FormRequest
         $cddLevel = $this->input('cdd_level');
         $rules = [
             'wizard_session_id' => ['required', 'string'],
-            'cdd_level' => ['required', 'string', 'in:' . implode(',', array_column(CddLevel::cases(), 'value'))],
+            'cdd_level' => ['required', 'string', 'in:'.implode(',', array_column(CddLevel::cases(), 'value'))],
         ];
 
         // Base required fields

@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Customer;
-use App\Services\SanctionScreeningService;
+use App\Services\UnifiedSanctionScreeningService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -19,7 +19,7 @@ class ComplianceRescreenCustomers extends Command
 This command should be run monthly per BNM AML/CFT requirements.
 Customers who have not been screened in the specified number of days will be rescreened.';
 
-    public function handle(SanctionScreeningService $screeningService): int
+    public function handle(UnifiedSanctionScreeningService $screeningService): int
     {
         $days = (int) $this->option('days');
         $dryRun = $this->option('dry-run');

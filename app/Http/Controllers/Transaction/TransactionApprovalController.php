@@ -6,7 +6,6 @@ use App\Enums\TransactionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Transaction\Concerns\TransactionAccounting;
 use App\Models\SystemLog;
-use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\TransactionConfirmation;
 use App\Services\AccountingService;

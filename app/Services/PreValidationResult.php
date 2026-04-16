@@ -7,8 +7,11 @@ use App\Enums\CddLevel;
 class PreValidationResult
 {
     private array $blocks = [];
+
     private ?CddLevel $cddLevel = null;
+
     private array $riskFlags = [];
+
     private bool $holdRequired = false;
 
     public function addBlock(string $type, string $message): void

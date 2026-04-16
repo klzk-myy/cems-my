@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('transactions', function (Blueprint $table) {
             // Add journal_entry_id first if it doesn't exist
-            if (!Schema::hasColumn('transactions', 'journal_entry_id')) {
+            if (! Schema::hasColumn('transactions', 'journal_entry_id')) {
                 $table->foreignId('journal_entry_id')
                     ->nullable()
                     ->after('reversal_reason')
@@ -19,7 +19,7 @@ return new class extends Migration
             }
 
             // Add deferred_journal_entry_id for tracking deferred entries
-            if (!Schema::hasColumn('transactions', 'deferred_journal_entry_id')) {
+            if (! Schema::hasColumn('transactions', 'deferred_journal_entry_id')) {
                 $table->foreignId('deferred_journal_entry_id')
                     ->nullable()
                     ->after('journal_entry_id')
@@ -28,7 +28,7 @@ return new class extends Migration
             }
 
             // Add timestamp for tracking when entries were created
-            if (!Schema::hasColumn('transactions', 'journal_entries_created_at')) {
+            if (! Schema::hasColumn('transactions', 'journal_entries_created_at')) {
                 $table->timestamp('journal_entries_created_at')
                     ->nullable()
                     ->after('deferred_journal_entry_id')
@@ -36,7 +36,7 @@ return new class extends Migration
             }
 
             // Add has_deferred_accounting boolean flag
-            if (!Schema::hasColumn('transactions', 'has_deferred_accounting')) {
+            if (! Schema::hasColumn('transactions', 'has_deferred_accounting')) {
                 $table->boolean('has_deferred_accounting')
                     ->default(false)
                     ->after('journal_entries_created_at')

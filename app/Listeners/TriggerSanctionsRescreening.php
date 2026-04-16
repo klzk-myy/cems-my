@@ -12,14 +12,14 @@ use App\Models\Alert;
 use App\Models\Customer;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
-use App\Services\SanctionScreeningService;
-use Illuminate\Support\Facades\DB;
+use App\Services\AuditService;
+use App\Services\UnifiedSanctionScreeningService;
 use Illuminate\Support\Facades\Log;
 
 class TriggerSanctionsRescreening
 {
     public function __construct(
-        protected SanctionScreeningService $sanctionScreeningService,
+        protected UnifiedSanctionScreeningService $sanctionScreeningService,
         protected AuditService $auditService
     ) {}
 
@@ -32,24 +32,25 @@ class TriggerSanctionsRescreening
         $customer = $event->customer;
 
         // Rescreen the customer
-        $result = $this->sanctionScreeningService->checkCustomer($customer);
+        $result = $this->sanctionScreeningService->screenCustomer($customer);
+        $firstMatch = $result->matches->first();
 
         if ($result->isBlocked()) {
             // New sanctions match found - place all pending transactions on hold
-            $this->placePendingTransactionsOnHold($customer, "New sanctions match detected: {$result->getMatchedEntity()}");
+            $this->placePendingTransactionsOnHold($customer, "New sanctions match detected: {$firstMatch?->entityName}");
 
             // Alert compliance team
             $this->createComplianceAlert(
                 $customer,
-                "CRITICAL: New sanctions match detected for customer {$customer->full_name} during record update. Matched entity: {$result->getMatchedEntity()} (similarity: {$result->getMatchScore()}%)",
+                "CRITICAL: New sanctions match detected for customer {$customer->full_name} during record update. Matched entity: {$firstMatch?->entityName} (similarity: {$firstMatch?->matchScore}%)",
                 AlertPriority::Critical
             );
 
             Log::critical('Sanctions rescreening triggered by customer update', [
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->full_name,
-                'matched_entity' => $result->getMatchedEntity(),
-                'similarity' => $result->getMatchScore(),
+                'matched_entity' => $firstMatch?->entityName,
+                'similarity' => $firstMatch?->matchScore,
                 'changed_fields' => $event->changedFields,
                 'updated_by' => $event->updatedBy,
             ]);
@@ -67,7 +68,7 @@ class TriggerSanctionsRescreening
             'triggered_by' => 'CustomerRecordUpdated',
             'changed_fields' => $event->changedFields,
             'screening_result' => $result->isBlocked() ? 'blocked' : 'passed',
-            'matched_entity' => $result->getMatchedEntity(),
+            'matched_entity' => $firstMatch?->entityName,
         ]);
     }
 
@@ -116,12 +117,12 @@ class TriggerSanctionsRescreening
                 ]);
             })
             // OR customers with recent activity in last 30 days
-            ->orWhereNotNull('last_transaction_at')
-            ->where('last_transaction_at', '>=', now()->subDays(30));
+                ->orWhereNotNull('last_transaction_at')
+                ->where('last_transaction_at', '>=', now()->subDays(30));
         })
-        ->orWhere('risk_rating', 'High')
-        ->with('transactions')
-        ->get();
+            ->orWhere('risk_rating', 'High')
+            ->with('transactions')
+            ->get();
     }
 
     /**
@@ -131,26 +132,27 @@ class TriggerSanctionsRescreening
     {
         $previousSanctionHit = $customer->sanction_hit;
 
-        $result = $this->sanctionScreeningService->checkCustomer($customer);
+        $result = $this->sanctionScreeningService->screenCustomer($customer);
+        $firstMatch = $result->matches->first();
 
         // Check if this is a NEW sanctions match (was not flagged before)
-        $isNewMatch = $result->isBlocked() && !$previousSanctionHit;
+        $isNewMatch = $result->isBlocked() && ! $previousSanctionHit;
 
         if ($isNewMatch) {
             // New match found - place all pending transactions on hold
-            $this->placePendingTransactionsOnHold($customer, "New sanctions match detected after list update: {$result->getMatchedEntity()}");
+            $this->placePendingTransactionsOnHold($customer, "New sanctions match detected after list update: {$firstMatch?->entityName}");
 
             // Create compliance alert
             $this->createComplianceAlert(
                 $customer,
-                "CRITICAL: New sanctions match detected after {$event->source} list update (v{$event->previousVersion} -> v{$event->newVersion}). Customer: {$customer->full_name}. Matched: {$result->getMatchedEntity()} ({$result->getMatchScore()}% similar).",
+                "CRITICAL: New sanctions match detected after {$event->source} list update (v{$event->previousVersion} -> v{$event->newVersion}). Customer: {$customer->full_name}. Matched: {$firstMatch?->entityName} ({$firstMatch?->matchScore}% similar).",
                 AlertPriority::Critical
             );
 
             Log::critical('New sanctions match detected during batch rescreening', [
                 'customer_id' => $customer->id,
                 'customer_name' => $customer->full_name,
-                'matched_entity' => $result->getMatchedEntity(),
+                'matched_entity' => $firstMatch?->entityName,
                 'list_source' => $event->source,
                 'list_version_change' => "{$event->previousVersion} -> {$event->newVersion}",
             ]);

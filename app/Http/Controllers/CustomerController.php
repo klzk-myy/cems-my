@@ -7,7 +7,7 @@ use App\Models\SystemLog;
 use App\Services\AuditService;
 use App\Services\EncryptionService;
 use App\Services\RiskRatingService;
-use App\Services\SanctionScreeningService;
+use App\Services\UnifiedSanctionScreeningService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +23,7 @@ class CustomerController extends Controller
     public function __construct(
         protected AuditService $auditService,
         protected EncryptionService $encryptionService,
-        protected SanctionScreeningService $sanctionService,
+        protected UnifiedSanctionScreeningService $sanctionService,
         protected RiskRatingService $riskRatingService
     ) {}
 

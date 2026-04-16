@@ -23,6 +23,7 @@ class RiskAnalysisResult
                 return true;
             }
         }
+
         return false;
     }
 

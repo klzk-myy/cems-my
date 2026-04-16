@@ -5,7 +5,6 @@ namespace App\Jobs\Accounting;
 use App\Enums\CddLevel;
 use App\Enums\TransactionStatus;
 use App\Enums\UserRole;
-use App\Jobs\SendNotificationJob;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Notifications\DeferredAccountingReconciliationFailedNotification;
@@ -155,7 +154,6 @@ class ReconcileDeferredAccountingJob implements ShouldQueue
     /**
      * Reconcile a single transaction.
      *
-     * @param  Transaction  $transaction
      * @return array{success: bool, can_reconcile: bool|null, reason: string}
      */
     protected function reconcileTransaction(Transaction $transaction): array
