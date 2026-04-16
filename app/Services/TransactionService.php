@@ -37,6 +37,7 @@ class TransactionService
         protected CtosReportService $ctosReportService,
         protected TellerAllocationService $tellerAllocationService,
         protected ApprovalWorkflowService $approvalWorkflowService,
+        protected UnifiedSanctionScreeningService $screeningService,
     ) {}
 
     /**
@@ -127,6 +128,14 @@ class TransactionService
         // Determine CDD level
         $cddLevel = $this->complianceService->determineCDDLevel($amountLocal, $customer);
         $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
+
+        // Sanction screening via UnifiedSanctionScreeningService
+        $complianceFlags = [];
+        $screeningResult = $this->screeningService->screenCustomer($customer);
+        if ($screeningResult->isFlagged()) {
+            $holdCheck['requires_compliance_review'] = true;
+            $complianceFlags[] = 'sanction_match';
+        }
 
         // Log CDD decision
         $cddTriggers = [];
