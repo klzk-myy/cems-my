@@ -19,6 +19,8 @@ class SanctionEntry extends Model
         'aliases',
         'nationality',
         'date_of_birth',
+        'reference_number',
+        'listing_date',
         'details',
         'normalized_name',
         'soundex_code',
@@ -28,6 +30,7 @@ class SanctionEntry extends Model
 
     protected $casts = [
         'date_of_birth' => 'date',
+        'listing_date' => 'date',
     ];
 
     public function sanctionList(): BelongsTo

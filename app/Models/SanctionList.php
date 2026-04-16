@@ -51,6 +51,11 @@ class SanctionList extends Model
         return $this->hasMany(SanctionEntry::class, 'list_id');
     }
 
+    public function importLogs(): HasMany
+    {
+        return $this->hasMany(SanctionImportLog::class, 'list_id');
+    }
+
     public function uploadedBy()
     {
         return $this->belongsTo(User::class, 'uploaded_by');
