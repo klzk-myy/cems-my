@@ -271,8 +271,8 @@ class ComplianceService
         // Get sum efficiently using SQL
         $existingSum = (string) ($query->sum('amount_local') ?? '0');
 
-        // Get IDs separately (only needed if threshold is exceeded)
-        $relatedIds = $query->pluck('id')->toArray();
+        // Get IDs separately (clone query to avoid stateful issue)
+        $relatedIds = (clone $query)->pluck('id')->toArray();
 
         // Add current transaction amount to get total aggregate
         $totalAggregate = $this->mathService->add($currentAmount, $existingSum);

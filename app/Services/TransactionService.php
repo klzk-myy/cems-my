@@ -90,7 +90,7 @@ class TransactionService
         }
 
         // Get customer and calculate amounts
-        $customer = Customer::find($data['customer_id']);
+        $customer = Customer::findOrFail($data['customer_id']);
         $amountForeign = (string) $data['amount_foreign'];
         $rate = (string) $data['rate'];
         $amountLocal = $this->mathService->multiply($amountForeign, $rate);
@@ -98,9 +98,9 @@ class TransactionService
         // Validate against teller allocation (only for tellers, not manager/admin overrides)
         // Only validate for Buy transactions (teller sells foreign currency and needs allocation)
         // For Sell transactions, no allocation check is needed upfront
-        $user = User::find($userId);
+        $user = User::findOrFail($userId);
         $allocationForUpdate = null;
-        if ($user && $user->role === UserRole::Teller) {
+        if ($user->role === UserRole::Teller) {
             $isBuy = ($data['type'] === TransactionType::Buy->value);
             if ($isBuy) {
                 $validationResult = $this->tellerAllocationService->validateTransaction(
@@ -482,6 +482,11 @@ class TransactionService
         } else {
             $position = $this->positionService->getPosition($transaction->currency_code, $transaction->till_id);
             $avgCost = $position ? $position->avg_cost_rate : $transaction->rate;
+
+            if ($avgCost === null) {
+                throw new \RuntimeException('Cannot calculate cost basis: no position or rate available for transaction');
+            }
+
             $costBasis = $this->mathService->multiply((string) $transaction->amount_foreign, $avgCost);
             $revenue = $this->mathService->subtract((string) $transaction->amount_local, $costBasis);
             $isGain = $this->mathService->compare($revenue, '0') >= 0;
