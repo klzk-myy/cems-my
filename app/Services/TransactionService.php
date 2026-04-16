@@ -133,10 +133,10 @@ class TransactionService
         if ($customer->pep_status) {
             $cddTriggers[] = 'PEP customer';
         }
-        if ($this->mathService->compare($amountLocal, $this->complianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
-            $cddTriggers[] = 'Large amount >= RM '.number_format((float) $this->complianceService::LARGE_TRANSACTION_THRESHOLD);
-        } elseif ($this->mathService->compare($amountLocal, $this->complianceService::STANDARD_CDD_THRESHOLD) >= 0) {
-            $cddTriggers[] = 'Standard amount >= RM '.number_format((float) $this->complianceService::STANDARD_CDD_THRESHOLD);
+        if ($this->mathService->compare($amountLocal, \App\Services\ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
+            $cddTriggers[] = 'Large amount >= RM '.number_format((float) \App\Services\ComplianceService::LARGE_TRANSACTION_THRESHOLD);
+        } elseif ($this->mathService->compare($amountLocal, \App\Services\ComplianceService::STANDARD_CDD_THRESHOLD) >= 0) {
+            $cddTriggers[] = 'Standard amount >= RM '.number_format((float) \App\Services\ComplianceService::STANDARD_CDD_THRESHOLD);
         }
         if ($customer->risk_rating === 'High') {
             $cddTriggers[] = 'High risk customer';
@@ -164,13 +164,17 @@ class TransactionService
         $approvedBy = null;
 
         if ($holdCheck['requires_hold']) {
-            if ($this->mathService->compare($amountLocal, $this->complianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
+            // Transaction must be held for compliance review
+            if ($this->mathService->compare($amountLocal, \App\Services\ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
                 $status = TransactionStatus::Pending;
                 $holdReason = ComplianceFlagType::EddRequired->label().': '.implode(', ', $holdCheck['reasons']);
             } else {
                 $status = TransactionStatus::OnHold;
                 $holdReason = implode(', ', $holdCheck['reasons']);
             }
+        } elseif ($this->mathService->compare($amountLocal, \App\Services\ApprovalWorkflowService::AUTO_APPROVE_THRESHOLD) >= 0) {
+            // No compliance hold, but amount >= RM 3,000 requires manager approval
+            $status = TransactionStatus::PendingApproval;
         }
 
         return DB::transaction(function () use ($data, $userId, $tillBalance, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy, &$allocationForUpdate) {
@@ -195,6 +199,7 @@ class TransactionService
             }
 
             // Check for duplicate transaction via idempotency key (inside transaction to prevent race)
+            // Check this FIRST, before recent duplicate window, as idempotency is the strongest guarantee
             if (! empty($data['idempotency_key'])) {
                 $existingByKey = Transaction::where('idempotency_key', $data['idempotency_key'])->first();
                 if ($existingByKey) {
@@ -203,6 +208,7 @@ class TransactionService
             }
 
             // Check for recent similar transaction (potential double-submit)
+            // Moved inside DB transaction to ensure check and insert are atomic
             $recentWindow = now()->subSeconds(30);
             $recentAmount = Transaction::where('user_id', $userId)
                 ->where('created_at', '>=', $recentWindow)
@@ -245,6 +251,23 @@ class TransactionService
                 'idempotency_key' => $data['idempotency_key'] ?? null,
                 'version' => 0,
             ]);
+
+            // If transaction requires approval (>= RM 3,000 and no compliance hold),
+            // create the approval task atomically within the same transaction.
+            // This ensures transaction and task are always linked; if task creation fails,
+            // the entire transaction rolls back.
+            if ($status === TransactionStatus::PendingApproval) {
+                try {
+                    $this->approvalWorkflowService->createApprovalTask($transaction);
+                } catch (\Exception $e) {
+                    Log::error('Approval task creation failed', [
+                        'transaction_id' => $transaction->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Re-throw to rollback the transaction
+                    throw $e;
+                }
+            }
 
             // If completed, update positions, till balance, and create accounting entries
             if ($status === TransactionStatus::Completed) {
@@ -592,11 +615,37 @@ class TransactionService
             // Track if this was a PendingApproval transaction (has ApprovalTask)
             $wasPendingApproval = $lockedTransaction->status === TransactionStatus::PendingApproval;
 
-            // Update the locked transaction
+            // Build proper transition history: record both Approval and Completion as separate steps
+            $history = $lockedTransaction->transition_history ?? [];
+            $nowIso = now()->toIso8601String();
+
+            // Determine "from" state based on original status
+            $fromState = $lockedTransaction->status->value;
+
+            // Step 1: Pending/PendingApproval -> Approved
+            $history[] = [
+                'from' => $fromState,
+                'to' => TransactionStatus::Approved->value,
+                'reason' => 'Transaction approved by manager',
+                'user_id' => $approverId,
+                'timestamp' => $nowIso,
+            ];
+
+            // Step 2: Approved -> Completed
+            $history[] = [
+                'from' => TransactionStatus::Approved->value,
+                'to' => TransactionStatus::Completed->value,
+                'reason' => 'Transaction completed after approval',
+                'user_id' => $approverId,
+                'timestamp' => $nowIso,
+            ];
+
+            // Perform the update with proper history and version increment
             $lockedTransaction->update([
                 'status' => TransactionStatus::Completed,
                 'approved_by' => $approverId,
-                'approved_at' => now(),
+                'approved_at' => $nowIso,
+                'transition_history' => $history,
                 'version' => $lockedTransaction->version + 1,
             ]);
 

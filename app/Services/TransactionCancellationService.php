@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
+use App\Models\Customer;
 use App\Models\JournalEntry;
 use App\Models\Transaction;
 use App\Models\User;
@@ -37,6 +38,7 @@ class TransactionCancellationService
         protected AuditService $auditService,
         protected AccountingService $accountingService,
         protected CurrencyPositionService $positionService,
+        protected ComplianceService $complianceService,
     ) {}
 
     /**
@@ -330,8 +332,8 @@ class TransactionCancellationService
         }
 
         return DB::transaction(function () use ($transaction, $requester, $reason) {
-            // Create refund transaction first
-            $refundTransaction = $this->createRefundTransaction($transaction);
+            // Create refund transaction first (approved by the reversal requester)
+            $refundTransaction = $this->createRefundTransaction($transaction, $requester->id);
 
             // Reverse positions
             $this->reversePositions($transaction);
@@ -438,31 +440,74 @@ class TransactionCancellationService
      * @param  Transaction  $original  The original transaction being reversed
      * @return Transaction The created refund transaction
      */
-    public function createRefundTransaction(Transaction $original): Transaction
+    public function createRefundTransaction(Transaction $original, int $approvedBy): Transaction
     {
         $oppositeType = $original->type === TransactionType::Buy
             ? TransactionType::Sell
             : TransactionType::Buy;
 
-        return Transaction::create([
+        // Calculate refund amount_local
+        $amountLocal = $this->mathService->multiply(
+            (string) $original->amount_foreign,
+            (string) $original->rate
+        );
+
+        // Determine if refund requires hold (same rules as normal transactions)
+        $customer = Customer::findOrFail($original->customer_id);
+        $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
+
+        $status = TransactionStatus::Completed;
+        $holdReason = null;
+        if ($holdCheck['requires_hold']) {
+            if ($this->mathService->compare($amountLocal, \App\Services\ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
+                $status = TransactionStatus::Pending;
+            } else {
+                $status = TransactionStatus::OnHold;
+            }
+            $holdReason = implode(', ', $holdCheck['reasons']);
+        }
+
+        // Create refund transaction (approved by the reversal approver if auto-completed)
+        $refund = Transaction::create([
             'customer_id' => $original->customer_id,
-            'user_id' => $original->user_id,
+            'user_id' => $original->user_id, // Original teller
             'branch_id' => $original->branch_id,
             'till_id' => $original->till_id,
             'type' => $oppositeType,
             'currency_code' => $original->currency_code,
-            'amount_local' => $original->amount_local,
             'amount_foreign' => $original->amount_foreign,
+            'amount_local' => $amountLocal,
             'rate' => $original->rate,
             'purpose' => 'Reversal: '.($original->purpose ?? 'Transaction reversal'),
             'source_of_funds' => $original->source_of_funds,
-            'status' => TransactionStatus::Completed,
+            'status' => $status,
+            'hold_reason' => $holdReason,
             'cdd_level' => $original->cdd_level,
             'original_transaction_id' => $original->id,
             'is_refund' => true,
-            'approved_by' => $original->approved_by,
-            'approved_at' => $original->approved_at,
+            'approved_by' => $status->isCompleted() ? $approvedBy : null,
+            'approved_at' => $status->isCompleted() ? now() : null,
         ]);
+
+        // Log refund compliance decision
+        $this->auditService->logWithSeverity(
+            'refund_compliance_check',
+            [
+                'user_id' => $approvedBy,
+                'entity_type' => 'Transaction',
+                'entity_id' => $refund->id,
+                'new_values' => [
+                    'original_transaction_id' => $original->id,
+                    'amount_local' => $amountLocal,
+                    'status' => $status->value,
+                    'hold_reason' => $holdReason,
+                    'compliance_reasons' => $holdCheck['reasons'],
+                ],
+            ],
+            'INFO'
+        );
+
+        return $refund;
     }
 
     /**

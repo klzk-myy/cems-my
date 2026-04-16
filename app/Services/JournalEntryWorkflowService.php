@@ -145,16 +145,26 @@ class JournalEntryWorkflowService
         }
 
         return DB::transaction(function () use ($entry, $userId, $notes) {
-            // Load lines if not loaded
-            if (! $entry->relationLoaded('lines')) {
-                $entry->load('lines');
+            // Lock the journal entry row to prevent concurrent approvals
+            $lockedEntry = JournalEntry::where('id', $entry->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Re-check status after acquiring lock
+            if ($lockedEntry->status !== 'Pending') {
+                throw new \InvalidArgumentException('Journal entry is no longer pending; it may have been processed by another user');
+            }
+
+            // Cannot approve own entries (segregation of duties)
+            if ($lockedEntry->created_by === $userId) {
+                throw new \InvalidArgumentException('Cannot approve your own journal entry');
             }
 
             // Create ledger entries
-            $this->createLedgerEntries($entry);
+            $this->createLedgerEntries($lockedEntry);
 
             // Update entry status
-            $entry->update([
+            $lockedEntry->update([
                 'status' => 'Posted',
                 'approved_by' => $userId,
                 'approved_at' => now(),
@@ -167,11 +177,11 @@ class JournalEntryWorkflowService
                 'user_id' => $userId,
                 'action' => 'journal_entry_approved',
                 'entity_type' => 'JournalEntry',
-                'entity_id' => $entry->id,
+                'entity_id' => $lockedEntry->id,
                 'ip_address' => request()->ip(),
             ]);
 
-            return $entry->fresh();
+            return $lockedEntry->fresh();
         });
     }
 

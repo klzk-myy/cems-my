@@ -7,6 +7,7 @@ use App\Enums\TellerAllocationStatus;
 use App\Models\Counter;
 use App\Models\CounterSession;
 use App\Models\Currency;
+use App\Models\ExchangeRate;
 use App\Models\TellerAllocation;
 use App\Models\TillBalance;
 use App\Models\User;
@@ -122,6 +123,7 @@ class CounterService
             $tillBalances = TillBalance::where('till_id', (string) $session->counter_id)
                 ->where('date', $session->session_date)
                 ->whereNull('closed_at')
+                ->lockForUpdate()
                 ->get()
                 ->keyBy('currency_code');
 
@@ -310,64 +312,137 @@ class CounterService
                 ->get()
                 ->keyBy('currency_code');
 
-            // Calculate variance - track per-currency for audit and convert to MYR for total
+            // ============================================================
+            // HANDOVER TILL BALANCES - Revised for correctness
+            // ============================================================
+            // Lock all relevant till balances upfront to prevent race conditions
+            $allBalances = TillBalance::where('till_id', (string) $session->counter_id)
+                ->where('date', $today)
+                ->whereIn('currency_code', $currencyCodes)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('currency_code');
+
+            $openBalances = $allBalances->filter(fn ($b) => is_null($b->closed_at));
+            $closedBalances = $allBalances->filter(fn ($b) => ! is_null($b->closed_at));
+
             $totalVarianceMyr = '0';
             $perCurrencyVariances = [];
-            $tillUpdates = [];
 
+            // Pre-fetch latest exchange rates for foreign currencies (use rate_sell for conversion)
+            $exchangeRates = [];
+            $nonMyrCodes = array_filter($currencyCodes, fn ($c) => $c !== 'MYR');
+            if (! empty($nonMyrCodes)) {
+                $rates = ExchangeRate::whereIn('currency_code', $nonMyrCodes)
+                    ->orderBy('fetched_at', 'desc')
+                    ->get()
+                    ->unique('currency_code'); // keep latest per currency due to orderBy desc
+                foreach ($rates as $rate) {
+                    $exchangeRates[$rate->currency_code] = $rate->rate_sell;
+                }
+            }
+
+            // Phase A: Compute variances for each currency
             foreach ($physicalCounts as $count) {
                 $currencyCode = $currencies[$count['currency_id']] ?? null;
                 if (! $currencyCode) {
                     continue;
                 }
 
-                $tillBalance = $tillBalances->get($currencyCode);
-                $openingBalance = $tillBalance ? $tillBalance->opening_balance : '0';
-                $foreignTotal = $tillBalance ? ($tillBalance->foreign_total ?? '0') : '0';
-                $expected = BcmathHelper::add($openingBalance, $foreignTotal);
-                $variance = BcmathHelper::subtract($count['amount'], $expected);
+                $closingBalance = $count['amount'];
+                $balanceRow = $openBalances->get($currencyCode) ?? $closedBalances->get($currencyCode);
 
-                // Track per-currency variance for audit
+                if ($balanceRow) {
+                    $opening = $balanceRow->opening_balance;
+                    $foreign = $balanceRow->foreign_total ?? '0';
+                    $expected = BcmathHelper::add($opening, $foreign);
+                    $variance = BcmathHelper::subtract($closingBalance, $expected);
+                } else {
+                    // No prior balance; variance is zero (new currency added)
+                    $variance = '0.0000';
+                }
+
                 $perCurrencyVariances[$currencyCode] = $variance;
 
-                // Convert to MYR equivalent for total - use 1:1 for simplicity if rate unknown
-                // In production, you'd use the actual exchange rate
+                // Convert to MYR for total (use last_rate if available, else 1)
                 if ($currencyCode === 'MYR') {
                     $totalVarianceMyr = BcmathHelper::add($totalVarianceMyr, $variance);
                 } else {
-                    // For foreign currencies, convert using the current rate
-                    // Use a nominal rate if not available (this should be improved with actual rates)
-                    $rate = $tillBalance->last_rate ?? '1';
+                    // Use latest exchange rate (rate_sell) to convert foreign variance to MYR
+                    $rate = $exchangeRates[$currencyCode] ?? '1';
                     $varianceMyr = BcmathHelper::multiply($variance, $rate);
                     $totalVarianceMyr = BcmathHelper::add($totalVarianceMyr, $varianceMyr);
                 }
-
-                // Collect till balance updates
-                if ($tillBalance) {
-                    $tillUpdates[] = [
-                        'tillBalance' => $tillBalance,
-                        'closingBalance' => $count['amount'],
-                        'variance' => $variance,
-                        'currencyCode' => $currencyCode,
-                    ];
-                }
             }
 
-            // Build variance notes including all currencies
+            // Validate variance thresholds (only red threshold requires supervisor)
+            foreach ($perCurrencyVariances as $code => $variance) {
+                $absVar = BcmathHelper::abs($variance);
+                if (BcmathHelper::gt($absVar, (string) self::VARIANCE_THRESHOLD_RED)) {
+                    if (! $supervisor || ! $supervisor->isManager()) {
+                        throw new Exception('Variance exceeds red threshold, requires supervisor approval');
+                    }
+                }
+                // Yellow threshold does not block handover; it's for information
+            }
+
+            // Build variance notes
             $varianceNotes = 'Variance during handover: ';
             foreach ($perCurrencyVariances as $code => $v) {
                 $varianceNotes .= "{$code}: {$v}; ";
             }
 
-            // Apply till balance closings
-            foreach ($tillUpdates as $update) {
-                $update['tillBalance']->update([
-                    'closing_balance' => $update['closingBalance'],
-                    'variance' => $update['variance'],
-                    'closed_at' => $now,
-                    'closed_by' => $fromUser->id,
-                    'notes' => 'Handover',
-                ]);
+            // Phase B: Apply updates using the locked rows
+            foreach ($physicalCounts as $count) {
+                $currencyCode = $currencies[$count['currency_id']] ?? null;
+                if (! $currencyCode) {
+                    continue;
+                }
+
+                $closingBalance = $count['amount'];
+                $variance = $perCurrencyVariances[$currencyCode];
+                $open = $openBalances->get($currencyCode);
+                $closed = $closedBalances->get($currencyCode);
+
+                if ($open) {
+                    // Close the old open balance
+                    $open->update([
+                        'closing_balance' => $closingBalance,
+                        'variance' => $variance,
+                        'closed_at' => $now,
+                        'closed_by' => $fromUser->id,
+                        'notes' => 'Handover',
+                    ]);
+
+                    // Create new open balance for new session
+                    TillBalance::create([
+                        'till_id' => (string) $session->counter_id,
+                        'currency_code' => $currencyCode,
+                        'opening_balance' => $closingBalance,
+                        'date' => $today,
+                        'opened_by' => $toUser->id,
+                    ]);
+                } elseif ($closed) {
+                    // Reopen the closed balance for new session
+                    $closed->update([
+                        'opening_balance' => $closingBalance,
+                        'closing_balance' => null,
+                        'variance' => '0.0000',
+                        'closed_at' => null,
+                        'closed_by' => null,
+                        'notes' => null,
+                        'opened_by' => $toUser->id,
+                    ]);
+                } else {
+                    // No existing balance at all - create new
+                    TillBalance::create([
+                        'till_id' => (string) $session->counter_id,
+                        'currency_code' => $currencyCode,
+                        'opening_balance' => $closingBalance,
+                        'date' => $today,
+                        'opened_by' => $toUser->id,
+                    ]);
+                }
             }
 
             // Mark old session as handed over
@@ -388,7 +463,7 @@ class CounterService
                 'variance_notes' => BcmathHelper::compare($totalVarianceMyr, '0') !== 0 ? $varianceNotes : null,
             ]);
 
-            // Create new session for new user
+            // Create new session for incoming user (must be after old session closed)
             $newSession = CounterSession::create([
                 'counter_id' => $session->counter_id,
                 'user_id' => $toUser->id,
@@ -398,7 +473,7 @@ class CounterService
                 'status' => CounterSessionStatus::Open,
             ]);
 
-            // Transfer teller allocations from outgoing to incoming teller
+            // Transfer teller allocations
             $activeAllocations = TellerAllocation::where('user_id', $fromUser->id)
                 ->where('status', TellerAllocationStatus::ACTIVE->value)
                 ->whereDate('session_date', $today)
@@ -406,96 +481,6 @@ class CounterService
 
             foreach ($activeAllocations as $allocation) {
                 $this->tellerAllocationService->transferToTeller($allocation, $toUser);
-            }
-
-            // Update existing till balances to transfer to new user (preserve audit trail)
-            // The handover details are captured in CounterHandover table (variance_myr, etc.)
-            // Note: Due to unique constraint on (till_id, date, currency_code), we cannot
-            // create new records - instead we update opened_by to reflect new session owner
-            $newTillBalanceIds = [];
-            $now = now();
-            foreach ($physicalCounts as $count) {
-                $currencyCode = $currencies[$count['currency_id']] ?? null;
-                if ($currencyCode) {
-                    // Check if there's an existing open balance for this till/date/currency
-                    $existingBalance = TillBalance::where('till_id', (string) $newSession->counter_id)
-                        ->where('currency_code', $currencyCode)
-                        ->where('date', $today)
-                        ->whereNull('closed_at')
-                        ->first();
-
-                    if ($existingBalance) {
-                        // Calculate variance for audit (for CounterHandover record)
-                        $variance = bcsub((string) $count['amount'], $existingBalance->opening_balance, 4);
-
-                        // Record handover details in notes field before updating
-                        $handoverNotes = json_encode([
-                            'type' => 'handover',
-                            'from_user' => $fromUser->id,
-                            'to_user' => $toUser->id,
-                            'supervisor' => $supervisor->id,
-                            'handover_time' => $now->toIso8601String(),
-                            'physical_count' => $count['amount'],
-                            'previous_opening' => $existingBalance->opening_balance,
-                            'variance' => $variance,
-                        ]);
-
-                        // Use lockForUpdate to prevent race conditions
-                        $lockedBalance = TillBalance::where('id', $existingBalance->id)
-                            ->lockForUpdate()
-                            ->first();
-
-                        if ($lockedBalance) {
-                            // Single atomic update: record the closing data from handover
-                            // The CounterHandover table captures the variance and audit details
-                            // We keep the closing data as the permanent record for audit purposes
-                            $lockedBalance->closing_balance = $count['amount'];
-                            $lockedBalance->variance = $variance;
-                            $lockedBalance->closed_at = $now;
-                            $lockedBalance->closed_by = $fromUser->id;
-                            $lockedBalance->notes = $handoverNotes;
-                            $lockedBalance->save();
-
-                            // Create a new balance record for the new session user
-                            // This ensures the handover audit trail is preserved
-                            TillBalance::create([
-                                'till_id' => (string) $newSession->counter_id,
-                                'currency_code' => $currencyCode,
-                                'opening_balance' => $count['amount'],
-                                'date' => $today,
-                                'opened_by' => $toUser->id,
-                            ]);
-                        }
-                    } else {
-                        // No existing balance - check if there's a closed one for today
-                        $closedBalance = TillBalance::where('till_id', (string) $newSession->counter_id)
-                            ->where('currency_code', $currencyCode)
-                            ->whereDate('date', $today)
-                            ->first();
-
-                        if ($closedBalance) {
-                            // Reopen the closed balance with new user
-                            $closedBalance->opened_by = $toUser->id;
-                            $closedBalance->opening_balance = $count['amount'];
-                            $closedBalance->closing_balance = null;
-                            $closedBalance->variance = '0.0000';
-                            $closedBalance->closed_at = null;
-                            $closedBalance->closed_by = null;
-                            $closedBalance->notes = null;
-                            $closedBalance->save();
-                        } else {
-                            // Create new balance record
-                            TillBalance::create([
-                                'till_id' => (string) $newSession->counter_id,
-                                'currency_code' => $currencyCode,
-                                'opening_balance' => $count['amount'],
-                                'date' => $today,
-                                'opened_by' => $toUser->id,
-                            ]);
-                        }
-                    }
-                    $newTillBalanceIds[] = $currencyCode;
-                }
             }
 
             return ['handover' => $handover, 'new_session' => $newSession];

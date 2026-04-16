@@ -20,7 +20,21 @@ return new class extends Migration
             $table->decimal('rate', 18, 6);
             $table->text('purpose')->nullable();
             $table->string('source_of_funds', 255)->nullable();
-            $table->enum('status', ['Pending', 'Completed', 'OnHold', 'Rejected', 'Reversed'])->default('Pending');
+            $table->enum('status', [
+                'Draft',
+                'PendingApproval',
+                'Approved',
+                'Processing',
+                'Completed',
+                'Finalized',
+                'Cancelled',
+                'Reversed',
+                'Failed',
+                'Rejected',
+                'Pending',
+                'OnHold',
+                'PendingCancellation',
+            ])->default('Draft');
             $table->text('hold_reason')->nullable();
             $table->foreignId('approved_by')->nullable()->constrained('users');
             $table->timestamp('approved_at')->nullable();

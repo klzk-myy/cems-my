@@ -261,6 +261,8 @@ class TransactionCancellationController extends Controller
             'cdd_level' => $original->cdd_level,
             'original_transaction_id' => $original->id,
             'is_refund' => true,
+            'approved_by' => $status === TransactionStatus::Completed ? auth()->id() : null,
+            'approved_at' => $status === TransactionStatus::Completed ? now() : null,
         ]);
     }
 

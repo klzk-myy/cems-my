@@ -5,9 +5,13 @@ namespace App\Listeners;
 use App\Events\TransactionCreated;
 use App\Services\TransactionMonitoringService;
 use App\Services\UnifiedRiskScoringService;
+use Illuminate\Contracts\Queue\ShouldQueue;
 
-class TransactionCreatedListener
+class TransactionCreatedListener implements ShouldQueue
 {
+    // Ensure listener runs only after the outer DB transaction has committed
+    public $afterCommit = true;
+
     protected TransactionMonitoringService $monitoringService;
 
     protected UnifiedRiskScoringService $riskScoringService;

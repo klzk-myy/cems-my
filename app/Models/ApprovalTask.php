@@ -152,19 +152,21 @@ class ApprovalTask extends Model
                     ->orWhere('expires_at', '>', now());
             });
 
-        // Filter by role capability - only return tasks user can actually approve
-        // Note: 'supervisor' tier is actually approved by managers, so tellers see nothing
-        $requiredRole = match (true) {
-            $user->role->isAdmin() => ['supervisor', 'manager', 'admin'],
-            $user->role->isManager() => ['supervisor', 'manager'],
-            default => [], // Tellers and Compliance Officers cannot approve approval tasks
+        // Determine which required roles the user can approve based on their role
+        // Admin can approve admin and manager tasks
+        // Manager can approve manager tasks only
+        // Tellers and Compliance Officers cannot approve anything
+        $requiredRoles = match (true) {
+            $user->role->isAdmin() => ['admin', 'manager'],
+            $user->role->isManager() => ['manager'],
+            default => [],
         };
 
-        if (empty($requiredRole)) {
+        if (empty($requiredRoles)) {
             return new Collection;
         }
 
-        return $query->whereIn('required_role', $requiredRole)
+        return $query->whereIn('required_role', $requiredRoles)
             ->with(['transaction', 'approver'])
             ->orderBy('created_at', 'asc')
             ->get();
