@@ -3,383 +3,325 @@
 namespace App\Services;
 
 use App\Models\SanctionEntry;
+use App\Models\SanctionImportLog;
 use App\Models\SanctionList;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SanctionsImportService
 {
+    protected int $created = 0;
+
+    protected int $updated = 0;
+
+    protected int $deactivated = 0;
+
+    protected int $errors = 0;
+
     public function __construct(
-        protected AuditService $auditService,
+        protected MathService $mathService,
     ) {}
 
-    /**
-     * Import sanctions entries from CSV file.
-     *
-     * @param  string  $filepath  Path to CSV file
-     * @param  int  $listId  Sanction list ID
-     * @param  bool  $fullRefresh  If true, removes entries not in new file
-     * @return array Import statistics with change detection
-     */
-    public function importFromCsv(string $filepath, int $listId, bool $fullRefresh = false): array
+    public function import(SanctionList $list, bool $manual = false): array
     {
-        $list = SanctionList::findOrFail($listId);
-        $previousCount = $list->entry_count;
+        $this->resetCounters();
 
-        // Get existing entry names for change detection
-        $existingEntries = $this->getExistingEntries($listId);
-        $importedEntries = [];
-
-        $handle = fopen($filepath, 'r');
-        if (! $handle) {
-            throw new \RuntimeException("Cannot open file: {$filepath}");
-        }
-
-        $headers = fgetcsv($handle);
-        $imported = 0;
-        $updated = 0;
-
-        DB::beginTransaction();
+        $list->update(['last_attempted_at' => now(), 'update_status' => 'pending']);
 
         try {
-            while (($row = fgetcsv($handle)) !== false) {
-                $data = array_combine($headers, $row);
-
-                if ($data === false) {
-                    Log::warning('Failed to parse CSV row', ['row' => $row]);
-
-                    continue;
-                }
-
-                $entryData = $this->normalizeEntryData($data);
-                $entryKey = $this->getEntryKey($entryData);
-
-                // Check if entry already exists
-                if (isset($existingEntries[$entryKey])) {
-                    // Update existing entry
-                    SanctionEntry::where('id', $existingEntries[$entryKey])->update([
-                        'aliases' => $entryData['aliases'],
-                        'nationality' => $entryData['nationality'],
-                        'date_of_birth' => $entryData['date_of_birth'],
-                        'details' => json_encode($data),
-                    ]);
-                    $updated++;
-                } else {
-                    // Create new entry
-                    SanctionEntry::create([
-                        'list_id' => $listId,
-                        'entity_name' => $entryData['entity_name'],
-                        'entity_type' => $entryData['entity_type'],
-                        'aliases' => $entryData['aliases'],
-                        'nationality' => $entryData['nationality'],
-                        'date_of_birth' => $entryData['date_of_birth'],
-                        'details' => json_encode($data),
-                    ]);
-                    $imported++;
-                }
-
-                $importedEntries[] = $entryKey;
-            }
-
-            fclose($handle);
-
-            // Handle removed entries in full refresh mode
-            $removed = 0;
-            if ($fullRefresh) {
-                $removed = $this->removeStaleEntries($listId, $importedEntries);
-            }
-
-            // Update list metadata
-            $newCount = SanctionEntry::where('list_id', $listId)->count();
-            $checksum = hash_file('sha256', $filepath);
+            $data = $this->fetchSource($list->source_url);
+            $entries = $this->parseEntries($data, $list);
+            $result = $this->syncEntries($entries, $list);
 
             $list->update([
-                'entry_count' => $newCount,
-                'last_checksum' => $checksum,
+                'last_updated_at' => now(),
+                'update_status' => 'success',
+                'last_error_message' => null,
+                'entry_count' => $list->entries()->where('status', 'active')->count(),
             ]);
 
-            // Calculate change statistics
-            $changeStats = $this->calculateChangeStats($previousCount, $newCount, $imported, $removed);
+            SanctionImportLog::create([
+                'list_id' => $list->id,
+                'imported_at' => now(),
+                'source_url' => $list->source_url,
+                'records_added' => $this->created,
+                'records_updated' => $this->updated,
+                'records_deactivated' => $this->deactivated,
+                'is_manual' => $manual,
+                'status' => 'success',
+            ]);
 
-            // Log the import
-            $this->auditService->logWithSeverity(
-                'sanctions_list_imported',
-                [
-                    'entity_type' => 'SanctionList',
-                    'entity_id' => $listId,
-                    'new_values' => [
-                        'imported' => $imported,
-                        'updated' => $updated,
-                        'removed' => $removed,
-                        'previous_count' => $previousCount,
-                        'new_count' => $newCount,
-                        'change_percentage' => $changeStats['percentage'],
-                        'is_significant' => $changeStats['is_significant'],
-                    ],
-                ],
-                $changeStats['is_significant'] ? 'WARNING' : 'INFO'
-            );
-
-            DB::commit();
-
-            return [
-                'imported' => $imported,
-                'updated' => $updated,
-                'removed' => $removed,
-                'previous_count' => $previousCount,
-                'new_count' => $newCount,
-                'change_percentage' => $changeStats['percentage'],
-                'is_significant_change' => $changeStats['is_significant'],
-                'new_entries_detected' => $imported,
-                'changes' => [
-                    'new' => $imported > 0 ? $this->getNewEntriesDetails($listId, $imported) : [],
-                    'removed' => $removed > 0 ? $this->getRemovedEntriesDetails($removed) : [],
-                ],
-            ];
+            return $result;
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Sanctions import failed', [
-                'list_id' => $listId,
-                'error' => $e->getMessage(),
+            $list->update([
+                'update_status' => 'failed',
+                'last_error_message' => $e->getMessage(),
             ]);
+
+            SanctionImportLog::create([
+                'list_id' => $list->id,
+                'imported_at' => now(),
+                'source_url' => $list->source_url,
+                'records_added' => $this->created,
+                'records_updated' => $this->updated,
+                'records_deactivated' => $this->deactivated,
+                'is_manual' => $manual,
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+            ]);
+
             throw $e;
         }
     }
 
-    /**
-     * Import sanctions from XML (UN/OFAC format).
-     */
-    public function importFromXml(string $filepath, int $listId, string $format = 'UN'): array
+    public function fetchSource(string $url): array
     {
-        $xml = simplexml_load_file($filepath);
-        if ($xml === false) {
-            throw new \RuntimeException("Failed to parse XML file: {$filepath}");
+        $maxRetries = 3;
+        $retryDelay = 5;
+        $timeout = 60;
+
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                $response = Http::timeout($timeout)
+                    ->retry(2, $retryDelay)
+                    ->get($url);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+
+                    if (! isset($data['results']) && ! is_array($data)) {
+                        Log::warning('OpenSanctions import: unexpected data structure', [
+                            'url' => $url,
+                            'keys' => array_keys($data),
+                        ]);
+                    }
+
+                    return $data;
+                }
+
+                Log::warning("OpenSanctions fetch attempt {$attempt} failed", [
+                    'url' => $url,
+                    'status' => $response->status(),
+                ]);
+
+            } catch (\Exception $e) {
+                Log::warning("OpenSanctions fetch attempt {$attempt} exception", [
+                    'url' => $url,
+                    'error' => $e->getMessage(),
+                ]);
+
+                if ($attempt === $maxRetries) {
+                    throw new \RuntimeException(
+                        "Failed to fetch sanctions data after {$maxRetries} attempts: {$e->getMessage()}"
+                    );
+                }
+            }
         }
 
-        $entries = match ($format) {
-            'UN' => $this->parseUnXml($xml),
-            'OFAC' => $this->parseOfacXml($xml),
-            default => throw new \InvalidArgumentException("Unknown XML format: {$format}"),
-        };
-
-        return $this->importEntries($entries, $listId, $filepath);
+        throw new \RuntimeException("Failed to fetch sanctions data after {$maxRetries} attempts");
     }
 
-    /**
-     * Import sanctions from JSON.
-     */
-    public function importFromJson(string $filepath, int $listId): array
+    public function parseEntries(array $data, SanctionList $list): Collection
     {
-        $content = file_get_contents($filepath);
-        $data = json_decode($content, true);
+        $results = $data['results'] ?? [];
+        $entries = collect();
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException('Failed to parse JSON: '.json_last_error_msg());
+        foreach ($results as $item) {
+            $parsed = $this->parseOpenSanctionsEntry($item, $list);
+            if ($parsed !== null) {
+                $entries->push($parsed);
+            }
         }
 
-        $entries = $this->parseJsonData($data);
-
-        return $this->importEntries($entries, $listId, $filepath);
+        return $entries;
     }
 
-    /**
-     * Get new entries for rescreening notification.
-     */
-    public function getNewEntriesForRescreening(int $listId, int $limit = 100): array
+    public function parseOpenSanctionsEntry(array $item, SanctionList $list): ?array
     {
-        return SanctionEntry::where('list_id', $listId)
-            ->orderBy('id', 'desc')
-            ->limit($limit)
-            ->get(['entity_name', 'entity_type', 'aliases', 'nationality'])
-            ->toArray();
-    }
-
-    /**
-     * Calculate change statistics and determine if significant.
-     */
-    protected function calculateChangeStats(int $previousCount, int $newCount, int $imported, int $removed): array
-    {
-        if ($previousCount === 0) {
-            return ['percentage' => 0.0, 'is_significant' => $newCount > 100];
+        $names = $item['name'] ?? null;
+        if ($names === null) {
+            return null;
         }
 
-        $netChange = abs($newCount - $previousCount);
-        $percentage = ($netChange / $previousCount) * 100;
+        $primaryName = is_array($names) ? ($names[0] ?? '') : $names;
+        $normalizedName = $this->normalizeName($primaryName);
 
-        $isSignificant = $percentage > config('sanctions.change_thresholds.significant_percentage', 10.0)
-            || $imported >= config('sanctions.change_thresholds.minimum_new_entries', 5)
-            || $removed >= config('sanctions.change_thresholds.minimum_removed_entries', 5);
+        if (empty($normalizedName)) {
+            return null;
+        }
+
+        $aliases = [];
+        if (is_array($names) && count($names) > 1) {
+            foreach (array_slice($names, 1) as $alias) {
+                $normalizedAlias = $this->normalizeName($alias);
+                if (! empty($normalizedAlias) && $normalizedAlias !== $normalizedName) {
+                    $aliases[] = $alias;
+                }
+            }
+        }
+
+        $aliasData = $item['aliases'] ?? [];
+        if (is_array($aliasData)) {
+            foreach ($aliasData as $alias) {
+                if (is_string($alias)) {
+                    $normalizedAlias = $this->normalizeName($alias);
+                    if (! empty($normalizedAlias) && $normalizedAlias !== $normalizedName) {
+                        $aliases[] = $alias;
+                    }
+                }
+            }
+        }
+
+        $birthDate = $this->parseDate($item['birth_date'] ?? null);
+        $nationality = $item['nationality'] ?? null;
+        $entityType = $this->mapEntityType($item['entity_type'] ?? null);
 
         return [
-            'percentage' => round($percentage, 2),
-            'is_significant' => $isSignificant,
+            'list_id' => $list->id,
+            'reference_number' => $item['id'] ?? null,
+            'entity_name' => $primaryName,
+            'normalized_name' => $normalizedName,
+            'entity_type' => $entityType,
+            'aliases' => ! empty($aliases) ? json_encode($aliases) : null,
+            'nationality' => is_array($nationality) ? ($nationality[0] ?? null) : $nationality,
+            'date_of_birth' => $birthDate,
+            'details' => json_encode($item),
+            'status' => 'active',
         ];
     }
 
-    protected function getExistingEntries(int $listId): array
+    public function syncEntries(Collection $entries, SanctionList $list): array
     {
-        return SanctionEntry::where('list_id', $listId)
-            ->get(['id', 'entity_name', 'entity_type'])
-            ->keyBy(fn ($entry) => $this->getEntryKey([
-                'entity_name' => $entry->entity_name,
-                'entity_type' => $entry->entity_type,
-            ]))
-            ->map(fn ($entry) => $entry->id)
-            ->toArray();
-    }
+        $existingByRef = SanctionEntry::where('list_id', $list->id)
+            ->whereNotNull('reference_number')
+            ->get()
+            ->keyBy('reference_number');
 
-    protected function getEntryKey(array $data): string
-    {
-        return strtolower(trim($data['entity_name'])).'|'.strtolower(trim($data['entity_type'] ?? 'Individual'));
-    }
+        $importedRefs = [];
 
-    protected function normalizeEntryData(array $data): array
-    {
+        foreach ($entries as $entryData) {
+            $ref = $entryData['reference_number'] ?? null;
+            $importedRefs[$ref] = true;
+
+            try {
+                if ($ref && $existingByRef->has($ref)) {
+                    $existing = $existingByRef->get($ref);
+                    $existing->update([
+                        'entity_name' => $entryData['entity_name'],
+                        'normalized_name' => $entryData['normalized_name'],
+                        'entity_type' => $entryData['entity_type'],
+                        'aliases' => $entryData['aliases'],
+                        'nationality' => $entryData['nationality'],
+                        'date_of_birth' => $entryData['date_of_birth'],
+                        'details' => $entryData['details'],
+                        'status' => 'active',
+                    ]);
+                    $this->updated++;
+                } else {
+                    SanctionEntry::create($entryData);
+                    $this->created++;
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to sync sanction entry', [
+                    'reference_number' => $ref,
+                    'error' => $e->getMessage(),
+                ]);
+                $this->errors++;
+            }
+        }
+
+        $refsToDeactivate = $existingByRef->keys()->filter(fn ($ref) => ! isset($importedRefs[$ref]));
+        foreach ($refsToDeactivate as $ref) {
+            $existing = $existingByRef->get($ref);
+            if ($existing->status === 'active') {
+                $existing->update(['status' => 'inactive']);
+                $this->deactivated++;
+            }
+        }
+
         return [
-            'entity_name' => trim($data['name'] ?? $data['entity_name'] ?? ''),
-            'entity_type' => $data['entity_type'] ?? 'Individual',
-            'aliases' => isset($data['aliases']) && ! empty($data['aliases']) ? json_encode(explode(',', $data['aliases'])) : null,
-            'nationality' => $data['nationality'] ?? null,
-            'date_of_birth' => ! empty($data['date_of_birth']) ? $data['date_of_birth'] : null,
+            'created' => $this->created,
+            'updated' => $this->updated,
+            'deactivated' => $this->deactivated,
+            'errors' => $this->errors,
         ];
     }
 
-    protected function removeStaleEntries(int $listId, array $currentEntries): int
+    public function parseDate(?string $date): ?string
     {
-        // Get all entries for this list
-        $existingEntries = SanctionEntry::where('list_id', $listId)->get(['id', 'entity_name', 'entity_type']);
+        if (empty($date)) {
+            return null;
+        }
 
-        // Convert current entries to a lookup set for faster checking
-        $currentEntriesSet = array_flip(array_map('strtolower', $currentEntries));
+        $date = trim($date);
 
-        $toRemove = [];
-        foreach ($existingEntries as $entry) {
-            $key = strtolower(trim($entry->entity_name)).'|'.strtolower(trim($entry->entity_type));
-            if (! isset($currentEntriesSet[$key])) {
-                $toRemove[] = $entry->id;
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return $date;
+        }
+
+        if (preg_match('/^\d{4}$/', $date)) {
+            return $date.'-01-01';
+        }
+
+        if (preg_match('#^(\d{4})[-/](\d{2})[-/](\d{2})$#', $date, $matches)) {
+            return sprintf('%04d-%02d-%02d', $matches[1], $matches[2], $matches[3]);
+        }
+
+        try {
+            $parsed = date_create($date);
+            if ($parsed !== false) {
+                return date_format($parsed, 'Y-m-d');
+            }
+        } catch (\Exception $e) {
+        }
+
+        return null;
+    }
+
+    public function normalizeName(string $name): string
+    {
+        $name = trim($name);
+        $name = mb_strtolower($name, 'UTF-8');
+        $name = preg_replace('/\s+/', ' ', $name);
+        $name = preg_replace('/[^\p{L}\p{N}\s\-\'\.]/u', '', $name);
+        $name = trim($name);
+
+        return $name;
+    }
+
+    public function mapEntityType(?string $type): string
+    {
+        if (empty($type)) {
+            return 'Individual';
+        }
+
+        $type = strtolower($type);
+
+        $personTypes = ['person', 'individual', 'natural person', 'human'];
+        $entityTypes = ['organization', 'entity', 'company', 'corporation', 'vessel', 'aircraft'];
+
+        foreach ($personTypes as $personType) {
+            if (str_contains($type, $personType)) {
+                return 'Individual';
             }
         }
 
-        $count = count($toRemove);
-
-        if ($count > 0) {
-            SanctionEntry::whereIn('id', $toRemove)->delete();
-        }
-
-        return $count;
-    }
-
-    protected function getNewEntriesDetails(int $listId, int $count): array
-    {
-        return SanctionEntry::where('list_id', $listId)
-            ->orderBy('id', 'desc')
-            ->limit(min($count, 10)) // Return first 10
-            ->pluck('entity_name')
-            ->toArray();
-    }
-
-    protected function getRemovedEntriesDetails(int $count): array
-    {
-        return ["{$count} entries removed"];
-    }
-
-    protected function importEntries(array $entries, int $listId, string $filepath): array
-    {
-        // Create temporary CSV for unified processing
-        $csvPath = sys_get_temp_dir().'/sanctions_import_'.uniqid().'.csv';
-        $handle = fopen($csvPath, 'w');
-
-        fputcsv($handle, ['name', 'entity_type', 'aliases', 'nationality', 'date_of_birth']);
-
-        foreach ($entries as $entry) {
-            fputcsv($handle, [
-                $entry['entity_name'],
-                $entry['entity_type'] ?? 'Individual',
-                $entry['aliases'] ?? '',
-                $entry['nationality'] ?? '',
-                $entry['date_of_birth'] ?? '',
-            ]);
-        }
-
-        fclose($handle);
-
-        $result = $this->importFromCsv($csvPath, $listId, true);
-
-        unlink($csvPath);
-
-        return $result;
-    }
-
-    protected function parseUnXml(\SimpleXMLElement $xml): array
-    {
-        $entries = [];
-        // UN format parsing - adjust based on actual UN schema
-        foreach ($xml->xpath('//INDIVIDUAL') as $individual) {
-            $entries[] = [
-                'entity_name' => trim((string) ($individual->NAME ?? $individual->FIRST_NAME.' '.$individual->SECOND_NAME)),
-                'entity_type' => 'Individual',
-                'nationality' => (string) ($individual->NATIONALITY ?? ''),
-                'aliases' => '',
-            ];
-        }
-        foreach ($xml->xpath('//ENTITY') as $entity) {
-            $entries[] = [
-                'entity_name' => trim((string) $entity->NAME),
-                'entity_type' => 'Entity',
-                'nationality' => '',
-                'aliases' => '',
-            ];
-        }
-
-        return $entries;
-    }
-
-    protected function parseOfacXml(\SimpleXMLElement $xml): array
-    {
-        $entries = [];
-        // OFAC SDN format
-        foreach ($xml->publishInformation->children() as $child) {
-            // OFAC has a different structure
-        }
-
-        // Parse publish information
-        foreach ($xml->xpath('//sdnEntry') as $entry) {
-            $name = (string) ($entry->lastName ?? '');
-            if (isset($entry->firstName)) {
-                $name = (string) $entry->firstName.' '.$name;
-            }
-            if (empty($name) && isset($entry->lastName)) {
-                $name = (string) $entry->lastName;
-            }
-
-            $entries[] = [
-                'entity_name' => trim($name),
-                'entity_type' => ((string) ($entry->sdnType ?? '')) === 'Individual' ? 'Individual' : 'Entity',
-                'nationality' => '',
-                'aliases' => '',
-            ];
-        }
-
-        return $entries;
-    }
-
-    protected function parseJsonData(array $data): array
-    {
-        $entries = [];
-
-        // Handle EU format
-        if (isset($data['result'])) {
-            foreach ($data['result'] as $item) {
-                $entries[] = [
-                    'entity_name' => $item['name'] ?? '',
-                    'entity_type' => ($item['type'] ?? '') === 'person' ? 'Individual' : 'Entity',
-                    'nationality' => $item['country'] ?? '',
-                    'aliases' => '',
-                ];
+        foreach ($entityTypes as $entityType) {
+            if (str_contains($type, $entityType)) {
+                return 'Entity';
             }
         }
 
-        return $entries;
+        return 'Individual';
+    }
+
+    protected function resetCounters(): void
+    {
+        $this->created = 0;
+        $this->updated = 0;
+        $this->deactivated = 0;
+        $this->errors = 0;
     }
 }
