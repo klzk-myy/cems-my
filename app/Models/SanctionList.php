@@ -14,6 +14,7 @@ class SanctionList extends Model
 
     protected $fillable = [
         'name',
+        'slug',
         'list_type',
         'source_url',
         'source_format',
