@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
 class CustomerRiskScoringService
 {
     public function __construct(
-        protected SanctionScreeningService $sanctionService,
+        protected UnifiedSanctionScreeningService $screeningService,
         protected ComplianceService $complianceService,
         protected AuditService $auditService,
         protected MathService $mathService,
@@ -73,7 +73,7 @@ class CustomerRiskScoringService
     {
         $customer = Customer::findOrFail($customerId);
 
-        $sanctionResult = $this->sanctionService->screenCustomer($customer);
+        $screeningResponse = $this->screeningService->screenCustomer($customer);
 
         $previousSnapshot = RiskScoreSnapshot::where('customer_id', $customerId)
             ->latest()
@@ -103,7 +103,8 @@ class CustomerRiskScoringService
 
         return [
             'customer_id' => $customerId,
-            'sanction_match' => $sanctionResult['is_match'] ?? false,
+            'sanction_match' => $screeningResponse->action !== 'clear',
+            'sanction_confidence' => $screeningResponse->confidenceScore,
             'previous_score' => $previousSnapshot?->overall_score,
             'new_score' => $newSnapshot->overall_score,
             'score_change' => $scoreChange,

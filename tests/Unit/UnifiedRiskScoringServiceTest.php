@@ -6,7 +6,6 @@ use App\Enums\CddLevel;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\MathService;
-use App\Services\SanctionScreeningService;
 use App\Services\UnifiedRiskScoringService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -20,9 +19,8 @@ class UnifiedRiskScoringServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $sanctionService = app(SanctionScreeningService::class);
         $mathService = new MathService;
-        $this->service = new UnifiedRiskScoringService($sanctionService, $mathService);
+        $this->service = new UnifiedRiskScoringService($mathService);
     }
 
     public function test_calculate_risk_score_returns_expected_structure(): void

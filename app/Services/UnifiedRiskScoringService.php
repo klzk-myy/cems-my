@@ -28,7 +28,6 @@ class UnifiedRiskScoringService
     ];
 
     public function __construct(
-        protected SanctionScreeningService $sanctionService,
         protected MathService $mathService,
     ) {}
 

@@ -8,7 +8,7 @@ use App\Models\Customer;
 class TransactionPreValidationService
 {
     public function __construct(
-        protected SanctionScreeningService $sanctionScreeningService,
+        protected UnifiedSanctionScreeningService $screeningService,
         protected ComplianceService $complianceService,
         protected HistoricalRiskAnalysisService $historicalRiskAnalysisService,
         protected AuditService $auditService
@@ -67,7 +67,29 @@ class TransactionPreValidationService
 
     private function checkSanctions(Customer $customer): SanctionCheckResult
     {
-        return $this->sanctionScreeningService->checkCustomer($customer);
+        $response = $this->screeningService->screenCustomer($customer);
+
+        if ($response->action === 'block') {
+            $matchScore = $response->confidenceScore;
+            $matchedEntity = $response->matches->first()?->entryName;
+            $message = $matchedEntity
+                ? "Sanctions match found: {$matchedEntity} (confidence: {$matchScore}%)"
+                : "Sanctions match found (confidence: {$matchScore}%)";
+
+            return SanctionCheckResult::blocked($message, $matchScore, $matchedEntity ?? 'Unknown');
+        }
+
+        if ($response->action === 'flag') {
+            $matchScore = $response->confidenceScore;
+            $matchedEntity = $response->matches->first()?->entryName;
+            $message = $matchedEntity
+                ? "Sanctions flag: {$matchedEntity} (confidence: {$matchScore}%)"
+                : "Sanctions flag (confidence: {$matchScore}%)";
+
+            return new SanctionCheckResult(false, $message, $matchScore, $matchedEntity);
+        }
+
+        return SanctionCheckResult::passed();
     }
 
     private function isReturningCustomer(Customer $customer): bool
