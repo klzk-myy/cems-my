@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\EodReconciliationController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SanctionController;
+use App\Http\Controllers\Api\V1\SanctionListController;
+use App\Http\Controllers\Api\V1\ScreeningController;
 use App\Http\Controllers\Api\V1\StrController;
 use App\Http\Controllers\Api\V1\TransactionApprovalController;
 use App\Http\Controllers\Api\V1\TransactionCancellationController;
@@ -193,5 +195,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('import/transactions', [BulkImportController::class, 'importTransactions']);
         Route::get('import/status/{jobId}', [BulkImportController::class, 'getStatus']);
         Route::get('import/errors/{jobId}', [BulkImportController::class, 'getErrors']);
+    });
+
+    // Sanctions management endpoints (Admin)
+    Route::middleware(['role:admin'])->group(function () {
+        Route::get('/sanctions/lists', [SanctionListController::class, 'lists']);
+        Route::get('/sanctions/entries', [SanctionListController::class, 'entries']);
+        Route::post('/sanctions/import/trigger/{list}', [SanctionListController::class, 'triggerImport']);
+        Route::get('/sanctions/import/logs', [SanctionListController::class, 'importLogs']);
+        Route::post('/sanctions/entries', [SanctionListController::class, 'storeEntry']);
+        Route::put('/sanctions/entries/{entry}', [SanctionListController::class, 'updateEntry']);
+        Route::delete('/sanctions/entries/{entry}', [SanctionListController::class, 'deleteEntry']);
+    });
+
+    // Screening endpoints (ComplianceOfficer+)
+    Route::middleware(['role:compliance'])->group(function () {
+        Route::post('/screening/customer/{customer}', [ScreeningController::class, 'screen']);
+        Route::get('/screening/customer/{customer}/history', [ScreeningController::class, 'history']);
+        Route::get('/screening/customer/{customer}/status', [ScreeningController::class, 'status']);
+        Route::post('/screening/batch', [ScreeningController::class, 'batchScreen']);
     });
 });

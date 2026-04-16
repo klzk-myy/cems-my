@@ -92,6 +92,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sanctions/search', [SanctionController::class, 'search']);
     Route::post('/sanctions/upload', [SanctionController::class, 'upload']);
 
+    // Screening endpoints (ComplianceOfficer+)
+    Route::prefix('screening')->middleware(['auth', 'role:compliance'])->group(function () {
+        Route::post('/customer/{customer}', [ScreeningController::class, 'screen']);
+        Route::get('/customer/{customer}/history', [ScreeningController::class, 'history']);
+        Route::get('/customer/{customer}/status', [ScreeningController::class, 'status']);
+        Route::post('/batch', [ScreeningController::class, 'batchScreen']);
+    });
+
+    // Sanctions management endpoints (Admin)
+    Route::prefix('sanctions')->middleware(['auth', 'role:admin'])->group(function () {
+        Route::get('/lists', [SanctionListController::class, 'lists']);
+        Route::get('/entries', [SanctionListController::class, 'entries']);
+        Route::post('/import/trigger/{list}', [SanctionListController::class, 'triggerImport']);
+        Route::get('/import/logs', [SanctionListController::class, 'importLogs']);
+        Route::post('/entries', [SanctionListController::class, 'storeEntry']);
+        Route::put('/entries/{entry}', [SanctionListController::class, 'updateEntry']);
+        Route::delete('/entries/{entry}', [SanctionListController::class, 'deleteEntry']);
+    });
+
     // Reports API
     Route::post('/reports/lctr', [RegulatoryReportController::class, 'generateLCTR'])
         ->name('api.reports.lctr');

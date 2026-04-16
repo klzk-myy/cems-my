@@ -22,6 +22,7 @@ class SanctionListFactory extends Factory
     {
         return [
             'name' => $this->faker->company().' Sanctions List',
+            'slug' => $this->faker->unique()->slug(2),
             'list_type' => $this->faker->randomElement(['UNSCR', 'MOHA', 'Internal']),
             'source_file' => $this->faker->word().'.csv',
             'uploaded_by' => User::factory(),
