@@ -2,10 +2,14 @@
 
 namespace App\Console;
 
+use App\Jobs\Accounting\ReconcileDeferredAccountingJob;
 use App\Jobs\Compliance\CounterfeitAlertJob;
 use App\Jobs\Compliance\CurrencyFlowJob;
 use App\Jobs\Compliance\CustomerLocationAnomalyJob;
 use App\Jobs\Compliance\SanctionsRescreeningJob;
+use App\Jobs\Compliance\StrDeadlineMonitorJob;
+use App\Jobs\Compliance\StructuringMonitorJob;
+use App\Jobs\Compliance\VelocityMonitorJob;
 use App\Jobs\ImportSanctionsJob;
 use App\Jobs\RescreenHighRiskCustomersJob;
 use Illuminate\Console\Scheduling\Schedule;
@@ -31,6 +35,13 @@ class Kernel extends ConsoleKernel
         $schedule->command('report:eod')
             ->dailyAt('20:00')
             ->appendOutputTo(storage_path('logs/report-eod.log'));
+
+        // Reconcile Deferred Accounting - Auto-create journal entries for Enhanced CDD transactions
+        $schedule->job(fn () => app(ReconcileDeferredAccountingJob::class))
+            ->dailyAt('21:00')
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/reconcile-deferred-accounting.log'));
 
         // ============ WEEKLY REPORTS ============
 
@@ -103,6 +114,27 @@ class Kernel extends ConsoleKernel
         $schedule->job(new CounterfeitAlertJob)
             ->dailyAt('04:00')
             ->appendOutputTo(storage_path('logs/monitor-counterfeit-alert.log'));
+
+        // Velocity Monitor - Daily at 04:30 (AML velocity detection)
+        $schedule->job(new VelocityMonitorJob)
+            ->dailyAt('04:30')
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/monitor-velocity.log'));
+
+        // Structuring Monitor - Daily at 04:45 (transaction aggregation detection)
+        $schedule->job(new StructuringMonitorJob)
+            ->dailyAt('04:45')
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/monitor-structuring.log'));
+
+        // STR Deadline Monitor - Daily at 05:00 (STR submission deadline tracking)
+        $schedule->job(new StrDeadlineMonitorJob)
+            ->dailyAt('05:00')
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->appendOutputTo(storage_path('logs/monitor-str-deadline.log'));
 
         // ============ SYSTEM MONITORING ============
 

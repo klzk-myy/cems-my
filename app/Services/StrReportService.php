@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Enums\StrStatus;
+use App\Events\StrDraftGenerated;
 use App\Jobs\SendNotificationJob;
 use App\Models\FlaggedTransaction;
 use App\Models\StrReport;
 use App\Models\User;
 use App\Notifications\Compliance\StrEscalationNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -123,6 +125,8 @@ class StrReportService
                     'filing_deadline' => $deadlineInfo['deadline']->toDateTimeString(),
                 ],
             ]);
+
+            Event::dispatch(new StrDraftGenerated($strReport));
 
             return $strReport;
         });

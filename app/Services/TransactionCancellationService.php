@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
+use App\Events\TransactionCancelled;
 use App\Models\Customer;
 use App\Models\JournalEntry;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Notifications\TransactionCancellationPendingNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
@@ -195,6 +197,9 @@ class TransactionCancellationService
                         ],
                     ]
                 );
+
+                // Dispatch TransactionCancelled event for async listeners
+                Event::dispatch(new TransactionCancelled($transaction, $reason, $approver->id));
             }
 
             return $result;
