@@ -142,12 +142,12 @@
                     </td>
                     <td class="max-w-xs truncate">{{ $alert->reason }}</td>
                     <td>
-                        @if($alert->assignee)
+                        @if($alert->assignedTo)
                         <div class="flex items-center gap-2">
                             <div class="w-6 h-6 bg-[--color-canvas-subtle] rounded flex items-center justify-center text-xs">
-                                {{ substr($alert->assignee->username, 0, 1) }}
+                                {{ substr($alert->assignedTo->username, 0, 1) }}
                             </div>
-                            <span class="text-sm">{{ $alert->assignee->username }}</span>
+                            <span class="text-sm">{{ $alert->assignedTo->username }}</span>
                         </div>
                         @else
                         <span class="badge badge-warning">Unassigned</span>

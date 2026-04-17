@@ -174,4 +174,14 @@ class Customer extends Model
     {
         return $this->cdd_level ?? 'Simplified';
     }
+
+    public function getIsPepAttribute(): bool
+    {
+        return (bool) $this->pep_status;
+    }
+
+    public function getIsSanctionedAttribute(): bool
+    {
+        return (bool) $this->sanction_hit;
+    }
 }

@@ -70,6 +70,10 @@ class AlertTriageController extends Controller
 
     public function dismiss(Request $request, Alert $alert)
     {
+        if ($alert->status === \App\Enums\FlagStatus::Resolved || $alert->status === \App\Enums\FlagStatus::Rejected) {
+            abort(403, 'Cannot dismiss an already resolved or rejected alert.');
+        }
+
         $validated = $request->validate([
             'reason' => 'nullable|string|max:500',
         ]);

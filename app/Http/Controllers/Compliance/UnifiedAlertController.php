@@ -133,8 +133,12 @@ class UnifiedAlertController extends Controller
             $url .= '?'.http_build_query($params);
         }
 
-        $response = Http::withToken(session('api_token'))->get($url);
-        $data = $response->successful() ? $response->json()['data'] ?? [] : [];
+        try {
+            $response = Http::withToken(session('api_token'))->get($url);
+            $data = $response->successful() ? $response->json()['data'] ?? [] : [];
+        } catch (\Throwable $e) {
+            $data = [];
+        }
 
         $findings = collect($data['data'] ?? []);
 
@@ -158,7 +162,7 @@ class UnifiedAlertController extends Controller
                 'ic' => null,
             ] : null,
             'assigned_to' => null,
-            'description' => Str::limit($finding['details']['summary'] ?? $finding['details']['description'] ?? '', 100),
+            'description' => Str::limit(isset($finding['details']) ? ($finding['details']['summary'] ?? $finding['details']['description'] ?? '') : '', 100),
             'date' => Carbon::parse($finding['generated_at'] ?? now()),
             'url' => "/compliance/findings/{$finding['id']}",
         ])->toArray();
