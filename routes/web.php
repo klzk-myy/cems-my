@@ -296,6 +296,20 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::post('/rescreen', [RiskDashboardController::class, 'rescreen'])->name('rescreen');
         });
 
+        // Sanction Lists
+        Route::prefix('compliance/sanctions')->name('compliance.sanctions.')->group(function () {
+            Route::get('/', [SanctionListController::class, 'index'])->name('index');
+            Route::get('/{list}', [SanctionListController::class, 'show'])->name('show');
+            Route::post('/{list}/import', [SanctionListController::class, 'triggerImport'])->name('import');
+            Route::get('/entries', [SanctionListController::class, 'entriesIndex'])->name('entries.index');
+            Route::get('/entries/create', [SanctionListController::class, 'createEntry'])->name('entries.create');
+            Route::post('/entries', [SanctionListController::class, 'storeEntry'])->name('entries.store');
+            Route::get('/entries/{entry}', [SanctionListController::class, 'showEntry'])->name('entries.show');
+            Route::get('/entries/{entry}/edit', [SanctionListController::class, 'editEntry'])->name('entries.edit');
+            Route::put('/entries/{entry}', [SanctionListController::class, 'updateEntry'])->name('entries.update');
+            Route::get('/import-logs', [SanctionListController::class, 'importLogs'])->name('import-logs');
+        });
+
         // EDD Templates
         Route::prefix('compliance/edd-templates')->name('compliance.edd-templates.')->group(function () {
             Route::get('/', [EddTemplateController::class, 'index'])->name('index');
