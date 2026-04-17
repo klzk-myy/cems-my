@@ -10,6 +10,7 @@ use App\Http\Controllers\Compliance\ComplianceReportingController;
 use App\Http\Controllers\Compliance\ComplianceWorkspaceController;
 use App\Http\Controllers\Compliance\CtosController;
 use App\Http\Controllers\Compliance\EddTemplateController;
+use App\Http\Controllers\Compliance\FindingController;
 use App\Http\Controllers\Compliance\RiskDashboardController;
 use App\Http\Controllers\Compliance\SanctionListController;
 use App\Http\Controllers\Compliance\ScreeningController;
@@ -330,6 +331,13 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::prefix('compliance/screening')->name('compliance.screening.')->group(function () {
             Route::get('/{customerId}', [ScreeningController::class, 'show'])->name('show');
             Route::post('/{customerId}', [ScreeningController::class, 'screen'])->name('screen');
+        });
+
+        // Compliance Findings
+        Route::prefix('compliance/findings')->name('compliance.findings.')->group(function () {
+            Route::get('/', [FindingController::class, 'index'])->name('index');
+            Route::get('/{id}', [FindingController::class, 'show'])->name('show');
+            Route::post('/{id}/dismiss', [FindingController::class, 'dismiss'])->name('dismiss');
         });
 
         // EDD Templates
