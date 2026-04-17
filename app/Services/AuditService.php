@@ -42,48 +42,37 @@ class AuditService
     /**
      * Log with severity level (tamper-evident with hash chaining)
      *
-     * Wrapped in transaction to prevent race conditions in hash chain.
+     * Hash sealing is done asynchronously via SealAuditHashJob to avoid
+     * global lock contention. The entry is created with null hash values
+     * and sealed by the queued job.
      */
     public function logWithSeverity(
         string $action,
         array $data = [],
         string $severity = 'INFO'
     ): SystemLog {
-        return DB::transaction(function () use ($action, $data, $severity) {
-            $userId = $data['user_id'] ?? auth()->id();
+        $userId = $data['user_id'] ?? auth()->id();
 
-            // Get the hash of the most recent system log entry WITHIN the transaction
-            // This ensures the lock is held until the new entry is created
-            $lastLog = SystemLog::orderBy('id', 'desc')->lockForUpdate()->first();
-            $previousHash = $lastLog?->entry_hash;
+        // Create log entry with null hash (will be sealed async)
+        $log = SystemLog::create([
+            'user_id' => $userId,
+            'action' => $action,
+            'severity' => $severity,
+            'entity_type' => $data['entity_type'] ?? null,
+            'entity_id' => $data['entity_id'] ?? null,
+            'old_values' => ! empty($data['old_values'] ?? []) ? $data['old_values'] : null,
+            'new_values' => ! empty($data['new_values'] ?? []) ? $data['new_values'] : null,
+            'ip_address' => Request::ip(),
+            'user_agent' => Request::userAgent(),
+            'session_id' => session()->getId(),
+            'previous_hash' => null,
+            'entry_hash' => null,
+        ]);
 
-            $timestamp = now()->toIso8601String();
+        // Dispatch async job to seal the hash chain
+        \App\Jobs\Audit\SealAuditHashJob::dispatch($log->id);
 
-            // Compute entry hash for tamper detection
-            $entryHash = $this->computeEntryHash(
-                $timestamp,
-                $userId,
-                $action,
-                $data['entity_type'] ?? null,
-                $data['entity_id'] ?? null,
-                $previousHash
-            );
-
-            return SystemLog::create([
-                'user_id' => $userId,
-                'action' => $action,
-                'severity' => $severity,
-                'entity_type' => $data['entity_type'] ?? null,
-                'entity_id' => $data['entity_id'] ?? null,
-                'old_values' => ! empty($data['old_values'] ?? []) ? $data['old_values'] : null,
-                'new_values' => ! empty($data['new_values'] ?? []) ? $data['new_values'] : null,
-                'ip_address' => Request::ip(),
-                'user_agent' => Request::userAgent(),
-                'session_id' => session()->getId(),
-                'previous_hash' => $previousHash,
-                'entry_hash' => $entryHash,
-            ]);
-        });
+        return $log;
     }
 
     /**
@@ -858,12 +847,13 @@ class AuditService
      */
     public function verifyChainIntegrity(?int $limit = null): array
     {
-        $query = SystemLog::orderBy('id', 'asc');
+        $query = SystemLog::whereNotNull('entry_hash')->orderBy('id', 'asc');
 
         if ($limit !== null) {
             // Get the last N entries and verify backwards
             $totalCount = SystemLog::count();
-            $query = SystemLog::orderBy('id', 'desc')
+            $query = SystemLog::whereNotNull('entry_hash')
+                ->orderBy('id', 'desc')
                 ->limit($limit)
                 ->orderBy('id', 'asc');
         }
@@ -913,5 +903,14 @@ class AuditService
             'broken_at' => null,
             'message' => "Chain integrity verified: {$entries->count()} entries checked.",
         ];
+    }
+
+    /**
+     * Get count of unsealed audit log entries.
+     * Useful for monitoring/alerting on the async hash sealing pipeline.
+     */
+    public function getUnsealedCount(): int
+    {
+        return SystemLog::whereNull('entry_hash')->count();
     }
 }

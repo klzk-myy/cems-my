@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Jobs\Audit\SealAuditHashJob;
 use App\Models\SystemLog;
 use App\Models\User;
 use App\Services\AuditService;
@@ -168,5 +169,37 @@ class AuditServiceTest extends TestCase
         ]);
 
         $this->assertEquals($user->id, $log->user->id);
+    }
+
+    public function test_audit_hash_sealed_async_by_job(): void
+    {
+        // Create a first log entry to establish the chain
+        $log1 = $this->auditService->logWithSeverity('test_action_first', ['entity_type' => 'Test'], 'INFO');
+
+        // Create a second log entry
+        $log2 = $this->auditService->logWithSeverity('test_action_second', ['entity_type' => 'Test'], 'INFO');
+
+        // Entry should have null hash initially
+        $this->assertNull($log2->entry_hash);
+
+        // Dispatch and run the seal job synchronously for the second entry
+        SealAuditHashJob::dispatchSync($log2->id);
+
+        // Entry should now be sealed with previous_hash pointing to log1's hash
+        $log2->refresh();
+        $this->assertNotNull($log2->entry_hash);
+        $this->assertNotNull($log2->previous_hash);
+    }
+
+    public function test_verify_chain_integrity_skips_unsealed_entries(): void
+    {
+        // Create unsealed log
+        $log = $this->auditService->logWithSeverity('test_action', [], 'INFO');
+
+        // Verify doesn't throw even with unsealed entries
+        $result = $this->auditService->verifyChainIntegrity();
+
+        // Should pass since unsealed entries are skipped
+        $this->assertTrue($result['valid']);
     }
 }

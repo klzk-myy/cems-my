@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\CounterSessionStatus;
 use App\Enums\TellerAllocationStatus;
+use App\Exceptions\Domain\TillAlreadyOpenException;
+use App\Exceptions\Domain\UserAlreadyAtCounterException;
 use App\Models\Counter;
 use App\Models\CounterSession;
 use App\Models\Currency;
@@ -44,7 +46,7 @@ class CounterService
                 ->first();
 
             if ($existingSession) {
-                throw new Exception('Counter is already open today');
+                throw new TillAlreadyOpenException($counter->code ?? (string) $counter->id);
             }
 
             // Lock and check if user is already at another counter
@@ -54,7 +56,7 @@ class CounterService
                 ->first();
 
             if ($userSession) {
-                throw new Exception('User is already at another counter');
+                throw new UserAlreadyAtCounterException($user->id);
             }
 
             // Pre-fetch all currencies to avoid N+1 queries

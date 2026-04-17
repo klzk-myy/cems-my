@@ -50,6 +50,7 @@ class Customer extends Model
         'full_name',
         'id_type',
         'id_number_encrypted',
+        'id_number_hash',
         'nationality',
         'date_of_birth',
         'address',
@@ -204,5 +205,38 @@ class Customer extends Model
     public function getIsSanctionedAttribute(): bool
     {
         return (bool) $this->sanction_hit;
+    }
+
+    /**
+     * Boot the model and register hooks for blind index.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // When id_number (plaintext) is set, compute the blind index hash
+        static::saving(function ($customer) {
+            if ($customer->isDirty('id_number') && $customer->id_number) {
+                $customer->id_number_hash = self::computeBlindIndex($customer->id_number);
+            }
+        });
+    }
+
+    /**
+     * Compute a deterministic HMAC hash of the ID number for blind indexing.
+     */
+    public static function computeBlindIndex(string $plaintext): string
+    {
+        $key = config('app.key');
+        return hash_hmac('sha256', $plaintext, $key);
+    }
+
+    /**
+     * Find a customer by their ID number using the blind index.
+     */
+    public static function findByIdNumber(string $idNumber): ?self
+    {
+        $hash = self::computeBlindIndex($idNumber);
+        return static::where('id_number_hash', $hash)->first();
     }
 }

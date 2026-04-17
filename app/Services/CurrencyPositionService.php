@@ -6,8 +6,12 @@ use App\Enums\CounterSessionStatus;
 use App\Enums\TransactionType;
 use App\Models\CounterSession;
 use App\Models\CurrencyPosition;
+use App\Models\StockReservation;
+use App\Models\Transaction;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Currency Position Service
@@ -150,7 +154,7 @@ class CurrencyPositionService
     {
         // If no till specified, use MAIN as fallback (but log a warning)
         if ($tillId === null) {
-            \Illuminate\Support\Facades\Log::warning(
+            Log::warning(
                 'getPosition called without till_id - using MAIN as fallback',
                 [
                     'currency_code' => $currencyCode,
@@ -189,9 +193,9 @@ class CurrencyPositionService
      * Get all positions for a specific till.
      *
      * @param  string  $tillId  Till identifier (default: 'MAIN')
-     * @return \Illuminate\Database\Eloquent\Collection Collection of position models
+     * @return Collection Collection of position models
      */
-    public function getAllPositions(string $tillId = 'MAIN'): \Illuminate\Database\Eloquent\Collection
+    public function getAllPositions(string $tillId = 'MAIN'): Collection
     {
         return CurrencyPosition::where('till_id', $tillId)
             ->with('currency')
@@ -224,7 +228,7 @@ class CurrencyPositionService
      * Admin/Manager/Compliance can see all positions.
      * Tellers can only see positions for their currently open counter session.
      */
-    public function getVisiblePositionsForUser(User $user): \Illuminate\Database\Eloquent\Collection
+    public function getVisiblePositionsForUser(User $user): Collection
     {
         if ($user->role->canManageAllBranches() || $user->role->isComplianceOfficer() || $user->role->isManager()) {
             return CurrencyPosition::with('currency')->get();
@@ -284,5 +288,83 @@ class CurrencyPositionService
         }
 
         return $aggregates;
+    }
+
+    /**
+     * Get available balance excluding pending reservations.
+     *
+     * @param  string  $currencyCode  Currency code
+     * @param  string  $tillId  Till identifier
+     * @return string Available balance as string
+     */
+    public function getAvailableBalance(string $currencyCode, string $tillId): string
+    {
+        $position = $this->getPosition($currencyCode, $tillId);
+        $balance = $position ? $position->balance : '0';
+
+        $reserved = StockReservation::where('currency_code', $currencyCode)
+            ->where('till_id', $tillId)
+            ->where('status', StockReservation::STATUS_PENDING)
+            ->where('expires_at', '>', now())
+            ->sum('amount_foreign');
+
+        return $this->mathService->subtract($balance, (string) $reserved);
+    }
+
+    /**
+     * Reserve stock for a pending approval transaction.
+     *
+     * @param  Transaction  $transaction  Transaction to reserve stock for
+     * @return StockReservation Created reservation
+     */
+    public function reserveStock(Transaction $transaction): StockReservation
+    {
+        return StockReservation::create([
+            'transaction_id' => $transaction->id,
+            'currency_code' => $transaction->currency_code,
+            'till_id' => $transaction->till_id,
+            'amount_foreign' => $transaction->amount_foreign,
+            'status' => StockReservation::STATUS_PENDING,
+            'expires_at' => now()->addHours(24),
+            'created_by' => $transaction->user_id,
+        ]);
+    }
+
+    /**
+     * Consume an existing stock reservation (called at approval time).
+     *
+     * @param  int  $transactionId  Transaction ID
+     * @return StockReservation|null The consumed reservation or null
+     */
+    public function consumeStockReservation(int $transactionId): ?StockReservation
+    {
+        $reservation = StockReservation::where('transaction_id', $transactionId)
+            ->where('status', StockReservation::STATUS_PENDING)
+            ->first();
+
+        if ($reservation) {
+            $reservation->update(['status' => StockReservation::STATUS_CONSUMED]);
+        }
+
+        return $reservation;
+    }
+
+    /**
+     * Release a pending stock reservation.
+     *
+     * @param  int  $transactionId  Transaction ID
+     * @return StockReservation|null The released reservation or null
+     */
+    public function releaseStockReservation(int $transactionId): ?StockReservation
+    {
+        $reservation = StockReservation::where('transaction_id', $transactionId)
+            ->where('status', StockReservation::STATUS_PENDING)
+            ->first();
+
+        if ($reservation) {
+            $reservation->update(['status' => StockReservation::STATUS_RELEASED]);
+        }
+
+        return $reservation;
     }
 }
