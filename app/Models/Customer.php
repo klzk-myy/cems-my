@@ -208,17 +208,16 @@ class Customer extends Model
     }
 
     /**
-     * Boot the model and register saving hook for blind index.
+     * Boot the model and register hooks for blind index.
      */
     protected static function boot()
     {
         parent::boot();
 
+        // When id_number (plaintext) is set, compute the blind index hash
         static::saving(function ($customer) {
-            if ($customer->isDirty('id_number_encrypted') && $customer->id_number_encrypted) {
-                // Get the decrypted value to hash
-                $plaintext = app(\App\Services\EncryptionService::class)->decrypt($customer->id_number_encrypted);
-                $customer->id_number_hash = self::computeBlindIndex($plaintext);
+            if ($customer->isDirty('id_number') && $customer->id_number) {
+                $customer->id_number_hash = self::computeBlindIndex($customer->id_number);
             }
         });
     }
