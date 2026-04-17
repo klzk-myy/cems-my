@@ -112,7 +112,7 @@ class UnifiedAlertController extends Controller
             'stats' => [
                 'total' => $alerts->count(),
                 'critical' => $alerts->where('priority', 'Critical')->count(),
-                'pending' => $alerts->filter(fn ($a) => in_array($a->status?->value, ['Pending', 'Open']))->count(),
+                'pending' => $alerts->filter(fn ($a) => ! in_array($a->status?->value, ['Resolved', 'Rejected']))->count(),
                 'resolved_today' => $alerts->whereDate('updated_at', today())->filter(fn ($a) => in_array($a->status?->value, ['Resolved']))->count(),
             ],
         ];
@@ -168,7 +168,7 @@ class UnifiedAlertController extends Controller
             'stats' => [
                 'total' => count($items),
                 'critical' => collect($items)->where('priority', 'Critical')->count(),
-                'pending' => collect($items)->whereIn('status', ['New', 'New'])->count(),
+                'pending' => collect($items)->whereNotIn('status', ['Dismissed', 'CaseCreated'])->count(),
                 'resolved_today' => 0,
             ],
         ];
@@ -178,7 +178,7 @@ class UnifiedAlertController extends Controller
     {
         return match ($unifiedStatus) {
             'open' => 'Open',
-            'in_review' => 'UnderReview',
+            'in_review' => 'Under_Review',
             'resolved' => 'Resolved',
             'dismissed' => 'Rejected',
             default => null,
