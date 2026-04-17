@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\StockReservationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
@@ -315,7 +316,7 @@ class TransactionTest extends TestCase
             'currency_code' => 'USD',
             'till_id' => (string) $counter->id,
             'amount_foreign' => '12000.00',
-            'status' => StockReservation::STATUS_PENDING,
+            'status' => StockReservationStatus::Pending,
             'expires_at' => now()->addHours(24),
             'created_by' => $teller->id,
         ]);

@@ -2,15 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\StockReservationStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StockReservation extends Model
 {
-    public const STATUS_PENDING = 'pending';
-    public const STATUS_CONSUMED = 'consumed';
-    public const STATUS_RELEASED = 'released';
-
     protected $fillable = [
         'transaction_id',
         'currency_code',
@@ -24,6 +21,7 @@ class StockReservation extends Model
     protected $casts = [
         'amount_foreign' => 'string',
         'expires_at' => 'datetime',
+        'status' => StockReservationStatus::class,
     ];
 
     public function transaction(): BelongsTo
@@ -38,17 +36,17 @@ class StockReservation extends Model
 
     public function isPending(): bool
     {
-        return $this->status === self::STATUS_PENDING;
+        return $this->status === StockReservationStatus::Pending;
     }
 
     public function isConsumed(): bool
     {
-        return $this->status === self::STATUS_CONSUMED;
+        return $this->status === StockReservationStatus::Consumed;
     }
 
     public function isReleased(): bool
     {
-        return $this->status === self::STATUS_RELEASED;
+        return $this->status === StockReservationStatus::Released;
     }
 
     public function isExpired(): bool

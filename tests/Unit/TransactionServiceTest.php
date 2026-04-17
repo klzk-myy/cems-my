@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Enums\CddLevel;
+use App\Enums\StockReservationStatus;
 use App\Enums\TellerAllocationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
@@ -430,7 +431,7 @@ class TransactionServiceTest extends TestCase
             'currency_code' => 'USD',
             'till_id' => 'TEST-TILL',
             'amount_foreign' => '300.00',
-            'status' => StockReservation::STATUS_PENDING,
+            'status' => StockReservationStatus::Pending,
             'expires_at' => now()->addHours(24),
             'created_by' => $this->teller->id,
         ]);
@@ -491,7 +492,7 @@ class TransactionServiceTest extends TestCase
         // Verify reservation was created
         $reservation = StockReservation::where('transaction_id', $transaction->id)->first();
         $this->assertNotNull($reservation);
-        $this->assertEquals(StockReservation::STATUS_PENDING, $reservation->status);
+        $this->assertEquals(StockReservationStatus::Pending, $reservation->status);
 
         // Approve the transaction
         $manager = User::factory()->create(['role' => UserRole::Manager]);
@@ -501,7 +502,7 @@ class TransactionServiceTest extends TestCase
 
         // Verify reservation was consumed
         $reservation->refresh();
-        $this->assertEquals(StockReservation::STATUS_CONSUMED, $reservation->status);
+        $this->assertEquals(StockReservationStatus::Consumed, $reservation->status);
     }
 
     public function test_approval_fails_if_stock_no_longer_available(): void

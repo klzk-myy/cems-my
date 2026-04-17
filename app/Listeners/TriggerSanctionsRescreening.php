@@ -37,7 +37,7 @@ class TriggerSanctionsRescreening
 
         if ($result->isBlocked()) {
             // New sanctions match found - place all pending transactions on hold
-            $this->placePendingTransactionsOnHold($customer, "New sanctions match detected: {$firstMatch?->entityName}");
+            $this->placePendingTransactionsForComplianceReview($customer, "New sanctions match detected: {$firstMatch?->entityName}");
 
             // Alert compliance team
             $this->createComplianceAlert(
@@ -139,7 +139,7 @@ class TriggerSanctionsRescreening
 
         if ($isNewMatch) {
             // New match found - place all pending transactions on hold
-            $this->placePendingTransactionsOnHold($customer, "New sanctions match detected after list update: {$firstMatch?->entityName}");
+            $this->placePendingTransactionsForComplianceReview($customer, "New sanctions match detected after list update: {$firstMatch?->entityName}");
 
             // Create compliance alert
             $this->createComplianceAlert(
@@ -169,9 +169,9 @@ class TriggerSanctionsRescreening
     }
 
     /**
-     * Place all pending transactions for a customer on hold.
+     * Place all pending transactions for a customer under compliance review.
      */
-    protected function placePendingTransactionsOnHold(Customer $customer, string $reason): void
+    protected function placePendingTransactionsForComplianceReview(Customer $customer, string $reason): void
     {
         $pendingStatuses = [
             TransactionStatus::PendingApproval,
@@ -197,7 +197,7 @@ class TriggerSanctionsRescreening
         }
 
         if ($transactions->isNotEmpty()) {
-            Log::warning('Pending transactions placed on hold due to sanctions match', [
+            Log::warning('Pending transactions placed for compliance review due to sanctions match', [
                 'customer_id' => $customer->id,
                 'transaction_count' => $transactions->count(),
                 'reason' => $reason,

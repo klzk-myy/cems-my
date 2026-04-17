@@ -345,14 +345,14 @@ class TransactionStateMachine
 
     /**
      * Release transaction from hold back to pending approval.
-     * OnHold -> PendingApproval (re-submit for approval)
+     * PendingApproval -> PendingApproval (re-submit for approval after compliance review)
      *
      * @return bool True if transition was successful
      */
     public function release(): bool
     {
-        // release() is only valid from OnHold state
-        if (! $this->transaction->status->isOnHold()) {
+        // release() is only valid from PendingApproval state (when transaction was put on hold)
+        if ($this->transaction->status !== TransactionStatus::PendingApproval) {
             return false;
         }
 
@@ -360,8 +360,7 @@ class TransactionStateMachine
     }
 
     /**
-     * Approve a pending transaction (large transaction flow).
-     * Pending -> Approved
+     * Approve a pending transaction (legacy - use approve() instead).
      *
      * @return bool True if transition was successful
      */

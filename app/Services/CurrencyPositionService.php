@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\CounterSessionStatus;
+use App\Enums\StockReservationStatus;
 use App\Enums\TransactionType;
 use App\Models\CounterSession;
 use App\Models\CurrencyPosition;
@@ -304,7 +305,7 @@ class CurrencyPositionService
 
         $reserved = StockReservation::where('currency_code', $currencyCode)
             ->where('till_id', $tillId)
-            ->where('status', StockReservation::STATUS_PENDING)
+            ->where('status', StockReservationStatus::Pending)
             ->where('expires_at', '>', now())
             ->sum('amount_foreign');
 
@@ -324,7 +325,7 @@ class CurrencyPositionService
             'currency_code' => $transaction->currency_code,
             'till_id' => $transaction->till_id,
             'amount_foreign' => $transaction->amount_foreign,
-            'status' => StockReservation::STATUS_PENDING,
+            'status' => StockReservationStatus::Pending,
             'expires_at' => now()->addHours(24),
             'created_by' => $transaction->user_id,
         ]);
@@ -339,11 +340,11 @@ class CurrencyPositionService
     public function consumeStockReservation(int $transactionId): ?StockReservation
     {
         $reservation = StockReservation::where('transaction_id', $transactionId)
-            ->where('status', StockReservation::STATUS_PENDING)
+            ->where('status', StockReservationStatus::Pending)
             ->first();
 
         if ($reservation) {
-            $reservation->update(['status' => StockReservation::STATUS_CONSUMED]);
+            $reservation->update(['status' => StockReservationStatus::Consumed]);
         }
 
         return $reservation;
@@ -358,11 +359,11 @@ class CurrencyPositionService
     public function releaseStockReservation(int $transactionId): ?StockReservation
     {
         $reservation = StockReservation::where('transaction_id', $transactionId)
-            ->where('status', StockReservation::STATUS_PENDING)
+            ->where('status', StockReservationStatus::Pending)
             ->first();
 
         if ($reservation) {
-            $reservation->update(['status' => StockReservation::STATUS_RELEASED]);
+            $reservation->update(['status' => StockReservationStatus::Released]);
         }
 
         return $reservation;

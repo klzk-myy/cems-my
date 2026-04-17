@@ -18,7 +18,7 @@
 
 @section('header-actions')
 <div class="flex items-center gap-3">
-    @if(($transaction->status->value ?? '') === 'Pending')
+    @if(($transaction->status->value ?? '') === 'PendingApproval')
         <a href="/transactions/{{ $transaction->id }}/confirm" class="btn btn-primary">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -56,8 +56,7 @@
                 @php
                     $statusClass = match($transaction->status->value ?? '') {
                         'Completed' => 'badge-success',
-                        'Pending' => 'badge-warning',
-                        'OnHold' => 'badge-warning',
+                        'PendingApproval' => 'badge-warning',
                         'PendingCancellation' => 'badge-warning',
                         'Cancelled' => 'badge-danger',
                         default => 'badge-default'

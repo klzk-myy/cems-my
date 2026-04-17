@@ -173,6 +173,16 @@ class Transaction extends Model
     }
 
     /**
+     * Get stock reservations for this transaction.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function stockReservations()
+    {
+        return $this->hasMany(StockReservation::class);
+    }
+
+    /**
      * Determine if this transaction can be refunded.
      *
      * A transaction is refundable if:

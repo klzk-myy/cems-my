@@ -374,8 +374,8 @@ class ComplianceService
      */
     public function checkTransactionDuration(Transaction $transaction): array
     {
-        // Only check transactions that are on hold or pending
-        if (! in_array($transaction->status->value, ['OnHold', 'Pending'])) {
+        // Only check transactions that are pending approval (on hold for compliance review)
+        if ($transaction->status !== TransactionStatus::PendingApproval) {
             return [
                 'has_duration_concern' => false,
                 'hours_on_hold' => 0,

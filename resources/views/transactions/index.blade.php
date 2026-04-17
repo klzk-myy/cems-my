@@ -41,9 +41,8 @@
                 <label class="form-label">Status</label>
                 <select name="status" class="form-select">
                     <option value="">All Status</option>
-                    <option value="Pending" {{ request('status') === 'Pending' ? 'selected' : '' }}>Pending</option>
+                    <option value="PendingApproval" {{ request('status') === 'PendingApproval' ? 'selected' : '' }}>Pending Approval</option>
                     <option value="Completed" {{ request('status') === 'Completed' ? 'selected' : '' }}>Completed</option>
-                    <option value="OnHold" {{ request('status') === 'OnHold' ? 'selected' : '' }}>On Hold</option>
                     <option value="Cancelled" {{ request('status') === 'Cancelled' ? 'selected' : '' }}>Cancelled</option>
                 </select>
             </div>
@@ -106,8 +105,7 @@
                         @php
                             $statusClass = match($tx->status->value) {
                                 'Completed' => 'badge-success',
-                                'Pending' => 'badge-warning',
-                                'OnHold' => 'badge-warning',
+                                'PendingApproval' => 'badge-warning',
                                 'PendingCancellation' => 'badge-warning',
                                 'Cancelled' => 'badge-danger',
                                 default => 'badge-default'
@@ -124,7 +122,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                 </svg>
                             </a>
-                            @if($tx->status->value === 'Pending')
+                            @if($tx->status->value === 'PendingApproval')
                                 <a href="/transactions/{{ $tx->id }}/confirm" class="btn btn-ghost btn-icon" title="Confirm">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>

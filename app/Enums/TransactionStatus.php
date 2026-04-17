@@ -148,7 +148,6 @@ enum TransactionStatus: string
             self::PendingApproval,
             self::Approved,
             self::Processing,
-            self::Pending, // Legacy
             self::PendingCancellation,
         ], true);
     }
