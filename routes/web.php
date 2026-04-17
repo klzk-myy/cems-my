@@ -8,6 +8,7 @@ use App\Http\Controllers\Compliance\AlertTriageController;
 use App\Http\Controllers\Compliance\CaseManagementController;
 use App\Http\Controllers\Compliance\ComplianceReportingController;
 use App\Http\Controllers\Compliance\ComplianceWorkspaceController;
+use App\Http\Controllers\Compliance\CtosController;
 use App\Http\Controllers\Compliance\EddTemplateController;
 use App\Http\Controllers\Compliance\RiskDashboardController;
 use App\Http\Controllers\Compliance\SanctionListController;
@@ -315,6 +316,13 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::get('/entries/{entry}/edit', [SanctionListController::class, 'editEntry'])->name('entries.edit');
             Route::put('/entries/{entry}', [SanctionListController::class, 'updateEntry'])->name('entries.update');
             Route::get('/import-logs', [SanctionListController::class, 'importLogs'])->name('import-logs');
+        });
+
+        // CTOS Reports
+        Route::prefix('compliance/ctos')->name('compliance.ctos.')->group(function () {
+            Route::get('/', [CtosController::class, 'index'])->name('index');
+            Route::get('/{id}', [CtosController::class, 'show'])->name('show');
+            Route::post('/{id}/submit', [CtosController::class, 'submit'])->name('submit');
         });
 
         // EDD Templates
