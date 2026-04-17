@@ -7,7 +7,6 @@ use App\Enums\TellerAllocationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
-use App\Exceptions\Domain\InsufficientStockException;
 use App\Models\Branch;
 use App\Models\Counter;
 use App\Models\Currency;
@@ -116,6 +115,15 @@ class TransactionServiceTest extends TestCase
             'opening_balance' => '10000.00',
             'transaction_total' => '0',
             'foreign_total' => '0',
+            'opened_by' => $this->teller->id,
+        ]);
+
+        // Create MYR till balance (required by updateTillBalance)
+        TillBalance::create([
+            'till_id' => $this->counter->id,
+            'currency_code' => 'MYR',
+            'opening_balance' => '100000.00',
+            'date' => today(),
             'opened_by' => $this->teller->id,
         ]);
 
@@ -327,7 +335,7 @@ class TransactionServiceTest extends TestCase
 
     public function test_transaction_updates_till_balance(): void
     {
-        $initialTotal = $this->tillBalance->transaction_total;
+        $initialForeignTotal = $this->tillBalance->foreign_total;
 
         $data = [
             'customer_id' => $this->customer->id,
@@ -343,12 +351,21 @@ class TransactionServiceTest extends TestCase
 
         $this->transactionService->createTransaction($data, $this->teller->id);
 
-        // Refresh till balance
+        // Refresh foreign currency till balance
         $this->tillBalance->refresh();
 
-        // Till balance should be updated
-        $this->assertNotEquals($initialTotal, $this->tillBalance->transaction_total);
-        $this->assertEquals('450.0000', $this->tillBalance->transaction_total);
+        // Foreign currency total should be updated (Buy = USD received)
+        $this->assertNotEquals($initialForeignTotal, $this->tillBalance->foreign_total);
+        $this->assertEquals('100.0000', $this->tillBalance->foreign_total);
+
+        // MYR till balance transaction_total should reflect local value paid
+        $myrBalance = TillBalance::where('till_id', $this->counter->id)
+            ->where('currency_code', 'MYR')
+            ->whereDate('date', today())
+            ->whereNull('closed_at')
+            ->first();
+        $this->assertNotNull($myrBalance);
+        $this->assertEquals('450.0000', $myrBalance->transaction_total);
     }
 
     public function test_transaction_assigns_correct_cdd_level(): void
@@ -424,12 +441,12 @@ class TransactionServiceTest extends TestCase
 
         $available = $this->positionService->getAvailableBalance('USD', 'TEST-TILL');
 
-        $this->assertEquals('700.00000000', $available);
+        $this->assertEquals('700.000000', $available);
     }
 
     public function test_reservation_consumed_on_transaction_approval(): void
     {
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['risk_rating' => 'Low', 'pep_status' => false]);
         $counter = Counter::factory()->create();
 
         // Create till balances
@@ -459,11 +476,12 @@ class TransactionServiceTest extends TestCase
         ]);
 
         // Create transaction that will go to PendingApproval
+        // 700 USD * 4.50 = 3150 MYR >= RM 3,000 threshold for manager approval
         $data = [
             'customer_id' => $customer->id,
             'currency_code' => 'USD',
             'type' => TransactionType::Sell->value,
-            'amount_foreign' => '500.00',
+            'amount_foreign' => '700.00',
             'rate' => '4.50',
             'purpose' => 'Test',
             'source_of_funds' => 'salary',
@@ -472,7 +490,7 @@ class TransactionServiceTest extends TestCase
 
         $transaction = $this->transactionService->createTransaction($data, $this->teller->id);
 
-        $this->assertEquals(TransactionStatus::PendingApproval->value, $transaction->status);
+        $this->assertEquals(TransactionStatus::PendingApproval, $transaction->status);
 
         // Verify reservation was created
         $reservation = StockReservation::where('transaction_id', $transaction->id)->first();
@@ -480,7 +498,7 @@ class TransactionServiceTest extends TestCase
         $this->assertEquals(StockReservation::STATUS_PENDING, $reservation->status);
 
         // Approve the transaction
-        $manager = User::factory()->manager()->create();
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $result = $this->transactionService->approveTransaction($transaction, $manager->id);
 
         $this->assertTrue($result['success']);
@@ -492,7 +510,7 @@ class TransactionServiceTest extends TestCase
 
     public function test_approval_fails_if_stock_no_longer_available(): void
     {
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['risk_rating' => 'Low', 'pep_status' => false]);
 
         // Position has 500 USD
         $position = CurrencyPosition::create([
@@ -521,12 +539,13 @@ class TransactionServiceTest extends TestCase
         ]);
 
         // Create a PendingApproval transaction for 300 USD (reservation created)
+        // 300 USD * 10.5 = 3150 MYR >= RM 3,000 threshold for manager approval
         $data = [
             'customer_id' => $customer->id,
             'currency_code' => 'USD',
             'type' => TransactionType::Sell->value,
             'amount_foreign' => '300.00',
-            'rate' => '4.50',
+            'rate' => '10.5',
             'purpose' => 'Test',
             'source_of_funds' => 'salary',
             'till_id' => 'TEST-TILL',
@@ -538,7 +557,7 @@ class TransactionServiceTest extends TestCase
         $position->update(['balance' => '100.00']);
 
         // Approval should now fail
-        $manager = User::factory()->manager()->create();
+        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $result = $this->transactionService->approveTransaction($transaction, $manager->id);
 
         $this->assertFalse($result['success']);

@@ -10,6 +10,10 @@ use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Events\TransactionApproved;
 use App\Events\TransactionCreated;
+use App\Exceptions\Domain\InsufficientStockException;
+use App\Exceptions\Domain\StockReservationExpiredException;
+use App\Exceptions\Domain\TillBalanceMissingException;
+use App\Models\ApprovalTask;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\TillBalance;
@@ -18,9 +22,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
-use App\Exceptions\Domain\InsufficientStockException;
-use App\Exceptions\Domain\StockReservationExpiredException;
-use App\Exceptions\Domain\TillBalanceMissingException;
 
 /**
  * Transaction Service
@@ -145,10 +146,10 @@ class TransactionService
         if ($customer->pep_status) {
             $cddTriggers[] = 'PEP customer';
         }
-        if ($this->mathService->compare($amountLocal, \App\Services\ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
-            $cddTriggers[] = 'Large amount >= RM '.number_format((float) \App\Services\ComplianceService::LARGE_TRANSACTION_THRESHOLD);
-        } elseif ($this->mathService->compare($amountLocal, \App\Services\ComplianceService::STANDARD_CDD_THRESHOLD) >= 0) {
-            $cddTriggers[] = 'Standard amount >= RM '.number_format((float) \App\Services\ComplianceService::STANDARD_CDD_THRESHOLD);
+        if ($this->mathService->compare($amountLocal, ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
+            $cddTriggers[] = 'Large amount >= RM '.number_format((float) ComplianceService::LARGE_TRANSACTION_THRESHOLD);
+        } elseif ($this->mathService->compare($amountLocal, ComplianceService::STANDARD_CDD_THRESHOLD) >= 0) {
+            $cddTriggers[] = 'Standard amount >= RM '.number_format((float) ComplianceService::STANDARD_CDD_THRESHOLD);
         }
         if ($customer->risk_rating === 'High') {
             $cddTriggers[] = 'High risk customer';
@@ -177,14 +178,14 @@ class TransactionService
 
         if ($holdCheck['requires_hold']) {
             // Transaction must be held for compliance review
-            if ($this->mathService->compare($amountLocal, \App\Services\ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
+            if ($this->mathService->compare($amountLocal, ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
                 $status = TransactionStatus::Pending;
                 $holdReason = ComplianceFlagType::EddRequired->label().': '.implode(', ', $holdCheck['reasons']);
             } else {
                 $status = TransactionStatus::OnHold;
                 $holdReason = implode(', ', $holdCheck['reasons']);
             }
-        } elseif ($this->mathService->compare($amountLocal, \App\Services\ApprovalWorkflowService::AUTO_APPROVE_THRESHOLD) >= 0) {
+        } elseif ($this->mathService->compare($amountLocal, ApprovalWorkflowService::AUTO_APPROVE_THRESHOLD) >= 0) {
             // No compliance hold, but amount >= RM 3,000 requires manager approval
             $status = TransactionStatus::PendingApproval;
         }
@@ -629,156 +630,163 @@ class TransactionService
             ];
         }
 
-        return DB::transaction(function () use ($transaction, $approverId, $amlResult) {
-            // Optimistic locking with pessimistic lock to prevent race conditions
-            // Handle both Pending (normal flow) and PendingApproval (confirmation flow)
-            $lockedTransaction = Transaction::where('id', $transaction->id)
-                ->whereIn('status', [TransactionStatus::Pending, TransactionStatus::PendingApproval])
-                ->where('version', $transaction->version)
-                ->lockForUpdate()
-                ->first();
+        try {
+            return DB::transaction(function () use ($transaction, $approverId, $amlResult) {
+                // Optimistic locking with pessimistic lock to prevent race conditions
+                // Handle both Pending (normal flow) and PendingApproval (confirmation flow)
+                $lockedTransaction = Transaction::where('id', $transaction->id)
+                    ->whereIn('status', [TransactionStatus::Pending, TransactionStatus::PendingApproval])
+                    ->where('version', $transaction->version)
+                    ->lockForUpdate()
+                    ->first();
 
-            if (! $lockedTransaction) {
-                throw new \RuntimeException(
-                    'Transaction was already processed or modified by another user.'
+                if (! $lockedTransaction) {
+                    throw new \RuntimeException(
+                        'Transaction was already processed or modified by another user.'
+                    );
+                }
+
+                // Track if this was a PendingApproval transaction (has ApprovalTask)
+                $wasPendingApproval = $lockedTransaction->status === TransactionStatus::PendingApproval;
+
+                // Build proper transition history: record both Approval and Completion as separate steps
+                $history = $lockedTransaction->transition_history ?? [];
+                $nowIso = now()->toIso8601String();
+
+                // Determine "from" state based on original status
+                $fromState = $lockedTransaction->status->value;
+
+                // Step 1: Pending/PendingApproval -> Approved
+                $history[] = [
+                    'from' => $fromState,
+                    'to' => TransactionStatus::Approved->value,
+                    'reason' => 'Transaction approved by manager',
+                    'user_id' => $approverId,
+                    'timestamp' => $nowIso,
+                ];
+
+                // Step 2: Approved -> Completed
+                $history[] = [
+                    'from' => TransactionStatus::Approved->value,
+                    'to' => TransactionStatus::Completed->value,
+                    'reason' => 'Transaction completed after approval',
+                    'user_id' => $approverId,
+                    'timestamp' => $nowIso,
+                ];
+
+                // Perform the update with proper history and version increment
+                $lockedTransaction->update([
+                    'status' => TransactionStatus::Completed,
+                    'approved_by' => $approverId,
+                    'approved_at' => $nowIso,
+                    'transition_history' => $history,
+                    'version' => $lockedTransaction->version + 1,
+                ]);
+
+                // Refresh the model to get updated version
+                $lockedTransaction->refresh();
+
+                // Get the till balance for today
+                $tillBalance = TillBalance::where('till_id', $lockedTransaction->till_id ?? 'MAIN')
+                    ->where('currency_code', $lockedTransaction->currency_code)
+                    ->whereDate('date', today())
+                    ->whereNull('closed_at')
+                    ->first();
+
+                if (! $tillBalance) {
+                    throw new \RuntimeException(
+                        'Till balance not found for today. Cannot complete transaction.'
+                    );
+                }
+
+                // Find and consume the stock reservation
+                $reservation = $this->positionService->consumeStockReservation($lockedTransaction->id);
+
+                if (! $reservation) {
+                    throw new StockReservationExpiredException($lockedTransaction->id);
+                }
+
+                // Verify stock is still available (reservation protects this, but double-check)
+                $available = $this->positionService->getAvailableBalance(
+                    $lockedTransaction->currency_code,
+                    (string) $lockedTransaction->till_id
                 );
-            }
 
-            // Track if this was a PendingApproval transaction (has ApprovalTask)
-            $wasPendingApproval = $lockedTransaction->status === TransactionStatus::PendingApproval;
+                if ($this->mathService->compare($available, (string) $lockedTransaction->amount_foreign) < 0) {
+                    $this->positionService->releaseStockReservation($lockedTransaction->id);
+                    throw new InsufficientStockException(
+                        $lockedTransaction->currency_code,
+                        (string) $lockedTransaction->amount_foreign,
+                        $available
+                    );
+                }
 
-            // Build proper transition history: record both Approval and Completion as separate steps
-            $history = $lockedTransaction->transition_history ?? [];
-            $nowIso = now()->toIso8601String();
-
-            // Determine "from" state based on original status
-            $fromState = $lockedTransaction->status->value;
-
-            // Step 1: Pending/PendingApproval -> Approved
-            $history[] = [
-                'from' => $fromState,
-                'to' => TransactionStatus::Approved->value,
-                'reason' => 'Transaction approved by manager',
-                'user_id' => $approverId,
-                'timestamp' => $nowIso,
-            ];
-
-            // Step 2: Approved -> Completed
-            $history[] = [
-                'from' => TransactionStatus::Approved->value,
-                'to' => TransactionStatus::Completed->value,
-                'reason' => 'Transaction completed after approval',
-                'user_id' => $approverId,
-                'timestamp' => $nowIso,
-            ];
-
-            // Perform the update with proper history and version increment
-            $lockedTransaction->update([
-                'status' => TransactionStatus::Completed,
-                'approved_by' => $approverId,
-                'approved_at' => $nowIso,
-                'transition_history' => $history,
-                'version' => $lockedTransaction->version + 1,
-            ]);
-
-            // Refresh the model to get updated version
-            $lockedTransaction->refresh();
-
-            // Get the till balance for today
-            $tillBalance = TillBalance::where('till_id', $lockedTransaction->till_id ?? 'MAIN')
-                ->where('currency_code', $lockedTransaction->currency_code)
-                ->whereDate('date', today())
-                ->whereNull('closed_at')
-                ->first();
-
-            if (! $tillBalance) {
-                throw new \RuntimeException(
-                    'Till balance not found for today. Cannot complete transaction.'
-                );
-            }
-
-            // Find and consume the stock reservation
-            $reservation = $this->positionService->consumeStockReservation($lockedTransaction->id);
-
-            if (! $reservation) {
-                throw new StockReservationExpiredException($lockedTransaction->id);
-            }
-
-            // Verify stock is still available (reservation protects this, but double-check)
-            $available = $this->positionService->getAvailableBalance(
-                $lockedTransaction->currency_code,
-                (string) $lockedTransaction->till_id
-            );
-
-            if ($this->mathService->compare($available, (string) $lockedTransaction->amount_foreign) < 0) {
-                $this->positionService->releaseStockReservation($lockedTransaction->id);
-                throw new InsufficientStockException(
+                // Execute position and till balance updates
+                $this->positionService->updatePosition(
                     $lockedTransaction->currency_code,
                     (string) $lockedTransaction->amount_foreign,
-                    $available
+                    (string) $lockedTransaction->rate,
+                    $lockedTransaction->type->value,
+                    $lockedTransaction->till_id ?? 'MAIN'
                 );
-            }
+                $this->updateTillBalance(
+                    $tillBalance,
+                    $lockedTransaction->type->value,
+                    (string) $lockedTransaction->amount_local,
+                    (string) $lockedTransaction->amount_foreign
+                );
 
-            // Execute position and till balance updates
-            $this->positionService->updatePosition(
-                $lockedTransaction->currency_code,
-                (string) $lockedTransaction->amount_foreign,
-                (string) $lockedTransaction->rate,
-                $lockedTransaction->type->value,
-                $lockedTransaction->till_id ?? 'MAIN'
-            );
-            $this->updateTillBalance(
-                $tillBalance,
-                $lockedTransaction->type->value,
-                (string) $lockedTransaction->amount_local,
-                (string) $lockedTransaction->amount_foreign
-            );
-
-            // Create double-entry accounting journal entries
-            // For Enhanced CDD transactions, use deferred entry creation (approval triggers it)
-            if ($lockedTransaction->cdd_level === CddLevel::Enhanced) {
-                $this->createDeferredAccountingEntries($lockedTransaction->id);
-            } else {
-                $this->createAccountingEntries($lockedTransaction);
-            }
-
-            // Audit logging for the approval action
-            $this->auditService->logTransaction('transaction_approved', $lockedTransaction->id, [
-                'old' => [
-                    'status' => TransactionStatus::Pending->value,
-                    'approved_by' => null,
-                ],
-                'new' => [
-                    'status' => TransactionStatus::Completed->value,
-                    'approved_by' => $approverId,
-                    'approved_at' => $lockedTransaction->approved_at->toIso8601String(),
-                    'aml_flags_checked' => $amlResult['flags_created'] ?? 0,
-                ],
-            ]);
-
-            // Sync ApprovalTask if this was a PendingApproval transaction
-            // This ensures the approval workflow audit trail is complete
-            if ($wasPendingApproval) {
-                try {
-                    $this->syncApprovalTaskOnCompletion($lockedTransaction, $approverId);
-                } catch (\Exception $e) {
-                    // Log but don't fail the transaction - sync failures are non-blocking
-                    Log::error('ApprovalTask sync error (non-blocking)', [
-                        'transaction_id' => $lockedTransaction->id,
-                        'error' => $e->getMessage(),
-                    ]);
+                // Create double-entry accounting journal entries
+                // For Enhanced CDD transactions, use deferred entry creation (approval triggers it)
+                if ($lockedTransaction->cdd_level === CddLevel::Enhanced) {
+                    $this->createDeferredAccountingEntries($lockedTransaction->id);
+                } else {
+                    $this->createAccountingEntries($lockedTransaction);
                 }
-            }
 
-            // Dispatch event for async compliance processing
-            Event::dispatch(new TransactionApproved($lockedTransaction));
+                // Audit logging for the approval action
+                $this->auditService->logTransaction('transaction_approved', $lockedTransaction->id, [
+                    'old' => [
+                        'status' => TransactionStatus::Pending->value,
+                        'approved_by' => null,
+                    ],
+                    'new' => [
+                        'status' => TransactionStatus::Completed->value,
+                        'approved_by' => $approverId,
+                        'approved_at' => $lockedTransaction->approved_at->toIso8601String(),
+                        'aml_flags_checked' => $amlResult['flags_created'] ?? 0,
+                    ],
+                ]);
 
+                // Sync ApprovalTask if this was a PendingApproval transaction
+                // This ensures the approval workflow audit trail is complete
+                if ($wasPendingApproval) {
+                    try {
+                        $this->syncApprovalTaskOnCompletion($lockedTransaction, $approverId);
+                    } catch (\Exception $e) {
+                        // Log but don't fail the transaction - sync failures are non-blocking
+                        Log::error('ApprovalTask sync error (non-blocking)', [
+                            'transaction_id' => $lockedTransaction->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                // Dispatch event for async compliance processing
+                Event::dispatch(new TransactionApproved($lockedTransaction));
+
+                return [
+                    'success' => true,
+                    'message' => 'Transaction approved and completed successfully.',
+                    'transaction' => $lockedTransaction->fresh(),
+                ];
+            });
+        } catch (InsufficientStockException $e) {
             return [
-                'success' => true,
-                'message' => 'Transaction approved and completed successfully.',
-                'transaction' => $lockedTransaction->fresh(),
+                'success' => false,
+                'message' => 'Insufficient stock: '.$e->getMessage(),
             ];
-        });
+        }
     }
 
     /**
@@ -796,8 +804,8 @@ class TransactionService
         while ($attempt < $maxRetries) {
             try {
                 // Find the pending ApprovalTask for this transaction
-                $task = \App\Models\ApprovalTask::where('transaction_id', $transaction->id)
-                    ->where('status', \App\Models\ApprovalTask::STATUS_PENDING)
+                $task = ApprovalTask::where('transaction_id', $transaction->id)
+                    ->where('status', ApprovalTask::STATUS_PENDING)
                     ->first();
 
                 if (! $task) {

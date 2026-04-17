@@ -7,8 +7,11 @@ use App\Enums\TransactionType;
 use App\Models\CounterSession;
 use App\Models\CurrencyPosition;
 use App\Models\StockReservation;
+use App\Models\Transaction;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Currency Position Service
@@ -151,7 +154,7 @@ class CurrencyPositionService
     {
         // If no till specified, use MAIN as fallback (but log a warning)
         if ($tillId === null) {
-            \Illuminate\Support\Facades\Log::warning(
+            Log::warning(
                 'getPosition called without till_id - using MAIN as fallback',
                 [
                     'currency_code' => $currencyCode,
@@ -190,9 +193,9 @@ class CurrencyPositionService
      * Get all positions for a specific till.
      *
      * @param  string  $tillId  Till identifier (default: 'MAIN')
-     * @return \Illuminate\Database\Eloquent\Collection Collection of position models
+     * @return Collection Collection of position models
      */
-    public function getAllPositions(string $tillId = 'MAIN'): \Illuminate\Database\Eloquent\Collection
+    public function getAllPositions(string $tillId = 'MAIN'): Collection
     {
         return CurrencyPosition::where('till_id', $tillId)
             ->with('currency')
@@ -225,7 +228,7 @@ class CurrencyPositionService
      * Admin/Manager/Compliance can see all positions.
      * Tellers can only see positions for their currently open counter session.
      */
-    public function getVisiblePositionsForUser(User $user): \Illuminate\Database\Eloquent\Collection
+    public function getVisiblePositionsForUser(User $user): Collection
     {
         if ($user->role->canManageAllBranches() || $user->role->isComplianceOfficer() || $user->role->isManager()) {
             return CurrencyPosition::with('currency')->get();
