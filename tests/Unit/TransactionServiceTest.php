@@ -563,4 +563,119 @@ class TransactionServiceTest extends TestCase
         $this->assertFalse($result['success']);
         $this->assertStringContainsString('Insufficient stock', $result['message']);
     }
+
+    public function test_myr_till_balance_updated_on_buy_transaction(): void
+    {
+        $customer = Customer::factory()->create([
+            'risk_rating' => 'Low',
+            'pep_status' => false,
+        ]);
+
+        $tillId = (string) $this->counter->id;
+
+        // Create USD and MYR till balances
+        TillBalance::create([
+            'till_id' => $tillId,
+            'currency_code' => 'USD',
+            'opening_balance' => '0',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        TillBalance::create([
+            'till_id' => $tillId,
+            'currency_code' => 'MYR',
+            'opening_balance' => '10000.00',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        // Create USD position
+        CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => $tillId,
+            'balance' => '1000.00',
+            'avg_cost_rate' => '4.50',
+            'last_valuation_rate' => '4.50',
+        ]);
+
+        $data = [
+            'customer_id' => $customer->id,
+            'currency_code' => 'USD',
+            'type' => TransactionType::Buy->value,
+            'amount_foreign' => '100.00',
+            'rate' => '4.50',
+            'purpose' => 'Test',
+            'source_of_funds' => 'salary',
+            'till_id' => $tillId,
+        ];
+
+        $transaction = $this->transactionService->createTransaction($data, $this->teller->id);
+
+        $this->assertEquals(TransactionStatus::Completed, $transaction->status);
+
+        // Verify MYR balance was increased (paid out for foreign currency purchase)
+        $myrBalance = TillBalance::where('till_id', $tillId)
+            ->where('currency_code', 'MYR')
+            ->first();
+
+        // Paid 450 MYR for 100 USD (450 = 100 * 4.50)
+        $this->assertEquals('450.00', $myrBalance->transaction_total);
+    }
+
+    public function test_myr_till_balance_updated_on_sell_transaction(): void
+    {
+        $customer = Customer::factory()->create([
+            'risk_rating' => 'Low',
+            'pep_status' => false,
+        ]);
+
+        $tillId = (string) $this->counter->id;
+
+        // Create USD position and MYR till balance
+        CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => $tillId,
+            'balance' => '1000.00',
+            'avg_cost_rate' => '4.50',
+            'last_valuation_rate' => '4.50',
+        ]);
+
+        TillBalance::create([
+            'till_id' => $tillId,
+            'currency_code' => 'USD',
+            'opening_balance' => '0',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        TillBalance::create([
+            'till_id' => $tillId,
+            'currency_code' => 'MYR',
+            'opening_balance' => '10000.00',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        $data = [
+            'customer_id' => $customer->id,
+            'currency_code' => 'USD',
+            'type' => TransactionType::Sell->value,
+            'amount_foreign' => '100.00',
+            'rate' => '4.50',
+            'purpose' => 'Test',
+            'source_of_funds' => 'salary',
+            'till_id' => $tillId,
+        ];
+
+        $transaction = $this->transactionService->createTransaction($data, $this->teller->id);
+
+        // Verify MYR balance was increased (received MYR from foreign currency sale)
+        $myrBalance = TillBalance::where('till_id', $tillId)
+            ->where('currency_code', 'MYR')
+            ->first();
+
+        // Received 450 MYR for 100 USD (450 = 100 * 4.50)
+        $this->assertEquals('450.00', $myrBalance->transaction_total);
+    }
 }
