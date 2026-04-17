@@ -87,6 +87,9 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
 
     // POS Module - Point of Sale Interface
     Route::prefix('pos')->name('pos.')->group(function () {
+        // Dashboard
+        Route::get('/', [PosController::class, 'index'])->name('index');
+
         // Rates
         Route::get('/rates', [PosRateController::class, 'index'])->name('rates.index');
         Route::get('/rates/today', [PosRateController::class, 'getTodayRates'])->name('rates.today');
@@ -95,8 +98,10 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/rates/history', [PosRateController::class, 'getRateHistory'])->name('rates.history');
 
         // Transactions
+        Route::get('/transactions', [PosTransactionController::class, 'index'])->name('transactions.index');
         Route::get('/transactions/create', [PosTransactionController::class, 'create'])->name('transactions.create');
         Route::post('/transactions/quote', [PosTransactionController::class, 'quote'])->name('transactions.quote');
+        Route::get('/transactions/{transaction}', [PosTransactionController::class, 'show'])->name('transactions.show');
 
         // Inventory
         Route::get('/inventory', [PosInventoryController::class, 'index'])->name('inventory.index');

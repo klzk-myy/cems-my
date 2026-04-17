@@ -1,45 +1,46 @@
 @extends('layouts.base')
 
-@section('title', 'POS Rates')
+@section('title', 'Daily Rates')
+
+@section('header-title')
+<div>
+    <h1 class="text-2xl font-semibold text-[--color-ink]">Daily Exchange Rates</h1>
+    <p class="text-sm text-[--color-ink-muted]">{{ now()->format('d M Y') }}</p>
+</div>
+@endsection
+
+@section('header-actions')
+<div class="flex gap-2">
+    <button id="copyYesterdayBtn" class="btn btn-ghost">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        Copy Yesterday
+    </button>
+    <button id="saveRatesBtn" class="btn btn-primary">Save Rates</button>
+</div>
+@endsection
 
 @section('content')
-<div class="container-fluid py-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Daily Exchange Rates</h5>
-                    <div>
-                        <button id="copyYesterdayBtn" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-copy"></i> Copy Yesterday's Rates
-                        </button>
-                        <button id="saveRatesBtn" class="btn btn-primary btn-sm">
-                            <i class="fas fa-save"></i> Save Rates
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div id="ratesAlert" class="alert" style="display: none;"></div>
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Currency</th>
-                                    <th>Buy Rate</th>
-                                    <th>Sell Rate</th>
-                                    <th>Mid Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ratesTableBody">
-                                <tr>
-                                    <td colspan="4" class="text-center">Loading rates...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+<div id="ratesAlert" class="alert mb-6" style="display: none;"></div>
+
+<div class="card">
+    <div class="table-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Currency</th>
+                    <th>Buy Rate</th>
+                    <th>Sell Rate</th>
+                    <th>Mid Rate</th>
+                </tr>
+            </thead>
+            <tbody id="ratesTableBody">
+                <tr>
+                    <td colspan="4" class="text-center py-8 text-[--color-ink-muted]">Loading rates...</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 
@@ -56,16 +57,16 @@ function loadTodayRates() {
 function renderRatesTable(data) {
     const tbody = document.getElementById('ratesTableBody');
     if (!data.rates || Object.keys(data.rates).length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center">No rates set. Enter rates or copy yesterday.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-[--color-ink-muted]">No rates set. Click "Copy Yesterday" or enter rates manually.</td></tr>';
         return;
     }
     tbody.innerHTML = currencies.map(c => {
         const rate = data.rates[c] || { buy: '', sell: '', mid: '' };
         return `<tr>
-            <td><strong>${c}</strong></td>
-            <td><input type="number" step="0.000001" class="form-control rate-input" data-currency="${c}" data-type="buy" value="${rate.buy}"></td>
-            <td><input type="number" step="0.000001" class="form-control rate-input" data-currency="${c}" data-type="sell" value="${rate.sell}"></td>
-            <td><input type="number" step="0.000001" class="form-control rate-input" data-currency="${c}" data-type="mid" value="${rate.mid}"></td>
+            <td class="font-medium">${c}</td>
+            <td><input type="number" step="0.000001" class="form-input rate-input font-mono" data-currency="${c}" data-type="buy" value="${rate.buy}" placeholder="0.000000"></td>
+            <td><input type="number" step="0.000001" class="form-input rate-input font-mono" data-currency="${c}" data-type="sell" value="${rate.sell}" placeholder="0.000000"></td>
+            <td><input type="number" step="0.000001" class="form-input rate-input font-mono" data-currency="${c}" data-type="mid" value="${rate.mid}" placeholder="0.000000"></td>
         </tr>`;
     }).join('');
 }
@@ -80,7 +81,10 @@ function saveRates() {
     });
     fetch('/pos/rates/set', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
         body: JSON.stringify({ rates })
     }).then(r => r.json()).then(data => {
         showAlert(data.success ? 'success' : 'error', data.message);
@@ -100,7 +104,7 @@ function copyYesterdayRates() {
 
 function showAlert(type, message) {
     const alert = document.getElementById('ratesAlert');
-    alert.className = `alert alert-${type}`;
+    alert.className = `alert alert-${type} mb-6`;
     alert.textContent = message;
     alert.style.display = 'block';
     setTimeout(() => alert.style.display = 'none', 5000);
