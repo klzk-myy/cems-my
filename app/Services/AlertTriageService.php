@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AlertPriority;
 use App\Enums\ComplianceFlagType;
+use App\Enums\FlagStatus;
 use App\Events\AlertCreated;
 use App\Models\Alert;
 use App\Models\Compliance\ComplianceCase;
@@ -200,19 +201,20 @@ class AlertTriageService
      */
     public function getQueueSummary(): array
     {
+        $baseQuery = Alert::whereNull('case_id');
+
         return [
-            'total' => Alert::whereNull('case_id')->count(),
-            'critical' => Alert::whereNull('case_id')
-                ->where('priority', AlertPriority::Critical)->count(),
-            'high' => Alert::whereNull('case_id')
-                ->where('priority', AlertPriority::High)->count(),
-            'medium' => Alert::whereNull('case_id')
-                ->where('priority', AlertPriority::Medium)->count(),
-            'low' => Alert::whereNull('case_id')
-                ->where('priority', AlertPriority::Low)->count(),
-            'unassigned' => Alert::whereNull('case_id')
-                ->whereNull('assigned_to')->count(),
+            'total' => $baseQuery->count(),
+            'critical' => $baseQuery->where('priority', AlertPriority::Critical)->count(),
+            'high' => $baseQuery->where('priority', AlertPriority::High)->count(),
+            'medium' => $baseQuery->where('priority', AlertPriority::Medium)->count(),
+            'low' => $baseQuery->where('priority', AlertPriority::Low)->count(),
+            'unassigned' => $baseQuery->whereNull('assigned_to')->count(),
             'overdue' => $this->getOverdueCount(),
+            'pending' => $baseQuery->where('status', FlagStatus::Open)->count(),
+            'in_progress' => $baseQuery->whereIn('status', [FlagStatus::UnderReview, FlagStatus::Escalated])->count(),
+            'resolved_today' => Alert::whereDate('updated_at', today())
+                ->where('status', FlagStatus::Resolved)->count(),
         ];
     }
 
