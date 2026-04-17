@@ -15,7 +15,7 @@ class SanctionListController extends Controller
     {
         $response = Http::withToken(session('api_token'))->get(config('app.url').$this->apiBase.'/lists');
 
-        $lists = $response->successful() ? $response->json() : [];
+        $lists = $response->successful() ? ($response->json() ?? []) : [];
 
         return view('compliance.sanctions.index', compact('lists'));
     }
@@ -29,7 +29,7 @@ class SanctionListController extends Controller
                 ->with('error', 'Sanction list not found');
         }
 
-        $list = $response->json();
+        $list = $response->json() ?? [];
 
         return view('compliance.sanctions.show', compact('list'));
     }
@@ -50,7 +50,7 @@ class SanctionListController extends Controller
 
         $response = Http::withToken(session('api_token'))->get($url);
 
-        $data = $response->successful() ? $response->json() : [];
+        $data = $response->successful() ? ($response->json() ?? []) : [];
 
         $entries = $data['data'] ?? [];
         $pagination = [
@@ -75,7 +75,7 @@ class SanctionListController extends Controller
                 ->with('error', 'Sanction entry not found');
         }
 
-        $entry = $response->json();
+        $entry = $response->json() ?? [];
 
         return view('compliance.sanctions.entries.show', compact('entry'));
     }
@@ -164,7 +164,7 @@ class SanctionListController extends Controller
         $response = Http::withToken(session('api_token'))
             ->get(config('app.url').$this->apiBase.'/import/logs');
 
-        $logs = $response->successful() ? $response->json() : [];
+        $logs = $response->successful() ? ($response->json() ?? []) : [];
 
         return view('compliance.sanctions.import-logs.index', compact('logs'));
     }

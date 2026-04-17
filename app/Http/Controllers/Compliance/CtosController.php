@@ -31,7 +31,7 @@ class CtosController extends Controller
                 ->get($url);
 
             if ($response->successful()) {
-                $data = $response->json();
+                $data = $response->json() ?? [];
             } else {
                 $data = [];
                 Log::warning('CtosController: Failed to fetch CTOS reports', [
@@ -78,7 +78,7 @@ class CtosController extends Controller
                     ->with('error', 'CTOS report not found');
             }
 
-            $report = $response->json();
+            $report = $response->json() ?? [];
         } catch (\Exception $e) {
             Log::error('CtosController: Exception fetching CTOS report', [
                 'message' => $e->getMessage(),

@@ -32,7 +32,7 @@ class FindingController extends Controller
                 ->get($url);
 
             if ($response->successful()) {
-                $data = $response->json();
+                $data = $response->json() ?? [];
             } else {
                 $data = [];
                 Log::warning('FindingController: Failed to fetch findings', [
@@ -56,7 +56,7 @@ class FindingController extends Controller
                 ->get(config('app.url').$this->apiBase.'/stats');
 
             if ($statsResponse->successful()) {
-                $stats = $statsResponse->json()['data'] ?? [];
+                $stats = ($statsResponse->json() ?? [])['data'] ?? [];
             } else {
                 $stats = [];
                 Log::warning('FindingController: Failed to fetch stats', [
