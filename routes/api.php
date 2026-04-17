@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\Compliance\FindingController;
 use App\Http\Controllers\Api\Compliance\RiskController;
 use App\Http\Controllers\Api\SanctionsWebhookController;
 use App\Http\Controllers\Api\V1\CustomerController as V1CustomerController;
+use App\Http\Controllers\Api\V1\SanctionListController;
+use App\Http\Controllers\Api\V1\ScreeningController;
 use App\Http\Controllers\Api\V1\TransactionController as V1TransactionController;
 use App\Http\Controllers\Report\RegulatoryReportController;
 use App\Http\Controllers\ReportController;

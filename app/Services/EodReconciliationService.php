@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\CounterSessionStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
+use App\Models\Branch;
 use App\Models\Counter;
 use App\Models\CounterHandover;
 use App\Models\CounterSession;
@@ -26,7 +27,7 @@ class EodReconciliationService
     /**
      * Generate daily reconciliation summary for all counters.
      *
-     * @param  DateTime  $date  Reconciliation date
+     * @param  Carbon  $date  Reconciliation date
      * @param  int|null  $branchId  Optional branch filter
      * @return array Daily reconciliation summary
      */

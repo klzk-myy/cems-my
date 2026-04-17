@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Enums\RiskTrend;
 use App\Events\RiskScoreUpdated;
+use App\Models\Compliance\CustomerRiskProfile;
 use App\Models\Customer;
-use App\Models\CustomerRiskProfile;
 use App\Models\HighRiskCountry;
 use App\Models\RiskScoreSnapshot;
 use App\Models\Transaction;
