@@ -127,6 +127,7 @@
                         <option value="Location_Anomaly" {{ ($request->get('type') ?? '') === 'Location_Anomaly' ? 'selected' : '' }}>Location Anomaly</option>
                         <option value="Currency_Flow_Anomaly" {{ ($request->get('type') ?? '') === 'Currency_Flow_Anomaly' ? 'selected' : '' }}>Currency Flow Anomaly</option>
                         <option value="Risk_Score_Change" {{ ($request->get('type') ?? '') === 'Risk_Score_Change' ? 'selected' : '' }}>Risk Score Change</option>
+                        <option value="Aggregate_Transaction" {{ ($request->get('type') ?? '') === 'Aggregate_Transaction' ? 'selected' : '' }}>Aggregate Transaction</option>
                     </optgroup>
                 </select>
             </div>
@@ -173,7 +174,7 @@
                         @if($item['source'] === 'Alert')
                             <span class="badge badge-info">Alert</span>
                         @else
-                            <span class="badge" style="background: #7c3aed; color: white;">Finding</span>
+                            <span class="badge badge-finding">Finding</span>
                         @endif
                     </td>
                     <td>

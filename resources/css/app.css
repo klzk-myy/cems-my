@@ -485,6 +485,11 @@ body {
   color: var(--color-accent);
 }
 
+.badge-finding {
+  background-color: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+}
+
 /* Stat Card */
 .stat-card {
   background-color: var(--color-canvas);
