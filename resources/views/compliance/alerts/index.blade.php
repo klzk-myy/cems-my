@@ -140,7 +140,7 @@
                         <span class="text-[--color-ink-muted]">System</span>
                         @endif
                     </td>
-                    <td class="max-w-xs truncate">{{ $alert->description }}</td>
+                    <td class="max-w-xs truncate">{{ $alert->reason }}</td>
                     <td>
                         @if($alert->assignee)
                         <div class="flex items-center gap-2">

@@ -75,7 +75,7 @@
                 <div class="space-y-4">
                     <div>
                         <p class="text-sm text-[--color-ink-muted] mb-1">Description</p>
-                        <p class="text-[--color-ink]">{{ $alert->description }}</p>
+                        <p class="text-[--color-ink]">{{ $alert->reason }}</p>
                     </div>
                     <div class="grid grid-cols-2 gap-6">
                         <div>
@@ -122,26 +122,26 @@
         @endif
 
         {{-- Transaction if related --}}
-        @if($alert->transaction)
+        @if($alert->flaggedTransaction)
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Related Transaction</h3>
-                <a href="/transactions/{{ $alert->transaction_id }}" class="btn btn-ghost btn-sm">View</a>
+                <a href="/transactions/{{ $alert->flaggedTransaction->id }}" class="btn btn-ghost btn-sm">View</a>
             </div>
             <div class="card-body">
                 <div class="grid grid-cols-3 gap-4">
                     <div>
                         <p class="text-sm text-[--color-ink-muted]">Transaction ID</p>
-                        <p class="font-mono">#{{ $alert->transaction_id }}</p>
+                        <p class="font-mono">#{{ $alert->flaggedTransaction->id }}</p>
                     </div>
                     <div>
                         <p class="text-sm text-[--color-ink-muted]">Amount</p>
-                        <p class="font-mono">{{ number_format($alert->transaction->amount_local, 2) }} MYR</p>
+                        <p class="font-mono">{{ number_format($alert->flaggedTransaction->transaction->amount_local, 2) }} MYR</p>
                     </div>
                     <div>
                         <p class="text-sm text-[--color-ink-muted]">Type</p>
-                        <span class="badge {{ $alert->transaction->type->value === 'Buy' ? 'badge-success' : 'badge-warning' }}">
-                            {{ $alert->transaction->type->label() }}
+                        <span class="badge {{ $alert->flaggedTransaction->transaction->type->value === 'Buy' ? 'badge-success' : 'badge-warning' }}">
+                            {{ $alert->flaggedTransaction->transaction->type->label() }}
                         </span>
                     </div>
                 </div>
@@ -160,12 +160,12 @@
             <div class="card-body space-y-4">
                 <div>
                     <p class="text-sm text-[--color-ink-muted] mb-1">Assigned To</p>
-                    @if($alert->assignee)
+                    @if($alert->assignedTo)
                         <div class="flex items-center gap-2">
                             <div class="w-8 h-8 bg-[--color-canvas-subtle] rounded-lg flex items-center justify-center text-xs">
-                                {{ substr($alert->assignee->username, 0, 1) }}
+                                {{ substr($alert->assignedTo->username, 0, 1) }}
                             </div>
-                            <span class="font-medium">{{ $alert->assignee->username }}</span>
+                            <span class="font-medium">{{ $alert->assignedTo->username }}</span>
                         </div>
                     @else
                         <span class="badge badge-warning">Unassigned</span>
