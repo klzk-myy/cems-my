@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use App\Exceptions\Domain\InsufficientStockException;
 use App\Exceptions\Domain\StockReservationExpiredException;
+use App\Exceptions\Domain\TillBalanceMissingException;
 
 /**
  * Transaction Service
@@ -373,31 +374,43 @@ class TransactionService
 
     /**
      * Update till balance after transaction.
+     * Updates both foreign currency and MYR (local currency) balances.
      * Uses lockForUpdate to prevent race conditions on concurrent transactions.
      */
     protected function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
     {
         $this->verifyTillIsOpen($tillBalance);
 
-        // Re-fetch with lock to prevent race conditions
-        $lockedBalance = TillBalance::where('id', $tillBalance->id)
+        // Lock the foreign currency balance
+        $lockedForeign = TillBalance::where('id', $tillBalance->id)
             ->lockForUpdate()
             ->first();
 
-        $currentTotal = $lockedBalance->transaction_total ?? '0';
-        $foreignTotal = $lockedBalance->foreign_total ?? '0';
+        // Lock the MYR balance (always present for active till)
+        $myrBalance = TillBalance::where('till_id', $lockedForeign->till_id)
+            ->where('currency_code', 'MYR')
+            ->whereDate('date', today())
+            ->whereNull('closed_at')
+            ->lockForUpdate()
+            ->first();
 
-        if ($type === TransactionType::Buy->value) {
-            $lockedBalance->update([
-                'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
-                'foreign_total' => $this->mathService->add($foreignTotal, $amountForeign),
-            ]);
-        } else {
-            $lockedBalance->update([
-                'transaction_total' => $this->mathService->add($currentTotal, $amountLocal),
-                'foreign_total' => $this->mathService->subtract($foreignTotal, $amountForeign),
-            ]);
+        if (! $myrBalance) {
+            throw new TillBalanceMissingException('MYR', $lockedForeign->till_id);
         }
+
+        // Update foreign currency balance
+        $foreignTotal = $lockedForeign->foreign_total ?? '0';
+        $newForeignTotal = $type === TransactionType::Buy->value
+            ? $this->mathService->add($foreignTotal, $amountForeign)
+            : $this->mathService->subtract($foreignTotal, $amountForeign);
+
+        $lockedForeign->update(['foreign_total' => $newForeignTotal]);
+
+        // Update MYR balance - always add (cash in on Sell, cash out on Buy is recorded separately)
+        $myrTotal = $myrBalance->transaction_total ?? '0';
+        $newMyrTotal = $this->mathService->add($myrTotal, $amountLocal);
+
+        $myrBalance->update(['transaction_total' => $newMyrTotal]);
     }
 
     /**
