@@ -271,6 +271,9 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::patch('/{alert}/resolve', [AlertTriageController::class, 'resolve'])->name('resolve');
         });
 
+        // Unified Alerts
+        Route::get('/unified', [App\Http\Controllers\Compliance\UnifiedAlertController::class, 'index'])->name('unified.index');
+
         // Case Management
         Route::prefix('compliance/cases')->name('compliance.cases.')->group(function () {
             Route::get('/', [CaseManagementController::class, 'index'])->name('index');
