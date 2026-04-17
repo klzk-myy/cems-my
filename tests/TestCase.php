@@ -94,6 +94,16 @@ abstract class TestCase extends BaseTestCase
             'opened_by' => $user->id,
         ]);
 
+        // Also create MYR till balance (required by TransactionService::updateTillBalance)
+        \App\Models\TillBalance::create([
+            'till_id' => (string) $counter->id,
+            'currency_code' => 'MYR',
+            'branch_id' => $branch->id,
+            'opening_balance' => '100000.00',
+            'date' => now()->toDateString(),
+            'opened_by' => $user->id,
+        ]);
+
         // Create active teller allocation (required by TransactionService for Buy transactions)
         \App\Models\TellerAllocation::create([
             'user_id' => $user->id,

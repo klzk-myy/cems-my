@@ -707,26 +707,28 @@ class TransactionService
                     );
                 }
 
-                // Find and consume the stock reservation
-                $reservation = $this->positionService->consumeStockReservation($lockedTransaction->id);
+                // Find and consume the stock reservation (only for PendingApproval - Pending has no reservation)
+                if ($wasPendingApproval) {
+                    $reservation = $this->positionService->consumeStockReservation($lockedTransaction->id);
 
-                if (! $reservation) {
-                    throw new StockReservationExpiredException($lockedTransaction->id);
-                }
+                    if (! $reservation) {
+                        throw new StockReservationExpiredException($lockedTransaction->id);
+                    }
 
-                // Verify stock is still available (reservation protects this, but double-check)
-                $available = $this->positionService->getAvailableBalance(
-                    $lockedTransaction->currency_code,
-                    (string) $lockedTransaction->till_id
-                );
-
-                if ($this->mathService->compare($available, (string) $lockedTransaction->amount_foreign) < 0) {
-                    $this->positionService->releaseStockReservation($lockedTransaction->id);
-                    throw new InsufficientStockException(
+                    // Verify stock is still available (reservation protects this, but double-check)
+                    $available = $this->positionService->getAvailableBalance(
                         $lockedTransaction->currency_code,
-                        (string) $lockedTransaction->amount_foreign,
-                        $available
+                        (string) $lockedTransaction->till_id
                     );
+
+                    if ($this->mathService->compare($available, (string) $lockedTransaction->amount_foreign) < 0) {
+                        $this->positionService->releaseStockReservation($lockedTransaction->id);
+                        throw new InsufficientStockException(
+                            $lockedTransaction->currency_code,
+                            (string) $lockedTransaction->amount_foreign,
+                            $available
+                        );
+                    }
                 }
 
                 // Execute position and till balance updates
