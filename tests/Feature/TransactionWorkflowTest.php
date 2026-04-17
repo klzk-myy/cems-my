@@ -5,18 +5,24 @@ namespace Tests\Feature;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
+use App\Exceptions\Domain\InsufficientStockException;
 use App\Models\Branch;
 use App\Models\Counter;
 use App\Models\Currency;
+use App\Models\CurrencyPosition;
 use App\Models\Customer;
 use App\Models\Transaction;
+use App\Models\TillBalance;
 use App\Models\User;
+use App\Services\TransactionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class TransactionWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected TransactionService $transactionService;
 
     protected User $teller;
 
@@ -33,6 +39,9 @@ class TransactionWorkflowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Resolve TransactionService from container
+        $this->transactionService = app(TransactionService::class);
 
         // Use seeded currencies instead of creating new ones
         $this->currency = Currency::where('code', 'USD')->firstOrFail();
@@ -151,5 +160,76 @@ class TransactionWorkflowTest extends TestCase
         // Just check that we get a response
         $this->assertTrue(in_array($response->status(), [200, 404, 500]),
             "Expected status 200/404/500, got {$response->status()}");
+    }
+
+    /** @test */
+    public function test_concurrent_sell_transactions_respect_reservation(): void
+    {
+        $customer = Customer::factory()->create([
+            'risk_rating' => 'Low',
+            'pep_status' => false,
+        ]);
+
+        $counter = Counter::factory()->create();
+
+        $tillId = (string) $counter->id;
+
+        // Create USD position with exactly 500 USD
+        $position = CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => $tillId,
+            'balance' => '500.00',
+            'avg_cost_rate' => '4.50',
+            'last_valuation_rate' => '4.50',
+        ]);
+
+        TillBalance::create([
+            'till_id' => $tillId,
+            'currency_code' => 'USD',
+            'opening_balance' => '0',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        TillBalance::create([
+            'till_id' => $tillId,
+            'currency_code' => 'MYR',
+            'opening_balance' => '100000.00',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        // Transaction 1: Sell 300 USD at rate 10.5 = RM 3150 (PendingApproval, reserves 300)
+        $data1 = [
+            'customer_id' => $customer->id,
+            'currency_code' => 'USD',
+            'type' => TransactionType::Sell->value,
+            'amount_foreign' => '300.00',
+            'rate' => '10.50', // 300 * 10.5 = 3150 >= 3000 = PendingApproval
+            'purpose' => 'Test',
+            'source_of_funds' => 'salary',
+            'till_id' => $tillId,
+            'idempotency_key' => 'test-concurrent-sell-1',
+        ];
+
+        $t1 = $this->transactionService->createTransaction($data1, $this->teller->id);
+        $this->assertEquals(TransactionStatus::PendingApproval, $t1->status);
+
+        // Transaction 2: Try to sell 250 USD - should fail because only 200 available (300 reserved)
+        $data2 = [
+            'customer_id' => $customer->id,
+            'currency_code' => 'USD',
+            'type' => TransactionType::Sell->value,
+            'amount_foreign' => '250.00',
+            'rate' => '10.50',
+            'purpose' => 'Test',
+            'source_of_funds' => 'salary',
+            'till_id' => $tillId,
+            'idempotency_key' => 'test-concurrent-sell-2',
+        ];
+
+        // This should throw InsufficientStockException
+        $this->expectException(\App\Exceptions\Domain\InsufficientStockException::class);
+        $this->transactionService->createTransaction($data2, $this->teller->id);
     }
 }

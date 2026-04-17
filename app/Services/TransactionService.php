@@ -200,9 +200,17 @@ class TransactionService
 
                 // Verify sufficient stock for Sell transactions IMMEDIATELY after acquiring lock
                 // This prevents race conditions where another transaction could modify the position
-                if (! $position || $this->mathService->compare($position->balance, $amountForeign) < 0) {
-                    $availableBalance = $position ? $position->balance : '0';
-                    throw new \InvalidArgumentException("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
+                // Use getAvailableBalance which accounts for pending reservations
+                $availableBalance = $this->positionService->getAvailableBalance(
+                    $data['currency_code'],
+                    $data['till_id']
+                );
+                if ($this->mathService->compare($availableBalance, $amountForeign) < 0) {
+                    throw new InsufficientStockException(
+                        $data['currency_code'],
+                        $amountForeign,
+                        $availableBalance
+                    );
                 }
             } elseif ($data['type'] === TransactionType::Buy->value) {
                 // For Buy transactions, acquire position lock to prevent race conditions
