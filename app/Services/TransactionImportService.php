@@ -165,14 +165,8 @@ class TransactionImportService
             $approvedBy = null;
 
             if ($holdCheck['requires_hold']) {
-                if ($this->mathService->compare($amountLocal, '50000') >= 0) {
-                    // Large transaction needs manager approval
-                    $status = TransactionStatus::Pending->value;
-                    $holdReason = 'EDD_Required: '.implode(', ', $holdCheck['reasons']);
-                } else {
-                    $status = TransactionStatus::OnHold->value;
-                    $holdReason = implode(', ', $holdCheck['reasons']);
-                }
+                $status = TransactionStatus::PendingApproval->value;
+                $holdReason = implode(', ', $holdCheck['reasons']);
             }
 
             // For sell transactions, check stock availability

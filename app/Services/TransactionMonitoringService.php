@@ -112,7 +112,7 @@ class TransactionMonitoringService
             if ($holdCheck['requires_hold']
                 && $transaction->status->isCompleted()
                 && $transaction->approved_by === null) {
-                $transaction->update(['status' => TransactionStatus::OnHold]);
+                $transaction->update(['status' => TransactionStatus::PendingApproval]);
                 foreach ($holdCheck['reasons'] as $reason) {
                     $flags[] = $this->createFlag($transaction, ComplianceFlagType::EddRequired, $reason);
                 }

@@ -113,7 +113,6 @@ class TriggerSanctionsRescreening
                     TransactionStatus::PendingApproval,
                     TransactionStatus::Approved,
                     TransactionStatus::Processing,
-                    TransactionStatus::Pending,
                 ]);
             })
             // OR customers with recent activity in last 30 days
@@ -178,7 +177,6 @@ class TriggerSanctionsRescreening
             TransactionStatus::PendingApproval,
             TransactionStatus::Approved,
             TransactionStatus::Processing,
-            TransactionStatus::Pending,
         ];
 
         $transactions = Transaction::where('customer_id', $customer->id)
@@ -186,7 +184,7 @@ class TriggerSanctionsRescreening
             ->get();
 
         foreach ($transactions as $transaction) {
-            $transaction->update(['status' => TransactionStatus::OnHold]);
+            $transaction->update(['status' => TransactionStatus::PendingApproval]);
 
             FlaggedTransaction::create([
                 'customer_id' => $customer->id,

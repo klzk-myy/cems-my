@@ -68,9 +68,9 @@ class RegulatoryReportController extends \App\Http\Controllers\Report\ReportCont
             ->orderBy('created_at', 'asc')
             ->get();
 
-        // Count pending transactions that would qualify
+        // Count pending approval transactions that would qualify
         $pendingTransactions = Transaction::where('amount_local', '>=', ReportingService::CTR_THRESHOLD)
-            ->where('status', TransactionStatus::Pending)
+            ->where('status', TransactionStatus::PendingApproval)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->count();
 

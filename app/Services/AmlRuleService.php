@@ -200,13 +200,13 @@ class AmlRuleService
                     'total_risk_score' => $evaluation['total_risk_score'],
                 ],
             ]);
-        } elseif ($action === 'hold' && ! in_array($transaction->status, [TransactionStatus::Pending, TransactionStatus::Completed])) {
-            // Only hold if not already pending or completed
+        } elseif ($action === 'hold' && ! in_array($transaction->status, [TransactionStatus::PendingApproval, TransactionStatus::Completed])) {
+            // Only hold if not already pending approval or completed
             $transaction->update([
-                'status' => TransactionStatus::OnHold,
+                'status' => TransactionStatus::PendingApproval,
                 'hold_reason' => implode('; ', $holdReasons),
             ]);
-            $newStatus = TransactionStatus::OnHold;
+            $newStatus = TransactionStatus::PendingApproval;
         }
 
         return [

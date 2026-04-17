@@ -360,7 +360,7 @@ class BulkImportService
             'counter_id' => $data['counter_id'],
             'purpose' => $data['purpose'] ?? null,
             'source_of_funds' => $data['source_of_funds'] ?? null,
-            'status' => TransactionStatus::Pending,
+            'status' => TransactionStatus::PendingApproval,
             'created_by' => $createdBy,
             'created_at' => $data['transaction_date'] ?? now(),
             'updated_at' => now(),

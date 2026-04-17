@@ -176,18 +176,13 @@ class TransactionService
         $holdReason = null;
         $approvedBy = null;
 
-        if ($holdCheck['requires_hold']) {
-            // Transaction must be held for compliance review
-            if ($this->mathService->compare($amountLocal, ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
-                $status = TransactionStatus::Pending;
-                $holdReason = ComplianceFlagType::EddRequired->label().': '.implode(', ', $holdCheck['reasons']);
-            } else {
-                $status = TransactionStatus::OnHold;
+        if ($holdCheck['requires_hold'] || $this->mathService->compare($amountLocal, ApprovalWorkflowService::AUTO_APPROVE_THRESHOLD) >= 0) {
+            // All transactions requiring approval (compliance hold OR amount >= RM 3,000)
+            // now go to PendingApproval with manager approval required
+            $status = TransactionStatus::PendingApproval;
+            if ($holdCheck['requires_hold']) {
                 $holdReason = implode(', ', $holdCheck['reasons']);
             }
-        } elseif ($this->mathService->compare($amountLocal, ApprovalWorkflowService::AUTO_APPROVE_THRESHOLD) >= 0) {
-            // No compliance hold, but amount >= RM 3,000 requires manager approval
-            $status = TransactionStatus::PendingApproval;
         }
 
         return DB::transaction(function () use ($data, $userId, $tillBalance, $amountForeign, $rate, $amountLocal, $cddLevel, $status, $holdReason, $approvedBy, &$allocationForUpdate) {
@@ -596,9 +591,8 @@ class TransactionService
             throw new \InvalidArgumentException('Invalid IP address format.');
         }
 
-        // Validate transaction is in pending or pending approval status
-        // Pending = normal approval flow, PendingApproval = confirmation flow with ApprovalTask
-        if (! in_array($transaction->status, [TransactionStatus::Pending, TransactionStatus::PendingApproval], true)) {
+        // Validate transaction is in pending approval status
+        if ($transaction->status !== TransactionStatus::PendingApproval) {
             throw new \InvalidArgumentException(
                 'Transaction is not pending approval. Current status: '.$transaction->status->label()
             );
@@ -641,9 +635,8 @@ class TransactionService
         try {
             return DB::transaction(function () use ($transaction, $approverId, $amlResult) {
                 // Optimistic locking with pessimistic lock to prevent race conditions
-                // Handle both Pending (normal flow) and PendingApproval (confirmation flow)
                 $lockedTransaction = Transaction::where('id', $transaction->id)
-                    ->whereIn('status', [TransactionStatus::Pending, TransactionStatus::PendingApproval])
+                    ->where('status', TransactionStatus::PendingApproval)
                     ->where('version', $transaction->version)
                     ->lockForUpdate()
                     ->first();
@@ -653,9 +646,6 @@ class TransactionService
                         'Transaction was already processed or modified by another user.'
                     );
                 }
-
-                // Track if this was a PendingApproval transaction (has ApprovalTask)
-                $wasPendingApproval = $lockedTransaction->status === TransactionStatus::PendingApproval;
 
                 // Build proper transition history: record both Approval and Completion as separate steps
                 $history = $lockedTransaction->transition_history ?? [];
@@ -707,28 +697,26 @@ class TransactionService
                     );
                 }
 
-                // Find and consume the stock reservation (only for PendingApproval - Pending has no reservation)
-                if ($wasPendingApproval) {
-                    $reservation = $this->positionService->consumeStockReservation($lockedTransaction->id);
+                // Consume the stock reservation (all PendingApproval transactions have reservations)
+                $reservation = $this->positionService->consumeStockReservation($lockedTransaction->id);
 
-                    if (! $reservation) {
-                        throw new StockReservationExpiredException($lockedTransaction->id);
-                    }
+                if (! $reservation) {
+                    throw new StockReservationExpiredException($lockedTransaction->id);
+                }
 
-                    // Verify stock is still available (reservation protects this, but double-check)
-                    $available = $this->positionService->getAvailableBalance(
+                // Verify stock is still available (reservation protects this, but double-check)
+                $available = $this->positionService->getAvailableBalance(
+                    $lockedTransaction->currency_code,
+                    (string) $lockedTransaction->till_id
+                );
+
+                if ($this->mathService->compare($available, (string) $lockedTransaction->amount_foreign) < 0) {
+                    $this->positionService->releaseStockReservation($lockedTransaction->id);
+                    throw new InsufficientStockException(
                         $lockedTransaction->currency_code,
-                        (string) $lockedTransaction->till_id
+                        (string) $lockedTransaction->amount_foreign,
+                        $available
                     );
-
-                    if ($this->mathService->compare($available, (string) $lockedTransaction->amount_foreign) < 0) {
-                        $this->positionService->releaseStockReservation($lockedTransaction->id);
-                        throw new InsufficientStockException(
-                            $lockedTransaction->currency_code,
-                            (string) $lockedTransaction->amount_foreign,
-                            $available
-                        );
-                    }
                 }
 
                 // Execute position and till balance updates
@@ -757,7 +745,7 @@ class TransactionService
                 // Audit logging for the approval action
                 $this->auditService->logTransaction('transaction_approved', $lockedTransaction->id, [
                     'old' => [
-                        'status' => TransactionStatus::Pending->value,
+                        'status' => TransactionStatus::PendingApproval->value,
                         'approved_by' => null,
                     ],
                     'new' => [
@@ -768,18 +756,15 @@ class TransactionService
                     ],
                 ]);
 
-                // Sync ApprovalTask if this was a PendingApproval transaction
-                // This ensures the approval workflow audit trail is complete
-                if ($wasPendingApproval) {
-                    try {
-                        $this->syncApprovalTaskOnCompletion($lockedTransaction, $approverId);
-                    } catch (\Exception $e) {
-                        // Log but don't fail the transaction - sync failures are non-blocking
-                        Log::error('ApprovalTask sync error (non-blocking)', [
-                            'transaction_id' => $lockedTransaction->id,
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
+                // Sync ApprovalTask after completion (all PendingApproval transactions have tasks)
+                try {
+                    $this->syncApprovalTaskOnCompletion($lockedTransaction, $approverId);
+                } catch (\Exception $e) {
+                    // Log but don't fail the transaction - sync failures are non-blocking
+                    Log::error('ApprovalTask sync error (non-blocking)', [
+                        'transaction_id' => $lockedTransaction->id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
 
                 // Dispatch event for async compliance processing

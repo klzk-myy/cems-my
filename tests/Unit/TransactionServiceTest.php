@@ -210,12 +210,8 @@ class TransactionServiceTest extends TestCase
         $transaction = $this->transactionService->createTransaction($data, $this->teller->id);
 
         $this->assertInstanceOf(Transaction::class, $transaction);
-        // Transactions >= 50,000 get Pending status (requires manager approval)
-        // Transactions < 50,000 but with hold requirements get OnHold status
-        $this->assertTrue(
-            in_array($transaction->status, [TransactionStatus::Pending, TransactionStatus::OnHold]),
-            'Transaction should be held or pending for compliance review'
-        );
+        // Transactions >= 50,000 or with hold requirements get PendingApproval status
+        $this->assertEquals(TransactionStatus::PendingApproval, $transaction->status);
         $this->assertEquals(CddLevel::Enhanced, $transaction->cdd_level);
         $this->assertNotNull($transaction->hold_reason);
     }
@@ -414,7 +410,7 @@ class TransactionServiceTest extends TestCase
         $transaction = $this->transactionService->createTransaction($data, $this->teller->id);
 
         $this->assertEquals(CddLevel::Enhanced, $transaction->cdd_level);
-        $this->assertEquals(TransactionStatus::OnHold, $transaction->status);
+        $this->assertEquals(TransactionStatus::PendingApproval, $transaction->status);
     }
 
     public function test_get_available_balance_excludes_pending_reservations(): void

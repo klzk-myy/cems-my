@@ -114,12 +114,9 @@ class TransactionController extends Controller
                 ],
             ]);
 
-            if ($transaction->status === TransactionStatus::PendingApproval || $transaction->status === TransactionStatus::Pending) {
+            if ($transaction->status === TransactionStatus::PendingApproval) {
                 return redirect()->route('transactions.show', $transaction)
-                    ->with('warning', 'Transaction created and pending manager approval (≥ RM 50,000).');
-            } elseif ($transaction->status === TransactionStatus::OnHold) {
-                return redirect()->route('transactions.show', $transaction)
-                    ->with('warning', 'Transaction on hold: '.$transaction->hold_reason);
+                    ->with('warning', 'Transaction created and pending manager approval.');
             }
 
             return redirect()->route('transactions.show', $transaction)

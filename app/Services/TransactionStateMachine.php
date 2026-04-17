@@ -30,12 +30,6 @@ class TransactionStateMachine
             'PendingCancellation',
             'Cancelled',
         ],
-        'Pending' => [           // Large transaction awaiting manager approval
-            'Approved',
-            'OnHold',
-            'PendingCancellation',
-            'Cancelled',
-        ],
         'Approved' => [
             'Processing',
             'PendingCancellation',
@@ -58,17 +52,10 @@ class TransactionStateMachine
         'Reversed' => [],
         'Failed' => [
             'PendingApproval',
-            'Pending',
             'PendingCancellation',
             'Cancelled',
         ],
         'Rejected' => [
-            'Cancelled',
-        ],
-        'OnHold' => [            // Transaction on hold awaiting compliance review
-            'Pending',
-            'Approved',
-            'PendingCancellation',
             'Cancelled',
         ],
         'PendingCancellation' => [
@@ -346,19 +333,19 @@ class TransactionStateMachine
 
     /**
      * Place transaction on hold (compliance review required).
-     * Pending -> OnHold
+     * Transitions to PendingApproval for manager review.
      *
      * @param  string  $reason  The reason for hold
      * @return bool True if transition was successful
      */
     public function hold(string $reason): bool
     {
-        return $this->transitionTo(TransactionStatus::OnHold, ['reason' => $reason]);
+        return $this->transitionTo(TransactionStatus::PendingApproval, ['reason' => $reason]);
     }
 
     /**
-     * Release transaction from hold back to pending.
-     * OnHold -> Pending (re-submit for approval)
+     * Release transaction from hold back to pending approval.
+     * OnHold -> PendingApproval (re-submit for approval)
      *
      * @return bool True if transition was successful
      */
@@ -369,7 +356,7 @@ class TransactionStateMachine
             return false;
         }
 
-        return $this->transitionTo(TransactionStatus::Pending);
+        return $this->transitionTo(TransactionStatus::PendingApproval);
     }
 
     /**

@@ -377,13 +377,8 @@ class TransactionCancellationController extends Controller
         $holdReason = null;
 
         if ($holdCheck['requires_hold']) {
-            if ($this->mathService->compare($amountLocal, '50000') >= 0) {
-                $status = TransactionStatus::Pending;
-                $holdReason = implode(', ', $holdCheck['reasons']);
-            } else {
-                $status = TransactionStatus::OnHold;
-                $holdReason = implode(', ', $holdCheck['reasons']);
-            }
+            $status = TransactionStatus::PendingApproval;
+            $holdReason = implode(', ', $holdCheck['reasons']);
         }
 
         return Transaction::create([

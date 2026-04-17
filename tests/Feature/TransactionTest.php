@@ -7,6 +7,7 @@ use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
+use App\Models\StockReservation;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -266,7 +267,7 @@ class TransactionTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('transactions', [
             'amount_foreign' => '12000.00',
-            'status' => TransactionStatus::Pending,
+            'status' => TransactionStatus::PendingApproval,
         ]);
     }
 
@@ -274,7 +275,7 @@ class TransactionTest extends TestCase
     {
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $transaction = Transaction::factory()->create([
-            'status' => TransactionStatus::Pending,
+            'status' => TransactionStatus::PendingApproval,
         ]);
 
         $response = $this->actingAs($teller)->post("/transactions/{$transaction->id}/approve");
@@ -300,14 +301,40 @@ class TransactionTest extends TestCase
             'user_id' => $teller->id,
             'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
-            'status' => TransactionStatus::Pending,
+            'status' => TransactionStatus::PendingApproval,
             'cdd_level' => 'Enhanced',
             'purpose' => 'Business',
             'source_of_funds' => 'Revenue',
             'idempotency_key' => uniqid('test_', true),
+            'version' => 0,
+        ]);
+
+        // Create stock reservation for the transaction (required for approval flow)
+        StockReservation::create([
+            'transaction_id' => $transaction->id,
+            'currency_code' => 'USD',
+            'till_id' => (string) $counter->id,
+            'amount_foreign' => '12000.00',
+            'status' => StockReservation::STATUS_PENDING,
+            'expires_at' => now()->addHours(24),
+            'created_by' => $teller->id,
+        ]);
+
+        // Create currency position with sufficient balance
+        CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => (string) $counter->id,
+            'balance' => '15000.00',
+            'avg_cost_rate' => '4.50',
+            'last_valuation_rate' => '4.50',
         ]);
 
         $response = $this->actingAs($manager)->post("/transactions/{$transaction->id}/approve");
+
+        // If redirect back with error, capture it
+        if ($response->isRedirect() && session('error')) {
+            $this->fail('Approval failed with error: ' . session('error'));
+        }
 
         $response->assertRedirect();
         $this->assertDatabaseHas('transactions', [

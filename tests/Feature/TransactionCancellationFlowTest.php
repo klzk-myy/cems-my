@@ -93,7 +93,7 @@ class TransactionCancellationFlowTest extends TestCase
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
 
-        // Create a transaction with OnHold status (can be tested for cancellation restrictions)
+        // Create a transaction with PendingApproval status (can be tested for cancellation restrictions)
         $transaction = Transaction::create([
             'type' => TransactionType::Buy,
             'currency_code' => 'USD',
@@ -103,12 +103,12 @@ class TransactionCancellationFlowTest extends TestCase
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
             'till_id' => (string) $counter->id,
-            'status' => TransactionStatus::OnHold,
+            'status' => TransactionStatus::PendingApproval,
             'cdd_level' => 'Simplified',
             'idempotency_key' => uniqid('test_', true),
         ]);
 
-        // Try to cancel OnHold transaction - should fail (can only cancel Completed)
+        // Try to cancel PendingApproval transaction - should fail (can only cancel Completed)
         $response = $this->actingAs($manager)->post("/transactions/{$transaction->id}/cancel", [
             'cancellation_reason' => 'Test cancellation reason with minimum length',
             'confirm_cancellation' => true,
@@ -116,10 +116,10 @@ class TransactionCancellationFlowTest extends TestCase
 
         // Should redirect back with error
         $response->assertRedirect();
-        // Transaction should remain in OnHold status
+        // Transaction should remain in PendingApproval status
         $this->assertDatabaseHas('transactions', [
             'id' => $transaction->id,
-            'status' => TransactionStatus::OnHold,
+            'status' => TransactionStatus::PendingApproval,
         ]);
     }
 

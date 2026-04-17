@@ -464,11 +464,7 @@ class TransactionCancellationService
         $status = TransactionStatus::Completed;
         $holdReason = null;
         if ($holdCheck['requires_hold']) {
-            if ($this->mathService->compare($amountLocal, \App\Services\ComplianceService::LARGE_TRANSACTION_THRESHOLD) >= 0) {
-                $status = TransactionStatus::Pending;
-            } else {
-                $status = TransactionStatus::OnHold;
-            }
+            $status = TransactionStatus::PendingApproval;
             $holdReason = implode(', ', $holdCheck['reasons']);
         }
 

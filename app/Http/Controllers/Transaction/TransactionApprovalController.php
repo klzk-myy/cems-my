@@ -170,10 +170,9 @@ class TransactionApprovalController extends Controller
                 $confirmation->markConfirmed(auth()->id(), $validated['notes'] ?? null);
 
                 // Set transaction to PendingApproval and create approval task
-                // This routes >= RM 50,000 transactions through ApprovalWorkflowService
-                // instead of bypassing it
+                // (Legacy: this was for Pending/OnHold transactions; now all go directly to PendingApproval)
                 $updated = Transaction::where('id', $transaction->id)
-                    ->whereIn('status', [TransactionStatus::Pending, TransactionStatus::OnHold])
+                    ->where('status', TransactionStatus::PendingApproval)
                     ->update([
                         'status' => TransactionStatus::PendingApproval,
                     ]);
