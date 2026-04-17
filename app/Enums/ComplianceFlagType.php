@@ -111,7 +111,9 @@ enum ComplianceFlagType: string
             self::HighRiskCountry => 'High Risk Country',
             self::RoundAmount => 'Round Amount',
             self::ProfileDeviation => 'Profile Deviation',
+            self::AmlRuleTriggered => 'AML Rule Triggered',
             self::CounterfeitCurrency => 'Counterfeit Currency',
+            self::RiskScoreEscalation => 'Risk Score Escalation',
         };
     }
 
@@ -134,7 +136,9 @@ enum ComplianceFlagType: string
             self::HighRiskCountry => 'Customer nationality from high-risk country',
             self::RoundAmount => 'Transaction amount is round number requiring review',
             self::ProfileDeviation => 'Transaction volume exceeds customer profile estimate',
+            self::AmlRuleTriggered => 'Automated AML rule triggered for review',
             self::CounterfeitCurrency => 'Counterfeit currency detected in transaction',
+            self::RiskScoreEscalation => 'Customer risk score has been escalated',
         };
     }
 

@@ -21,7 +21,7 @@
     @if(($alert->status->value ?? '') === 'Pending')
         <form method="POST" action="/compliance/alerts/{{ $alert->id }}/assign" class="flex items-center gap-2">
             @csrf
-            <select name="assignee_id" class="form-select w-auto">
+            <select name="user_id" class="form-select w-auto">
                 <option value="">Assign to...</option>
                 @foreach($users ?? [] as $user)
                     <option value="{{ $user->id }}">{{ $user->username }}</option>
@@ -105,13 +105,13 @@
                     </div>
                     <div class="flex-1">
                         <p class="font-semibold text-lg">{{ $alert->customer->full_name }}</p>
-                        <p class="text-sm text-[--color-ink-muted]">{{ $alert->customer->ic_number }}</p>
+                        <p class="text-sm text-[--color-ink-muted]">{{ $alert->customer->id_type ?? 'N/A' }}</p>
                         <div class="flex gap-2 mt-2">
-                            <span class="badge badge-default">{{ $alert->customer->cdd_level->label() ?? 'N/A' }}</span>
-                            @if($alert->customer->is_pep ?? false)
+                            <span class="badge badge-default">{{ $alert->customer->cdd_level ?? 'N/A' }}</span>
+                            @if($alert->customer->pep_status ?? false)
                                 <span class="badge badge-warning">PEP</span>
                             @endif
-                            @if($alert->customer->is_sanctioned ?? false)
+                            @if($alert->customer->sanction_hit ?? false)
                                 <span class="badge badge-danger">Sanctioned</span>
                             @endif
                         </div>
@@ -122,17 +122,17 @@
         @endif
 
         {{-- Transaction if related --}}
-        @if($alert->flaggedTransaction)
+        @if($alert->flaggedTransaction && $alert->flaggedTransaction->transaction)
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">Related Transaction</h3>
-                <a href="/transactions/{{ $alert->flaggedTransaction->id }}" class="btn btn-ghost btn-sm">View</a>
+                <a href="/transactions/{{ $alert->flaggedTransaction->transaction->id }}" class="btn btn-ghost btn-sm">View</a>
             </div>
             <div class="card-body">
                 <div class="grid grid-cols-3 gap-4">
                     <div>
                         <p class="text-sm text-[--color-ink-muted]">Transaction ID</p>
-                        <p class="font-mono">#{{ $alert->flaggedTransaction->id }}</p>
+                        <p class="font-mono">#{{ $alert->flaggedTransaction->transaction->id }}</p>
                     </div>
                     <div>
                         <p class="text-sm text-[--color-ink-muted]">Amount</p>

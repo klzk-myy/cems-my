@@ -12,11 +12,19 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="form-label">Full Name</label>
-                    <input type="text" name="name" class="form-input" value="{{ $customer->name ?? '' }}" required>
+                    <input type="text" name="full_name" class="form-input" value="{{ $customer->full_name ?? '' }}" required>
                 </div>
                 <div>
-                    <label class="form-label">IC Number / Passport</label>
-                    <input type="text" name="ic_number" class="form-input" value="{{ $customer->ic_number ?? '' }}" required>
+                    <label class="form-label">ID Type</label>
+                    <select name="id_type" class="form-input" required>
+                        @foreach($idTypes ?? [] as $value => $label)
+                            <option value="{{ $value }}" {{ ($customer->id_type ?? '') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">ID Number</label>
+                    <input type="text" name="id_number" class="form-input" value="{{ $decryptedIdNumber ?? '' }}" required>
                 </div>
                 <div>
                     <label class="form-label">Email</label>
@@ -24,18 +32,26 @@
                 </div>
                 <div>
                     <label class="form-label">Phone</label>
-                    <input type="text" name="phone" class="form-input" value="{{ $customer->phone ?? '' }}">
+                    <input type="text" name="phone" class="form-input" value="{{ $customer->phone ? decrypt($customer->phone) : '' }}">
+                </div>
+                <div>
+                    <label class="form-label">Nationality</label>
+                    <select name="nationality" class="form-input" required>
+                        @foreach($nationalities ?? [] as $nation)
+                            <option value="{{ $nation }}" {{ ($customer->nationality ?? '') === $nation ? 'selected' : '' }}>{{ $nation }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div>
                     <label class="form-label">Address</label>
-                    <textarea name="address" class="form-input" rows="2">{{ $customer->address ?? '' }}</textarea>
+                    <textarea name="address" class="form-input" rows="2">{{ $customer->address ? decrypt($customer->address) : '' }}</textarea>
                 </div>
                 <div>
-                    <label class="form-label">Risk Level</label>
-                    <select name="risk_level" class="form-input">
-                        <option value="low" @if(($customer->risk_level ?? '') === 'low') selected @endif>Low</option>
-                        <option value="medium" @if(($customer->risk_level ?? '') === 'medium') selected @endif>Medium</option>
-                        <option value="high" @if(($customer->risk_level ?? '') === 'high') selected @endif>High</option>
+                    <label class="form-label">Risk Rating</label>
+                    <select name="risk_rating" class="form-input" required>
+                        @foreach($riskRatings ?? ['Low', 'Medium', 'High'] as $rating)
+                            <option value="{{ $rating }}" {{ ($customer->risk_rating ?? '') === $rating ? 'selected' : '' }}>{{ $rating }}</option>
+                        @endforeach
                     </select>
                 </div>
             </div>

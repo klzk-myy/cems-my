@@ -27,7 +27,7 @@
         <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="form-group mb-0">
                 <label class="form-label">Search</label>
-                <input type="text" name="search" class="form-input" placeholder="Name or IC number..." value="{{ request('search') }}">
+                <input type="text" name="search" class="form-input" placeholder="Name..." value="{{ request('search') }}">
             </div>
             <div class="form-group mb-0">
                 <label class="form-label">CDD Level</label>
@@ -62,7 +62,7 @@
             <thead>
                 <tr>
                     <th>Customer</th>
-                    <th>IC Number</th>
+                    <th>ID Type</th>
                     <th>CDD Level</th>
                     <th>Risk Level</th>
                     <th>Total Transactions</th>
@@ -84,17 +84,17 @@
                             </div>
                         </div>
                     </td>
-                    <td class="font-mono">{{ $customer->ic_number }}</td>
+                    <td class="font-mono">{{ $customer->id_type ?? 'N/A' }}</td>
                     <td>
                         @php
-                            $cddClass = match($customer->cdd_level->value ?? '') {
+                            $cddClass = match($customer->cdd_level ?? '') {
                                 'Simplified' => 'badge-info',
                                 'Standard' => 'badge-warning',
                                 'Enhanced' => 'badge-danger',
                                 default => 'badge-default'
                             };
                         @endphp
-                        <span class="badge {{ $cddClass }}">{{ $customer->cdd_level->label() ?? 'N/A' }}</span>
+                        <span class="badge {{ $cddClass }}">{{ $customer->cdd_level ?? 'N/A' }}</span>
                     </td>
                     <td>
                         @php
@@ -102,6 +102,7 @@
                                 'Low' => 'badge-success',
                                 'Medium' => 'badge-warning',
                                 'High' => 'badge-danger',
+                                'Critical' => 'badge-danger',
                                 default => 'badge-default'
                             };
                         @endphp
@@ -109,9 +110,9 @@
                     </td>
                     <td class="font-mono">{{ number_format($customer->transactions_count ?? 0) }}</td>
                     <td>
-                        @if($customer->is_sanctioned ?? false)
+                        @if($customer->sanction_hit ?? false)
                             <span class="badge badge-danger">Sanctioned</span>
-                        @elseif($customer->is_pep ?? false)
+                        @elseif($customer->pep_status ?? false)
                             <span class="badge badge-warning">PEP</span>
                         @else
                             <span class="badge badge-success">Active</span>

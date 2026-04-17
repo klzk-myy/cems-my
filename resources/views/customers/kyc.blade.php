@@ -12,17 +12,26 @@
                 <dl class="space-y-3">
                     <div>
                         <dt class="text-sm text-[--color-ink-muted]">Name</dt>
-                        <dd class="font-medium">{{ $customer->name ?? 'N/A' }}</dd>
+                        <dd class="font-medium">{{ $customer->full_name ?? 'N/A' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm text-[--color-ink-muted]">IC Number</dt>
-                        <dd class="font-mono">{{ $customer->ic_number ?? 'N/A' }}</dd>
+                        <dt class="text-sm text-[--color-ink-muted]">ID Type</dt>
+                        <dd class="font-mono">{{ $customer->id_type ?? 'N/A' }}</dd>
                     </div>
                     <div>
                         <dt class="text-sm text-[--color-ink-muted]">Risk Level</dt>
                         <dd>
                             @if(isset($customer->risk_level))
-                                @statuslabel($customer->risk_level)
+                                @php
+                                    $riskClass = match($customer->risk_level ?? '') {
+                                        'Low' => 'badge-success',
+                                        'Medium' => 'badge-warning',
+                                        'High' => 'badge-danger',
+                                        'Critical' => 'badge-danger',
+                                        default => 'badge-default'
+                                    };
+                                @endphp
+                                <span class="badge {{ $riskClass }}">{{ $customer->risk_level }}</span>
                             @else
                                 <span class="text-[--color-ink-muted]">N/A</span>
                             @endif
@@ -32,7 +41,15 @@
                         <dt class="text-sm text-[--color-ink-muted]">CDD Level</dt>
                         <dd>
                             @if(isset($customer->cdd_level))
-                                @statuslabel($customer->cdd_level)
+                                @php
+                                    $cddClass = match($customer->cdd_level ?? '') {
+                                        'Simplified' => 'badge-info',
+                                        'Standard' => 'badge-warning',
+                                        'Enhanced' => 'badge-danger',
+                                        default => 'badge-default'
+                                    };
+                                @endphp
+                                <span class="badge {{ $cddClass }}">{{ $customer->cdd_level }}</span>
                             @else
                                 <span class="text-[--color-ink-muted]">N/A</span>
                             @endif

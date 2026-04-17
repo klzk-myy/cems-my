@@ -11,30 +11,50 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="form-label">Full Name</label>
-                    <input type="text" name="name" class="form-input" required>
+                    <input type="text" name="full_name" class="form-input" value="{{ old('full_name') }}" required>
                 </div>
                 <div>
-                    <label class="form-label">IC Number / Passport</label>
-                    <input type="text" name="ic_number" class="form-input" required>
+                    <label class="form-label">ID Type</label>
+                    <select name="id_type" class="form-input" required>
+                        @foreach($idTypes ?? [] as $value => $label)
+                            <option value="{{ $value }}" {{ old('id_type') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">ID Number</label>
+                    <input type="text" name="id_number" class="form-input" value="{{ old('id_number') }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Date of Birth</label>
+                    <input type="date" name="date_of_birth" class="form-input" value="{{ old('date_of_birth') }}" required>
+                </div>
+                <div>
+                    <label class="form-label">Nationality</label>
+                    <select name="nationality" class="form-input" required>
+                        @foreach($nationalities ?? [] as $nation)
+                            <option value="{{ $nation }}" {{ old('nationality') === $nation ? 'selected' : '' }}>{{ $nation }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div>
                     <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input">
+                    <input type="email" name="email" class="form-input" value="{{ old('email') }}">
                 </div>
                 <div>
                     <label class="form-label">Phone</label>
-                    <input type="text" name="phone" class="form-input">
+                    <input type="text" name="phone" class="form-input" value="{{ old('phone') }}">
                 </div>
                 <div>
                     <label class="form-label">Address</label>
-                    <textarea name="address" class="form-input" rows="2"></textarea>
+                    <textarea name="address" class="form-input" rows="2">{{ old('address') }}</textarea>
                 </div>
                 <div>
-                    <label class="form-label">Risk Level</label>
-                    <select name="risk_level" class="form-input">
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
+                    <label class="form-label">Risk Rating</label>
+                    <select name="risk_rating" class="form-input" required>
+                        @foreach($riskRatings ?? ['Low', 'Medium', 'High'] as $rating)
+                            <option value="{{ $rating }}" {{ old('risk_rating') === $rating ? 'selected' : '' }}>{{ $rating }}</option>
+                        @endforeach
                     </select>
                 </div>
             </div>

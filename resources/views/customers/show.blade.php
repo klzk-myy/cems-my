@@ -42,10 +42,10 @@
             <div class="card-header">
                 <h3 class="card-title">Customer Details</h3>
                 <div class="flex gap-2">
-                    @if($customer->is_sanctioned ?? false)
+                    @if($customer->sanction_hit ?? false)
                         <span class="badge badge-danger">Sanctioned</span>
                     @endif
-                    @if($customer->is_pep ?? false)
+                    @if($customer->pep_status ?? false)
                         <span class="badge badge-warning">PEP</span>
                     @endif
                 </div>
@@ -57,8 +57,8 @@
                         <p class="font-medium">{{ $customer->full_name ?? 'N/A' }}</p>
                     </div>
                     <div>
-                        <p class="text-sm text-[--color-ink-muted] mb-1">IC Number</p>
-                        <p class="font-mono font-medium">{{ $customer->ic_number ?? 'N/A' }}</p>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">ID Type</p>
+                        <p class="font-mono font-medium">{{ $customer->id_type ?? 'N/A' }}</p>
                     </div>
                     <div>
                         <p class="text-sm text-[--color-ink-muted] mb-1">Email</p>
@@ -90,14 +90,14 @@
                     <div>
                         <p class="text-sm text-[--color-ink-muted] mb-1">CDD Level</p>
                         @php
-                            $cddClass = match($customer->cdd_level->value ?? '') {
+                            $cddClass = match($customer->cdd_level ?? '') {
                                 'Simplified' => 'badge-info',
                                 'Standard' => 'badge-warning',
                                 'Enhanced' => 'badge-danger',
                                 default => 'badge-default'
                             };
                         @endphp
-                        <span class="badge {{ $cddClass }}">{{ $customer->cdd_level->label() ?? 'N/A' }}</span>
+                        <span class="badge {{ $cddClass }}">{{ $customer->cdd_level ?? 'N/A' }}</span>
                     </div>
                     <div>
                         <p class="text-sm text-[--color-ink-muted] mb-1">Risk Level</p>
@@ -106,14 +106,15 @@
                                 'Low' => 'badge-success',
                                 'Medium' => 'badge-warning',
                                 'High' => 'badge-danger',
+                                'Critical' => 'badge-danger',
                                 default => 'badge-default'
                             };
                         @endphp
                         <span class="badge {{ $riskClass }}">{{ $customer->risk_level ?? 'N/A' }}</span>
                     </div>
                     <div>
-                        <p class="text-sm text-[--color-ink-muted] mb-1">EDD Status</p>
-                        <span class="badge badge-default">{{ $customer->edd_status->label() ?? 'N/A' }}</span>
+                        <p class="text-sm text-[--color-ink-muted] mb-1">Risk Score</p>
+                        <p class="font-mono">{{ $customer->risk_score ?? 'N/A' }}</p>
                     </div>
                 </div>
             </div>

@@ -133,7 +133,7 @@
                             </div>
                             <div>
                                 <p class="text-sm font-medium">{{ $alert->customer->full_name }}</p>
-                                <p class="text-xs text-[--color-ink-muted]">{{ $alert->customer->ic_number }}</p>
+                                <p class="text-xs text-[--color-ink-muted]">{{ $alert->customer->id_type }}</p>
                             </div>
                         </div>
                         @else

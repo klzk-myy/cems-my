@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\CddLevel;
 use App\Models\Customer;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,6 +21,7 @@ class CustomerFactory extends Factory
             'address' => fake()->address(),
             'phone' => fake()->phoneNumber(),
             'email' => fake()->optional()->safeEmail(),
+            'cdd_level' => fake()->randomElement(CddLevel::cases()),
             'pep_status' => false,
             'risk_score' => fake()->numberBetween(0, 100),
             'risk_rating' => fake()->randomElement(['Low', 'Medium', 'High']),

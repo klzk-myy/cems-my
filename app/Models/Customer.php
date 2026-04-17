@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CddLevel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -83,6 +84,7 @@ class Customer extends Model
         'annual_volume_estimate' => 'decimal:4',
         'risk_assessed_at' => 'datetime',
         'last_transaction_at' => 'datetime',
+        'cdd_level' => CddLevel::class,
     ];
 
     /**
@@ -123,6 +125,25 @@ class Customer extends Model
     public function riskScoreSnapshots()
     {
         return $this->hasMany(RiskScoreSnapshot::class);
+    }
+
+    /**
+     * Get the latest risk score snapshot for this customer.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function latestRiskSnapshot()
+    {
+        return $this->hasOne(RiskScoreSnapshot::class)->latest('snapshot_date');
+    }
+
+    /**
+     * Get the latest risk level attribute.
+     * Returns the risk level from the latest snapshot or the customer's risk_rating.
+     */
+    public function getRiskLevelAttribute(): string
+    {
+        return $this->latestRiskSnapshot?->overall_rating_label ?? $this->risk_rating ?? 'Unknown';
     }
 
     /**

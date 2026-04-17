@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AlertPriority;
 use App\Enums\ComplianceFlagType;
 use App\Enums\FlagStatus;
+use App\Models\Compliance\ComplianceCase;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
