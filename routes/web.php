@@ -12,6 +12,7 @@ use App\Http\Controllers\Compliance\CtosController;
 use App\Http\Controllers\Compliance\EddTemplateController;
 use App\Http\Controllers\Compliance\RiskDashboardController;
 use App\Http\Controllers\Compliance\SanctionListController;
+use App\Http\Controllers\Compliance\ScreeningController;
 use App\Http\Controllers\Compliance\StrStudioController;
 use App\Http\Controllers\CounterController;
 use App\Http\Controllers\Customer\CustomerKycController;
@@ -323,6 +324,12 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::get('/', [CtosController::class, 'index'])->name('index');
             Route::get('/{id}', [CtosController::class, 'show'])->name('show');
             Route::post('/{id}/submit', [CtosController::class, 'submit'])->name('submit');
+        });
+
+        // Customer Screening
+        Route::prefix('compliance/screening')->name('compliance.screening.')->group(function () {
+            Route::get('/{customerId}', [ScreeningController::class, 'show'])->name('show');
+            Route::post('/{customerId}', [ScreeningController::class, 'screen'])->name('screen');
         });
 
         // EDD Templates
