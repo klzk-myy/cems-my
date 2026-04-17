@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Compliance;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class FindingController extends Controller
 {
@@ -25,15 +26,51 @@ class FindingController extends Controller
             $url .= '?'.http_build_query($params);
         }
 
-        $response = Http::withToken(session('api_token'))->get($url);
+        try {
+            $response = Http::withToken(session('api_token'))
+                ->timeout(10)
+                ->get($url);
 
-        $data = $response->successful() ? $response->json() : [];
+            if ($response->successful()) {
+                $data = $response->json();
+            } else {
+                $data = [];
+                Log::warning('FindingController: Failed to fetch findings', [
+                    'status' => $response->status(),
+                    'endpoint' => $url,
+                ]);
+            }
+        } catch (\Exception $e) {
+            $data = [];
+            Log::error('FindingController: Exception fetching findings', [
+                'message' => $e->getMessage(),
+                'endpoint' => $url,
+            ]);
+        }
 
         $findings = $data['data'] ?? [];
 
-        $statsResponse = Http::withToken(session('api_token'))
-            ->get(config('app.url').$this->apiBase.'/stats');
-        $stats = $statsResponse->successful() ? $statsResponse->json()['data'] ?? [] : [];
+        try {
+            $statsResponse = Http::withToken(session('api_token'))
+                ->timeout(10)
+                ->get(config('app.url').$this->apiBase.'/stats');
+
+            if ($statsResponse->successful()) {
+                $stats = $statsResponse->json()['data'] ?? [];
+            } else {
+                $stats = [];
+                Log::warning('FindingController: Failed to fetch stats', [
+                    'status' => $statsResponse->status(),
+                    'endpoint' => $this->apiBase.'/stats',
+                ]);
+            }
+        } catch (\Exception $e) {
+            $stats = [];
+            Log::error('FindingController: Exception fetching stats', [
+                'message' => $e->getMessage(),
+                'endpoint' => $this->apiBase.'/stats',
+            ]);
+        }
 
         $pagination = [
             'current_page' => $data['current_page'] ?? 1,
@@ -47,15 +84,27 @@ class FindingController extends Controller
 
     public function show(int $id)
     {
-        $response = Http::withToken(session('api_token'))
-            ->get(config('app.url').$this->apiBase.'/'.$id);
+        try {
+            $response = Http::withToken(session('api_token'))
+                ->timeout(10)
+                ->get(config('app.url').$this->apiBase.'/'.$id);
 
-        if (! $response->successful()) {
+            if (! $response->successful()) {
+                return redirect()->route('compliance.findings.index')
+                    ->with('error', 'Finding not found');
+            }
+
+            $finding = $response->json()['data'] ?? [];
+        } catch (\Exception $e) {
+            Log::error('FindingController: Exception fetching finding', [
+                'message' => $e->getMessage(),
+                'finding_id' => $id,
+                'endpoint' => $this->apiBase.'/'.$id,
+            ]);
+
             return redirect()->route('compliance.findings.index')
                 ->with('error', 'Finding not found');
         }
-
-        $finding = $response->json()['data'] ?? [];
 
         return view('compliance.findings.show', compact('finding'));
     }
@@ -66,15 +115,32 @@ class FindingController extends Controller
             'reason' => 'required|string|max:500',
         ]);
 
-        $response = Http::withToken(session('api_token'))
-            ->post(config('app.url').$this->apiBase.'/'.$id.'/dismiss', [
-                'reason' => $validated['reason'],
+        try {
+            $response = Http::withToken(session('api_token'))
+                ->timeout(10)
+                ->post(config('app.url').$this->apiBase.'/'.$id.'/dismiss', [
+                    'reason' => $validated['reason'],
+                ]);
+
+            if ($response->successful()) {
+                return redirect()->back()->with('success', 'Finding dismissed');
+            }
+
+            Log::warning('FindingController: Failed to dismiss finding', [
+                'status' => $response->status(),
+                'finding_id' => $id,
+                'endpoint' => $this->apiBase.'/'.$id.'/dismiss',
             ]);
 
-        if ($response->successful()) {
-            return redirect()->back()->with('success', 'Finding dismissed');
-        }
+            return redirect()->back()->with('error', $response->json()['message'] ?? 'Failed to dismiss finding');
+        } catch (\Exception $e) {
+            Log::error('FindingController: Exception dismissing finding', [
+                'message' => $e->getMessage(),
+                'finding_id' => $id,
+                'endpoint' => $this->apiBase.'/'.$id.'/dismiss',
+            ]);
 
-        return redirect()->back()->with('error', $response->json()['message'] ?? 'Failed to dismiss finding');
+            return redirect()->back()->with('error', 'Failed to dismiss finding');
+        }
     }
 }

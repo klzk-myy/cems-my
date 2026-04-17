@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Compliance;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class CtosController extends Controller
 {
@@ -24,9 +25,27 @@ class CtosController extends Controller
             $url .= '?'.http_build_query($params);
         }
 
-        $response = Http::withToken(session('api_token'))->get($url);
+        try {
+            $response = Http::withToken(session('api_token'))
+                ->timeout(10)
+                ->get($url);
 
-        $data = $response->successful() ? $response->json() : [];
+            if ($response->successful()) {
+                $data = $response->json();
+            } else {
+                $data = [];
+                Log::warning('CtosController: Failed to fetch CTOS reports', [
+                    'status' => $response->status(),
+                    'endpoint' => $url,
+                ]);
+            }
+        } catch (\Exception $e) {
+            $data = [];
+            Log::error('CtosController: Exception fetching CTOS reports', [
+                'message' => $e->getMessage(),
+                'endpoint' => $url,
+            ]);
+        }
 
         $reports = $data['data'] ?? [];
         $pagination = [
@@ -49,28 +68,57 @@ class CtosController extends Controller
 
     public function show(int $id)
     {
-        $response = Http::withToken(session('api_token'))
-            ->get(config('app.url').$this->apiBase.'/'.$id);
+        try {
+            $response = Http::withToken(session('api_token'))
+                ->timeout(10)
+                ->get(config('app.url').$this->apiBase.'/'.$id);
 
-        if (! $response->successful()) {
+            if (! $response->successful()) {
+                return redirect()->route('compliance.ctos.index')
+                    ->with('error', 'CTOS report not found');
+            }
+
+            $report = $response->json();
+        } catch (\Exception $e) {
+            Log::error('CtosController: Exception fetching CTOS report', [
+                'message' => $e->getMessage(),
+                'ctos_id' => $id,
+                'endpoint' => $this->apiBase.'/'.$id,
+            ]);
+
             return redirect()->route('compliance.ctos.index')
                 ->with('error', 'CTOS report not found');
         }
-
-        $report = $response->json();
 
         return view('compliance.ctos.show', compact('report'));
     }
 
     public function submit(Request $request, int $id)
     {
-        $response = Http::withToken(session('api_token'))
-            ->post(config('app.url').$this->apiBase.'/'.$id.'/submit');
+        try {
+            $response = Http::withToken(session('api_token'))
+                ->timeout(10)
+                ->post(config('app.url').$this->apiBase.'/'.$id.'/submit');
 
-        if ($response->successful()) {
-            return redirect()->back()->with('success', 'CTOS report submitted to BNM successfully');
+            if ($response->successful()) {
+                return redirect()->back()->with('success', 'CTOS report submitted to BNM successfully');
+            }
+
+            Log::warning('CtosController: Failed to submit CTOS report', [
+                'status' => $response->status(),
+                'ctos_id' => $id,
+                'endpoint' => $this->apiBase.'/'.$id.'/submit',
+            ]);
+
+            return redirect()->back()->with('error', $response->json()['message'] ?? 'Failed to submit CTOS report');
+        } catch (\Exception $e) {
+            Log::error('CtosController: Exception submitting CTOS report', [
+                'message' => $e->getMessage(),
+                'ctos_id' => $id,
+                'endpoint' => $this->apiBase.'/'.$id.'/submit',
+            ]);
+
+            return redirect()->back()->with('error', 'Failed to submit CTOS report');
         }
-
-        return redirect()->back()->with('error', $response->json()['message'] ?? 'Failed to submit CTOS report');
     }
 }
