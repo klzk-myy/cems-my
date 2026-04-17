@@ -272,7 +272,9 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         });
 
         // Unified Alerts
-        Route::get('/unified', [App\Http\Controllers\Compliance\UnifiedAlertController::class, 'index'])->name('unified.index');
+        Route::get('/unified', [App\Http\Controllers\Compliance\UnifiedAlertController::class, 'index'])
+            ->middleware('role:compliance')
+            ->name('compliance.unified.index');
 
         // Case Management
         Route::prefix('compliance/cases')->name('compliance.cases.')->group(function () {

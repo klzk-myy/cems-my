@@ -64,7 +64,7 @@ class UnifiedAlertController extends Controller
         $query = Alert::with(['customer', 'assignedTo']);
 
         if ($priority) {
-            $query->where('priority', $priority);
+            $query->where('priority', strtolower($priority));
         }
         if ($status) {
             $mappedStatus = $this->mapUnifiedStatusToAlert($status);
@@ -112,7 +112,7 @@ class UnifiedAlertController extends Controller
             'stats' => [
                 'total' => $alerts->count(),
                 'critical' => $alerts->where('priority', 'Critical')->count(),
-                'pending' => $alerts->filter(fn ($a) => ! in_array($a->status?->value, ['Resolved', 'Rejected']))->count(),
+                'pending' => $alerts->filter(fn ($a) => ! in_array($a->status?->value, ['Resolved', 'Rejected', 'Dismissed']))->count(),
                 'resolved_today' => $alerts->whereDate('updated_at', today())->filter(fn ($a) => in_array($a->status?->value, ['Resolved']))->count(),
             ],
         ];
@@ -190,7 +190,7 @@ class UnifiedAlertController extends Controller
         return match ($unifiedStatus) {
             'open' => 'New',
             'in_review' => 'Reviewed',
-            'resolved' => 'CaseCreated',
+            'resolved' => 'Case_Created',
             'dismissed' => 'Dismissed',
             default => null,
         };
