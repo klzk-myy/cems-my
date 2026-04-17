@@ -267,8 +267,9 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::prefix('compliance/alerts')->name('compliance.alerts.')->group(function () {
             Route::get('/', [AlertTriageController::class, 'index'])->name('index');
             Route::get('/{alert}', [AlertTriageController::class, 'show'])->name('show');
-            Route::patch('/{alert}/assign', [AlertTriageController::class, 'assign'])->name('assign');
-            Route::patch('/{alert}/resolve', [AlertTriageController::class, 'resolve'])->name('resolve');
+            Route::post('/{alert}/assign', [AlertTriageController::class, 'assign'])->name('assign');
+            Route::post('/{alert}/resolve', [AlertTriageController::class, 'resolve'])->name('resolve');
+            Route::post('/{alert}/dismiss', [AlertTriageController::class, 'dismiss'])->name('dismiss');
         });
 
         // Unified Alerts

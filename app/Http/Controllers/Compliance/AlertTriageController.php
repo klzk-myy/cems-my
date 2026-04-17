@@ -67,4 +67,17 @@ class AlertTriageController extends Controller
 
         return redirect()->route('compliance.alerts.index')->with('success', 'Alert resolved successfully');
     }
+
+    public function dismiss(Request $request, Alert $alert)
+    {
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $alert->update([
+            'status' => \App\Enums\FlagStatus::Rejected,
+        ]);
+
+        return redirect()->route('compliance.alerts.index')->with('success', 'Alert dismissed');
+    }
 }

@@ -166,6 +166,7 @@ class AlertTriageService
     {
         return DB::transaction(function () use ($alert, $resolvedBy, $notes) {
             $alert->update([
+                'status' => \App\Enums\FlagStatus::Resolved,
                 'case_id' => null,
             ]);
 
