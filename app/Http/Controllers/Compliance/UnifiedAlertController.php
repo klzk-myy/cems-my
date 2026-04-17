@@ -111,9 +111,9 @@ class UnifiedAlertController extends Controller
             'items' => $items,
             'stats' => [
                 'total' => $alerts->count(),
-                'critical' => $alerts->where('priority', 'Critical')->count(),
+                'critical' => $alerts->filter(fn ($a) => $a->priority && $a->priority->value === 'critical')->count(),
                 'pending' => $alerts->filter(fn ($a) => ! in_array($a->status?->value, ['Resolved', 'Rejected', 'Dismissed']))->count(),
-                'resolved_today' => $alerts->whereDate('updated_at', today())->filter(fn ($a) => in_array($a->status?->value, ['Resolved']))->count(),
+                'resolved_today' => $alerts->filter(fn ($a) => $a->updated_at && $a->updated_at->isToday() && in_array($a->status?->value, ['Resolved']))->count(),
             ],
         ];
     }
