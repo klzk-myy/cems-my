@@ -43,10 +43,15 @@ app/
 ├── Console/Commands/  # Artisan CLI commands (scheduled reports, compliance tasks)
 ├── Enums/  # PHP 8.1 enums replacing magic strings (29 enums)
 ├── Events/  # Event classes (TransactionCreated, CounterSessionOpened, etc.)
+├── Exceptions/Domain/  # Typed domain exceptions (InsufficientStockException, etc.)
 ├── Http/
 │   ├── Controllers/  # Thin controllers, delegate to services
-│   └── Middleware/  # CheckRole, EnsureMfaEnabled, DataBreachDetection, StrictRateLimit, etc.
+│   ├── Middleware/  # CheckRole, EnsureMfaEnabled, DataBreachDetection, StrictRateLimit, etc.
+│   ├── Requests/  # Form request validation classes
+│   └── Resources/  # API resource transformers
+├── Jobs/Audit/  # Async jobs (SealAuditHashJob)
 ├── Models/  # Eloquent models (57 models)
+├── Observers/  # Model observers for event-driven hooks
 └── Services/  # Business logic (55 services)
 ```
 
@@ -78,7 +83,8 @@ public function __construct(
 All monetary calculations use `App\Services\MathService` (BCMath), not floats. Never cast money values to `float`.
 
 **5. Compliance Workflow**
-- Transactions ≥ RM 50,000 require manager approval
+- Transactions ≥ RM 3,000 (no compliance hold) require manager approval via `PendingApproval` status
+- Transactions ≥ RM 50,000 OR high-risk customers go to `Pending` status (compliance hold)
 - `ComplianceService` runs CDD determination and CTOS reporting (both Buy and Sell)
 - `TransactionMonitoringService` runs automated compliance monitors via background jobs:
   - `VelocityMonitor` - Detects velocity/structuring patterns (7-day lookback)
@@ -93,18 +99,33 @@ All monetary calculations use `App\Services\MathService` (BCMath), not floats. N
 - **CTOS Submission**: `POST /api/v1/compliance/ctos/{id}/submit` - Submit CTOS reports to BNM with compliance officer sign-off
 - All cancellations require manager approval via `PendingCancellation` status (segregation of duties)
 
-**6. Event-Driven Architecture**
+**6. Stock Reservation (Concurrency Control)**
+- `StockReservation` model reserves stock when `PendingApproval` transaction is created
+- `CurrencyPositionService::getAvailableBalance()` returns balance minus pending reservations
+- `consumeStockReservation()` called at approval time — fails if stock no longer available
+- `releaseStockReservation()` releases reservation on cancel/expire
+- `reservation:expire` command releases stale reservations (24-hour expiry)
+
+**7. Domain Exceptions**
+- Business rule violations use typed exceptions in `app/Exceptions/Domain/`:
+  - `InsufficientStockException` - Sell with insufficient foreign currency
+  - `StockReservationExpiredException` - Reservation not found at approval
+  - `TillAlreadyOpenException` / `UserAlreadyAtCounterException` - Counter state errors
+  - `TillBalanceMissingException` - Required MYR till balance missing
+- Generic `throw new Exception` should not be used for business rules
+
+**8. Event-Driven Architecture**
 Events fire for critical operations (`TransactionCreated`, `CounterSessionOpened`, etc.) with listeners for audit logging, notifications, and compliance triggers.
 
-**7. Background Processing**
+**9. Background Processing**
 Laravel queues handle async compliance screening, STR report submission, and sanctions rescreening via `App\Jobs\`.
 
-**8. Role Hierarchy**
+**10. Role Hierarchy**
 Permissions inherit upward: `Admin` > `ComplianceOfficer` > `Manager` > `Teller`.
 - Managers can approve large transactions but not configure system settings
 - Compliance Officers handle AML workflows, not daily operations
 
-**9. Security Features**
+**11. Security Features**
 - MFA required for ALL roles including Tellers (BNM compliance)
 - IP-based blocking after 10 failed login attempts (5-minute window, 1-hour block duration)
 - Strict rate limiting on sensitive endpoints (login: 5/min, API: 30/min, transactions: 10/min, STR: 3/min, bulk: 1/5min, export: 5/min, sensitive: 3/min)
@@ -139,6 +160,7 @@ Routes use these middleware:
 | `RevaluationService` | Monthly currency revaluation |
 | `CounterService` | Till/counter lifecycle (open, close, handover) |
 | `TransactionService` | Core transaction operations |
+| `CurrencyPositionService` | Stock/position management with reservation system |
 | `ComplianceService` | CDD determination and CTOS reporting |
 | `TransactionMonitoringService` | Automated compliance monitoring |
 | `CustomerRiskScoringService` | Customer risk scoring with lock/unlock |
@@ -146,6 +168,7 @@ Routes use these middleware:
 | `EddService` | Enhanced Due Diligence workflow |
 | `CaseManagementService` | Compliance case management |
 | `MathService` | BCMath precision calculations |
+| `AuditService` | Audit log with async hash sealing |
 | `AuditService` | Audit log with hash chaining verification |
 
 ### Counter Management
@@ -185,6 +208,7 @@ BNM compliance reports via Artisan commands:
 
 Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`. Key test files:
 - `tests/Feature/TransactionWorkflowTest.php` - Transaction creation, approval, cancellation
+- `tests/Feature/TransactionTest.php` - Transaction web controller tests
 - `tests/Feature/RealWorldTransactionWorkflowTest.php` - End-to-end transaction scenarios
 - `tests/Feature/RouteConsistencyTest.php` - Route/role access verification
 - `tests/Feature/AccountingWorkflowTest.php` - Journal entries, periods, closing
@@ -196,9 +220,11 @@ Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`.
 - `tests/Feature/JournalEntryWorkflowTest.php` - Journal draft → pending → posted workflow
 - `tests/Unit/AmlRuleTest.php` - AML rule engine
 - `tests/Unit/MathServiceTest.php` - BCMath precision
-- `tests/Unit/CurrencyPositionServiceTest.php` - Stock/position calculations
+- `tests/Unit/CurrencyPositionServiceTest.php` - Stock/position calculations, reservations
 - `tests/Unit/AuditServiceTest.php` - Hash chaining verification (`verifyChainIntegrity`)
 - `tests/Unit/FinancialRatioServiceTest.php` - Liquidity, profitability, leverage, efficiency ratios
+- `tests/Unit/TransactionServiceTest.php` - Transaction service unit tests
+- `tests/Unit/CustomerBlindIndexTest.php` - Customer blind indexing tests
 - `tests/Unit/CashFlowServiceTest.php` - Cash flow statement generation
 - `tests/Unit/RiskRatingServiceTest.php` - Risk scoring (uses real DB, not facade mocks)
 - `tests/Unit/ComplianceServiceTest.php` - CDD levels, sanctions, velocity, structuring (uses real DB)
@@ -212,7 +238,10 @@ Tests use `RefreshDatabase` trait and are in `tests/Feature/` and `tests/Unit/`.
 - **RBAC**: Check permissions via enum methods, not string comparison.
 - **Services over Controllers**: Business logic belongs in services, not controllers.
 - **Encryption**: Use `EncryptionService` with random IV per encryption (IV prepended to ciphertext).
+- **Blind Indexing**: Customer `id_number` uses HMAC-SHA256 blind index (`Customer::findByIdNumber()`) for exact-match KYC search without decrypting PII.
+- **Async Audit Hashing**: `AuditService::logWithSeverity()` creates entries with null hash; `SealAuditHashJob` seals the chain asynchronously via queue to avoid global DB lock contention.
 - **File Uploads**: Sanitize filenames with `basename()` or use `Str::uuid()` for naming.
 - **Query Parameters**: Use parameterized queries for user-supplied values in LIKE clauses.
 - **Cancellation**: ALL transaction cancellations require manager approval via `PendingCancellation` workflow.
 - **Concurrency**: Use `lockForUpdate()` for position updates to prevent race conditions.
+- **Database Transactions**: Wrap multi-step financial operations in `DB::transaction()` for atomicity (especially transactions ≥ RM 50,000).
