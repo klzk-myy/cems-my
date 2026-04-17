@@ -7,14 +7,18 @@ use App\Enums\TellerAllocationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
+use App\Exceptions\Domain\InsufficientStockException;
 use App\Models\Branch;
 use App\Models\Counter;
 use App\Models\Currency;
+use App\Models\CurrencyPosition;
 use App\Models\Customer;
+use App\Models\StockReservation;
 use App\Models\TellerAllocation;
 use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\CurrencyPositionService;
 use App\Services\TransactionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -24,6 +28,8 @@ class TransactionServiceTest extends TestCase
     use RefreshDatabase;
 
     protected TransactionService $transactionService;
+
+    protected CurrencyPositionService $positionService;
 
     protected User $teller;
 
@@ -45,6 +51,7 @@ class TransactionServiceTest extends TestCase
 
         // Use Laravel container to resolve services with correct dependencies
         $this->transactionService = app(TransactionService::class);
+        $this->positionService = app(CurrencyPositionService::class);
 
         // Setup test data
         $this->setupTestData();
@@ -391,5 +398,150 @@ class TransactionServiceTest extends TestCase
 
         $this->assertEquals(CddLevel::Enhanced, $transaction->cdd_level);
         $this->assertEquals(TransactionStatus::OnHold, $transaction->status);
+    }
+
+    public function test_get_available_balance_excludes_pending_reservations(): void
+    {
+        // Create a position with 1000 USD
+        $position = CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => 'TEST-TILL',
+            'balance' => '1000.00',
+            'avg_cost_rate' => '4.50',
+            'last_valuation_rate' => '4.50',
+        ]);
+
+        // Create a pending reservation for 300 USD
+        StockReservation::create([
+            'transaction_id' => 99999, // dummy
+            'currency_code' => 'USD',
+            'till_id' => 'TEST-TILL',
+            'amount_foreign' => '300.00',
+            'status' => StockReservation::STATUS_PENDING,
+            'expires_at' => now()->addHours(24),
+            'created_by' => $this->teller->id,
+        ]);
+
+        $available = $this->positionService->getAvailableBalance('USD', 'TEST-TILL');
+
+        $this->assertEquals('700.00000000', $available);
+    }
+
+    public function test_reservation_consumed_on_transaction_approval(): void
+    {
+        $customer = Customer::factory()->create();
+        $counter = Counter::factory()->create();
+
+        // Create till balances
+        TillBalance::create([
+            'till_id' => (string) $counter->id,
+            'currency_code' => 'USD',
+            'opening_balance' => '0',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        TillBalance::create([
+            'till_id' => (string) $counter->id,
+            'currency_code' => 'MYR',
+            'opening_balance' => '100000.00',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        // Create position for sell
+        CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => (string) $counter->id,
+            'balance' => '1000.00',
+            'avg_cost_rate' => '4.50',
+            'last_valuation_rate' => '4.50',
+        ]);
+
+        // Create transaction that will go to PendingApproval
+        $data = [
+            'customer_id' => $customer->id,
+            'currency_code' => 'USD',
+            'type' => TransactionType::Sell->value,
+            'amount_foreign' => '500.00',
+            'rate' => '4.50',
+            'purpose' => 'Test',
+            'source_of_funds' => 'salary',
+            'till_id' => (string) $counter->id,
+        ];
+
+        $transaction = $this->transactionService->createTransaction($data, $this->teller->id);
+
+        $this->assertEquals(TransactionStatus::PendingApproval->value, $transaction->status);
+
+        // Verify reservation was created
+        $reservation = StockReservation::where('transaction_id', $transaction->id)->first();
+        $this->assertNotNull($reservation);
+        $this->assertEquals(StockReservation::STATUS_PENDING, $reservation->status);
+
+        // Approve the transaction
+        $manager = User::factory()->manager()->create();
+        $result = $this->transactionService->approveTransaction($transaction, $manager->id);
+
+        $this->assertTrue($result['success']);
+
+        // Verify reservation was consumed
+        $reservation->refresh();
+        $this->assertEquals(StockReservation::STATUS_CONSUMED, $reservation->status);
+    }
+
+    public function test_approval_fails_if_stock_no_longer_available(): void
+    {
+        $customer = Customer::factory()->create();
+
+        // Position has 500 USD
+        $position = CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'till_id' => 'TEST-TILL',
+            'balance' => '500.00',
+            'avg_cost_rate' => '4.50',
+            'last_valuation_rate' => '4.50',
+        ]);
+
+        // Create till balance
+        TillBalance::create([
+            'till_id' => 'TEST-TILL',
+            'currency_code' => 'USD',
+            'opening_balance' => '0',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        TillBalance::create([
+            'till_id' => 'TEST-TILL',
+            'currency_code' => 'MYR',
+            'opening_balance' => '100000.00',
+            'date' => today(),
+            'opened_by' => $this->teller->id,
+        ]);
+
+        // Create a PendingApproval transaction for 300 USD (reservation created)
+        $data = [
+            'customer_id' => $customer->id,
+            'currency_code' => 'USD',
+            'type' => TransactionType::Sell->value,
+            'amount_foreign' => '300.00',
+            'rate' => '4.50',
+            'purpose' => 'Test',
+            'source_of_funds' => 'salary',
+            'till_id' => 'TEST-TILL',
+        ];
+
+        $transaction = $this->transactionService->createTransaction($data, $this->teller->id);
+
+        // Manually reduce position to 100 (simulating another transaction consuming stock)
+        $position->update(['balance' => '100.00']);
+
+        // Approval should now fail
+        $manager = User::factory()->manager()->create();
+        $result = $this->transactionService->approveTransaction($transaction, $manager->id);
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('Insufficient stock', $result['message']);
     }
 }
