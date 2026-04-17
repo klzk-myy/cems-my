@@ -18,6 +18,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use App\Exceptions\Domain\InsufficientStockException;
+use App\Exceptions\Domain\StockReservationExpiredException;
 
 /**
  * Transaction Service
@@ -266,6 +268,9 @@ class TransactionService
             // This ensures transaction and task are always linked; if task creation fails,
             // the entire transaction rolls back.
             if ($status === TransactionStatus::PendingApproval) {
+                // Reserve the stock immediately so it cannot be oversold
+                $this->positionService->reserveStock($transaction);
+
                 try {
                     $this->approvalWorkflowService->createApprovalTask($transaction);
                 } catch (\Exception $e) {
@@ -676,6 +681,28 @@ class TransactionService
             if (! $tillBalance) {
                 throw new \RuntimeException(
                     'Till balance not found for today. Cannot complete transaction.'
+                );
+            }
+
+            // Find and consume the stock reservation
+            $reservation = $this->positionService->consumeStockReservation($lockedTransaction->id);
+
+            if (! $reservation) {
+                throw new StockReservationExpiredException($lockedTransaction->id);
+            }
+
+            // Verify stock is still available (reservation protects this, but double-check)
+            $available = $this->positionService->getAvailableBalance(
+                $lockedTransaction->currency_code,
+                (string) $lockedTransaction->till_id
+            );
+
+            if ($this->mathService->compare($available, (string) $lockedTransaction->amount_foreign) < 0) {
+                $this->positionService->releaseStockReservation($lockedTransaction->id);
+                throw new InsufficientStockException(
+                    $lockedTransaction->currency_code,
+                    (string) $lockedTransaction->amount_foreign,
+                    $available
                 );
             }
 
