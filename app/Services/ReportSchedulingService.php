@@ -8,7 +8,11 @@ use App\Models\ReportRun;
 use App\Models\ReportSchedule;
 use Illuminate\Support\Facades\Storage;
 
-class ComplianceReportingService
+/**
+ * Service for managing report scheduling and execution.
+ * Handles creating schedules, running reports, and tracking history.
+ */
+class ReportSchedulingService
 {
     public function __construct(
         protected ReportingService $reportingService,

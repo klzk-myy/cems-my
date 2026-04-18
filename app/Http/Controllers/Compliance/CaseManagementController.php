@@ -7,14 +7,14 @@ use App\Models\Alert;
 use App\Models\Compliance\ComplianceCase;
 use App\Models\Compliance\ComplianceCaseDocument;
 use App\Models\Compliance\ComplianceCaseLink;
-use App\Services\CaseManagementService;
+use App\Services\AlertCaseManagementService;
 use App\Services\Compliance\CaseManagementService as ComplianceCaseManagementService;
 use Illuminate\Http\Request;
 
 class CaseManagementController extends Controller
 {
     public function __construct(
-        protected CaseManagementService $caseManagementService,
+        protected AlertCaseManagementService $alertCaseManagementService,
         protected ComplianceCaseManagementService $complianceCaseManagementService
     ) {}
 
@@ -35,7 +35,7 @@ class CaseManagementController extends Controller
             ->orderBy('sla_deadline')
             ->paginate(25);
 
-        $summary = $this->caseManagementService->getCaseSummary();
+        $summary = $this->alertCaseManagementService->getCaseSummary();
 
         return view('compliance.cases.index', compact('cases', 'summary'));
     }
@@ -47,7 +47,7 @@ class CaseManagementController extends Controller
             'alert_ids.*' => 'exists:alerts,id',
         ]);
 
-        $case = $this->caseManagementService->createFromAlerts(
+        $case = $this->alertCaseManagementService->createFromAlerts(
             $request->alert_ids,
             auth()->id()
         );
@@ -71,7 +71,7 @@ class CaseManagementController extends Controller
         ]);
 
         if ($request->has('status')) {
-            $case = $this->caseManagementService->updateStatus($case, $request->status);
+            $case = $this->alertCaseManagementService->updateStatus($case, $request->status);
         }
 
         if ($request->has('notes')) {
@@ -89,7 +89,7 @@ class CaseManagementController extends Controller
 
         $targetCase = ComplianceCase::findOrFail($request->target_case_id);
 
-        $mergedCase = $this->caseManagementService->mergeCases($case, $targetCase);
+        $mergedCase = $this->alertCaseManagementService->mergeCases($case, $targetCase);
 
         return redirect()->route('compliance.cases.show', $mergedCase->id)
             ->with('success', 'Cases merged successfully');
@@ -103,7 +103,7 @@ class CaseManagementController extends Controller
 
         $alert = Alert::findOrFail($request->alert_id);
 
-        $this->caseManagementService->linkAlertToCase($alert, $case);
+        $this->alertCaseManagementService->linkAlertToCase($alert, $case);
 
         return redirect()->back()->with('success', 'Alert linked to case');
     }
@@ -114,7 +114,7 @@ class CaseManagementController extends Controller
             'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
         ]);
 
-        $document = $this->caseManagementService->addDocument(
+        $document = $this->alertCaseManagementService->addDocument(
             $case->id,
             $request->file('file'),
             auth()->id()
@@ -129,7 +129,7 @@ class CaseManagementController extends Controller
             abort(403, 'Document does not belong to this case');
         }
 
-        $this->caseManagementService->verifyDocument($document->id, auth()->id());
+        $this->alertCaseManagementService->verifyDocument($document->id, auth()->id());
 
         return redirect()->back()->with('success', 'Document verified');
     }
@@ -141,7 +141,7 @@ class CaseManagementController extends Controller
             'linked_id' => 'required|integer',
         ]);
 
-        $this->caseManagementService->addLink($case->id, $request->linked_type, $request->linked_id);
+        $this->alertCaseManagementService->addLink($case->id, $request->linked_type, $request->linked_id);
 
         return redirect()->back()->with('success', 'Link added');
     }
@@ -152,7 +152,7 @@ class CaseManagementController extends Controller
             abort(403, 'Link does not belong to this case');
         }
 
-        $this->caseManagementService->removeLink($link->id);
+        $this->alertCaseManagementService->removeLink($link->id);
 
         return redirect()->back()->with('success', 'Link removed');
     }

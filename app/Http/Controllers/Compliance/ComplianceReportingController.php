@@ -5,14 +5,14 @@ namespace App\Http\Controllers\Compliance;
 use App\Http\Controllers\Controller;
 use App\Models\ReportRun;
 use App\Models\ReportSchedule;
-use App\Services\ComplianceReportingService;
+use App\Services\ReportSchedulingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ComplianceReportingController extends Controller
 {
     public function __construct(
-        protected ComplianceReportingService $reportingService
+        protected ReportSchedulingService $reportingService
     ) {}
 
     public function index()

@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Compliance;
 
 use App\Http\Controllers\Controller;
 use App\Services\AlertTriageService;
-use App\Services\CaseManagementService;
-use App\Services\ComplianceReportingService;
+use App\Services\AlertCaseManagementService;
+use App\Services\ReportSchedulingService;
 use App\Services\CustomerRiskScoringService;
 use App\Services\EddTemplateService;
 use App\Services\StrAutomationService;
@@ -14,9 +14,9 @@ class ComplianceWorkspaceController extends Controller
 {
     public function __construct(
         protected AlertTriageService $alertTriageService,
-        protected CaseManagementService $caseManagementService,
+        protected AlertCaseManagementService $caseManagementService,
         protected CustomerRiskScoringService $riskScoringService,
-        protected ComplianceReportingService $reportingService,
+        protected ReportSchedulingService $reportingService,
         protected StrAutomationService $strAutomationService,
         protected EddTemplateService $eddTemplateService,
     ) {}

@@ -13,7 +13,11 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class CaseManagementService
+/**
+ * Service for managing cases created from alerts.
+ * Handles case creation from alerts, linking, merging, and document management.
+ */
+class AlertCaseManagementService
 {
     public function __construct(
         protected AlertTriageService $alertTriageService,
