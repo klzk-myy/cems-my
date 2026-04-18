@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\JournalEntryStatus;
 use App\Enums\UserRole;
 use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
@@ -96,7 +97,7 @@ class JournalEntryWorkflowService
      */
     public function submitForApproval(JournalEntry $entry): JournalEntry
     {
-        if ($entry->status !== 'Draft') {
+        if ($entry->status !== JournalEntryStatus::Draft) {
             throw new \InvalidArgumentException('Only draft entries can be submitted for approval');
         }
 
@@ -140,7 +141,7 @@ class JournalEntryWorkflowService
             throw new \InvalidArgumentException('Cannot approve your own journal entry');
         }
 
-        if ($entry->status !== 'Pending') {
+        if ($entry->status !== JournalEntryStatus::Pending) {
             throw new \InvalidArgumentException('Only pending entries can be approved');
         }
 
@@ -151,7 +152,7 @@ class JournalEntryWorkflowService
                 ->firstOrFail();
 
             // Re-check status after acquiring lock
-            if ($lockedEntry->status !== 'Pending') {
+            if ($lockedEntry->status !== JournalEntryStatus::Pending) {
                 throw new \InvalidArgumentException('Journal entry is no longer pending; it may have been processed by another user');
             }
 
@@ -201,7 +202,7 @@ class JournalEntryWorkflowService
             throw new \InvalidArgumentException('User does not have permission to reject entries');
         }
 
-        if ($entry->status !== 'Pending') {
+        if ($entry->status !== JournalEntryStatus::Pending) {
             throw new \InvalidArgumentException('Only pending entries can be rejected');
         }
 
@@ -230,7 +231,7 @@ class JournalEntryWorkflowService
     {
         $userId = auth()->id();
 
-        if ($entry->status !== 'Draft') {
+        if ($entry->status !== JournalEntryStatus::Draft) {
             throw new \InvalidArgumentException('Only draft entries can be posted directly');
         }
 
@@ -271,7 +272,7 @@ class JournalEntryWorkflowService
     {
         $userId = auth()->id();
 
-        if ($entry->status !== 'Posted') {
+        if ($entry->status !== JournalEntryStatus::Posted) {
             throw new \InvalidArgumentException('Only posted entries can be reversed');
         }
 

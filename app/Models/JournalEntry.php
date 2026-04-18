@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\JournalEntryStatus;
 use App\Services\MathService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -74,6 +75,7 @@ class JournalEntry extends Model
         'posted_at' => 'datetime',
         'reversed_at' => 'datetime',
         'approved_at' => 'datetime',
+        'status' => JournalEntryStatus::class,
     ];
 
     /**
@@ -145,7 +147,7 @@ class JournalEntry extends Model
      */
     public function isPosted(): bool
     {
-        return $this->status === 'Posted';
+        return $this->status === JournalEntryStatus::Posted;
     }
 
     /**
@@ -153,7 +155,7 @@ class JournalEntry extends Model
      */
     public function isDraft(): bool
     {
-        return $this->status === 'Draft';
+        return $this->status === JournalEntryStatus::Draft;
     }
 
     /**
@@ -161,7 +163,7 @@ class JournalEntry extends Model
      */
     public function isPending(): bool
     {
-        return $this->status === 'Pending';
+        return $this->status === JournalEntryStatus::Pending;
     }
 
     /**
@@ -169,7 +171,7 @@ class JournalEntry extends Model
      */
     public function isRejected(): bool
     {
-        return $this->status === 'Rejected';
+        return $this->status === JournalEntryStatus::Rejected;
     }
 
     /**
@@ -177,7 +179,7 @@ class JournalEntry extends Model
      */
     public function isReversed(): bool
     {
-        return $this->status === 'Reversed';
+        return $this->status === JournalEntryStatus::Reversed;
     }
 
     /**
