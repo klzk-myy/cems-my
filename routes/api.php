@@ -1,11 +1,11 @@
 <?php
 
-use App\Http\Controllers\Api\Compliance\AlertController;
-use App\Http\Controllers\Api\Compliance\CaseController;
-use App\Http\Controllers\Api\Compliance\DashboardController;
-use App\Http\Controllers\Api\Compliance\EddController;
-use App\Http\Controllers\Api\Compliance\FindingController;
-use App\Http\Controllers\Api\Compliance\RiskController;
+use App\Http\Controllers\Api\V1\Compliance\AlertController as V1AlertController;
+use App\Http\Controllers\Api\V1\Compliance\CaseController as V1CaseController;
+use App\Http\Controllers\Api\V1\Compliance\DashboardController as V1DashboardController;
+use App\Http\Controllers\Api\V1\Compliance\EddController as V1EddController;
+use App\Http\Controllers\Api\V1\Compliance\FindingController as V1FindingController;
+use App\Http\Controllers\Api\V1\Compliance\RiskController as V1RiskController;
 use App\Http\Controllers\Api\SanctionsWebhookController;
 use App\Http\Controllers\Api\V1\CustomerController as V1CustomerController;
 use App\Http\Controllers\Api\V1\SanctionListController;
@@ -126,54 +126,54 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Compliance Findings API
     Route::prefix('compliance')->group(function () {
-        Route::get('/findings', [FindingController::class, 'index']);
-        Route::get('/findings/stats', [FindingController::class, 'stats']);
-        Route::get('/findings/{id}', [FindingController::class, 'show']);
-        Route::post('/findings/{id}/dismiss', [FindingController::class, 'dismiss']);
+        Route::get('/findings', [V1FindingController::class, 'index']);
+        Route::get('/findings/stats', [V1FindingController::class, 'stats']);
+        Route::get('/findings/{id}', [V1FindingController::class, 'show']);
+        Route::post('/findings/{id}/dismiss', [V1FindingController::class, 'dismiss']);
 
         // Alerts API
-        Route::get('/alerts', [AlertController::class, 'index']);
-        Route::get('/alerts/summary', [AlertController::class, 'summary']);
-        Route::get('/alerts/overdue', [AlertController::class, 'overdue']);
-        Route::post('/alerts/bulk-assign', [AlertController::class, 'bulkAssign']);
-        Route::post('/alerts/bulk-resolve', [AlertController::class, 'bulkResolve']);
-        Route::post('/alerts/auto-assign', [AlertController::class, 'autoAssign']);
-        Route::get('/alerts/{id}', [AlertController::class, 'show']);
+        Route::get('/alerts', [V1AlertController::class, 'index']);
+        Route::get('/alerts/summary', [V1AlertController::class, 'summary']);
+        Route::get('/alerts/overdue', [V1AlertController::class, 'overdue']);
+        Route::post('/alerts/bulk-assign', [V1AlertController::class, 'bulkAssign']);
+        Route::post('/alerts/bulk-resolve', [V1AlertController::class, 'bulkResolve']);
+        Route::post('/alerts/auto-assign', [V1AlertController::class, 'autoAssign']);
+        Route::get('/alerts/{id}', [V1AlertController::class, 'show']);
 
         // Cases API
-        Route::get('/cases', [CaseController::class, 'index']);
-        Route::post('/cases', [CaseController::class, 'store']);
-        Route::get('/cases/{id}', [CaseController::class, 'show']);
-        Route::patch('/cases/{id}', [CaseController::class, 'update']);
-        Route::post('/cases/{id}/notes', [CaseController::class, 'addNote']);
-        Route::post('/cases/{id}/close', [CaseController::class, 'close']);
-        Route::post('/cases/{id}/escalate', [CaseController::class, 'escalate']);
-        Route::get('/cases/{id}/timeline', [CaseController::class, 'timeline']);
+        Route::get('/cases', [V1CaseController::class, 'index']);
+        Route::post('/cases', [V1CaseController::class, 'store']);
+        Route::get('/cases/{id}', [V1CaseController::class, 'show']);
+        Route::patch('/cases/{id}', [V1CaseController::class, 'update']);
+        Route::post('/cases/{id}/notes', [V1CaseController::class, 'addNote']);
+        Route::post('/cases/{id}/close', [V1CaseController::class, 'close']);
+        Route::post('/cases/{id}/escalate', [V1CaseController::class, 'escalate']);
+        Route::get('/cases/{id}/timeline', [V1CaseController::class, 'timeline']);
 
         // EDD API
-        Route::get('/edd', [EddController::class, 'index']);
-        Route::get('/edd/templates', [EddController::class, 'templates']);
-        Route::get('/edd/{id}', [EddController::class, 'show']);
-        Route::post('/edd/{id}/questionnaire', [EddController::class, 'submitQuestionnaire']);
-        Route::post('/edd/{id}/approve', [EddController::class, 'approve']);
-        Route::post('/edd/{id}/reject', [EddController::class, 'reject']);
+        Route::get('/edd', [V1EddController::class, 'index']);
+        Route::get('/edd/templates', [V1EddController::class, 'templates']);
+        Route::get('/edd/{id}', [V1EddController::class, 'show']);
+        Route::post('/edd/{id}/questionnaire', [V1EddController::class, 'submitQuestionnaire']);
+        Route::post('/edd/{id}/approve', [V1EddController::class, 'approve']);
+        Route::post('/edd/{id}/reject', [V1EddController::class, 'reject']);
     });
 
     // Risk API
-    Route::get('/risk/portfolio', [RiskController::class, 'portfolio']);
-    Route::get('/risk/{customerId}', [RiskController::class, 'show']);
-    Route::get('/risk/{customerId}/history', [RiskController::class, 'history']);
-    Route::post('/risk/{customerId}/recalculate', [RiskController::class, 'recalculate']);
-    Route::post('/risk/{customerId}/lock', [RiskController::class, 'lock']);
-    Route::post('/risk/{customerId}/unlock', [RiskController::class, 'unlock']);
+    Route::get('/risk/portfolio', [V1RiskController::class, 'portfolio']);
+    Route::get('/risk/{customerId}', [V1RiskController::class, 'show']);
+    Route::get('/risk/{customerId}/history', [V1RiskController::class, 'history']);
+    Route::post('/risk/{customerId}/recalculate', [V1RiskController::class, 'recalculate']);
+    Route::post('/risk/{customerId}/lock', [V1RiskController::class, 'lock']);
+    Route::post('/risk/{customerId}/unlock', [V1RiskController::class, 'unlock']);
 
     // Dashboard API
     Route::prefix('compliance')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'kpis']);
-        Route::get('/calendar', [DashboardController::class, 'calendar']);
-        Route::get('/case-aging', [DashboardController::class, 'caseAging']);
-        Route::get('/audit-trail', [DashboardController::class, 'auditTrail']);
-        Route::get('/audit-trail/export', [DashboardController::class, 'auditTrailExport']);
-        Route::get('/reports/auto', [DashboardController::class, 'autoReports']);
+        Route::get('/dashboard', [V1DashboardController::class, 'kpis']);
+        Route::get('/calendar', [V1DashboardController::class, 'calendar']);
+        Route::get('/case-aging', [V1DashboardController::class, 'caseAging']);
+        Route::get('/audit-trail', [V1DashboardController::class, 'auditTrail']);
+        Route::get('/audit-trail/export', [V1DashboardController::class, 'auditTrailExport']);
+        Route::get('/reports/auto', [V1DashboardController::class, 'autoReports']);
     });
 });
