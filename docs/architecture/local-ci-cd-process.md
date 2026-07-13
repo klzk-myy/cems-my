@@ -109,7 +109,10 @@ scripts/ci/pipeline.sh staging
    - `DEPLOY_APP_URL`
    - `DEPLOY_BRANCH`
 3. Builds SSH options; adds `-i <key>` if `DEPLOY_SSH_KEY` is configured
-4. SSHes to the target server and runs:
+4. SSHes to the target server and runs the steps below.
+   In **local mode** (`DEPLOY_LOCAL=true`, or `DEPLOY_HOST=127.0.0.1`/`localhost`)
+   the same steps run directly on this machine without SSH — used for the
+   local staging site `http://staging.local.host`:
 
 ```bash
 git fetch origin <DEPLOY_BRANCH>
@@ -134,11 +137,12 @@ php artisan horizon:terminate || echo "WARNING: failed to terminate Horizon"
 sudo supervisorctl restart cems-worker:* || echo "WARNING: failed to restart queue workers"
 
 sudo systemctl reload php8.3-fpm || echo "WARNING: failed to reload php8.3-fpm"
-sudo systemctl reload nginx || echo "WARNING: failed to reload nginx"
+sudo systemctl reload nginx || sudo /etc/init.d/httpd reload || echo "WARNING: failed to reload web server"
 ```
 
 5. Waits 5 seconds for services to settle
-6. Performs a health check against `DEPLOY_APP_URL/health`
+6. Performs a health check against `DEPLOY_APP_URL/up` (public Laravel health route;
+   `/health` is authenticated and returns dependency details)
 7. Sends a Slack notification if `SLACK_WEBHOOK_URL` is configured
 
 ## Deployment Configuration
@@ -194,7 +198,7 @@ The old workflow files `.github/workflows/ci.yml` and `.github/workflows/staging
 - TruffleHog runs in advisory mode. It logs warnings but does not fail the security stage. To make it blocking, change the exit handling in `scripts/ci/security.sh`.
 - Service reloads (`php8.3-fpm`, `nginx`, `supervisorctl`) assume the deploy user has passwordless `sudo` on the target server.
 - SSH uses `StrictHostKeyChecking=accept-new`. For stricter security, pin the target host key in a `known_hosts` file and update `scripts/ci/deploy.sh` to use it.
-- Actual staging and production deploys, plus smoke tests, are still manual steps after creating the appropriate `.env.deploy.*` file.
+- Local staging is configured: `make deploy-staging` deploys to `/www/wwwroot/staging.local.host` (vhost `http://staging.local.host`, sqlite DB, sync queue) in local mode — no SSH required. Production deploys and smoke tests remain manual steps after creating `.env.deploy.production`.
 
 ## Smoke Test Checklist After Deploy
 

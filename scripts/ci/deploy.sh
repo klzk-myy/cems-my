@@ -21,11 +21,26 @@ fi
 
 deploy_target="$DEPLOY_USER@$DEPLOY_HOST"
 
-log_info "Deploying to $ENVIRONMENT ($deploy_target:$DEPLOY_PATH)"
+# Local mode: deploy to a directory on this machine without SSH.
+# Enabled explicitly via DEPLOY_LOCAL=true or when DEPLOY_HOST is loopback.
+DEPLOY_LOCAL="${DEPLOY_LOCAL:-false}"
+if [[ "$DEPLOY_HOST" == "localhost" || "$DEPLOY_HOST" == "127.0.0.1" ]]; then
+  DEPLOY_LOCAL=true
+fi
 
-run_remote() {
-  ssh "${SSH_OPTS[@]}" "$deploy_target" "$@"
-}
+if [[ "$DEPLOY_LOCAL" == "true" ]]; then
+  log_info "Deploying to $ENVIRONMENT (local: $DEPLOY_PATH)"
+
+  run_remote() {
+    bash -c "$*"
+  }
+else
+  log_info "Deploying to $ENVIRONMENT ($deploy_target:$DEPLOY_PATH)"
+
+  run_remote() {
+    ssh "${SSH_OPTS[@]}" "$deploy_target" "$@"
+  }
+fi
 
 run_remote "DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") DEPLOY_BRANCH=$(printf '%q' "$DEPLOY_BRANCH") bash -s" <<'REMOTE'
   set -euo pipefail
@@ -54,14 +69,14 @@ run_remote "DEPLOY_PATH=$(printf '%q' "$DEPLOY_PATH") DEPLOY_BRANCH=$(printf '%q
   sudo supervisorctl restart cems-worker:* || echo "WARNING: failed to restart queue workers"
 
   sudo systemctl reload php8.3-fpm || echo "WARNING: failed to reload php8.3-fpm"
-  sudo systemctl reload nginx || echo "WARNING: failed to reload nginx"
+  sudo systemctl reload nginx || sudo /etc/init.d/httpd reload || echo "WARNING: failed to reload web server"
 REMOTE
 
 log_info "Waiting for services to settle..."
 sleep 5
 
-log_info "Verifying deployment at $DEPLOY_APP_URL/health..."
-curl -fsS --connect-timeout 10 --max-time 30 "$DEPLOY_APP_URL/health" || fail "Health check failed"
+log_info "Verifying deployment at $DEPLOY_APP_URL/up..."
+curl -fsS --connect-timeout 10 --max-time 30 "$DEPLOY_APP_URL/up" || fail "Health check failed"
 
 if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
   log_info "Sending Slack success notification..."
