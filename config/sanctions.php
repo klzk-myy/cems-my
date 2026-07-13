@@ -5,7 +5,7 @@ return [
         'un_consolidated' => [
             'name' => 'UN Security Council Consolidated',
             'url' => 'https://www.opensanctions.org/datasets/un_sc_sanctions/targets.nested.json',
-            'format' => 'json',
+            'format' => 'JSON',
             'frequency' => 'daily',
             'list_type' => 'international',
             'default_list' => true,
@@ -13,7 +13,7 @@ return [
         'moha_malaysia' => [
             'name' => 'MOHA Malaysia Sanctions',
             'url' => 'https://www.opensanctions.org/datasets/my_moha_sanctions/targets.nested.json',
-            'format' => 'json',
+            'format' => 'JSON',
             'frequency' => 'weekly',
             'list_type' => 'national',
             'default_list' => true,
