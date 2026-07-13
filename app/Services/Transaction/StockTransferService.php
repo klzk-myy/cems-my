@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class StockTransferService
 {
-    protected User $requester;
+    protected ?User $requester = null;
 
     public function __construct(
         protected MathService $mathService,
