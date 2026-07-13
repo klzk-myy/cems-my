@@ -22,7 +22,7 @@ class AccountingPeriodSeeder extends Seeder
                 'start_date' => $currentStart->toDateString(),
                 'end_date' => $currentEnd->toDateString(),
                 'period_type' => 'month',
-                'status' => 'open',
+                'status' => 'Open',
             ]
         );
 
@@ -37,7 +37,7 @@ class AccountingPeriodSeeder extends Seeder
                 'start_date' => $prevStart->toDateString(),
                 'end_date' => $prevEnd->toDateString(),
                 'period_type' => 'month',
-                'status' => 'open',
+                'status' => 'Open',
             ]
         );
 
@@ -52,7 +52,7 @@ class AccountingPeriodSeeder extends Seeder
                 'start_date' => $nextStart->toDateString(),
                 'end_date' => $nextEnd->toDateString(),
                 'period_type' => 'month',
-                'status' => 'open',
+                'status' => 'Open',
             ]
         );
 
