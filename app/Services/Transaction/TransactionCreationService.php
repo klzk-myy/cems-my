@@ -25,6 +25,7 @@ use App\Services\Contracts\TransactionValidationInterface;
 use App\Services\System\CacheTagsService;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
+use App\Services\Traits\TillBalanceTrait;
 use App\Services\Transaction\DTOs\TransactionCreationContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,8 @@ use Illuminate\Support\Facades\Log;
 
 class TransactionCreationService implements TransactionCreationServiceInterface
 {
+    use TillBalanceTrait;
+
     public function __construct(
         protected TransactionIdempotencyServiceInterface $idempotencyService,
         protected CurrencyPositionService $positionService,
@@ -301,16 +304,6 @@ class TransactionCreationService implements TransactionCreationServiceInterface
         }
 
         return TransactionStatus::Completed;
-    }
-
-    private function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
-    {
-        $this->tillBalanceManager->applyTransaction(
-            $tillBalance,
-            TransactionType::from($type),
-            $amountLocal,
-            $amountForeign
-        );
     }
 
     private function createAccountingEntries(Transaction $transaction, ?string $ipAddress, ?Model $user = null): void

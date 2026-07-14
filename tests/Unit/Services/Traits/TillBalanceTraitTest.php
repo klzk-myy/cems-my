@@ -33,7 +33,7 @@ class TillBalanceTraitTest extends TestCase
             );
 
         $tillBalance = new TillBalance;
-        $this->updateTillBalance($tillBalance, TransactionType::Buy, '1000.00', '250.00');
+        $this->updateTillBalance($tillBalance, 'Buy', '1000.00', '250.00');
     }
 
     public function test_update_till_balance_with_sell_type(): void
@@ -50,6 +50,6 @@ class TillBalanceTraitTest extends TestCase
             );
 
         $tillBalance = new TillBalance;
-        $this->updateTillBalance($tillBalance, TransactionType::Sell, '500.00', '125.00');
+        $this->updateTillBalance($tillBalance, 'Sell', '500.00', '125.00');
     }
 }
