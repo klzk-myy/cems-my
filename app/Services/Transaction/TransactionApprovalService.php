@@ -22,11 +22,14 @@ use App\Services\Branch\TillBalanceManager;
 use App\Services\Contracts\TransactionApprovalServiceInterface;
 use App\Services\DTOs\ApprovalResult;
 use App\Services\System\CacheTagsService;
+use App\Services\Traits\TillBalanceTrait;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
 class TransactionApprovalService implements TransactionApprovalServiceInterface
 {
+    use TillBalanceTrait;
+
     public function __construct(
         protected TransactionMonitoringService $monitoringService,
         protected CurrencyPositionService $positionService,
@@ -280,16 +283,6 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
         Event::dispatch(new TransactionApproved($transaction, $approverId));
 
         DB::afterCommit(fn () => $this->cacheTagsService->invalidate('dashboard'));
-    }
-
-    private function updateTillBalance($tillBalance, string $type, string $amountLocal, string $amountForeign): void
-    {
-        $this->tillBalanceManager->applyTransaction(
-            $tillBalance,
-            TransactionType::from($type),
-            $amountLocal,
-            $amountForeign
-        );
     }
 
     private function updateTellerAllocation(Transaction $transaction): void

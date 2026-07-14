@@ -8,7 +8,6 @@ use App\Enums\TransactionType;
 use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\Customer;
-use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\TransactionImport;
 use App\Services\Accounting\CurrencyPositionLockService;
@@ -18,11 +17,14 @@ use App\Services\Branch\TillBalanceManager;
 use App\Services\Compliance\ComplianceService;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
+use App\Services\Traits\TillBalanceTrait;
 use App\Support\BcmathHelper;
 use Illuminate\Support\Facades\DB;
 
 class TransactionImportService
 {
+    use TillBalanceTrait;
+
     protected ?TransactionImport $import = null;
 
     protected array $errors = [];
@@ -36,6 +38,7 @@ class TransactionImportService
         protected TransactionMonitoringService $monitoringService,
         protected CurrencyPositionLockService $positionLockService,
         protected ThresholdService $thresholdService,
+        protected TillBalanceManager $tillBalanceManager,
     ) {}
 
     /**
@@ -280,19 +283,5 @@ class TransactionImportService
                 'error' => $e->getMessage(),
             ];
         }
-    }
-
-    /**
-     * Update till balance for transaction
-     */
-    protected function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
-    {
-        app(TillBalanceManager::class)->applyTransaction(
-            $tillBalance,
-            TransactionType::from($type),
-            $amountLocal,
-            $amountForeign,
-            false
-        );
     }
 }

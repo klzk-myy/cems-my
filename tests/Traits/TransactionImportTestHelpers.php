@@ -11,6 +11,7 @@ use App\Models\TillBalance;
 use App\Models\TransactionImport;
 use App\Services\Accounting\CurrencyPositionLockService;
 use App\Services\Accounting\CurrencyPositionService;
+use App\Services\Branch\TillBalanceManager;
 use App\Services\Compliance\ComplianceService;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
@@ -79,6 +80,7 @@ trait TransactionImportTestHelpers
             app(TransactionMonitoringService::class),
             app(CurrencyPositionLockService::class),
             $thresholdService,
+            app(TillBalanceManager::class),
         );
     }
 
