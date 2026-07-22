@@ -22,13 +22,14 @@ use App\Services\Branch\TillBalanceManager;
 use App\Services\Contracts\TransactionApprovalServiceInterface;
 use App\Services\DTOs\ApprovalResult;
 use App\Services\System\CacheTagsService;
+use App\Services\Traits\AccountingEntriesTrait;
 use App\Services\Traits\TillBalanceTrait;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
 class TransactionApprovalService implements TransactionApprovalServiceInterface
 {
-    use TillBalanceTrait;
+    use AccountingEntriesTrait, TillBalanceTrait;
 
     public function __construct(
         protected TransactionMonitoringService $monitoringService,
@@ -288,15 +289,5 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
     private function updateTellerAllocation(Transaction $transaction): void
     {
         app(TellerAllocationService::class)->applyTransactionAllocation($transaction);
-    }
-
-    private function createAccountingEntries(Transaction $transaction, ?string $ipAddress, ?User $user): void
-    {
-        if ($transaction->cdd_level === CddLevel::Enhanced
-            && $transaction->status !== TransactionStatus::Completed) {
-            return;
-        }
-
-        $this->transactionAccountingService->createImmediateAccountingEntries($transaction);
     }
 }
