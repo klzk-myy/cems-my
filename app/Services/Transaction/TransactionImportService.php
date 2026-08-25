@@ -11,16 +11,20 @@ use App\Models\Customer;
 use App\Models\Transaction;
 use App\Models\TransactionImport;
 use App\Models\User;
+use App\Services\Accounting\CurrencyPositionLockService;
 use App\Services\Accounting\CurrencyPositionService;
 use App\Services\Branch\TillBalanceManager;
 use App\Services\Compliance\ComplianceService;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
+use App\Services\Traits\TillBalanceTrait;
 use App\Support\BcmathHelper;
 use Illuminate\Support\Facades\DB;
 
 class TransactionImportService
 {
+    use TillBalanceTrait;
+
     protected ?TransactionImport $import = null;
 
     protected array $errors = [];
@@ -42,6 +46,7 @@ class TransactionImportService
         protected TillBalanceManager $tillBalanceManager,
         protected TransactionCreationService $transactionCreationService,
         protected RateManagementService $rateManagementService,
+        protected CurrencyPositionLockService $positionLockService,
     ) {}
 
     /**

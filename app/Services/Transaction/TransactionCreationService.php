@@ -32,6 +32,8 @@ use App\Services\Contracts\TransactionValidationInterface;
 use App\Services\System\CacheTagsService;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
+use App\Services\Traits\AccountingEntriesTrait;
+use App\Services\Traits\TillBalanceTrait;
 use App\Services\Transaction\DTOs\TransactionCreationContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +43,8 @@ use Throwable;
 
 class TransactionCreationService implements TransactionCreationServiceInterface
 {
+    use AccountingEntriesTrait, TillBalanceTrait;
+
     public function __construct(
         protected TransactionIdempotencyServiceInterface $idempotencyService,
         protected CurrencyPositionService $positionService,
@@ -524,27 +528,5 @@ class TransactionCreationService implements TransactionCreationServiceInterface
         }
 
         return TransactionStatus::Completed;
-    }
-
-    private function createAccountingEntries(Transaction $transaction, ?string $ipAddress, ?Model $user = null): void
-    {
-        if ($transaction->cdd_level === CddLevel::Enhanced
-            && $transaction->status !== TransactionStatus::Completed) {
-            Log::info('Deferring journal entry creation for Enhanced CDD transaction', [
-                'transaction_id' => $transaction->id,
-                'status' => $transaction->status->value,
-                'cdd_level' => $transaction->cdd_level->value,
-            ]);
-
-            $this->auditTrailHelper->recordTransaction($transaction->id, 'journal_entries_deferred', [
-                'cdd_level' => $transaction->cdd_level->value,
-                'status' => $transaction->status->value,
-                'reason' => 'Enhanced CDD requires approval before bookkeeping',
-            ], $user instanceof User ? $user : null, 'INFO', $ipAddress);
-
-            return;
-        }
-
-        $this->transactionAccountingService->createImmediateAccountingEntries($transaction);
     }
 }

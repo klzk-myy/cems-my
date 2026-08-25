@@ -30,12 +30,16 @@ use App\Services\Contracts\TransactionApprovalServiceInterface;
 use App\Services\DTOs\ApprovalResult;
 use App\Services\System\CacheTagsService;
 use App\Services\System\MathService;
+use App\Services\Traits\AccountingEntriesTrait;
+use App\Services\Traits\TillBalanceTrait;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 
 class TransactionApprovalService implements TransactionApprovalServiceInterface
 {
+    use AccountingEntriesTrait, TillBalanceTrait;
+
     public function __construct(
         protected TransactionMonitoringService $monitoringService,
         protected CurrencyPositionService $positionService,
@@ -363,16 +367,6 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
     private function updateTellerAllocation(Transaction $transaction): void
     {
         $this->tellerAllocationService->applyTransactionAllocation($transaction);
-    }
-
-    private function createAccountingEntries(Transaction $transaction, ?string $ipAddress, ?User $user): void
-    {
-        if ($transaction->cdd_level === CddLevel::Enhanced
-            && $transaction->status !== TransactionStatus::Completed) {
-            return;
-        }
-
-        $this->transactionAccountingService->createImmediateAccountingEntries($transaction);
     }
 
     /**

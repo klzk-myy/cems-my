@@ -9,6 +9,7 @@ use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\TillBalance;
 use App\Models\TransactionImport;
+use App\Services\Accounting\CurrencyPositionLockService;
 use App\Services\Accounting\CurrencyPositionService;
 use App\Services\Branch\TillBalanceManager;
 use App\Services\Compliance\ComplianceService;
@@ -83,6 +84,7 @@ trait TransactionImportTestHelpers
             app(TillBalanceManager::class),
             app(TransactionCreationService::class),
             app(RateManagementService::class),
+            app(CurrencyPositionLockService::class),
         );
     }
 
