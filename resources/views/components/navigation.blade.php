@@ -32,7 +32,7 @@
                 @foreach($config['items'] as $item)
                     <li>
                         <a href="{{ route($item['route']) }}"
-                           class="flex items-center text-sm {{ $collapsed ? 'justify-center px-3' : 'px-4' }} py-2 hover:bg-sidebar-hover {{ request()->routeIs($item['route']) ? 'bg-sidebar-hover' : '' }}"
+                           class="flex items-center text-sm {{ $collapsed ? 'justify-center px-3' : 'px-4' }} py-2 hover:bg-sidebar-hover {{ request()->routeIs($item['route'] . '*') ? 'bg-sidebar-hover' : '' }}"
                            title="{{ $collapsed ? $item['label'] : '' }}">
                             <x-dynamic-component :component="'heroicon-o-' . ($item['icon'] ?? 'circle')" class="w-5 h-5 shrink-0" />
                             <span x-show="!collapsed" class="ml-3">{{ $item['label'] }}</span>

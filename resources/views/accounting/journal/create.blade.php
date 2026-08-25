@@ -9,21 +9,19 @@
         <form action="{{ route('accounting.journal.store') }}" method="POST" class="space-y-6">
             @csrf
 
-            <x-card>
-                <x-card class="space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <x-input type="date" name="date" label="Entry Date" value="{{ date('Y-m-d') }}" required />
-                        <x-input name="reference" label="Reference" placeholder="JE-0001" />
-                        <x-select
-                            name="status"
-                            label="Status"
-                            :options="['draft' => 'Draft', 'pending' => 'Pending', 'posted' => 'Posted']"
-                            selected="draft"
-                        />
-                    </div>
+            <x-card class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <x-input type="date" name="date" label="Entry Date" value="{{ date('Y-m-d') }}" required />
+                    <x-input name="reference" label="Reference" placeholder="JE-0001" />
+                    <x-select
+                        name="status"
+                        label="Status"
+                        :options="['draft' => 'Draft', 'pending' => 'Pending', 'posted' => 'Posted']"
+                        selected="draft"
+                    />
+                </div>
 
-                    <x-input name="description" label="Description" placeholder="Enter journal entry description" required />
-                </x-card>
+                <x-input name="description" label="Description" placeholder="Enter journal entry description" required />
             </x-card>
 
             <x-card title="Journal Lines">
@@ -97,23 +95,21 @@
                 </div>
             </x-card>
 
-            <x-card>
-                <x-card>
-                    <div class="flex justify-end gap-8">
-                        <div class="text-right">
-                            <p class="text-sm text-ink-muted">Total Debit</p>
-                            <p class="text-lg font-semibold" id="total-debit">0.00</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm text-ink-muted">Total Credit</p>
-                            <p class="text-lg font-semibold" id="total-credit">0.00</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm text-ink-muted">Difference</p>
-                            <p class="text-lg font-semibold" id="difference">0.00</p>
-                        </div>
+            <x-card class="space-y-6">
+                <div class="flex justify-end gap-8">
+                    <div class="text-right">
+                        <p class="text-sm text-ink-muted">Total Debit</p>
+                        <p class="text-lg font-semibold" id="total-debit">0.00</p>
                     </div>
-                </x-card>
+                    <div class="text-right">
+                        <p class="text-sm text-ink-muted">Total Credit</p>
+                        <p class="text-lg font-semibold" id="total-credit">0.00</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-ink-muted">Difference</p>
+                        <p class="text-lg font-semibold" id="difference">0.00</p>
+                    </div>
+                </div>
             </x-card>
 
             <div class="flex items-center justify-end gap-3">

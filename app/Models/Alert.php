@@ -74,4 +74,12 @@ class Alert extends BaseModel
     {
         return $query->where('status', FlagStatus::Resolved->value);
     }
+
+    /**
+     * Scope to filter critical priority alerts.
+     */
+    public function scopeCritical(Builder $query): Builder
+    {
+        return $query->where('priority', AlertPriority::Critical);
+    }
 }

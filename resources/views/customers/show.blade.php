@@ -21,18 +21,7 @@
                         </div>
                         <div>
                             <h2 class="text-lg font-semibold">{{ $customer->full_name ?? '-' }}</h2>
-                            @php
-                                $riskValue = $customer->risk_rating instanceof \App\Enums\RiskRating ? $customer->risk_rating->value : ($customer->risk_rating ?? 'Medium');
-
-                                $riskVariant = match (strtolower($riskValue)) {
-                                    'high' => 'danger',
-                                    'medium' => 'warning',
-                                    default => 'success',
-                                };
-                            @endphp
-                            <x-badge :variant="$riskVariant">
-                                {{ ucfirst($riskValue) }} Risk
-                            </x-badge>
+                            <x-risk-badge :customer="$customer" />
                         </div>
                     </div>
 

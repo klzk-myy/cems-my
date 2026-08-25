@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\TransactionType;
+use App\Models\Transaction;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
@@ -15,7 +16,20 @@ class StoreTransactionRequest extends AuthorizedFormRequest
      */
     public function authorize(): bool
     {
-        return auth()->check();
+        $user = $this->user();
+
+        return $user !== null && $user->can('create', Transaction::class);
+    }
+
+    /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'purpose' => trim($this->purpose ?? ''),
+            'source_of_funds' => trim($this->source_of_funds ?? ''),
+        ]);
     }
 
     /**
@@ -48,6 +62,23 @@ class StoreTransactionRequest extends AuthorizedFormRequest
     {
         return [
             'amount_foreign.min' => 'The transaction amount must be greater than zero.',
+            'amount_foreign.max' => 'The transaction amount exceeds the maximum allowed.',
+            'rate.min' => 'The exchange rate must be greater than zero.',
+            'purpose.required' => 'Please specify the purpose of this transaction.',
+            'source_of_funds.required' => 'Please specify the source of funds.',
+        ];
+    }
+
+    /**
+     * Get custom attributes for validator errors.
+     *
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'amount_foreign' => 'foreign currency amount',
+            'source_of_funds' => 'source of funds',
         ];
     }
 }

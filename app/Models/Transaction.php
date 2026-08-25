@@ -137,9 +137,32 @@ class Transaction extends TransactionModel
         return 'TX-'.str_pad((string) $this->id, 8, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Get the status badge variant for UI display.
+     */
+    public function getStatusVariantAttribute(): string
+    {
+        return match ($this->status?->value) {
+            'Completed' => 'success',
+            'Pending', 'PendingApproval' => 'warning',
+            'Cancelled' => 'danger',
+            default => 'gray',
+        };
+    }
+
     public function scopeCompleted(Builder $query): Builder
     {
         return $query->where('status', TransactionStatus::Completed->value);
+    }
+
+    public function scopePendingApproval(Builder $query): Builder
+    {
+        return $query->where('status', TransactionStatus::PendingApproval->value);
+    }
+
+    public function scopeToday(Builder $query): Builder
+    {
+        return $query->whereDate('created_at', today());
     }
 
     public function scopeNotCancelled(Builder $query): Builder

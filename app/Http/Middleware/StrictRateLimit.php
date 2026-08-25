@@ -47,8 +47,13 @@ class StrictRateLimit
         $decayMinutes = $config['decay_minutes'] ?? 1;
         $burstAllowance = $config['burst_allowance'] ?? 0;
 
-        // Generate rate limit key
+        // Generate rate limit key - include user ID for authenticated requests
+        // to prevent NAT-related rate limiting where multiple users share an IP
         $key = $this->rateLimitService->getRateLimitKey($request, $limiterName);
+
+        if ($user = $request->user()) {
+            $key = "user:{$user->id}:{$key}";
+        }
 
         // The burst allowance grants a small amount of extra capacity within the
         // SAME window (a token-bucket style credit). It must never let a client

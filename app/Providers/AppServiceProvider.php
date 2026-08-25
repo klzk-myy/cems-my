@@ -24,6 +24,7 @@ use App\View\Composers\NavigationComposer;
 use App\View\Composers\NotificationComposer;
 use App\View\Composers\UserComposer;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
@@ -86,6 +87,9 @@ class AppServiceProvider extends ServiceProvider
         // Note: Redis password override for tests is handled in tests/CreatesApplication.php
         // after app bootstrap. The runningUnitTests() check is unavailable during
         // AppServiceProvider::boot() because 'unitTesting' is set after provider boot.
+
+        // Prevent lazy loading during development to catch N+1 queries
+        Model::preventLazyLoading(! app()->isProduction());
 
         $this->registerMorphMap();
         $this->registerCarbonMacros();

@@ -480,4 +480,33 @@ class CustomerService implements CustomerServiceInterface
 
         return $document;
     }
+
+    /**
+     * Get customer show page data including document status and compliance stats.
+     *
+     * @return array{documentStatus: array, stats: array}
+     */
+    public function getCustomerShowData(Customer $customer): array
+    {
+        $documentStatus = [
+            'total' => $customer->documents_count,
+            'verified' => $customer->documents->filter->isVerified()->count(),
+            'pending' => $customer->documents->whereNull('verified_by')->whereNull('verified_at')->count(),
+            'expired' => $customer->documents->whereNotNull('expiry_date')->where('expiry_date', '<', now())->count(),
+        ];
+
+        $stats = [
+            'total_transactions' => $customer->transactions_count,
+            'total_value' => (float) ($customer->transactions_sum_amount_local ?? 0),
+            'alerts' => Alert::where('customer_id', $customer->id)->count(),
+            'str_filed' => StrReport::where('customer_id', $customer->id)
+                ->where('status', '!=', StrReportStatus::Draft->value)
+                ->count(),
+        ];
+
+        return [
+            'documentStatus' => $documentStatus,
+            'stats' => $stats,
+        ];
+    }
 }

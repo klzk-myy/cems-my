@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ComplianceFlagType;
 use App\Enums\FlagStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -49,5 +50,25 @@ class FlaggedTransaction extends BaseModel
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * Scope to filter open (unresolved) flags.
+     */
+    public function scopeOpen(Builder $query): Builder
+    {
+        return $query->where('status', FlagStatus::Open);
+    }
+
+    /**
+     * Scope to filter high priority flags.
+     */
+    public function scopeHighPriority(Builder $query): Builder
+    {
+        return $query->whereIn('flag_type', [
+            ComplianceFlagType::SanctionMatch,
+            ComplianceFlagType::Structuring,
+            ComplianceFlagType::Velocity,
+        ])->where('status', '!=', FlagStatus::Resolved);
     }
 }

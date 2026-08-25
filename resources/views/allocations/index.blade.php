@@ -9,38 +9,36 @@
         </x-page-header>
 
         <x-card>
-            <div class="overflow-x-auto">
-                <x-table>
-                    <x-slot:thead>
-                        <th>ID</th>
-                        <th>User</th>
-                        <th>Currency</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </x-slot:thead>
-                    <x-slot:tbody>
-                        @forelse($allocations as $allocation)
-                            <tr>
-                                <td>{{ $allocation->id }}</td>
-                                <td>{{ $allocation->user?->username }}</td>
-                                <td>{{ $allocation->currency?->code }}</td>
-                                <td>{{ number_format((float) $allocation->allocated_amount, 4) }}</td>
-                                <td>
-                                    <x-badge variant="{{ $allocation->status->value === 'Active' ? 'success' : ($allocation->status->value === 'Pending' ? 'warning' : 'info') }}">
-                                        {{ $allocation->status->value }}
-                                    </x-badge>
-                                </td>
-                                <td>
-                                    <x-button href="{{ route('allocations.show', $allocation->id) }}" variant="secondary">View</x-button>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="6" class="text-center text-ink-muted py-4">No allocations found.</td></tr>
-                        @endforelse
-                    </x-slot:tbody>
-                </x-table>
-            </div>
+            <x-table>
+                <x-slot:thead>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">User</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Currency</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Amount</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase">Status</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase">Actions</th>
+                </x-slot:thead>
+                <x-slot:tbody>
+                    @forelse($allocations as $allocation)
+                        <tr class="border-t border-border hover:bg-canvas-subtle">
+                            <td class="px-4 py-3">{{ $allocation->id }}</td>
+                            <td class="px-4 py-3">{{ $allocation->user?->username }}</td>
+                            <td class="px-4 py-3">{{ $allocation->currency?->code }}</td>
+                            <td class="px-4 py-3 text-right">{{ number_format((float) $allocation->allocated_amount, 4) }}</td>
+                            <td class="px-4 py-3 text-center">
+                                <x-badge variant="{{ $allocation->status->value === 'Active' ? 'success' : ($allocation->status->value === 'Pending' ? 'warning' : 'info') }}">
+                                    {{ $allocation->status->value }}
+                                </x-badge>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <x-button href="{{ route('allocations.show', $allocation->id) }}" variant="ghost" size="sm">View</x-button>
+                            </td>
+                        </tr>
+                    @empty
+                        <x-empty-state message="No allocations found." :colspan="6" />
+                    @endforelse
+                </x-slot:tbody>
+            </x-table>
             <div class="mt-4">{{ $allocations->links() }}</div>
         </x-card>
     </div>

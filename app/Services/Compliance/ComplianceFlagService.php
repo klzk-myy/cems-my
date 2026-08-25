@@ -74,4 +74,27 @@ class ComplianceFlagService
             'INFO'
         );
     }
+
+    /**
+     * Get compliance flag status counts for dashboard stats.
+     *
+     * @return array{open: int, under_review: int, resolved_today: int, high_priority: int}
+     */
+    public function getStatusCounts(): array
+    {
+        $counts = FlaggedTransaction::selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        return [
+            'open' => $counts->get('Open', 0),
+            'under_review' => $counts->get('Under_Review', 0),
+            'resolved_today' => FlaggedTransaction::where('status', 'Resolved')
+                ->whereDate('resolved_at', today())
+                ->count(),
+            'high_priority' => FlaggedTransaction::whereIn('flag_type', ['Sanction_Match', 'Structuring', 'Velocity'])
+                ->where('status', '!=', 'Resolved')
+                ->count(),
+        ];
+    }
 }

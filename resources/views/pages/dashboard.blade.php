@@ -61,7 +61,7 @@
                         <ul class="space-y-2">
                             @foreach(array_slice($monitoring['recent_alerts'], 0, 4) as $alert)
                                 <li class="text-sm flex items-start gap-2">
-                                    <span class="mt-1.5 w-2 h-2 rounded-full shrink-0 {{ $alert['level']->value === 'critical' ? 'bg-danger' : ($alert['level']->value === 'warning' ? 'bg-warning' : 'bg-info') }}"></span>
+                                    <span class="mt-1.5 w-2 h-2 rounded-full shrink-0 status-dot status-{{ $alert['level']->value }}"></span>
                                     <span class="min-w-0 flex-1">
                                         <span class="block truncate" title="{{ $alert['message'] }}">{{ $alert['message'] }}</span>
                                         <span class="block text-xs text-ink-muted">

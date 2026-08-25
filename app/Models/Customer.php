@@ -8,8 +8,6 @@ use App\Enums\IdType;
 use App\Enums\RiskRating;
 use App\Models\Compliance\CustomerBehavioralBaseline;
 use App\Models\Compliance\CustomerRiskProfile;
-use App\Services\Customer\CustomerService;
-use App\Services\System\EncryptionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -265,13 +263,8 @@ class Customer extends BaseModel
      */
     public function isHigherRisk(): bool
     {
-        if ($this->risk_rating instanceof RiskRating) {
-            return $this->risk_rating === RiskRating::Medium
-                || $this->risk_rating === RiskRating::High;
-        }
-
-        // Handle string fallback
-        return in_array($this->risk_rating, ['Medium', 'High']);
+        return $this->risk_rating === RiskRating::Medium
+            || $this->risk_rating === RiskRating::High;
     }
 
     public function freeze(string $reason): void
@@ -280,6 +273,22 @@ class Customer extends BaseModel
         $this->freeze_reason = $reason;
         $this->frozen_at = now();
         $this->save();
+    }
+
+    /**
+     * Get the risk badge variant for UI display.
+     */
+    public function getRiskVariantAttribute(): string
+    {
+        $value = $this->risk_rating instanceof RiskRating
+            ? $this->risk_rating->value
+            : ($this->risk_rating ?? 'Medium');
+
+        return match (strtolower($value)) {
+            'high', 'critical' => 'danger',
+            'medium' => 'warning',
+            default => 'success',
+        };
     }
 
     public function unfreeze(): void

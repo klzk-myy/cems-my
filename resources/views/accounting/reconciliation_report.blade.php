@@ -35,34 +35,33 @@
         </x-filter-bar>
 
         <x-card>
-            <x-card>
-                <div class="text-center">
-                    <h2 class="text-lg font-semibold text-ink">Bank Reconciliation Report</h2>
-                    <p class="text-sm text-ink-muted mt-1">Maybank Current Account - May 2026</p>
+            <div class="text-center">
+                <h2 class="text-lg font-semibold text-ink">Bank Reconciliation Report</h2>
+                <p class="text-sm text-ink-muted mt-1">Maybank Current Account - May 2026</p>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                <div>
+                    <p class="text-sm text-ink-muted">Report Date</p>
+                    <p class="mt-1 text-sm font-medium text-ink">2026-05-03</p>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                    <div>
-                        <p class="text-sm text-ink-muted">Report Date</p>
-                        <p class="mt-1 text-sm font-medium text-ink">2026-05-03</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-ink-muted">Prepared By</p>
-                        <p class="mt-1 text-sm font-medium text-ink">Admin User</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-ink-muted">Approved By</p>
-                        <p class="mt-1 text-sm font-medium text-ink">-</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-ink-muted">Status</p>
-                        <p class="mt-1">
-                            <x-badge variant="warning">In Progress</x-badge>
-                        </p>
-                    </div>
+                <div>
+                    <p class="text-sm text-ink-muted">Prepared By</p>
+                    <p class="mt-1 text-sm font-medium text-ink">Admin User</p>
                 </div>
-            </x-card>
+                <div>
+                    <p class="text-sm text-ink-muted">Approved By</p>
+                    <p class="mt-1 text-sm font-medium text-ink">-</p>
+                </div>
+                <div>
+                    <p class="text-sm text-ink-muted">Status</p>
+                    <p class="mt-1">
+                        <x-badge variant="warning">In Progress</x-badge>
+                    </p>
+                </div>
+            </div>
+        </x-card>
 
-            <x-card title="Section 1: Balance Comparison">
+        <x-card title="Section 1: Balance Comparison">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <x-card>
                         <div class="flex items-center justify-between mb-2">

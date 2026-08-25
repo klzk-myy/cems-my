@@ -11,6 +11,9 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-canvas-subtle text-ink text-sm">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-on-primary focus:rounded-lg">
+        Skip to main content
+    </a>
     <div id="app" class="flex">
         @auth
             <x-navigation />
@@ -24,7 +27,7 @@
                     />
                 </header>
 
-                <main class="flex-1 max-w-7xl mx-auto px-6 py-6 w-full">
+                <main id="main-content" class="flex-1 max-w-7xl mx-auto px-6 py-6 w-full">
                     {{-- Toast container (Section 3.10) --}}
                     <div x-data="{ toasts: [] }"
                          x-init="window.addEventListener('showToast', (e) => {
@@ -64,7 +67,7 @@
                 </footer>
             </div>
         @else
-            <main class="flex-1">
+            <main id="main-content" class="flex-1">
                 {{ $slot }}
             </main>
         @endauth

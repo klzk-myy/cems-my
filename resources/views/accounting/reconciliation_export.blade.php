@@ -47,7 +47,7 @@
                     <x-stat-card label="Book Balance" value="RM 1,248,920.50" />
                 </x-stat-grid>
 
-                <x-card title="Adjustments">
+                <div class="space-y-4">
                     <x-table>
                         <x-slot:thead>
                             <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Description</th>
@@ -76,7 +76,7 @@
                             </tr>
                         </x-slot:tbody>
                     </x-table>
-                </x-card>
+                </div>
 
                 <x-alert type="success">
                     <div class="flex items-center justify-between">

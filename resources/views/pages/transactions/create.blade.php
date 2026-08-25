@@ -17,21 +17,21 @@
         <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey }}">
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <x-select name="type" label="Transaction Type" :options="['Buy' => 'Buy', 'Sell' => 'Sell']" required />
+            <x-select name="type" label="Transaction Type" :options="['Buy' => 'Buy', 'Sell' => 'Sell']" :selected="old('type')" required />
 
-            <x-select name="customer_id" label="Customer" :options="$customers ?? []" required />
+            <x-select name="customer_id" label="Customer" :options="$customers ?? []" :selected="old('customer_id')" required />
 
-            <x-select name="currency_code" label="Currency" :options="$currencies ?? []" required />
+            <x-select name="currency_code" label="Currency" :options="$currencies ?? []" :selected="old('currency_code')" required />
 
-            <x-input type="number" name="amount_foreign" label="Foreign Amount" step="0.01" required />
+            <x-input type="number" name="amount_foreign" label="Foreign Amount" step="0.01" value="{{ old('amount_foreign') }}" required />
 
-            <x-input type="number" name="rate" label="Exchange Rate" step="0.0001" required />
+            <x-input type="number" name="rate" label="Exchange Rate" step="0.0001" value="{{ old('rate') }}" required />
 
-            <x-select name="counter_id" label="Counter" :options="$counters ?? []" required />
+            <x-select name="counter_id" label="Counter" :options="$counters ?? []" :selected="old('counter_id')" required />
 
-            <x-select name="purpose" label="Purpose" :options="['Travel' => 'Travel', 'Education' => 'Education', 'Medical' => 'Medical', 'Business' => 'Business', 'Investment' => 'Investment', 'Family Support' => 'Family Support', 'Migration' => 'Migration', 'Other' => 'Other']" required />
+            <x-select name="purpose" label="Purpose" :options="['Travel' => 'Travel', 'Education' => 'Education', 'Medical' => 'Medical', 'Business' => 'Business', 'Investment' => 'Investment', 'Family Support' => 'Family Support', 'Migration' => 'Migration', 'Other' => 'Other']" :selected="old('purpose')" required />
 
-            <x-input name="source_of_funds" label="Source of Funds" placeholder="e.g. Salary, Savings, Business Income" required />
+            <x-input name="source_of_funds" label="Source of Funds" placeholder="e.g. Salary, Savings, Business Income" value="{{ old('source_of_funds') }}" required />
         </div>
 
         <div class="mt-6 flex gap-2">

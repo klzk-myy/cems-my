@@ -3,16 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Customer\CustomerIndexAction;
-use App\Enums\StrReportStatus;
 use App\Http\Concerns\HandlesControllerErrors;
 use App\Http\Requests\FreezeCustomerRequest;
 use App\Http\Requests\StoreCustomerNoteRequest;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\UpdateCustomerRequest;
-use App\Models\Alert;
 use App\Models\Customer;
 use App\Models\ExchangeRate;
-use App\Models\StrReport;
 use App\Services\AuditService;
 use App\Services\Customer\CustomerService;
 use Illuminate\Http\JsonResponse;
@@ -157,33 +154,27 @@ class CustomerController extends Controller
             'last_transaction' => $customer->last_transaction_at,
         ];
 
-        // Get document status from the already-loaded collection
-        $documentStatus = [
-            'total' => $customer->documents_count,
-            'verified' => $customer->documents->filter->isVerified()->count(),
-            'pending' => $customer->documents->whereNull('verified_by')->whereNull('verified_at')->count(),
-            'expired' => $customer->documents->whereNotNull('expiry_date')->where('expiry_date', '<', now())->count(),
-        ];
+        // Get customer show data from service (document status and compliance stats)
+        $customerShowData = $this->customerService->getCustomerShowData($customer);
 
-        // Compliance summary card stats. Alerts are counted straight off the
-        // indexed alerts.customer_id column; total value reuses the loaded
-        // SUM aggregate. str_filed counts real STR rows for the customer
-        // (drafts excluded: a draft has not been filed with BNM yet).
-        $stats = [
+        $notes = $customer->notes()
+            ->with('creator')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Calculate transaction stats
+        $transactionStats = [
             'total_transactions' => $customer->transactions_count,
-            'total_value' => (float) ($customer->transactions_sum_amount_local ?? 0),
-            'alerts' => Alert::where('customer_id', $customer->id)->count(),
-            'str_filed' => StrReport::where('customer_id', $customer->id)
-                ->where('status', '!=', StrReportStatus::Draft->value)
-                ->count(),
+            'total_volume' => $customer->transactions_sum_amount_local,
+            'avg_transaction' => $customer->transactions_avg_amount_local ?? 0,
+            'last_transaction' => $customer->last_transaction_at,
         ];
 
         return view('customers.show', compact(
             'customer',
             'transactionStats',
-            'documentStatus',
             'notes',
-            'stats'
+            'customerShowData'
         ));
     }
 

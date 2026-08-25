@@ -64,18 +64,12 @@ class TransactionBatchController extends Controller
             $fullPath = $file->getRealPath();
         }
 
-        // Count total rows first
-        $handle = fopen($fullPath, 'r');
-        if (! $handle) {
+        // Count total rows first - delegates to service for file processing
+        try {
+            $rowCount = $this->importService->countRows($fullPath);
+        } catch (FileOperationException $e) {
             return back()->with('error', 'Could not read uploaded file.')->withInput();
         }
-
-        $header = fgetcsv($handle);
-        $rowCount = 0;
-        while (fgetcsv($handle) !== false) {
-            $rowCount++;
-        }
-        fclose($handle);
 
         // Guard against pathological uploads: the import runs synchronously in
         // the request, so cap the row count to keep it inside the request
