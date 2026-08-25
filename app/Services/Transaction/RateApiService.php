@@ -2,8 +2,10 @@
 
 namespace App\Services\Transaction;
 
+use App\Exceptions\Domain\InvalidRateException;
 use App\Models\ExchangeRate;
 use App\Models\ExchangeRateHistory;
+use App\Services\System\CacheInvalidationService;
 use App\Services\System\MathService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -16,6 +18,8 @@ class RateApiService
 
     protected MathService $mathService;
 
+    protected CacheInvalidationService $cacheInvalidationService;
+
     protected string $spread;
 
     protected string $maxDeviationPercent;
@@ -24,9 +28,12 @@ class RateApiService
 
     protected int $cacheDuration;
 
-    public function __construct(?MathService $mathService = null)
-    {
+    public function __construct(
+        ?MathService $mathService = null,
+        ?CacheInvalidationService $cacheInvalidationService = null
+    ) {
         $this->mathService = $mathService ?? new MathService;
+        $this->cacheInvalidationService = $cacheInvalidationService ?? new CacheInvalidationService;
         $this->apiKey = config('services.exchange_rate_api.key') ?? '';
         $this->baseUrl = config('services.exchange_rate_api.base_url', 'https://api.exchangerate-api.com/v4');
         $this->spread = config('thresholds.rates.spread', '0.02');
@@ -38,7 +45,7 @@ class RateApiService
     public function fetchLatestRates(?int $branchId = null): array
     {
         if (empty($this->apiKey)) {
-            throw new \RuntimeException('EXCHANGE_RATE_API_KEY is not configured. Set it in .env');
+            throw new InvalidRateException('EXCHANGE_RATE_API_KEY is not configured. Set it in .env');
         }
 
         $cacheKey = $branchId ? "exchange_rates_branch_{$branchId}" : 'exchange_rates';
@@ -47,28 +54,38 @@ class RateApiService
             $response = Http::get("{$this->baseUrl}/latest/MYR");
 
             if (! $response->successful()) {
-                throw new \RuntimeException('Failed to fetch exchange rates: '.$response->body());
+                throw new InvalidRateException('Failed to fetch exchange rates: '.$response->body());
             }
 
             $data = $response->json();
 
             if (! isset($data['rates'])) {
-                throw new \RuntimeException('Invalid API response format');
+                throw new InvalidRateException('Invalid API response format');
             }
 
             $processed = $this->processRates($data['rates'], $data['time_last_updated'] ?? time());
 
             $this->storeRatesToTable($processed, $branchId);
             $this->logRatesToHistory($processed, $branchId);
+            $this->invalidatePerCurrencyCache($processed, $branchId);
 
             return $processed;
         });
     }
 
+    /**
+     * Forget the per-currency rate cache entries (used by RateManagementService::getRateForCurrency)
+     * so newly fetched rates are served immediately instead of the stale 5-minute cache.
+     */
+    protected function invalidatePerCurrencyCache(array $processed, ?int $branchId = null): void
+    {
+        $this->cacheInvalidationService->forgetAllRates(array_keys($processed), $branchId);
+    }
+
     protected function processRates(array $rates, $timestamp): array
     {
         $processed = [];
-        $currencies = ['USD', 'EUR', 'GBP', 'SGD', 'AUD', 'CAD', 'CHF', 'JPY'];
+        $currencies = config('cems.api_rates.currencies', ['USD', 'EUR', 'GBP', 'SGD', 'AUD', 'CAD', 'CHF', 'JPY']);
 
         foreach ($currencies as $currency) {
             if (isset($rates[$currency])) {
@@ -119,7 +136,7 @@ class RateApiService
     protected function logRatesToHistory(array $rates, ?int $branchId = null): void
     {
         $today = now()->toDateString();
-        $userId = auth()->id() ?? 1;
+        $userId = auth()->id() ?? config('cems.system_user_id', 1);
 
         $existing = ExchangeRateHistory::where('branch_id', $branchId)
             ->whereIn('currency_code', array_keys($rates))
@@ -217,8 +234,7 @@ class RateApiService
 
     public function clearCache(?int $branchId = null): void
     {
-        $cacheKey = $branchId ? "exchange_rates_branch_{$branchId}" : 'exchange_rates';
-        Cache::forget($cacheKey);
+        $this->cacheInvalidationService->forgetExchangeRates($branchId);
     }
 
     public function getRateTrend(string $currencyCode, int $days = 30, ?int $branchId = null): array

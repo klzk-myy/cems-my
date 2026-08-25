@@ -3,16 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Enums\CddLevel;
+use App\Enums\UserRole;
 use App\Http\Concerns\DeterminesTransactionStatus;
 use App\Http\Requests\TransactionWizardStep1Request;
 use App\Http\Requests\TransactionWizardStep2Request;
 use App\Http\Requests\TransactionWizardStep3Request;
 use App\Models\Customer;
 use App\Models\User;
+use App\Services\Branch\TellerAllocationService;
 use App\Services\Contracts\TransactionCreationServiceInterface;
 use App\Services\Contracts\TransactionValidationInterface;
 use App\Services\System\MathService;
 use App\Services\System\WizardSessionService;
+use App\Services\ThresholdService;
 use App\Services\Transaction\DTOs\TransactionCreationContext;
 use App\Services\Transaction\TransactionApprovalService;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +31,9 @@ class TransactionWizardController extends Controller
         protected TransactionCreationServiceInterface $creationService,
         protected TransactionApprovalService $approvalService,
         protected WizardSessionService $wizardSessionService,
-        protected MathService $mathService
+        protected MathService $mathService,
+        protected TellerAllocationService $tellerAllocationService,
+        protected ThresholdService $thresholdService
     ) {}
 
     /**
@@ -38,6 +43,19 @@ class TransactionWizardController extends Controller
     {
         $validated = $request->validated();
         $customer = Customer::find($validated['customer_id']);
+
+        if (! $customer) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Customer not found.',
+            ], 404);
+        }
+
+        // Branch isolation: refuse to leak existence/risk flags of customers
+        // that belong to another branch.
+        if ($denied = $this->denyCrossBranchCustomer($customer)) {
+            return $denied;
+        }
 
         // Calculate local amount
         $amountLocal = $this->mathService->multiply($validated['amount_foreign'], $validated['rate']);
@@ -68,6 +86,7 @@ class TransactionWizardController extends Controller
         $sessionId = Str::uuid()->toString();
         $sessionData = [
             'step' => 1,
+            'user_id' => auth()->id(),
             'customer_id' => $customer->id,
             'transaction_data' => $validated,
             'amount_local' => $amountLocal,
@@ -103,12 +122,9 @@ class TransactionWizardController extends Controller
         $validated = $request->validated();
         $sessionId = $validated['wizard_session_id'];
 
-        $sessionData = $this->wizardSessionService->get($sessionId);
-        if (! $sessionData) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Wizard session expired or invalid',
-            ], 400);
+        $sessionData = $this->getOwnedSession($sessionId);
+        if ($sessionData instanceof JsonResponse) {
+            return $sessionData;
         }
 
         // Update session with customer details
@@ -138,12 +154,9 @@ class TransactionWizardController extends Controller
         $validated = $request->validated();
         $sessionId = $validated['wizard_session_id'];
 
-        $sessionData = $this->wizardSessionService->get($sessionId);
-        if (! $sessionData) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Wizard session expired or invalid',
-            ], 400);
+        $sessionData = $this->getOwnedSession($sessionId);
+        if ($sessionData instanceof JsonResponse) {
+            return $sessionData;
         }
 
         // Prepare final transaction data
@@ -167,6 +180,12 @@ class TransactionWizardController extends Controller
             );
 
             $customer = Customer::findOrFail($transactionData['customer_id']);
+
+            // Re-check branch isolation at creation time (fail closed).
+            if ($denied = $this->denyCrossBranchCustomer($customer)) {
+                return $denied;
+            }
+
             $amountLocal = (string) $sessionData['amount_local'];
 
             $this->validationService->validatePepRequirements($customer, $transactionData);
@@ -213,7 +232,7 @@ class TransactionWizardController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Transaction creation failed: '.$e->getMessage(),
+                'message' => 'Transaction creation failed. Please try again later.',
             ], 500);
         }
     }
@@ -223,13 +242,10 @@ class TransactionWizardController extends Controller
      */
     public function status(string $sessionId): JsonResponse
     {
-        $sessionData = $this->wizardSessionService->get($sessionId);
+        $sessionData = $this->getOwnedSession($sessionId);
 
-        if (! $sessionData) {
-            return response()->json([
-                'status' => 'expired',
-                'message' => 'Wizard session has expired',
-            ], 404);
+        if ($sessionData instanceof JsonResponse) {
+            return $sessionData;
         }
 
         return response()->json([
@@ -240,10 +256,46 @@ class TransactionWizardController extends Controller
     }
 
     /**
+     * Fetch a wizard session and enforce ownership: a teller may only continue,
+     * inspect, or cancel sessions they created. Without this, any teller could
+     * drive another teller's in-progress transaction by guessing the session id.
+     */
+    private function getOwnedSession(string $sessionId): array|JsonResponse
+    {
+        $sessionData = $this->wizardSessionService->get($sessionId);
+
+        if (! $sessionData) {
+            return response()->json([
+                'status' => 'expired',
+                'message' => 'Wizard session expired or invalid',
+            ], 404);
+        }
+
+        // Sessions created before ownership tracking lack user_id and are
+        // intentionally rejected (fail-closed): their 1-hour TTL makes the
+        // migration window negligible, and refusing is safer than trusting an
+        // unbound session in an AML workflow.
+        if ((int) ($sessionData['user_id'] ?? 0) !== (int) auth()->id()) {
+            return response()->json([
+                'status' => 'forbidden',
+                'message' => 'You do not own this wizard session',
+            ], 403);
+        }
+
+        return $sessionData;
+    }
+
+    /**
      * Cancel wizard session
      */
     public function cancel(string $sessionId): JsonResponse
     {
+        $sessionData = $this->getOwnedSession($sessionId);
+
+        if ($sessionData instanceof JsonResponse) {
+            return $sessionData;
+        }
+
         $this->wizardSessionService->forget($sessionId);
 
         return response()->json([
@@ -253,6 +305,53 @@ class TransactionWizardController extends Controller
     }
 
     // Helper methods
+
+    /**
+     * Enforce customer branch isolation for transaction creation.
+     *
+     * Applies the same rule as CustomerPolicy::view: admins may serve any
+     * customer; everybody else may only serve customers whose transaction
+     * history includes their own branch. Customers without any history
+     * (walk-ins) are not bound to a branch yet, so their first transaction
+     * is allowed anywhere — otherwise no teller could ever serve a new
+     * customer. Users without a branch assignment fail closed.
+     */
+    private function denyCrossBranchCustomer(Customer $customer): ?JsonResponse
+    {
+        $user = auth()->user();
+
+        if ($user === null) {
+            return response()->json([
+                'status' => 'forbidden',
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+
+        if ($user->role === UserRole::Admin) {
+            return null;
+        }
+
+        if ($user->branch_id === null) {
+            return response()->json([
+                'status' => 'forbidden',
+                'message' => 'You are not authorized to create transactions for this customer.',
+            ], 403);
+        }
+
+        $knownBranchIds = $customer->transactions()->distinct()->pluck('branch_id');
+
+        if ($knownBranchIds->isNotEmpty()
+            && ! $knownBranchIds->contains(fn ($branchId) => (int) $branchId === (int) $user->branch_id)
+        ) {
+            return response()->json([
+                'status' => 'forbidden',
+                'message' => 'You are not authorized to create transactions for this customer.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     private function upgradeCDDLevel(CddLevel $current): CddLevel
     {
         return match ($current) {

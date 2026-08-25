@@ -24,9 +24,27 @@ class CustomerSearchController extends Controller
      */
     public function search(SearchCustomerRequest $request): JsonResponse
     {
+        $user = auth()->user();
+
+        // Enforce branch scoping for search - mirror CustomerPolicy::viewAny so a
+        // teller/manager can never enumerate customers (or their full IC numbers)
+        // from another branch.
+        $branchId = null;
+        if (! $user || ! $user->isAdmin()) {
+            if (! $user?->branch_id) {
+                return response()->json([
+                    'success' => true,
+                    'query' => $request->validated()['query'],
+                    'results' => [],
+                    'count' => 0,
+                ]);
+            }
+            $branchId = $user->branch_id;
+        }
+
         $validated = $request->validated();
 
-        $results = $this->customerService->searchCustomers($validated['query']);
+        $results = $this->customerService->searchCustomers($validated['query'], $branchId);
 
         return response()->json([
             'success' => true,

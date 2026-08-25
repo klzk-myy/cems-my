@@ -16,14 +16,14 @@ class TransactionImportIdempotencyTest extends TestCase
 
         $content = file_get_contents($file);
         $this->assertStringContainsString(
-            "if (! empty(\$data['idempotency_key']))",
+            "\$data['idempotency_key'] = hash('sha256', json_encode(\$data));",
             $content,
-            'Idempotency key check should be present'
+            'Should generate idempotency key for every import row'
         );
         $this->assertStringContainsString(
-            "\$existing = Transaction::where('idempotency_key', \$data['idempotency_key'])->exists();",
+            'createForImport',
             $content,
-            'Should check for existing transaction with same idempotency key'
+            'Should delegate dedup to TransactionCreationService via createForImport'
         );
     }
 }

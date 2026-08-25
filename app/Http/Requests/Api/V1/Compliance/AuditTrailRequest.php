@@ -17,7 +17,7 @@ class AuditTrailRequest extends ApiFormRequest
             'per_page' => 'nullable|integer|min:1|max:100',
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
-            'case_id' => 'nullable|integer',
+            'case_id' => 'nullable|integer|exists:compliance_cases,id',
         ];
     }
 }

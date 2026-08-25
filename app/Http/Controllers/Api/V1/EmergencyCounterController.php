@@ -42,11 +42,11 @@ class EmergencyCounterController extends Controller
 
             return $this->successResponse($closure, 'Emergency closure initiated successfully', 201);
         } catch (EmergencyCloseCooldownException $e) {
-            return $this->errorResponse($e->getMessage(), [], 429);
+            return $this->errorResponse('Emergency closure on cooldown. Please wait before initiating another.', [], 429);
         } catch (EmergencyCloseSessionTooNewException $e) {
-            return $this->errorResponse($e->getMessage(), [], 422);
+            return $this->errorResponse('The counter session is too new to be closed in emergency mode.', [], 422);
         } catch (\RuntimeException $e) {
-            return $this->errorResponse($e->getMessage(), [], 400);
+            return $this->errorResponse('Failed to initiate emergency closure. Please try again.', [], 400);
         }
     }
 
@@ -82,7 +82,7 @@ class EmergencyCounterController extends Controller
         $user = Auth::user();
 
         if (! $user->isManager()) {
-            return $this->errorResponse('Only managers can acknowledge emergency closures', [], 403);
+            return $this->errorResponse('Only managers and admins can acknowledge emergency closures', [], 403);
         }
 
         $closure = $this->emergencyService->acknowledge($closure, $user);

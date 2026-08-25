@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\Sanctions\DownloadEuSanctionsList;
-use App\Jobs\Sanctions\DownloadOfacSanctionsList;
-use App\Jobs\Sanctions\DownloadUnSanctionsList;
+use App\Jobs\ImportSanctionsJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -68,41 +66,38 @@ class SanctionsWebhookController extends Controller
      */
     protected function dispatchSourceUpdate(string $source): array
     {
-        $jobs = [
-            'un' => DownloadUnSanctionsList::class,
-            'ofac' => DownloadOfacSanctionsList::class,
-            'eu' => DownloadEuSanctionsList::class,
-        ];
+        $sources = config('sanctions.sources', []);
 
-        if (! isset($jobs[$source])) {
+        if (! isset($sources[$source])) {
             return [
-                'error' => "Unknown source: {$source}",
+                'error' => "Unknown or unsupported source: {$source}",
             ];
         }
 
-        $jobClass = $jobs[$source];
-        $jobClass::dispatch();
+        $config = $sources[$source];
+
+        if (! $config || ! ($config['default_list'] ?? true)) {
+            return [
+                'error' => "Source {$source} is not configured or is disabled",
+            ];
+        }
+
+        ImportSanctionsJob::dispatch(null, $source);
 
         Log::info("Dispatched {$source} sanctions update via webhook");
 
         return [$source];
     }
 
-    /**
-     * Dispatch updates for all enabled sources.
-     */
     protected function dispatchAllUpdates(): array
     {
-        $sources = ['un', 'ofac', 'eu'];
+        $sources = config('sanctions.sources', []);
         $dispatched = [];
 
-        foreach ($sources as $source) {
-            $config = config("sanctions.sources.{$source}");
-            if ($config && ($config['enabled'] ?? false)) {
-                $result = $this->dispatchSourceUpdate($source);
-                if (! isset($result['error'])) {
-                    $dispatched[] = $source;
-                }
+        foreach (array_keys($sources) as $source) {
+            $result = $this->dispatchSourceUpdate($source);
+            if (! isset($result['error'])) {
+                $dispatched[] = $source;
             }
         }
 
@@ -116,8 +111,15 @@ class SanctionsWebhookController extends Controller
     /**
      * Health check endpoint for webhook status.
      */
-    public function health(): JsonResponse
+    public function health(Request $request): JsonResponse
     {
+        $configuredToken = config('sanctions.webhook.token', '');
+        $providedToken = $request->header('X-Webhook-Token', '');
+
+        if (empty($configuredToken) || ! hash_equals($configuredToken, $providedToken)) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
         return response()->json([
             'status' => 'ok',
             'service' => 'sanctions-webhook',

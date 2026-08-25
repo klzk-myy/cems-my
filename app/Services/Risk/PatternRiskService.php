@@ -4,13 +4,15 @@ namespace App\Services\Risk;
 
 use App\Enums\TransactionType;
 use App\Models\Transaction;
+use App\Services\Compliance\RoundTripDetector;
 use App\Services\System\MathService;
 use Illuminate\Database\Eloquent\Collection;
 
 class PatternRiskService
 {
     public function __construct(
-        protected MathService $mathService
+        protected MathService $mathService,
+        protected RoundTripDetector $roundTripDetector
     ) {}
 
     /**
@@ -123,57 +125,6 @@ class PatternRiskService
      */
     protected function detectRoundTrips($transactions, int $timeWindowHours, string $threshold): array
     {
-        $patterns = [];
-
-        $byCurrency = $transactions->groupBy('currency_code');
-
-        foreach ($byCurrency as $currencyCode => $currencyTxns) {
-            $sells = $currencyTxns->filter(fn ($t) => $t->type->value === 'Sell');
-            $buys = $currencyTxns->filter(fn ($t) => $t->type->value === 'Buy');
-
-            if ($sells->isEmpty() || $buys->isEmpty()) {
-                continue;
-            }
-
-            foreach ($sells as $sell) {
-                foreach ($buys as $buy) {
-                    if ($buy->created_at->lte($sell->created_at)) {
-                        continue;
-                    }
-
-                    $hoursDiff = $sell->created_at->diffInHours($buy->created_at);
-
-                    if ($hoursDiff > $timeWindowHours) {
-                        continue;
-                    }
-
-                    $sellForeign = ltrim((string) $sell->amount_foreign, '-');
-                    $buyForeign = ltrim((string) $buy->amount_foreign, '-');
-                    $roundTripAmount = $this->mathService->compare($sellForeign, $buyForeign) <= 0
-                        ? $sellForeign
-                        : $buyForeign;
-
-                    if ($this->mathService->compare((string) $roundTripAmount, $threshold) < 0) {
-                        continue;
-                    }
-
-                    $patterns[] = [
-                        'currency' => $currencyCode,
-                        'sell_transaction_id' => $sell->id,
-                        'sell_amount_foreign' => (string) $sell->amount_foreign,
-                        'sell_amount_local' => (string) $sell->amount_local,
-                        'sell_at' => $sell->created_at->toDateTimeString(),
-                        'buy_transaction_id' => $buy->id,
-                        'buy_amount_foreign' => (string) $buy->amount_foreign,
-                        'buy_amount_local' => (string) $buy->amount_local,
-                        'buy_at' => $buy->created_at->toDateTimeString(),
-                        'hours_between' => $hoursDiff,
-                        'round_trip_foreign_amount' => $roundTripAmount,
-                    ];
-                }
-            }
-        }
-
-        return $patterns;
+        return $this->roundTripDetector->detect($transactions, $timeWindowHours, $threshold);
     }
 }

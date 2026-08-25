@@ -1,12 +1,12 @@
 <x-app-layout title="Edit Sanctions Entry">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="space-y-6">
         <x-page-header title="Edit Sanctions Entry" description="Update sanctions list entry details">
             <x-slot:actions>
                 <x-button href="{{ route('compliance.sanctions.entries.index') }}" variant="secondary">Cancel</x-button>
             </x-slot:actions>
         </x-page-header>
 
-        <x-card class="p-6 mt-8">
+        <x-card class="mt-8">
             <form method="POST" action="{{ route('compliance.sanctions.entries.update', $sanctionEntry) }}">
                 @csrf
                 @method('PUT')

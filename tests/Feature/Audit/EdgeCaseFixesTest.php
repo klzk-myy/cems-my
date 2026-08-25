@@ -3,6 +3,9 @@
 namespace Tests\Feature\Audit;
 
 use App\Enums\SystemHealthCheckStatus;
+use App\Exceptions\Domain\AccountingPeriodException;
+use App\Exceptions\Domain\MathValidationException;
+use App\Exceptions\Domain\MfaValidationException;
 use App\Jobs\Audit\SealAuditHashJob;
 use App\Models\SystemLog;
 use App\Services\Accounting\FiscalYearService;
@@ -94,21 +97,21 @@ class EdgeCaseFixesTest extends TestCase
 
     public function test_invalid_quarter_throws(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(MathValidationException::class);
         app(ReportingService::class)->generateQuarterlyLargeValueReport('not-a-quarter');
     }
 
     public function test_fiscal_year_rejects_invalid_entry_date(): void
     {
         $service = app(FiscalYearService::class);
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(AccountingPeriodException::class);
         $service->generateEntryNumber('not-a-date');
     }
 
     public function test_base32_decode_rejects_invalid_characters(): void
     {
         $service = app(MfaService::class);
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(MfaValidationException::class);
         $service->base32Decode('JBSWY3DPEHPK3PXP!');
     }
 }

@@ -1,2 +1,9 @@
 @import "tailwindcss";
 @import "tokens.css";
+
+/* Alpine.js: keep x-show elements hidden until the framework hydrates.
+   Without this rule, dropdowns toggled with x-show flash visible before
+   Alpine initializes (and the existing dark-mode toggle icons do too). */
+[x-cloak] {
+    display: none;
+}

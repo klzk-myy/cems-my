@@ -6,6 +6,8 @@ use App\Enums\TransactionConfirmationStatus;
 use App\Enums\TransactionStatus;
 use App\Models\Transaction;
 use App\Models\TransactionConfirmation;
+use App\Models\User;
+use App\Notifications\ConfirmationRequiredNotification;
 use App\Services\AuditService;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
@@ -72,7 +74,7 @@ class TransactionConfirmationService
                 'expires_at' => now()->addMinutes(30),
             ]);
 
-            $this->auditService->logWithSeverity('confirmation_requested', [
+            $this->auditService->logWithSeveritySealed('confirmation_requested', [
                 'user_id' => $userId,
                 'entity_type' => 'Transaction',
                 'entity_id' => $lockedTransaction->id,
@@ -106,15 +108,55 @@ class TransactionConfirmationService
         $action = $validated['confirmation_action'];
         $notes = $validated['notes'] ?? null;
 
-        DB::beginTransaction();
+        if (! in_array($action, ['confirm', 'reject'], true)) {
+            throw new \InvalidArgumentException(
+                "Invalid confirmation_action '{$action}'. Must be 'confirm' or 'reject'."
+            );
+        }
+
         try {
-            if ($action === 'confirm') {
-                return $this->handleConfirm($confirmation, $userId, $notes);
-            } else {
-                return $this->handleReject($confirmation, $userId, $notes);
-            }
+            return DB::transaction(function () use ($confirmation, $userId, $notes, $action) {
+                // Lock the parent transaction row FIRST, mirroring
+                // requestConfirmation()'s lock order (Transaction ->
+                // TransactionConfirmation) so concurrent confirm/reject/request
+                // flows can never deadlock waiting on each other's locks.
+                Transaction::where('id', $confirmation->transaction_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                // Re-read under a pessimistic lock and re-verify the status so
+                // two concurrent actions cannot both mutate the same row.
+                $lockedConfirmation = TransactionConfirmation::where('id', $confirmation->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                // Expired rows must deterministically transition Pending ->
+                // Expired here. isPending() treats expired rows as non-pending,
+                // so expiry has to be tested BEFORE the generic bail below,
+                // otherwise an expired Pending row would linger unprocessed.
+                if ($lockedConfirmation && $lockedConfirmation->isExpired()) {
+                    $lockedConfirmation->markExpired();
+
+                    return [
+                        'success' => false,
+                        'message' => 'Confirmation has expired. Please request a new confirmation.',
+                    ];
+                }
+
+                if (! $lockedConfirmation || ! $lockedConfirmation->isPending()) {
+                    return [
+                        'success' => false,
+                        'message' => 'Confirmation has already been processed or is no longer pending.',
+                    ];
+                }
+
+                if ($action === 'confirm') {
+                    return $this->handleConfirm($lockedConfirmation, $userId, $notes);
+                }
+
+                return $this->handleReject($lockedConfirmation, $userId, $notes);
+            });
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Transaction confirmation failed', [
                 'confirmation_id' => $confirmation->id,
                 'transaction_id' => $confirmation->transaction_id,
@@ -122,6 +164,7 @@ class TransactionConfirmationService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             throw $e;
         }
     }
@@ -136,7 +179,7 @@ class TransactionConfirmationService
         // Refresh transaction for any downstream listeners (if needed)
         $confirmation->transaction->refresh();
 
-        $this->auditService->logWithSeverity('transaction_confirmed', [
+        $this->auditService->logWithSeveritySealed('transaction_confirmed', [
             'user_id' => $userId,
             'entity_type' => 'Transaction',
             'entity_id' => $confirmation->transaction_id,
@@ -145,8 +188,6 @@ class TransactionConfirmationService
                 'confirmed_by' => $userId,
             ],
         ], 'INFO');
-
-        DB::commit();
 
         return [
             'success' => true,
@@ -159,20 +200,53 @@ class TransactionConfirmationService
      */
     protected function handleReject(TransactionConfirmation $confirmation, int $userId, ?string $notes): array
     {
-        $confirmation->markRejected($userId, $notes);
+        // Lock the parent transaction row: the state machine requires it, and
+        // it prevents a concurrent approval/completion from interleaving with
+        // the rejection below.
+        $transaction = Transaction::where('id', $confirmation->transaction_id)
+            ->lockForUpdate()
+            ->firstOrFail();
 
-        $transaction = $confirmation->transaction;
-        $transaction->status = TransactionStatus::Cancelled;
-        $transaction->cancelled_at = now();
-        $transaction->cancelled_by = $userId;
-        $transaction->cancellation_reason = 'Rejected during confirmation: '.($notes ?? 'No reason provided');
-        $transaction->save();
+        if ($transaction->status === TransactionStatus::Completed) {
+            // Stock/till effects were already booked when the transaction was
+            // approved - cancelling here would strand them. Reject only the
+            // confirmation record and leave the transaction untouched. The row
+            // is deleted below, so seal an audit entry first to preserve the
+            // rejection trail.
+            $this->auditService->logWithSeveritySealed('confirmation_rejected_completed_tx', [
+                'user_id' => $userId,
+                'entity_type' => 'Transaction',
+                'entity_id' => $confirmation->transaction_id,
+                'new_values' => [
+                    'confirmation_id' => $confirmation->id,
+                    'rejected_by' => $userId,
+                    'reason' => $notes ?? 'No reason provided',
+                ],
+            ], 'WARNING');
 
-        // Delete the rejected confirmation so a future request can create a new one.
-        // The unique index on transaction_id only protects non-deleted rows.
-        $confirmation->delete();
+            $this->rejectConfirmation($confirmation, $userId, $notes);
 
-        $this->auditService->logWithSeverity('transaction_rejected', [
+            return [
+                'success' => true,
+                'message' => 'Confirmation rejected. The transaction was already completed and remains unchanged.',
+            ];
+        }
+
+        $stateMachine = new TransactionStateMachine($transaction);
+        $reason = 'Rejected during confirmation: '.($notes ?? 'No reason provided');
+
+        if (! $stateMachine->transitionTo(TransactionStatus::Cancelled, [
+            'user_id' => $userId,
+            'reason' => $reason,
+        ])) {
+            throw new \RuntimeException(
+                "Cannot reject transaction #{$transaction->id}: status '{$transaction->status->value}' does not allow cancellation."
+            );
+        }
+
+        $this->rejectConfirmation($confirmation, $userId, $notes);
+
+        $this->auditService->logWithSeveritySealed('transaction_rejected', [
             'user_id' => $userId,
             'entity_type' => 'Transaction',
             'entity_id' => $confirmation->transaction_id,
@@ -183,11 +257,70 @@ class TransactionConfirmationService
             ],
         ], 'WARNING');
 
-        DB::commit();
-
         return [
             'success' => true,
             'message' => 'Transaction has been rejected.',
         ];
+    }
+
+    /**
+     * Mark the confirmation rejected and delete it so a future request can
+     * create a new one. The unique index on transaction_id only protects
+     * non-deleted rows.
+     */
+    protected function rejectConfirmation(TransactionConfirmation $confirmation, int $userId, ?string $notes): void
+    {
+        $confirmation->markRejected($userId, $notes);
+        $confirmation->delete();
+    }
+
+    /**
+     * Notify the transaction's branch manager that a confirmation is pending.
+     * Dispatches a notification to managers of the branch.
+     */
+    public function notifyManager(TransactionConfirmation $confirmation): void
+    {
+        $transaction = $confirmation->transaction;
+        if (! $transaction) {
+            return;
+        }
+
+        $branchId = $transaction->branch_id;
+        $managers = User::where('branch_id', $branchId)
+            ->whereIn('role', ['manager', 'admin'])
+            ->get();
+
+        foreach ($managers as $manager) {
+            try {
+                $manager->notify(new ConfirmationRequiredNotification($confirmation));
+            } catch (\Throwable $e) {
+                Log::warning('Failed to notify manager of confirmation', [
+                    'manager_id' => $manager->id,
+                    'confirmation_id' => $confirmation->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Expire stale pending confirmations older than the given hours.
+     * Returns the number of expired confirmations.
+     */
+    public function expireStale(int $hours = 24): int
+    {
+        $cutoff = now()->subHours($hours);
+
+        $stale = TransactionConfirmation::where('status', 'pending')
+            ->where('created_at', '<=', $cutoff)
+            ->get();
+
+        $count = 0;
+        foreach ($stale as $confirmation) {
+            $confirmation->update(['status' => 'expired']);
+            $count++;
+        }
+
+        return $count;
     }
 }

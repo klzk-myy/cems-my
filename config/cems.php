@@ -103,7 +103,7 @@ return [
     | BNM MSB License number for regulatory reporting.
     |
     */
-    'license_number' => env('BNM_LICENSE_NUMBER', 'MSB-XXXXXXX'),
+    'license_number' => env('BNM_LICENSE_NUMBER'),
 
     /*
     |--------------------------------------------------------------------------
@@ -114,6 +114,9 @@ return [
     |
     */
     'company_name' => env('COMPANY_NAME', 'CEMS-MY MSB'),
+
+    // Company registration number printed on customer-facing receipts.
+    'company_registration_number' => env('COMPANY_REGISTRATION_NUMBER', ''),
 
     /*
     |--------------------------------------------------------------------------
@@ -127,6 +130,36 @@ return [
         'contact_name' => env('BNM_CONTACT_NAME', ''),
         'contact_email' => env('BNM_CONTACT_EMAIL', ''),
         'contact_phone' => env('BNM_CONTACT_PHONE', ''),
+    ],
+
+    'system_user_id' => (int) env('SYSTEM_USER_ID', 1),
+
+    'api_rates' => [
+        'currencies' => explode(',', env('API_RATES_CURRENCIES', 'USD,EUR,GBP,SGD,AUD,CAD,CHF,JPY')),
+    ],
+
+    'batch_import' => [
+        'columns' => [
+            'customer_id',
+            'type',
+            'currency_code',
+            'amount_foreign',
+            'rate',
+            'purpose',
+            'source_of_funds',
+            'till_id',
+        ],
+        'sample_currencies' => explode(',', env('API_RATES_CURRENCIES', 'USD')),
+    ],
+
+    'demo' => [
+        'opening_balances' => [
+            'USD' => '50000.0000',
+            'EUR' => '30000.0000',
+            'GBP' => '20000.0000',
+            'SGD' => '40000.0000',
+            'THB' => '100000.0000',
+        ],
     ],
 
 ];

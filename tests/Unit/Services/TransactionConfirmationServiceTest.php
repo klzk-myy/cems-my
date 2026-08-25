@@ -69,7 +69,7 @@ class TransactionConfirmationServiceTest extends TestCase
         $user = $this->createUser();
         $transaction = Transaction::factory()->create();
 
-        $this->auditService->shouldReceive('logWithSeverity')
+        $this->auditService->shouldReceive('logWithSeveritySealed')
             ->once()
             ->with(
                 'confirmation_requested',
@@ -127,7 +127,7 @@ class TransactionConfirmationServiceTest extends TestCase
         $user = $this->createUser();
         $transaction = Transaction::factory()->create();
 
-        $this->auditService->shouldReceive('logWithSeverity')
+        $this->auditService->shouldReceive('logWithSeveritySealed')
             ->once()
             ->with(
                 'confirmation_requested',
@@ -142,6 +142,10 @@ class TransactionConfirmationServiceTest extends TestCase
             );
 
         $this->service->requestConfirmation($transaction, $user->id);
+
+        $this->assertDatabaseHas('transaction_confirmations', [
+            'transaction_id' => $transaction->id,
+        ]);
     }
 
     #[Test]
@@ -152,7 +156,7 @@ class TransactionConfirmationServiceTest extends TestCase
         ]);
         $user = $this->createUser();
 
-        $this->auditService->shouldReceive('logWithSeverity')
+        $this->auditService->shouldReceive('logWithSeveritySealed')
             ->once()
             ->with(
                 'transaction_confirmed',

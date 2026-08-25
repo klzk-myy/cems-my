@@ -79,7 +79,7 @@ class RunCommand extends Command
 
             return self::FAILURE;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->error('Backup failed: '.$e->getMessage());
             Log::error('Manual backup command failed', [
                 'error' => $e->getMessage(),

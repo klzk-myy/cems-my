@@ -19,7 +19,7 @@
             @if($required) required @endif
             @if($disabled) disabled @endif
             {{ $attributes->except(['label', 'name', 'value', 'checked', 'required', 'disabled', 'help', 'inline']) }}
-            class="w-4 h-4 rounded border-border text-primary focus:ring-primary focus:ring-2 disabled:opacity-50 {{ $attributes->get('class', '') }}"
+            class="w-4 h-4 rounded bg-canvas-subtle border-border text-primary focus:ring-primary focus:ring-2 disabled:opacity-50 {{ $attributes->get('class', '') }}"
         >
         @if($label)
             <span class="text-sm text-ink">{{ $label }}</span>
@@ -32,7 +32,7 @@
 
     @if($name && isset($errors))
         @error($name)
-            <p class="mt-1 text-sm text-danger-text">{{ $message }}</p>
+            <p class="mt-1 text-xs text-danger-text">{{ $message }}</p>
         @enderror
     @endif
 </div>

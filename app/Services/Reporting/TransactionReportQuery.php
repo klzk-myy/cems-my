@@ -3,6 +3,7 @@
 namespace App\Services\Reporting;
 
 use App\Enums\TransactionType;
+use App\Exceptions\Domain\ReportValidationException;
 use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Expression;
@@ -37,6 +38,15 @@ class TransactionReportQuery
         string $volumeColumn = 'amount_local',
         ?string $amountColumn = null
     ): Collection {
+        // The column names are interpolated into raw SQL fragments; only allow
+        // known transaction columns so a caller can never inject SQL through
+        // this parameter.
+        foreach (array_filter([$volumeColumn, $amountColumn]) as $column) {
+            if (! in_array($column, ['amount_local', 'amount_foreign'], true)) {
+                throw new ReportValidationException("Unsupported report column '{$column}'.");
+            }
+        }
+
         $buyType = TransactionType::Buy->value;
         $sellType = TransactionType::Sell->value;
 
@@ -70,19 +80,41 @@ class TransactionReportQuery
 
         return [
             'buy_count' => $buy->count(),
-            'buy_volume' => (string) $buy->sum($volumeColumn),
+            'buy_volume' => $this->sumColumn($buy, $volumeColumn),
             'sell_count' => $sell->count(),
-            'sell_volume' => (string) $sell->sum($volumeColumn),
+            'sell_volume' => $this->sumColumn($sell, $volumeColumn),
         ];
+    }
+
+    /**
+     * Sum a column of DECIMAL strings with bcmath so large monetary totals in
+     * reports never lose precision to a float cast (Collection::sum() would
+     * cast '0.0001' + '0.0002' to 0.00030000000000000003).
+     */
+    private function sumColumn(Collection $rows, string $column): string
+    {
+        $total = '0';
+
+        foreach ($rows as $row) {
+            $value = $row->{$column} ?? '0';
+            if ($value !== '') {
+                $total = bcadd($total, (string) $value, 4);
+            }
+        }
+
+        return $total;
     }
 
     public function sumByType(?int $branchId = null): array
     {
         $query = $this->completed($branchId);
 
+        $buySum = (clone $query)->buy()->sum('amount_foreign');
+        $sellSum = (clone $query)->sell()->sum('amount_foreign');
+
         return [
-            'buy' => (float) (clone $query)->buy()->sum('amount_foreign'),
-            'sell' => (float) (clone $query)->sell()->sum('amount_foreign'),
+            'buy' => $buySum ?? '0',
+            'sell' => $sellSum ?? '0',
         ];
     }
 

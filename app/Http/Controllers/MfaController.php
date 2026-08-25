@@ -10,6 +10,7 @@ use App\Services\AuditService;
 use App\Services\System\MfaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Session;
 use Illuminate\View\View;
 
@@ -81,9 +82,11 @@ class MfaController extends Controller
 
         Session::forget('mfa_setup_started_at');
 
-        return view('pages.mfa.recovery-codes', [
-            'recoveryCodes' => $recoveryCodes,
-        ]);
+        // Persist the codes for the dedicated recovery-codes page, then hand off
+        // so they are only displayed once (the page clears them after rendering).
+        Session::put('mfa_recovery_codes', $recoveryCodes);
+
+        return redirect()->route('mfa.recovery-codes');
     }
 
     /**
@@ -99,6 +102,10 @@ class MfaController extends Controller
         if (empty($recoveryCodes) || ! is_array($recoveryCodes)) {
             return redirect()->route('mfa.setup');
         }
+
+        // Codes are only shown once: clear them before rendering so a refresh or
+        // a later visit cannot re-display them.
+        Session::forget('mfa_recovery_codes');
 
         return view('pages.mfa.recovery-codes', [
             'recoveryCodes' => $recoveryCodes,
@@ -123,8 +130,12 @@ class MfaController extends Controller
             return redirect()->intended('/dashboard');
         }
 
-        $fingerprint = $this->mfaService->generateDeviceFingerprint();
-        if ($this->mfaService->hasTrustedDevice($user, $fingerprint)) {
+        // Trusted-device bypass: the random secret lives in a long-lived
+        // cookie; only its hash is stored server-side.
+        $deviceToken = $request->cookie(MfaService::DEVICE_COOKIE_NAME);
+
+        if (is_string($deviceToken) && $deviceToken !== ''
+            && $this->mfaService->hasTrustedDevice($user, hash('sha256', $deviceToken))) {
             $request->session()->put('mfa_verified', true);
             $request->session()->put('mfa_verified_at', now()->timestamp);
 
@@ -147,6 +158,17 @@ class MfaController extends Controller
         $validated = $request->validated();
 
         $user = auth()->user();
+
+        // Brute-force lockout: shared per-user counter across TOTP and
+        // recovery-code attempts (5 failures / 15 minutes).
+        if ($this->mfaService->hasTooManyFailedAttempts($user)) {
+            $this->auditService->logMfaEvent('mfa_verification_locked', $user->id);
+
+            return back(status: 429)->withErrors([
+                'code' => 'Too many failed attempts. Please try again in 15 minutes.',
+            ]);
+        }
+
         $secret = $this->mfaService->getSecret($user);
 
         if (! $secret) {
@@ -161,6 +183,8 @@ class MfaController extends Controller
         }
 
         if (! $valid) {
+            $this->mfaService->recordFailedAttempt($user);
+
             $this->auditService->logMfaEvent('mfa_verification_failed', $user->id, [
                 'new' => ['reason' => 'invalid_code'],
             ]);
@@ -168,20 +192,31 @@ class MfaController extends Controller
             return back()->withErrors(['code' => 'Invalid code. Please try again.']);
         }
 
+        $this->mfaService->clearFailedAttempts($user);
+
         $request->session()->put('mfa_verified', true);
         $request->session()->put('mfa_verified_at', now()->timestamp);
 
         $this->auditService->logMfaEvent('mfa_verification_success', $user->id);
 
         if ($request->boolean('remember_device')) {
-            $fingerprint = $this->mfaService->generateDeviceFingerprint();
             $days = config('cems.mfa.remember_days', 30);
-            $this->mfaService->rememberDevice(
-                $user,
-                $fingerprint,
-                $request->userAgent(),
-                $days
-            );
+
+            // Trust is bound to a random secret delivered as a secure,
+            // HTTP-only cookie; only its hash is stored server-side.
+            $token = $this->mfaService->rememberDevice($user, $request->userAgent(), $days);
+
+            Cookie::queue(Cookie::make(
+                MfaService::DEVICE_COOKIE_NAME,
+                $token,
+                $days * 24 * 60,
+                config('session.path', '/'),
+                config('session.domain'),
+                (bool) config('session.secure'),
+                true,
+                false,
+                config('session.same_site', 'lax')
+            ));
         }
 
         return redirect()->intended('/dashboard');
@@ -197,6 +232,17 @@ class MfaController extends Controller
         $validated = $request->validated();
 
         $user = auth()->user();
+
+        // Same brute-force lockout as verification: disabling MFA must not be
+        // an unlimited guessing oracle either.
+        if ($this->mfaService->hasTooManyFailedAttempts($user)) {
+            $this->auditService->logMfaEvent('mfa_disable_locked', $user->id);
+
+            return back(status: 429)->withErrors([
+                'code' => 'Too many failed attempts. Please try again in 15 minutes.',
+            ]);
+        }
+
         $secret = $this->mfaService->getSecret($user);
 
         if (! $secret) {
@@ -210,8 +256,12 @@ class MfaController extends Controller
         }
 
         if (! $valid) {
+            $this->mfaService->recordFailedAttempt($user);
+
             return back()->withErrors(['code' => 'Invalid code. Cannot disable MFA.']);
         }
+
+        $this->mfaService->clearFailedAttempts($user);
 
         $this->mfaService->removeAllTrustedDevices($user);
 
@@ -276,15 +326,28 @@ class MfaController extends Controller
 
         $user = auth()->user();
 
+        // Brute-force lockout for the recovery path (5 failures / 15 min).
+        if ($this->mfaService->hasTooManyFailedAttempts($user)) {
+            $this->auditService->logMfaEvent('mfa_recovery_locked', $user->id);
+
+            return back(status: 429)->withErrors([
+                'recovery_code' => 'Too many failed attempts. Please try again in 15 minutes.',
+            ]);
+        }
+
         if (! $user || ! password_verify($validated['password'], $user->password_hash)) {
             return back()->withErrors(['password' => 'Invalid password.']);
         }
 
         if (! $this->mfaService->verifyRecoveryCode($user, $validated['recovery_code'])) {
+            $this->mfaService->recordFailedAttempt($user);
+
             $this->auditService->logMfaEvent('mfa_recovery_failed', $user->id);
 
             return back()->withErrors(['recovery_code' => 'Invalid recovery code.']);
         }
+
+        $this->mfaService->clearFailedAttempts($user);
 
         $request->session()->put('mfa_verified', true);
         $request->session()->put('mfa_verified_at', now()->timestamp);

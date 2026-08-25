@@ -2,7 +2,9 @@
 
 namespace Tests\Unit\ValueObjects;
 
+use App\Exceptions\Domain\MathValidationException;
 use App\ValueObjects\Quarter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class QuarterTest extends TestCase
@@ -18,21 +20,19 @@ class QuarterTest extends TestCase
 
     public function test_from_string_throws_for_invalid_format(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(MathValidationException::class);
 
         Quarter::fromString('not-a-quarter');
     }
 
     public function test_from_string_throws_for_out_of_range_quarter(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(MathValidationException::class);
 
         Quarter::fromString('2024-Q5');
     }
 
-    /**
-     * @dataProvider quarterDateProvider
-     */
+    #[DataProvider('quarterDateProvider')]
     public function test_start_and_end_dates(int $year, int $quarterNumber, string $expectedStart, string $expectedEnd): void
     {
         $quarter = new Quarter($year, $quarterNumber);

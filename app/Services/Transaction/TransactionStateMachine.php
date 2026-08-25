@@ -3,7 +3,10 @@
 namespace App\Services\Transaction;
 
 use App\Enums\TransactionStatus;
+use App\Exceptions\Domain\TransactionBlockedException;
+use App\Exceptions\Domain\TransactionValidationException;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Support\Facades\Log;
 
@@ -30,6 +33,7 @@ class TransactionStateMachine
             'Rejected',
             'PendingCancellation',
             'Cancelled',
+            'Completed',  // Direct completion for manager approval
         ],
         'Approved' => [
             'Processing',
@@ -47,6 +51,11 @@ class TransactionStateMachine
             'Reversed',
             'PendingCancellation',
             'Cancelled',
+            // Booking failure after a persisted Completed record (e.g. accounting
+            // or position write failure during create()). The side effects were
+            // rolled back, so the record is marked Failed and re-executed by the
+            // recovery flow (Failed -> Completed), never double-booked.
+            'Failed',
         ],
         'Finalized' => [],
         'Cancelled' => [],
@@ -55,6 +64,7 @@ class TransactionStateMachine
             'PendingApproval',
             'PendingCancellation',
             'Cancelled',
+            'Completed',  // Automated re-execution of a previously failed transaction
         ],
         'Rejected' => [
             'Cancelled',
@@ -136,7 +146,7 @@ class TransactionStateMachine
             'from' => $from->value,
             'to' => $to->value,
             'reason' => $context['reason'] ?? null,
-            'user_id' => $context['user_id'] ?? auth()->id(),
+            'user_id' => $context['user_id'] ?? auth()->id() ?? config('cems.system_user_id'),
             'timestamp' => $now->toIso8601String(),
         ];
 
@@ -164,14 +174,14 @@ class TransactionStateMachine
     ): void {
         // Track approval
         if ($to === TransactionStatus::Approved) {
-            $this->transaction->approved_by = $context['user_id'] ?? auth()->id();
+            $this->transaction->approved_by = $context['user_id'] ?? auth()->id() ?? config('cems.system_user_id');
             $this->transaction->approved_at = now();
         }
 
         // Track cancellation
         if ($to === TransactionStatus::Cancelled) {
             $this->transaction->cancelled_at = now();
-            $this->transaction->cancelled_by = $context['user_id'] ?? auth()->id();
+            $this->transaction->cancelled_by = $context['user_id'] ?? auth()->id() ?? config('cems.system_user_id');
             $this->transaction->cancellation_reason = $context['reason'] ?? null;
         }
 
@@ -305,6 +315,27 @@ class TransactionStateMachine
     }
 
     /**
+     * Re-execute a failed transaction to completion.
+     * Failed -> Completed
+     *
+     * Automated recovery path: the caller re-runs the booking side effects and
+     * marks the transaction as completed in one step. Only valid from Failed status.
+     *
+     * @return bool True if transition was successful
+     */
+    public function reprocess(): bool
+    {
+        // reprocess() is only valid from Failed state
+        if (! $this->transaction->status->isFailed()) {
+            return false;
+        }
+
+        return $this->transitionTo(TransactionStatus::Completed, [
+            'reason' => 'Automated retry after failure',
+        ]);
+    }
+
+    /**
      * Reverse a completed transaction.
      * Completed -> Reversed
      *
@@ -352,33 +383,68 @@ class TransactionStateMachine
     }
 
     /**
-     * Approve a pending transaction (legacy - use approve() instead).
+     * Approve and complete a pending transaction in one step (manager override).
+     * PendingApproval -> Completed
+     * This is the proper method for manager approval that completes the transaction directly.
+     * NOT allowed for refund transactions - they must go through the two-step approval flow.
+     * Requires explicit manager/admin authorization.
      *
+     * @param  string  $reason  The reason for the direct completion
+     * @param  User  $manager  The manager/admin user authorizing this action
      * @return bool True if transition was successful
+     *
+     * @throws \RuntimeException If called on a refund transaction or user is not manager/admin
      */
-    public function approvePending(): bool
+    public function approveAndComplete(string $reason, User $manager): bool
     {
-        return $this->transitionTo(TransactionStatus::Approved);
+        if (! $manager->role->isManager() && ! $manager->role->isAdmin()) {
+            throw new TransactionBlockedException(
+                'approveAndComplete requires manager or admin authorization.'
+            );
+        }
+
+        if ($this->transaction->is_refund) {
+            throw new TransactionValidationException(
+                message: 'Refund transactions cannot use approveAndComplete; they must go through the two-step flow (approve() then complete()).'
+            );
+        }
+
+        return $this->transitionTo(TransactionStatus::Completed, [
+            'reason' => $reason,
+            'user_id' => $manager->id,
+        ]);
     }
 
     /**
-     * Force a status change (admin override).
+     * Force a status change (admin recovery/emergency only).
      * Allows transitioning to any valid state regardless of normal flow.
+     * MUST be called by an admin user with explicit authorization.
      *
      * @param  TransactionStatus  $status  The target status
-     * @param  string  $reason  The reason for the override
+     * @param  string  $reason  The reason for the override (required)
+     * @param  User  $adminUser  Admin user performing the override
      * @return bool True if transition was successful
+     *
+     * @throws \RuntimeException If user is not admin or not explicitly authorized
      */
-    public function forceStatus(TransactionStatus $status, string $reason): bool
+    public function forceStatus(TransactionStatus $status, string $reason, User $adminUser): bool
     {
+        if (! $adminUser->role->isAdmin()) {
+            throw new TransactionBlockedException(
+                'forceStatus requires admin authorization. Only administrators can force status changes. '.
+                'Use transitionTo() for normal transitions.'
+            );
+        }
+
+        // Validate this is a legitimate forced transition
         $from = $this->transaction->status;
 
-        // Record the forced transition
+        // Record the forced transition with 'forced' flag
         $this->history[] = [
             'from' => $from->value,
             'to' => $status->value,
             'reason' => $reason,
-            'user_id' => auth()->id(),
+            'user_id' => $adminUser->id,
             'timestamp' => now()->toIso8601String(),
             'forced' => true,
         ];
@@ -391,7 +457,7 @@ class TransactionStateMachine
         // audit fields populated consistently, not just Cancelled.
         $this->applyTransitionMetadata($from, $status, [
             'reason' => $reason,
-            'user_id' => auth()->id(),
+            'user_id' => $adminUser->id,
         ]);
 
         $saved = $this->transaction->save();
@@ -403,8 +469,54 @@ class TransactionStateMachine
                     'from' => $from->value,
                     'to' => $status->value,
                     'reason' => $reason,
-                    'user_id' => auth()->id(),
+                    'user_id' => $adminUser->id,
                     'forced' => true,
+                ],
+            ]);
+        }
+
+        return $saved;
+    }
+
+    /**
+     * Mark transaction as dead-letter queue (DLQ) - recovery operation.
+     * This does NOT change the status (stays Failed), only adds DLQ marker.
+     *
+     * @param  string  $reason  The DLQ reason
+     * @return bool True if update was successful
+     */
+    public function markAsDlq(string $reason): bool
+    {
+        // Only valid from Failed status
+        if (! $this->transaction->status->isFailed()) {
+            throw new TransactionValidationException(message: 'markAsDlq can only be called from Failed status');
+        }
+
+        // Just update the DLQ flags without changing status
+        $this->transaction->is_dlq = true;
+        $this->transaction->failure_reason = $reason;
+
+        // Record in transition history
+        $this->history[] = [
+            'from' => $this->transaction->status->value,
+            'to' => $this->transaction->status->value,
+            'reason' => $reason,
+            'user_id' => auth()->id() ?? config('cems.system_user_id'),
+            'timestamp' => now()->toIso8601String(),
+            'dlq_marker' => true,
+        ];
+
+        $this->transaction->transition_history = $this->history;
+
+        $saved = $this->transaction->save();
+
+        // Log DLQ marker to audit trail
+        if ($this->auditService) {
+            $this->auditService->logTransaction('dlq_marker_added', $this->transaction->id, [
+                'new' => [
+                    'reason' => $reason,
+                    'user_id' => auth()->id() ?? config('cems.system_user_id'),
+                    'dlq' => true,
                 ],
             ]);
         }

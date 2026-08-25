@@ -34,7 +34,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <x-card title="Today's Till Summary">
-                <x-card-section>
+                <x-card>
                     <dl class="space-y-2">
                         <div class="flex justify-between">
                             <dt class="text-ink-muted">Open Tills</dt>
@@ -45,11 +45,11 @@
                             <dd class="font-medium">{{ count($closedTills ?? []) }}</dd>
                         </div>
                     </dl>
-                </x-card-section>
+                </x-card>
             </x-card>
 
             <x-card title="Variance">
-                <x-card-section>
+                <x-card>
                     <dl class="space-y-2">
                         <div class="flex justify-between">
                             <dt class="text-ink-muted">Total Variance</dt>
@@ -58,7 +58,7 @@
                             </dd>
                         </div>
                     </dl>
-                </x-card-section>
+                </x-card>
             </x-card>
         </div>
     </div>

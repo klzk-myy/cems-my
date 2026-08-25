@@ -7,6 +7,10 @@ use App\Services\Contracts\TransactionStatusServiceInterface;
 
 class TransactionStatusService implements TransactionStatusServiceInterface
 {
+    public function __construct(
+        protected TransactionReversalService $reversalService
+    ) {}
+
     /**
      * Determine if a transaction is refundable.
      *
@@ -26,8 +30,7 @@ class TransactionStatusService implements TransactionStatusServiceInterface
             return false;
         }
 
-        $cancellationWindowHours = config('cems.transaction_cancellation_window_hours', 24);
-        if ($transaction->created_at->diffInHours(now()) >= $cancellationWindowHours) {
+        if (! $this->reversalService->isWithinCancellationWindow($transaction)) {
             return false;
         }
 

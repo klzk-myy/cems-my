@@ -3,14 +3,21 @@
 namespace App\Services\Transaction;
 
 use App\Enums\CddLevel;
+use App\Enums\StockReservationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
+use App\Enums\UserRole;
 use App\Events\TransactionCreated;
 use App\Exceptions\Domain\AllocationValidationException;
+use App\Exceptions\Domain\CustomerBlockedException;
 use App\Exceptions\Domain\DuplicateTransactionException;
 use App\Exceptions\Domain\InsufficientStockException;
+use App\Exceptions\Domain\PermissionDeniedException;
+use App\Exceptions\Domain\PositionLimitExceededException;
 use App\Exceptions\Domain\TransactionBlockedException;
+use App\Models\CurrencyPosition;
 use App\Models\Customer;
+use App\Models\StockReservation;
 use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\User;
@@ -30,6 +37,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class TransactionCreationService implements TransactionCreationServiceInterface
 {
@@ -44,6 +52,8 @@ class TransactionCreationService implements TransactionCreationServiceInterface
         protected MathService $mathService,
         protected ThresholdService $thresholdService,
         protected TellerAllocationService $tellerAllocationService,
+        protected TransactionErrorHandler $errorHandler,
+        protected TransactionRecoveryService $recoveryService,
     ) {}
 
     public function prepareAndCreate(array $data, ?int $userId = null, ?string $ipAddress = null): Transaction
@@ -57,6 +67,19 @@ class TransactionCreationService implements TransactionCreationServiceInterface
 
         $tillBalance = $this->validationService->validateTillBalance($data['till_id'], $data['currency_code']);
         $customer = Customer::findOrFail($data['customer_id']);
+
+        // Frozen/blocked customers cannot book new transactions (BNM
+        // freeze-order enforcement).
+        if ($customer->transactions_blocked || $customer->is_frozen) {
+            throw new CustomerBlockedException(
+                (int) $customer->id,
+                (string) ($customer->freeze_reason ?? 'account blocked from transactions')
+            );
+        }
+
+        // Branch isolation: fail closed when the user's branch has no
+        // relationship with this customer (same rule as CustomerPolicy::view).
+        $this->ensureCustomerIsWithinUserBranch($customer, $user);
 
         $amountLocal = $this->mathService->multiply(
             (string) $data['amount_foreign'],
@@ -97,7 +120,21 @@ class TransactionCreationService implements TransactionCreationServiceInterface
         $userId ??= $user->id;
         $ipAddress ??= request()?->ip();
 
-        return DB::transaction(function () use ($context, $data, $user, $userId, $ipAddress) {
+        // Phase 1: validate, persist the transaction record and commit it. The
+        // record must survive booking failures so the transaction can be marked
+        // Failed and retried (or parked in the DLQ) instead of disappearing.
+        $transaction = DB::transaction(function () use ($context, $data, $userId) {
+            // Acquire position lock FIRST for both Buy and Sell to prevent race conditions
+            // This ensures stock check, idempotency check, and transaction creation happen atomically
+            $lockedPosition = $this->acquirePositionLock($data, $context->tillBalance);
+
+            // BNM position limit: reject Buys that would push the branch
+            // position above the configured ceiling (checked under the lock;
+            // Sells reduce the position so cannot breach a maximum).
+            $this->assertPositionLimit($lockedPosition, $data);
+
+            $this->ensureStockForSell($data, $context->tillBalance, $lockedPosition);
+
             $existingByIdempotencyKey = $this->idempotencyService->findDuplicate(
                 $data['idempotency_key'] ?? null,
                 $userId,
@@ -113,34 +150,183 @@ class TransactionCreationService implements TransactionCreationServiceInterface
                 throw new DuplicateTransactionException;
             }
 
-            $this->ensureStockForSell($data, $context->tillBalance);
-            $this->acquirePositionLock($data, $context->tillBalance);
-
             $transaction = $this->createTransactionRecord($data, $context);
 
             $this->reserveStockIfPending($transaction, $data);
 
-            if ($transaction->status === TransactionStatus::Completed) {
-                $this->applyCompletedSideEffects($transaction, $context, $ipAddress);
-            }
-
-            $this->recordCreationAudit($transaction, $user, $ipAddress);
-            $this->dispatchCreationEvent($transaction);
-
             return $transaction;
         });
+
+        // Phase 2: book the side effects for transactions that complete
+        // immediately. A booking failure (position/till/allocation/accounting)
+        // marks the transaction Failed with an error record and dispatches the
+        // retry job; the exception is rethrown so the caller still reports the
+        // failure to the operator, but the record now exists for recovery.
+        if ($transaction->status === TransactionStatus::Completed) {
+            try {
+                // Phase 2 re-acquires the position lock and re-checks stock under
+                // it: the phase-1 lock was released at commit, so without this a
+                // concurrent Sell could pass the phase-1 availability check and
+                // both transactions oversell against the same committed balance.
+                DB::transaction(function () use ($transaction, $context, $ipAddress) {
+                    $lockedPosition = $this->acquirePositionLock($context->data, $context->tillBalance);
+                    $this->ensureStockForSell($context->data, $context->tillBalance, $lockedPosition);
+                    $this->applyCompletedSideEffects($transaction, $context, $ipAddress);
+                });
+            } catch (Throwable $e) {
+                $this->recordBookingFailure($transaction, $e, $context, $user, $ipAddress);
+
+                throw $e;
+            }
+        }
+
+        // The record is persisted either way, so the creation audit applies to
+        // Failed transactions too. But a Failed transaction must not trigger the
+        // TransactionCreated event: the listener runs AML monitoring and risk
+        // scoring on a transaction that was never booked. The booking failure
+        // path always rethrows, so reaching this point means the booking
+        // succeeded and the event is always safe to dispatch.
+        $this->recordCreationAudit($transaction, $user, $ipAddress);
+        $this->dispatchCreationEvent($transaction);
+
+        return $transaction;
     }
 
-    private function ensureStockForSell(array $data, TillBalance $tillBalance): void
+    /**
+     * Record a booking failure: persist the error, transition the transaction
+     * to Failed, and dispatch the retry job through the recovery service so the
+     * transaction is re-executed automatically instead of vanishing.
+     */
+    private function recordBookingFailure(
+        Transaction $transaction,
+        Throwable $e,
+        TransactionCreationContext $context,
+        User $user,
+        ?string $ipAddress
+    ): void {
+        Log::error('Transaction booking failed; marking transaction failed', [
+            'transaction_id' => $transaction->id,
+            'exception' => $e->getMessage(),
+        ]);
+
+        try {
+            $this->errorHandler->handleProcessingError(
+                $transaction->refresh(),
+                TransactionErrorHandler::ERROR_TYPE_ACCOUNTING,
+                'Booking failed: '.$e->getMessage(),
+                ['exception' => get_class($e), 'trace' => $e->getTraceAsString()]
+            );
+
+            $this->auditTrailHelper->recordTransaction($transaction->id, 'transaction_booking_failed', [
+                'new' => [
+                    'status' => TransactionStatus::Failed->value,
+                    'error' => $e->getMessage(),
+                    'customer_id' => $transaction->customer_id,
+                    'branch_id' => $transaction->branch_id,
+                ],
+            ], $user, 'ERROR', $ipAddress);
+
+            // Dispatch the retry after the failure audit is persisted so the
+            // recovery job never observes an inconsistent audit trail.
+            $this->recoveryService->attemptRecovery($transaction->refresh());
+        } catch (Throwable $handlerError) {
+            // Never mask the original booking failure with an error-handler failure.
+            Log::error('Failed to record transaction booking error', [
+                'transaction_id' => $transaction->id,
+                'handler_error' => $handlerError->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Create a transaction for import (no teller allocation, no request context).
+     *
+     * @param  array{type: string, currency_code: string, amount_foreign: string, rate: string, purpose: string, source_of_funds: string, source_of_wealth?: string, idempotency_key?: string, customer_id: int, till_id: string}  $data
+     * @param  User  $user  The user performing the import
+     */
+    public function createForImport(
+        array $data,
+        Customer $customer,
+        TillBalance $tillBalance,
+        CddLevel $cddLevel,
+        TransactionStatus $status,
+        string $amountLocal,
+        User $user,
+        ?string $holdReason = null,
+        ?string $ipAddress = null
+    ): Transaction {
+        $context = new TransactionCreationContext(
+            data: $data,
+            customer: $customer,
+            tillBalance: $tillBalance,
+            cddLevel: $cddLevel,
+            holdRequired: $status === TransactionStatus::PendingApproval,
+            status: $status,
+            amountLocal: $amountLocal,
+            user: $user,
+            allocation: null, // No teller allocation for imports
+            holdReason: $holdReason,
+        );
+
+        return $this->create($context, $user->id, $ipAddress);
+    }
+
+    /**
+     * Enforce customer branch isolation for transaction creation.
+     *
+     * Applies the same rule as CustomerPolicy::view: admins may serve any
+     * customer; everybody else may only serve customers whose transaction
+     * history includes their own branch. Customers without any history
+     * (walk-ins) are not bound to a branch yet, so their first transaction
+     * is allowed anywhere. Users without a branch assignment fail closed.
+     *
+     * @throws PermissionDeniedException When the customer is out of scope for the user's branch.
+     */
+    private function ensureCustomerIsWithinUserBranch(Customer $customer, User $user): void
+    {
+        if ($user->role === UserRole::Admin) {
+            return;
+        }
+
+        if ($user->branch_id === null) {
+            throw new PermissionDeniedException('create transactions for this customer');
+        }
+
+        $knownBranchIds = $customer->transactions()->distinct()->pluck('branch_id');
+
+        if ($knownBranchIds->isNotEmpty()
+            && ! $knownBranchIds->contains(fn ($branchId) => (int) $branchId === (int) $user->branch_id)
+        ) {
+            throw new PermissionDeniedException('create transactions for this customer');
+        }
+    }
+
+    private function ensureStockForSell(array $data, TillBalance $tillBalance, ?CurrencyPosition $lockedPosition = null): void
     {
         if ($data['type'] !== TransactionType::Sell->value) {
             return;
         }
 
-        $availableBalance = $this->positionService->getAvailableBalance(
-            $data['currency_code'],
-            (string) $tillBalance->branch_id
-        );
+        // Use the already-locked position if provided, otherwise fall back to getAvailableBalance
+        if ($lockedPosition) {
+            $quantity = $lockedPosition->quantity ?? '0';
+
+            // Check reservations within the same till (reservations are scoped by till_id,
+            // matching getAvailableBalance() which also filters reservations by till_id).
+            $reserved = StockReservation::where('currency_code', $data['currency_code'])
+                ->where('till_id', (string) $tillBalance->till_id)
+                ->where('status', StockReservationStatus::Pending)
+                ->where('expires_at', '>', now())
+                ->lockForUpdate()
+                ->sum('amount_foreign');
+
+            $availableBalance = $this->mathService->subtract($quantity, (string) $reserved);
+        } else {
+            $availableBalance = $this->positionService->getAvailableBalance(
+                $data['currency_code'],
+                (string) $tillBalance->till_id
+            );
+        }
 
         if (bccomp($availableBalance, $data['amount_foreign'], 4) < 0) {
             throw new InsufficientStockException(
@@ -151,16 +337,48 @@ class TransactionCreationService implements TransactionCreationServiceInterface
         }
     }
 
-    private function acquirePositionLock(array $data, TillBalance $tillBalance): void
+    private function acquirePositionLock(array $data, TillBalance $tillBalance): ?CurrencyPosition
     {
-        if ($data['type'] !== TransactionType::Buy->value) {
-            return;
-        }
-
-        $this->positionService->getPositionWithLock(
+        // Lock position for both Buy and Sell to prevent race conditions
+        // on stock availability checks and position updates
+        return $this->positionService->getPositionWithLock(
             $data['currency_code'],
             (string) $tillBalance->branch_id
         );
+    }
+
+    /**
+     * BNM position ceiling: a Buy that would take the branch position above
+     * config('cems.position_limits.<currency>') is rejected under the lock.
+     */
+    private function assertPositionLimit(?CurrencyPosition $position, array $data): void
+    {
+        if ($position === null) {
+            return;
+        }
+
+        if (($data['type'] ?? null) !== TransactionType::Buy->value) {
+            return; // Sells only reduce the position.
+        }
+
+        $limit = config('cems.position_limits.'.$data['currency_code']);
+
+        if ($limit === null || ! is_numeric($limit)) {
+            return;
+        }
+
+        $projected = $this->mathService->add(
+            (string) $position->foreign_total,
+            (string) $data['amount_foreign']
+        );
+
+        if ($this->mathService->compare($projected, (string) $limit) > 0) {
+            throw new PositionLimitExceededException(
+                (string) $data['currency_code'],
+                $projected,
+                (string) $limit
+            );
+        }
     }
 
     private function reserveStockIfPending(Transaction $transaction, array $data): void
@@ -211,7 +429,7 @@ class TransactionCreationService implements TransactionCreationServiceInterface
 
     private function createTransactionRecord(array $data, TransactionCreationContext $context): Transaction
     {
-        $transaction = Transaction::create([
+        $transaction = new Transaction([
             'customer_id' => $context->customer->id,
             'user_id' => $context->user->id,
             'branch_id' => $context->tillBalance->branch_id,
@@ -224,10 +442,10 @@ class TransactionCreationService implements TransactionCreationServiceInterface
             'purpose' => $data['purpose'],
             'source_of_funds' => $data['source_of_funds'],
             'source_of_wealth' => $data['source_of_wealth'] ?? null,
-            'cdd_level' => $context->cddLevel,
-            'idempotency_key' => $data['idempotency_key'] ?? null,
         ]);
 
+        $transaction->cdd_level = $context->cddLevel;
+        $transaction->idempotency_key = $data['idempotency_key'] ?? null;
         $transaction->status = $context->status;
         $transaction->hold_reason = $context->holdReason;
         $transaction->approved_by = null;
@@ -249,7 +467,12 @@ class TransactionCreationService implements TransactionCreationServiceInterface
             (string) $context->tillBalance->branch_id
         );
 
-        $this->updateTillBalance($context->tillBalance, $data['type'], $context->amountLocal, $data['amount_foreign']);
+        $this->tillBalanceManager->applyTransaction(
+            $context->tillBalance,
+            TransactionType::from($data['type']),
+            $context->amountLocal,
+            $data['amount_foreign']
+        );
 
         $this->tellerAllocationService->applyTransactionAllocation($transaction, $context->allocation);
 
@@ -301,16 +524,6 @@ class TransactionCreationService implements TransactionCreationServiceInterface
         }
 
         return TransactionStatus::Completed;
-    }
-
-    private function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
-    {
-        $this->tillBalanceManager->applyTransaction(
-            $tillBalance,
-            TransactionType::from($type),
-            $amountLocal,
-            $amountForeign
-        );
     }
 
     private function createAccountingEntries(Transaction $transaction, ?string $ipAddress, ?Model $user = null): void

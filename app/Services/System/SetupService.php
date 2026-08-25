@@ -4,13 +4,66 @@ namespace App\Services\System;
 
 use App\Models\Branch;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class SetupService
 {
+    /**
+     * Persist the immutable setup-completed marker.
+     *
+     * Must be invoked inside the setup transaction so that a failure to record
+     * the marker rolls back the entire setup (fail-closed).
+     */
+    public function markSetupComplete(): void
+    {
+        DB::table('setup_state')->updateOrInsert(
+            ['id' => 1],
+            [
+                'setup_completed_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+    }
+
+    /**
+     * Whether the immutable setup-completed marker is present.
+     *
+     * Returns false when the table does not exist yet (pre-migration installs)
+     * so the data-derived fallback in EnsureSetupAccessible still applies.
+     */
+    public function isCompleted(): bool
+    {
+        try {
+            return DB::table('setup_state')
+                ->whereNotNull('setup_completed_at')
+                ->exists();
+        } catch (QueryException $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Clear the marker. Only reachable through the admin-gated,
+     * non-production reset endpoint; migrate:fresh already drops the table,
+     * this is belt-and-braces for partial failures.
+     */
+    public function clearCompleted(): void
+    {
+        try {
+            DB::table('setup_state')->delete();
+        } catch (QueryException $e) {
+            // Table absent - nothing to clear.
+        }
+    }
+
     public function seedCoreData(array $config): void
     {
+        $this->validateAdminPassword($config['admin_password'] ?? '');
+
         $admin = User::create([
             'username' => $config['admin_username'] ?? 'admin',
             'email' => $config['admin_email'],
@@ -55,6 +108,29 @@ class SetupService
                 '--class' => 'BranchPoolSeeder',
                 '--force' => true,
             ]);
+        }
+    }
+
+    protected function validateAdminPassword(string $password): void
+    {
+        if (strlen($password) < 12) {
+            throw new \InvalidArgumentException('Admin password must be at least 12 characters');
+        }
+
+        if (! preg_match('/[A-Z]/', $password)) {
+            throw new \InvalidArgumentException('Admin password must contain at least one uppercase letter');
+        }
+
+        if (! preg_match('/[a-z]/', $password)) {
+            throw new \InvalidArgumentException('Admin password must contain at least one lowercase letter');
+        }
+
+        if (! preg_match('/[0-9]/', $password)) {
+            throw new \InvalidArgumentException('Admin password must contain at least one digit');
+        }
+
+        if (! preg_match('/[^A-Za-z0-9]/', $password)) {
+            throw new \InvalidArgumentException('Admin password must contain at least one special character');
         }
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class SystemLog extends BaseModel
 {
@@ -23,7 +24,6 @@ class SystemLog extends BaseModel
         'session_id',
         'previous_hash',
         'entry_hash',
-        'created_at',
     ];
 
     protected $casts = [
@@ -68,7 +68,10 @@ class SystemLog extends BaseModel
      */
     public function scopeBetweenDates($query, string $from, string $to)
     {
-        return $query->whereBetween('created_at', [$from.' 00:00:00', $to.' 23:59:59']);
+        return $query->whereBetween('created_at', [
+            Carbon::parse($from)->startOfDay(),
+            Carbon::parse($to)->endOfDay(),
+        ]);
     }
 
     /**

@@ -7,25 +7,27 @@ use App\Enums\ComplianceFlagType;
 use App\Enums\FlagStatus;
 use App\Enums\RiskRating;
 use App\Events\AlertCreated;
+use App\Exceptions\Domain\CaseManagementException;
 use App\Models\Alert;
 use App\Models\Compliance\ComplianceCase;
 use App\Models\Customer;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
-use App\Services\Transaction\TransactionMonitoringService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AlertTriageService
 {
     public function __construct(
-        protected ComplianceService $complianceService,
-        protected TransactionMonitoringService $monitoringService,
         protected ThresholdService $thresholdService,
         protected MathService $mathService,
+        protected CaseManagementService $caseManagementService,
+        protected AuditService $auditService,
     ) {}
 
     /**
@@ -147,6 +149,10 @@ class AlertTriageService
      */
     public function assignToOfficer(Alert $alert, int $userId): Alert
     {
+        if ($alert->case_id !== null) {
+            throw new CaseManagementException('Alert is linked to a case; use case assignment workflow instead');
+        }
+
         $alert->update(['assigned_to' => $userId]);
 
         return $alert->fresh();
@@ -168,10 +174,21 @@ class AlertTriageService
 
         $workloads = $officers->mapWithKeys(fn ($o) => [$o->id => 0]);
 
+        // Min-heap keyed by workload so selecting the least-loaded officer is
+        // O(1) per alert instead of sorting the full map on every iteration.
+        $queue = new \SplPriorityQueue;
+        $queue->setExtractFlags(\SplPriorityQueue::EXTR_DATA);
+        foreach ($workloads as $officerId => $count) {
+            $queue->insert($officerId, -$count);
+        }
+
         foreach ($unassignedAlerts as $alert) {
-            $minWorkloadOfficer = $workloads->sort()->keys()->first();
+            $minWorkloadOfficer = $queue->extract();
+
             $this->assignToOfficer($alert, $minWorkloadOfficer);
             $workloads[$minWorkloadOfficer]++;
+            // Re-insert with the incremented workload (negative priority = min-heap).
+            $queue->insert($minWorkloadOfficer, -$workloads[$minWorkloadOfficer]);
             $assigned[] = $alert;
         }
 
@@ -195,6 +212,30 @@ class AlertTriageService
                     'reviewed_by' => $resolvedBy,
                     'resolved_at' => now(),
                     'notes' => $notes,
+                ]);
+            }
+
+            return $alert->fresh();
+        });
+    }
+
+    public function dismissAlert(Alert $alert, int $dismissedBy): Alert
+    {
+        if ($alert->status === FlagStatus::Resolved || $alert->status === FlagStatus::Rejected) {
+            throw new CaseManagementException('Cannot dismiss an already resolved or rejected alert.');
+        }
+
+        return DB::transaction(function () use ($alert, $dismissedBy) {
+            $alert->update([
+                'status' => FlagStatus::Rejected,
+                'reviewed_by' => $dismissedBy,
+            ]);
+
+            if ($alert->flaggedTransaction) {
+                $alert->flaggedTransaction->update([
+                    'status' => FlagStatus::Rejected,
+                    'reviewed_by' => $dismissedBy,
+                    'resolved_at' => now(),
                 ]);
             }
 
@@ -299,6 +340,7 @@ class AlertTriageService
                 $this->assignToOfficer($alert, $userId);
                 $results['success']++;
             } catch (\Exception $e) {
+                Log::error('Alert bulk-assign failed', ['alert_id' => $alertId, 'error' => $e->getMessage()]);
                 $results['failed']++;
                 $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
             }
@@ -341,6 +383,7 @@ class AlertTriageService
                     $this->resolveAlert($alert, $resolvedBy, $notes);
                     $results['success']++;
                 } catch (\Exception $e) {
+                    Log::error('Alert bulk-resolve failed', ['alert_id' => $alertId, 'error' => $e->getMessage()]);
                     $results['failed']++;
                     $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
                 }
@@ -373,9 +416,14 @@ class AlertTriageService
                         continue;
                     }
 
-                    $alert->update(['case_id' => $case->id]);
+                    // Delegate to the single-link workflow so the exact same
+                    // guards apply (reject alerts already linked to another
+                    // case or belonging to a different customer than the
+                    // case) and case priority/SLA are recalculated after.
+                    $this->caseManagementService->linkAlertToCase($alert, $case);
                     $results['success']++;
                 } catch (\Exception $e) {
+                    Log::error('Alert bulk-link failed', ['alert_id' => $alertId, 'error' => $e->getMessage()]);
                     $results['failed']++;
                     $results['errors'][] = "Alert {$alertId}: {$e->getMessage()}";
                 }
@@ -393,5 +441,44 @@ class AlertTriageService
         return Alert::with(['customer', 'flaggedTransaction', 'assignedTo'])
             ->whereIn('id', $alertIds)
             ->get();
+    }
+
+    /**
+     * Escalate an alert to a higher severity level.
+     */
+    public function escalateAlert(Alert $alert, int $escalatedBy, string $reason): Alert
+    {
+        return DB::transaction(function () use ($alert, $escalatedBy, $reason) {
+            $currentPriority = $alert->priority;
+
+            // Bump priority up one level
+            $newPriority = match ($currentPriority) {
+                AlertPriority::Low => AlertPriority::Medium,
+                AlertPriority::Medium => AlertPriority::High,
+                AlertPriority::High => AlertPriority::Critical,
+                default => AlertPriority::Critical,
+            };
+
+            $alert->update([
+                'priority' => $newPriority,
+                'escalated_at' => now(),
+                'escalation_reason' => $reason,
+            ]);
+
+            $this->auditService->logWithSeverity(
+                'alert_escalated',
+                "Alert #{$alert->id} escalated from {$currentPriority->value} to {$newPriority->value}: {$reason}",
+                'warning',
+                [
+                    'alert_id' => $alert->id,
+                    'from_priority' => $currentPriority->value,
+                    'to_priority' => $newPriority->value,
+                    'reason' => $reason,
+                    'escalated_by' => $escalatedBy,
+                ]
+            );
+
+            return $alert;
+        });
     }
 }

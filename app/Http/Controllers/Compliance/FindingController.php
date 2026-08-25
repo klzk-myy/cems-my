@@ -21,7 +21,7 @@ class FindingController extends Controller
 
         $this->applyFindingFilters($query, $request);
 
-        $perPage = $request->get('per_page', 20);
+        $perPage = min(100, max(1, (int) $request->get('per_page', 20)));
         $findingsPaginated = $query->orderBy('generated_at', 'desc')->paginate($perPage);
 
         $findings = $findingsPaginated->map(fn ($finding) => [
@@ -75,7 +75,7 @@ class FindingController extends Controller
                 'message' => $e->getMessage(),
             ]);
 
-            return redirect()->back()->with('error', $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to dismiss finding. Please try again.');
         } catch (\Exception $e) {
             Log::error('FindingController: Exception dismissing finding', [
                 'message' => $e->getMessage(),

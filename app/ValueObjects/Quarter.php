@@ -2,6 +2,7 @@
 
 namespace App\ValueObjects;
 
+use App\Exceptions\Domain\MathValidationException;
 use Carbon\Carbon;
 
 final class Quarter
@@ -11,14 +12,14 @@ final class Quarter
         public readonly int $quarter,
     ) {
         if ($quarter < 1 || $quarter > 4) {
-            throw new \InvalidArgumentException("Quarter must be between 1 and 4, got {$quarter}");
+            throw new MathValidationException("Quarter must be between 1 and 4, got {$quarter}");
         }
     }
 
     public static function fromString(string $quarter): self
     {
         if (! preg_match('/^(\d{4})-Q([1-4])$/', $quarter, $matches)) {
-            throw new \InvalidArgumentException("Invalid quarter format: {$quarter}. Expected YYYY-QN.");
+            throw new MathValidationException("Invalid quarter format: {$quarter}. Expected YYYY-QN.");
         }
 
         return new self((int) $matches[1], (int) $matches[2]);

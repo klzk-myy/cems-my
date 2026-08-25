@@ -10,7 +10,7 @@
             @csrf
 
             <x-card>
-                <x-card-section class="space-y-6">
+                <x-card class="space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <x-input type="date" name="date" label="Entry Date" value="{{ date('Y-m-d') }}" required />
                         <x-input name="reference" label="Reference" placeholder="JE-0001" />
@@ -23,7 +23,7 @@
                     </div>
 
                     <x-input name="description" label="Description" placeholder="Enter journal entry description" required />
-                </x-card-section>
+                </x-card>
             </x-card>
 
             <x-card title="Journal Lines">
@@ -98,7 +98,7 @@
             </x-card>
 
             <x-card>
-                <x-card-section>
+                <x-card>
                     <div class="flex justify-end gap-8">
                         <div class="text-right">
                             <p class="text-sm text-ink-muted">Total Debit</p>
@@ -113,7 +113,7 @@
                             <p class="text-lg font-semibold" id="difference">0.00</p>
                         </div>
                     </div>
-                </x-card-section>
+                </x-card>
             </x-card>
 
             <div class="flex items-center justify-end gap-3">

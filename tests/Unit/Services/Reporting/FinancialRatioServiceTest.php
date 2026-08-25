@@ -49,7 +49,7 @@ class FinancialRatioServiceTest extends TestCase
             AccountLedger::factory()->create([
                 'account_code' => $code,
                 'entry_date' => $asOfDate,
-                'running_balance' => (string) rand(1000, 10000),
+                'running_balance' => '5000',
             ]);
         }
 
@@ -58,7 +58,7 @@ class FinancialRatioServiceTest extends TestCase
             AccountLedger::factory()->create([
                 'account_code' => $code,
                 'entry_date' => $asOfDate,
-                'running_balance' => (string) rand(1000, 10000),
+                'running_balance' => '5000',
             ]);
         }
 

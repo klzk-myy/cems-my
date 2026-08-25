@@ -274,22 +274,22 @@ class Navigation
                 'label' => 'System',
                 'items' => [
                     [
-                        'label' => 'Tasks',
-                        'route' => 'dashboard',
-                        'icon' => 'list-bullet',
-                        'uri' => '/tasks',
-                    ],
-                    [
                         'label' => 'Transaction Imports',
                         'route' => 'transactions.batch-upload',
                         'icon' => 'arrow-up-tray',
                         'uri' => '/transactions/batch-upload',
                     ],
                     [
-                        'label' => 'Audit Log',
-                        'route' => 'test-results.index',
-                        'icon' => 'magnifying-glass',
-                        'uri' => '/test-results',
+                        'label' => 'Dead Letter Queue',
+                        'route' => 'transactions.dlq',
+                        'icon' => 'exclamation-triangle',
+                        'uri' => '/transactions/dlq',
+                    ],
+                    [
+                        'label' => 'System Alerts',
+                        'route' => 'system.alerts.index',
+                        'icon' => 'bell',
+                        'uri' => '/system/alerts',
                     ],
                     [
                         'label' => 'Test Results',

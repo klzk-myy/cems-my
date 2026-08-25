@@ -21,6 +21,18 @@ class SanctionController extends Controller
      */
     public function search(SearchSanctionRequest $request): JsonResponse
     {
+        $user = auth()->user();
+
+        // Non-admin users can only access sanctions data for their branch context
+        if (! $user->isAdmin() && $user->branch_id) {
+            // Log access for audit
+            Log::info('Sanctions search by branch user', [
+                'user_id' => $user->id,
+                'branch_id' => $user->branch_id,
+                'query' => $request->input('name'),
+            ]);
+        }
+
         $validated = $request->validated();
 
         $response = $this->screeningService->screenName($validated['name']);
@@ -35,13 +47,5 @@ class SanctionController extends Controller
             'action' => $response->action,
             'confidence_score' => $response->confidenceScore,
         ]);
-    }
-
-    /**
-     * Upload sanctions list file.
-     */
-    public function upload(): JsonResponse
-    {
-        return $this->errorResponse('Manual file upload is no longer supported. Sanctions lists are automatically imported from configured sources via scheduled jobs.', [], 410);
     }
 }

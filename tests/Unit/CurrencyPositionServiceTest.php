@@ -10,6 +10,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounting\CurrencyPositionLockService;
 use App\Services\Accounting\CurrencyPositionService;
+use App\Services\System\CacheInvalidationService;
 use App\Services\System\MathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -209,7 +210,7 @@ class CurrencyPositionServiceTest extends TestCase
             'created_by' => $teller->id,
         ]);
 
-        $positionService = new CurrencyPositionService(new MathService, new CurrencyPositionLockService(new MathService));
+        $positionService = new CurrencyPositionService(new MathService, new CurrencyPositionLockService(new MathService), new CacheInvalidationService);
         $result = $positionService->consumeStockReservation($transaction->id);
 
         $this->assertNull($result);
@@ -256,7 +257,7 @@ class CurrencyPositionServiceTest extends TestCase
             'created_by' => $teller->id,
         ]);
 
-        $positionService = new CurrencyPositionService(new MathService, new CurrencyPositionLockService(new MathService));
+        $positionService = new CurrencyPositionService(new MathService, new CurrencyPositionLockService(new MathService), new CacheInvalidationService);
         $result = $positionService->consumeStockReservation($transaction->id);
 
         $this->assertNotNull($result);
@@ -292,7 +293,7 @@ class CurrencyPositionServiceTest extends TestCase
             'created_by' => $teller->id,
         ]);
 
-        $positionService = new CurrencyPositionService(new MathService, new CurrencyPositionLockService(new MathService));
+        $positionService = new CurrencyPositionService(new MathService, new CurrencyPositionLockService(new MathService), new CacheInvalidationService);
         $result = $positionService->releaseStockReservation($transaction->id);
 
         // Expired reservations can be released (used by the expire command)
@@ -301,5 +302,55 @@ class CurrencyPositionServiceTest extends TestCase
         // Verify reservation WAS released
         $expiredReservation->refresh();
         $this->assertEquals(StockReservationStatus::Released, $expiredReservation->status);
+    }
+
+    #[Test]
+    public function consolidated_positions_aggregate_by_currency_in_sql(): void
+    {
+        // Admin sees consolidated positions across all branches, aggregated per
+        // currency with a weighted-average cost and summed unrealized P&L.
+        Currency::firstOrCreate(
+            ['code' => 'USD'],
+            ['name' => 'US Dollar', 'symbol' => '$', 'decimal_places' => 2, 'is_active' => true]
+        );
+
+        // Branch A: 100 @ 4.00, revalued earliest
+        CurrencyPosition::factory()->create([
+            'currency_code' => 'USD',
+            'branch_id' => 'BR-A',
+            'quantity' => '100.00',
+            'average_cost' => '4.00',
+            'current_rate' => '4.20',
+            'unrealized_gain_loss' => '20.0000',
+            'last_revalued_at' => '2026-01-10 09:00:00',
+        ]);
+
+        // Branch B: 100 @ 4.20, revalued latest (its current_rate is representative)
+        CurrencyPosition::factory()->create([
+            'currency_code' => 'USD',
+            'branch_id' => 'BR-B',
+            'quantity' => '100.00',
+            'average_cost' => '4.20',
+            'current_rate' => '4.40',
+            'unrealized_gain_loss' => '10.0000',
+            'last_revalued_at' => '2026-01-15 09:00:00',
+        ]);
+
+        $admin = User::factory()->create(['role' => 'admin', 'branch_id' => null]);
+
+        $service = app(CurrencyPositionService::class);
+        $positions = $service->getVisiblePositionsForUser($admin);
+
+        $this->assertCount(1, $positions);
+
+        $consolidated = $positions->first();
+        $this->assertTrue($consolidated->is_consolidated);
+        $this->assertSame('USD', $consolidated->currency_code);
+        $this->assertSame('200.0000', $consolidated->quantity); // 100 + 100
+        $this->assertSame('4.100000', $consolidated->average_cost); // (100*4.00 + 100*4.20) / 200
+        $this->assertSame('4.400000', $consolidated->current_rate); // latest-revalued branch
+        $this->assertSame('30.0000', $consolidated->unrealized_gain_loss); // 20 + 10
+        $this->assertNotNull($consolidated->currency);
+        $this->assertSame('USD', $consolidated->currency->code);
     }
 }

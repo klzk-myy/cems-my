@@ -49,15 +49,14 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - Laravel Boost is an MCP server that comes with powerful tools designed specifically for this application. Use them.
 
 ## Local Development / Redis
-- Local Redis runs **without authentication** (`requirepass` is not set).
-- `.env` must set `REDIS_PASSWORD=` (empty) so Laravel does not attempt Redis AUTH.
-- `phpunit.xml` already sets `REDIS_PASSWORD=""` for the testing environment.
-- `tests/Feature/Infrastructure/RedisPasswordTest.php` was removed because it enforced a Redis password that conflicts with the local no-auth setup.
-- **Never use an empty Redis password in staging or production.** Configure Redis `requirepass` and set a strong `REDIS_PASSWORD` in those environments.
+- Local Redis runs with `requirepass` set to `Klzk@9199`.
+- `.env` must set `REDIS_PASSWORD=Klzk@9199` so Laravel can authenticate with Redis.
+- `phpunit.xml` should also set `REDIS_PASSWORD="Klzk@9199"` for the testing environment.
+- **Never use this weak Redis password in staging or production.** Configure Redis `requirepass` and set a strong `REDIS_PASSWORD` in those environments.
 
 ## Laravel Boost MCP Error 32603
 - Error 32603 is a JSON-RPC Internal Error from the Laravel Boost MCP server.
-- If it occurs with Redis AUTH errors in `storage/logs/laravel.log`, it usually means Laravel is configured with a `REDIS_PASSWORD` but the local Redis server has no password. Keep `REDIS_PASSWORD=` empty for local development.
+- If it occurs with Redis AUTH errors in `storage/logs/laravel.log`, it usually means Laravel is configured with the wrong `REDIS_PASSWORD`. Ensure `REDIS_PASSWORD=Klzk@9199` for local development.
 
 ## Artisan
 - Use the `list-artisan-commands` tool when you need to call an Artisan command to double-check the available parameters.
@@ -278,7 +277,7 @@ protected function isAccessible(User $user, ?string $path = null): bool
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **cems-my** (13,425 nodes | 35,419 edges | 707 clusters | 300 flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **cems-my** (13325 symbols, 35683 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

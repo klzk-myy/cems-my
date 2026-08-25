@@ -15,11 +15,16 @@ class ValidTillTest extends TestCase
 
     public function test_passes_for_active_counter(): void
     {
-        $this->expectNotToPerformAssertions();
-
         $counter = Counter::factory()->create(['status' => CounterStatus::Active]);
 
-        $this->assertRulePasses(new ValidTill, 'till_id', (string) $counter->code);
+        $passed = true;
+        try {
+            $this->assertRulePasses(new ValidTill, 'till_id', (string) $counter->code);
+        } catch (\Throwable $e) {
+            $passed = false;
+        }
+
+        $this->assertTrue($passed);
     }
 
     public function test_fails_for_inactive_counter(): void

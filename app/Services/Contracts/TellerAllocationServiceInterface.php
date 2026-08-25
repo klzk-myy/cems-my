@@ -33,7 +33,7 @@ interface TellerAllocationServiceInterface
 
     public function transferToTeller(TellerAllocation $allocation, User $toTeller): TellerAllocation;
 
-    public function validateTransaction(User $teller, string $currencyCode, string $amountMyr, bool $isBuy): AllocationValidationResult;
+    public function validateTransaction(User $teller, string $currencyCode, string $amountMyr, bool $isBuy, ?string $amountForeign = null): AllocationValidationResult;
 
     public function canManageAllocations(User $user): bool;
 

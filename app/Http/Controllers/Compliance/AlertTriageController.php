@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Compliance;
 
-use App\Enums\FlagStatus;
+use App\Exceptions\Domain\CaseManagementException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AssignAlertRequest;
 use App\Http\Requests\DismissAlertRequest;
+use App\Http\Requests\EscalateAlertRequest;
 use App\Http\Requests\ResolveAlertRequest;
 use App\Models\Alert;
 use App\Services\Compliance\AlertTriageService;
@@ -54,6 +55,8 @@ class AlertTriageController extends Controller
 
     public function assign(AssignAlertRequest $request, Alert $alert): RedirectResponse
     {
+        $this->authorize('assign', $alert);
+
         $this->alertTriageService->assignToOfficer($alert, $request->assignee_id);
 
         return redirect()->back()->with('success', 'Alert assigned successfully');
@@ -61,6 +64,8 @@ class AlertTriageController extends Controller
 
     public function resolve(ResolveAlertRequest $request, Alert $alert): RedirectResponse
     {
+        $this->authorize('updateStatus', $alert);
+
         $this->alertTriageService->resolveAlert($alert, auth()->id(), $request->resolution);
 
         return redirect()->route('compliance.alerts.index')->with('success', 'Alert resolved successfully');
@@ -68,14 +73,28 @@ class AlertTriageController extends Controller
 
     public function dismiss(DismissAlertRequest $request, Alert $alert): RedirectResponse
     {
-        if ($alert->status === FlagStatus::Resolved || $alert->status === FlagStatus::Rejected) {
-            abort(403, 'Cannot dismiss an already resolved or rejected alert.');
+        $this->authorize('updateStatus', $alert);
+
+        try {
+            $this->alertTriageService->dismissAlert($alert, auth()->id());
+        } catch (CaseManagementException $e) {
+            // Already resolved/rejected alerts are refused with the same
+            // clean 403 the guard has always produced.
+            abort(403, $e->getMessage());
         }
 
-        $alert->update([
-            'status' => FlagStatus::Rejected,
-        ]);
-
         return redirect()->route('compliance.alerts.index')->with('success', 'Alert dismissed');
+    }
+
+    /**
+     * Escalate an alert to a higher severity level and compliance queue.
+     */
+    public function escalate(EscalateAlertRequest $request, Alert $alert): RedirectResponse
+    {
+        $this->authorize('updateStatus', $alert);
+
+        $this->alertTriageService->escalateAlert($alert, auth()->id(), $request->validated('reason'));
+
+        return redirect()->route('compliance.alerts.index')->with('success', 'Alert escalated successfully');
     }
 }

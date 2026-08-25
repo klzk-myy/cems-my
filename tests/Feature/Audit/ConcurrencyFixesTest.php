@@ -9,6 +9,7 @@ use App\Enums\TransactionConfirmationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Models\Branch;
 use App\Models\BranchPool;
 use App\Models\Counter;
@@ -296,7 +297,7 @@ class ConcurrencyFixesTest extends TestCase
         $service = app(AccountingService::class);
         $service->rejectEntry($entry, $user->id);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(AccountingPeriodException::class);
         $service->rejectEntry($entry, $user->id);
     }
 
@@ -310,7 +311,7 @@ class ConcurrencyFixesTest extends TestCase
         $service = app(AccountingService::class);
         $service->reverseJournalEntry($entry, 'reason', $user->id);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(AccountingPeriodException::class);
         $service->reverseJournalEntry($entry, 'reason', $user->id);
     }
 

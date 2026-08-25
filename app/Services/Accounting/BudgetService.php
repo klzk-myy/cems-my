@@ -7,6 +7,7 @@ use App\Models\Budget;
 use App\Models\ChartOfAccount;
 use App\Services\System\MathService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Budget Service
@@ -75,12 +76,15 @@ class BudgetService
         $period = AccountingPeriod::where('period_code', $periodCode)->first();
 
         if (! $period) {
-            return;
+            Log::warning("BudgetService::updateActuals: accounting period '{$periodCode}' not found");
+            throw new \InvalidArgumentException("Accounting period '{$periodCode}' not found");
         }
 
         $budgets = Budget::where('period_code', $periodCode)->get();
 
         if ($budgets->isEmpty()) {
+            Log::info("BudgetService::updateActuals: no budgets found for period '{$periodCode}'");
+
             return;
         }
 

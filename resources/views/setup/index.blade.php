@@ -1,5 +1,5 @@
 <x-app-layout title="Business Setup">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Business Setup" />
 
         @if($isSetupComplete)
@@ -9,7 +9,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                     </svg>
                 </div>
-                <h2 class="text-xl font-semibold text-ink mb-2">Setup Complete</h2>
+                <h2 class="text-lg font-semibold text-ink mb-2">Setup Complete</h2>
                 <p class="text-ink-muted mb-6">Your business has been configured and is ready to use.</p>
                 <div class="space-y-2 text-sm text-ink-muted">
                     <p>Admin User: Configured</p>
@@ -20,7 +20,7 @@
                 <x-button href="{{ route('login') }}" variant="primary" class="mt-6">Go to Login</x-button>
             </x-card>
         @else
-            <x-card class="p-6 max-w-2xl">
+            <x-card class="max-w-2xl">
                 <div class="mb-6">
                     <div class="flex items-center justify-between mb-2">
                         <span class="text-sm font-medium text-ink">Step {{ $currentStep }} of 6</span>
@@ -51,7 +51,7 @@
                     @case(1)
                     <form method="POST" action="{{ route('setup.step1') }}">
                         @csrf
-                        <h3 class="text-lg font-medium text-ink mb-4">Company Information</h3>
+                        <h3 class="text-sm font-semibold text-ink uppercase tracking-wider mb-4">Company Information</h3>
                         <div class="space-y-4">
                             <x-input name="business_name" label="Business Name" inline required />
                             <x-textarea name="business_address" label="Address" :rows="2" inline>{{ old('business_address') }}</x-textarea>
@@ -69,7 +69,7 @@
                     @case(2)
                     <form method="POST" action="{{ route('setup.step2') }}">
                         @csrf
-                        <h3 class="text-lg font-medium text-ink mb-4">Admin User</h3>
+                        <h3 class="text-sm font-semibold text-ink uppercase tracking-wider mb-4">Admin User</h3>
                         <div class="space-y-4">
                             <x-input name="admin_name" label="Admin Name" inline required />
                             <x-input type="email" name="admin_email" label="Email" inline required />
@@ -85,7 +85,7 @@
                     @case(3)
                     <form method="POST" action="{{ route('setup.step3') }}">
                         @csrf
-                        <h3 class="text-lg font-medium text-ink mb-4">Currencies</h3>
+                        <h3 class="text-sm font-semibold text-ink uppercase tracking-wider mb-4">Currencies</h3>
                         <p class="text-sm text-ink-muted mb-4">Select the currencies your business will trade in.</p>
                         <div class="space-y-3">
                             @foreach($currencies as $currency)
@@ -107,7 +107,7 @@
                     @case(4)
                     <form method="POST" action="{{ route('setup.step4') }}">
                         @csrf
-                        <h3 class="text-lg font-medium text-ink mb-4">Exchange Rates</h3>
+                        <h3 class="text-sm font-semibold text-ink uppercase tracking-wider mb-4">Exchange Rates</h3>
                         <p class="text-sm text-ink-muted mb-4">Configure how rates are fetched and managed.</p>
                         <div class="space-y-4">
                             <x-checkbox
@@ -127,7 +127,7 @@
                     @case(5)
                     <form method="POST" action="{{ route('setup.step5') }}">
                         @csrf
-                        <h3 class="text-lg font-medium text-ink mb-4">Initial Stock</h3>
+                        <h3 class="text-sm font-semibold text-ink uppercase tracking-wider mb-4">Initial Stock</h3>
                         <p class="text-sm text-ink-muted mb-4">Set your initial currency holdings (opening floats).</p>
                         <div class="space-y-4">
                             <x-input name="initial_myr_cash" label="MYR Cash (RM)" inline placeholder="0.00" value="0.00" inputmode="decimal" />
@@ -150,7 +150,7 @@
                     @case(6)
                     <form method="POST" action="{{ route('setup.step6') }}">
                         @csrf
-                        <h3 class="text-lg font-medium text-ink mb-4">Opening Balance</h3>
+                        <h3 class="text-sm font-semibold text-ink uppercase tracking-wider mb-4">Opening Balance</h3>
                         <p class="text-sm text-ink-muted mb-4">Set your opening balance for accounting.</p>
                         <div class="space-y-4">
                             <x-input name="opening_balance_myr" label="Opening Balance (MYR)" inline placeholder="0.00" value="0.00" inputmode="decimal" />

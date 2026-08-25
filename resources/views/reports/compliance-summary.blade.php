@@ -1,5 +1,5 @@
 <x-app-layout title="Compliance Summary Report">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Compliance Summary Report" description="AML/CFT compliance overview and flagged transactions" :actions="true">
             <x-slot:actions>
                 <span class="text-sm text-ink-muted">
@@ -26,16 +26,16 @@
             <x-card title="Flagged Transactions by Type">
                 <x-table>
                     <x-slot:thead>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wide">Flag Type</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wide">Count</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wide">Percentage</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Flag Type</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Count</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Percentage</th>
                     </x-slot:thead>
                     <x-slot:tbody>
                         @forelse($flaggedStats['by_type'] as $type => $count)
                             <tr class="hover:bg-canvas-subtle">
-                                <td class="px-6 py-4 text-sm text-ink">{{ $type }}</td>
-                                <td class="px-6 py-4 text-sm text-ink text-right">{{ number_format($count) }}</td>
-                                <td class="px-6 py-4 text-sm text-ink-muted text-right">
+                                <td class="px-4 py-3 text-sm text-ink">{{ $type }}</td>
+                                <td class="px-4 py-3 text-sm text-ink text-right">{{ number_format($count) }}</td>
+                                <td class="px-4 py-3 text-sm text-ink-muted text-right">
                                     {{ $flaggedStats['total'] > 0 ? round($count / $flaggedStats['total'] * 100, 1) : 0 }}%
                                 </td>
                             </tr>
@@ -47,7 +47,7 @@
             </x-card>
 
             <x-card title="Compliance Metrics">
-                <div class="p-6 space-y-4">
+                <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-ink-muted">EDD Cases Processed</span>
                         <span class="text-sm font-medium text-info">{{ number_format($eddCount) }}</span>

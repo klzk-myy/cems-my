@@ -24,6 +24,13 @@ class QueryLogServiceProvider extends ServiceProvider
 
     private bool $isTestingEnvironment = false;
 
+    /**
+     * Explicit opt-in for persisting query telemetry to the database.
+     * Never inferred from app.debug: debug-mode deployments must not
+     * start writing customer-adjacent query data to SystemLog silently.
+     */
+    private bool $persistQueryLog = false;
+
     public function register(): void
     {
         $this->app->singleton('query.monitor', function ($app) {
@@ -48,6 +55,11 @@ class QueryLogServiceProvider extends ServiceProvider
     private function determineEnvironment(): void
     {
         $this->isTestingEnvironment = $this->app->environment('testing');
+
+        // Opt-in only (QUERY_LOG_PERSIST=true). Defaults to disabled so a
+        // prod box merely left with APP_DEBUG=true never persists bindings
+        // or summaries into the database.
+        $this->persistQueryLog = filter_var(env('QUERY_LOG_PERSIST', false), FILTER_VALIDATE_BOOL);
 
         if ($this->isTestingEnvironment) {
             $this->monitoringEnabled = true;
@@ -74,7 +86,7 @@ class QueryLogServiceProvider extends ServiceProvider
 
     private function shouldLogToDatabase(): bool
     {
-        return ! $this->isTestingEnvironment;
+        return $this->persistQueryLog && ! $this->isTestingEnvironment;
     }
 
     private function configureThresholds(): void
@@ -133,11 +145,16 @@ class QueryLogServiceProvider extends ServiceProvider
 
     private function logSlowQuery(array $queryData): void
     {
+        // Redact binding VALUES everywhere (query channel + persisted rows):
+        // they can embed customer names, emails and amounts. Keep the SQL
+        // skeleton plus a count so the log stays diagnostically useful.
+        $bindingCount = count($queryData['bindings']);
+
         $message = sprintf(
-            'SLOW QUERY [%sms]: %s | Bindings: %s',
+            'SLOW QUERY [%sms]: %s | Bindings: %d',
             $queryData['time_ms'],
             $queryData['sql'],
-            json_encode($queryData['bindings'])
+            $bindingCount
         );
 
         $requestData = $this->requestData ?? [];
@@ -146,7 +163,7 @@ class QueryLogServiceProvider extends ServiceProvider
             'time_ms' => $queryData['time_ms'],
             'threshold_ms' => $this->slowQueryThreshold,
             'sql' => $queryData['sql'],
-            'bindings' => $queryData['bindings'],
+            'binding_count' => $bindingCount,
             'connection' => $queryData['connection'],
             'url' => $requestData['url'] ?? null,
             'method' => $requestData['method'] ?? null,

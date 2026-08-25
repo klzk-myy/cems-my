@@ -2,11 +2,14 @@
 
 namespace App\Support;
 
+use App\Services\System\MathService;
+
 /**
  * BCMath Helper
  *
- * Provides safe comparison operations for monetary values using BCMath.
- * Prevents floating-point precision errors by using string-based comparisons.
+ * Static convenience facade over {@see MathService}. All arithmetic is
+ * delegated to MathService so the application has a single implementation
+ * of high-precision BCMath operations (no duplicated logic).
  *
  * All methods accept numeric strings and return boolean results.
  *
@@ -17,7 +20,7 @@ namespace App\Support;
 class BcmathHelper
 {
     /**
-     * Default scale for BCMath operations.
+     * Default scale for operations.
      *
      * Set to 4 to match database decimal(18,4) precision for monetary amounts.
      */
@@ -53,9 +56,7 @@ class BcmathHelper
      */
     public static function gt(string $a, string $b, ?int $scale = null): bool
     {
-        $scale = $scale ?? self::$scale;
-
-        return bccomp($a, $b, $scale) > 0;
+        return self::compare($a, $b, $scale) > 0;
     }
 
     /**
@@ -68,9 +69,7 @@ class BcmathHelper
      */
     public static function gte(string $a, string $b, ?int $scale = null): bool
     {
-        $scale = $scale ?? self::$scale;
-
-        return bccomp($a, $b, $scale) >= 0;
+        return self::compare($a, $b, $scale) >= 0;
     }
 
     /**
@@ -83,9 +82,7 @@ class BcmathHelper
      */
     public static function lt(string $a, string $b, ?int $scale = null): bool
     {
-        $scale = $scale ?? self::$scale;
-
-        return bccomp($a, $b, $scale) < 0;
+        return self::compare($a, $b, $scale) < 0;
     }
 
     /**
@@ -98,9 +95,7 @@ class BcmathHelper
      */
     public static function lte(string $a, string $b, ?int $scale = null): bool
     {
-        $scale = $scale ?? self::$scale;
-
-        return bccomp($a, $b, $scale) <= 0;
+        return self::compare($a, $b, $scale) <= 0;
     }
 
     /**
@@ -113,9 +108,7 @@ class BcmathHelper
      */
     public static function eq(string $a, string $b, ?int $scale = null): bool
     {
-        $scale = $scale ?? self::$scale;
-
-        return bccomp($a, $b, $scale) === 0;
+        return self::compare($a, $b, $scale) === 0;
     }
 
     /**
@@ -214,9 +207,7 @@ class BcmathHelper
      */
     public static function compare(string $a, string $b, ?int $scale = null): int
     {
-        $scale = $scale ?? self::$scale;
-
-        return bccomp($a, $b, $scale);
+        return self::math($scale)->compare($a, $b);
     }
 
     /**
@@ -229,9 +220,7 @@ class BcmathHelper
      */
     public static function add(string $a, string $b, ?int $scale = null): string
     {
-        $scale = $scale ?? self::$scale;
-
-        return bcadd($a, $b, $scale);
+        return self::math($scale)->add($a, $b);
     }
 
     /**
@@ -244,9 +233,7 @@ class BcmathHelper
      */
     public static function subtract(string $a, string $b, ?int $scale = null): string
     {
-        $scale = $scale ?? self::$scale;
-
-        return bcsub($a, $b, $scale);
+        return self::math($scale)->subtract($a, $b);
     }
 
     /**
@@ -259,9 +246,7 @@ class BcmathHelper
      */
     public static function multiply(string $a, string $b, ?int $scale = null): string
     {
-        $scale = $scale ?? self::$scale;
-
-        return bcmul($a, $b, $scale);
+        return self::math($scale)->multiply($a, $b);
     }
 
     /**
@@ -276,13 +261,7 @@ class BcmathHelper
      */
     public static function divide(string $a, string $b, ?int $scale = null): string
     {
-        $scale = $scale ?? self::$scale;
-
-        if (bccomp($b, '0', $scale) === 0) {
-            throw new \InvalidArgumentException('Division by zero');
-        }
-
-        return bcdiv($a, $b, $scale);
+        return self::math($scale)->divide($a, $b);
     }
 
     /**
@@ -294,12 +273,14 @@ class BcmathHelper
      */
     public static function abs(string $value, ?int $scale = null): string
     {
-        $scale = $scale ?? self::$scale;
+        return self::math($scale)->abs($value);
+    }
 
-        if (bccomp($value, '0', $scale) < 0) {
-            return bcsub('0', $value, $scale);
-        }
-
-        return $value;
+    /**
+     * Build a MathService instance configured with the effective scale.
+     */
+    protected static function math(?int $scale): MathService
+    {
+        return new MathService($scale ?? self::$scale);
     }
 }

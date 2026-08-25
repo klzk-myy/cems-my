@@ -78,7 +78,10 @@ class StructuringRiskService
      */
     public function isStructuring(int $customerId): bool
     {
-        $check = $this->checkThreshold($customerId, 1, 3);
+        $windowHours = $this->thresholdService->getStructuringHourlyWindow();
+        $minTransactions = $this->thresholdService->getStructuringMinTransactions();
+
+        $check = $this->checkThreshold($customerId, $windowHours, $minTransactions);
 
         return $check['triggered'];
     }
@@ -87,9 +90,8 @@ class StructuringRiskService
      * Get structuring transactions for a customer.
      *
      * @param  int  $windowHours  Time window in hours
-     * @return Collection
      */
-    public function getStructuringTransactions(int $customerId, int $windowHours = 1)
+    public function getStructuringTransactions(int $customerId, int $windowHours = 1): Collection
     {
         $subThreshold = $this->thresholdService->getStructuringSubThreshold();
 

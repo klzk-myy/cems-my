@@ -7,16 +7,15 @@ use App\Enums\TransactionType;
 use App\Exceptions\Domain\AllocationValidationException;
 use App\Models\TellerAllocation;
 use App\Models\User;
-use App\Services\Branch\TellerAllocationService;
-use App\Services\System\MathService;
-use App\Services\ThresholdService;
 
 /**
  * Helpers for deciding teller allocation and initial transaction status
  * when assembling a TransactionCreationContext.
  *
- * Host classes must provide a constructor-injected `MathService` property
- * named `$mathService` (e.g. `protected MathService $mathService`).
+ * Host classes must provide constructor-injected properties:
+ *   - `protected MathService $mathService`
+ *   - `protected TellerAllocationService $tellerAllocationService`
+ *   - `protected ThresholdService $thresholdService`
  */
 trait DeterminesTransactionStatus
 {
@@ -36,10 +35,8 @@ trait DeterminesTransactionStatus
             return null;
         }
 
-        $service = app(TellerAllocationService::class);
-
         if ($data['type'] === TransactionType::Buy->value) {
-            $result = $service->validateTransaction($user, $data['currency_code'], $amountLocal, true);
+            $result = $this->tellerAllocationService->validateTransaction($user, $data['currency_code'], $amountLocal, true);
 
             if (! $result->valid) {
                 throw new AllocationValidationException($result->reason);
@@ -51,7 +48,7 @@ trait DeterminesTransactionStatus
             return $allocation;
         }
 
-        return $service->getActiveAllocation($user, $data['currency_code']);
+        return $this->tellerAllocationService->getActiveAllocation($user, $data['currency_code']);
     }
 
     /**
@@ -62,9 +59,7 @@ trait DeterminesTransactionStatus
      */
     private function determineInitialStatus(string $amountLocal, bool $holdRequired): TransactionStatus
     {
-        $thresholdService = app(ThresholdService::class);
-
-        if ($holdRequired || $this->mathService->compare($amountLocal, $thresholdService->getAutoApproveThreshold()) >= 0) {
+        if ($holdRequired || $this->mathService->compare($amountLocal, $this->thresholdService->getAutoApproveThreshold()) >= 0) {
             return TransactionStatus::PendingApproval;
         }
 

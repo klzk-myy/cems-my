@@ -4,6 +4,9 @@ namespace App\Services\Transaction;
 
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
+use App\Exceptions\Domain\TillBalanceMissingException;
+use App\Exceptions\Domain\TransactionAlreadyProcessedException;
+use App\Exceptions\Domain\TransactionValidationException;
 use App\Models\Counter;
 use App\Models\Customer;
 use App\Models\JournalEntry;
@@ -30,6 +33,7 @@ class TransactionReversalService
         protected CurrencyPositionService $positionService,
         protected TellerAllocationService $tellerAllocationService,
         protected CurrencyPositionLockService $positionLockService,
+        protected TillBalanceManager $tillBalanceManager,
     ) {}
 
     public function reverse(Transaction $transaction, User $requester, string $reason): bool
@@ -45,13 +49,27 @@ class TransactionReversalService
                 'reason' => $reason,
                 'user_id' => $requester->id,
             ])) {
-                throw new \RuntimeException('Failed to transition transaction to Reversed');
+                throw new TransactionAlreadyProcessedException($transaction->id);
             }
 
             // 2. Compensating side effects only run after the transition succeeds.
             $refundTransaction = $this->createRefundTransaction($lockedTransaction, $requester->id);
             $this->reversePositions($lockedTransaction);
-            $this->reverseTillBalance($lockedTransaction);
+
+            // The till may have no open balance today (e.g. it was closed
+            // before an older transaction is reversed). Skip the till leg -
+            // its books were already sealed - but still complete the FX,
+            // journal and allocation reversal legs.
+            try {
+                $this->reverseTillBalance($lockedTransaction);
+            } catch (TillBalanceMissingException $e) {
+                Log::warning('Skipping till balance reversal - no open till balance', [
+                    'transaction_id' => $lockedTransaction->id,
+                    'till_id' => $lockedTransaction->till_id,
+                    'currency_code' => $lockedTransaction->currency_code,
+                ]);
+            }
+
             $this->createReversingJournalEntries($lockedTransaction, $requester->id);
             $this->reverseTellerAllocation($lockedTransaction);
 
@@ -98,9 +116,9 @@ class TransactionReversalService
 
     public function isWithinCancellationWindow(Transaction $transaction): bool
     {
-        $windowHours = config('cems.transaction_cancellation_window_hours', 24);
+        $windowMinutes = config('cems.transaction_cancellation_window_hours', 24) * 60;
 
-        return $transaction->created_at->diffInHours(now()) <= $windowHours;
+        return $transaction->created_at->diffInMinutes(now()) <= $windowMinutes;
     }
 
     public function getCancellationWindowHours(): int
@@ -122,14 +140,17 @@ class TransactionReversalService
         $customer = Customer::findOrFail($original->customer_id);
         $holdCheck = $this->complianceService->requiresHold($amountLocal, $customer);
 
-        $status = TransactionStatus::Completed;
-        $holdReason = null;
+        // Refund transactions are inherently high-risk (reversals) and should always
+        // require manager approval regardless of amount. This prevents bypassing
+        // compliance controls through reversal/refund workflows.
+        $status = TransactionStatus::PendingApproval;
+        $holdReason = 'Refund transaction requires manager approval';
+
         if ($holdCheck->requiresHold) {
-            $status = TransactionStatus::PendingApproval;
-            $holdReason = implode(', ', $holdCheck->reasons);
+            $holdReason = 'Refund: '.implode(', ', $holdCheck->reasons);
         }
 
-        $refund = Transaction::create([
+        $refund = new Transaction([
             'customer_id' => $original->customer_id,
             'user_id' => $original->user_id,
             'branch_id' => $original->branch_id,
@@ -141,18 +162,18 @@ class TransactionReversalService
             'rate' => $original->rate,
             'purpose' => 'Reversal: '.($original->purpose ?? 'Transaction reversal'),
             'source_of_funds' => $original->source_of_funds,
-            'cdd_level' => $original->cdd_level,
-            'original_transaction_id' => $original->id,
         ]);
 
+        $refund->cdd_level = $original->cdd_level;
+        $refund->original_transaction_id = $original->id;
         $refund->status = $status;
         $refund->hold_reason = $holdReason;
         $refund->is_refund = true;
-        $refund->approved_by = $status->isCompleted() ? $approvedBy : null;
-        $refund->approved_at = $status->isCompleted() ? now() : null;
+        $refund->approved_by = null;
+        $refund->approved_at = null;
         $refund->save();
 
-        $this->auditTrailHelper->recordTransaction(
+        $this->auditTrailHelper->recordTransactionSealed(
             $refund->id,
             'refund_compliance_check',
             [
@@ -162,10 +183,11 @@ class TransactionReversalService
                     'status' => $status->value,
                     'hold_reason' => $holdReason,
                     'compliance_reasons' => $holdCheck->reasons,
+                    'note' => 'Refund transactions always require approval per compliance policy',
                 ],
             ],
             User::find($approvedBy),
-            'INFO'
+            'CRITICAL'
         );
 
         return $refund;
@@ -185,7 +207,12 @@ class TransactionReversalService
                 'branch_id' => $transaction->branch_id,
             ]);
 
-            return;
+            // TransactionException is abstract; use a concrete subclass so the
+            // DomainException lineage controllers catch is preserved.
+            throw new TransactionValidationException(
+                null,
+                "No position found for reversal: {$transaction->currency_code}"
+            );
         }
 
         $reversalType = $transaction->type === TransactionType::Buy
@@ -210,9 +237,7 @@ class TransactionReversalService
 
     protected function reverseTillBalance(Transaction $transaction): void
     {
-        $counter = Counter::where('code', $transaction->till_id)
-            ->orWhere('id', $transaction->till_id)
-            ->first();
+        $counter = Counter::findByCodeOrId($transaction->till_id);
 
         if (! $counter) {
             Log::warning('No counter found for reversal', [
@@ -220,12 +245,13 @@ class TransactionReversalService
                 'till_id' => $transaction->till_id,
             ]);
 
-            return;
+            throw new TransactionValidationException(
+                null,
+                "No counter found for reversal: {$transaction->till_id}"
+            );
         }
 
-        $manager = app(TillBalanceManager::class);
-
-        $tillBalance = $manager->currentBalance($counter, $transaction->currency_code, true);
+        $tillBalance = $this->tillBalanceManager->currentBalance($counter, $transaction->currency_code, true);
 
         if (! $tillBalance) {
             Log::warning('No open till balance found for reversal', [
@@ -234,10 +260,12 @@ class TransactionReversalService
                 'currency_code' => $transaction->currency_code,
             ]);
 
-            return;
+            // Same signal TillBalanceManager::reverseTransaction() raises for
+            // a missing open balance, so callers can treat both paths alike.
+            throw new TillBalanceMissingException($transaction->currency_code, (string) $transaction->till_id);
         }
 
-        $manager->reverseTransaction(
+        $this->tillBalanceManager->reverseTransaction(
             $tillBalance,
             $transaction->type,
             (string) $transaction->amount_local,
@@ -274,11 +302,19 @@ class TransactionReversalService
                     'transaction_id' => $transaction->id,
                 ]);
             } catch (\InvalidArgumentException $e) {
-                Log::warning('Failed to reverse journal entry', [
+                Log::error('Failed to reverse journal entry', [
                     'original_entry_id' => $originalEntry->id,
                     'transaction_id' => $transaction->id,
                     'error' => $e->getMessage(),
                 ]);
+
+                // Do NOT swallow: a reversal that cannot reverse its journal
+                // entries would leave positions/till already reversed while the
+                // transaction is marked Reversed, breaking the books. Rethrow so
+                // the surrounding DB transaction rolls back the whole reversal.
+                // Rethrow the original exception so the surrounding DB transaction
+                // rolls back the whole reversal. The cause is preserved for logs.
+                throw $e;
             }
         }
     }

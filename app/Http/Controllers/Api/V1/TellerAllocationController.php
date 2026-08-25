@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Http\Controllers\Api\V1\Concerns\AuthorizesManager;
 use App\Http\Controllers\Api\V1\Traits\ApiResponse;
+use App\Http\Controllers\Concerns\AuthorizesBranchResource;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\TellerAllocation\ApproveAllocationRequest;
 use App\Http\Requests\Api\V1\TellerAllocation\ModifyAllocationRequest;
@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Log;
 class TellerAllocationController extends Controller
 {
     use ApiResponse;
-    use AuthorizesManager;
+    use AuthorizesBranchResource;
 
     public function __construct(
         protected TellerAllocationService $allocationService
@@ -69,10 +69,16 @@ class TellerAllocationController extends Controller
      */
     public function show(int $allocationId): JsonResponse
     {
-        $allocation = TellerAllocation::with(['user', 'branch', 'counter'])->find($allocationId);
+        // The model's $with already eager-loads user, branch, counter, approver.
+        $allocation = TellerAllocation::find($allocationId);
 
         if (! $allocation) {
             return $this->notFoundResponse('Allocation not found');
+        }
+
+        $authorization = $this->authorizeBranchResource($allocation, 'access', 'Unauthorized access to this allocation');
+        if ($authorization instanceof JsonResponse) {
+            return $authorization;
         }
 
         return $this->successResponse($allocation);
@@ -97,6 +103,11 @@ class TellerAllocationController extends Controller
 
         if (! $allocation) {
             return $this->notFoundResponse('Allocation not found');
+        }
+
+        $authorization = $this->authorizeBranchResource($allocation, 'manage', 'Unauthorized access to this allocation');
+        if ($authorization instanceof JsonResponse) {
+            return $authorization;
         }
 
         if ($statusCheck && ! $allocation->{$statusCheck}()) {

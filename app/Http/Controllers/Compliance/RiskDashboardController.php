@@ -23,6 +23,8 @@ class RiskDashboardController extends Controller
 
     public function index(Request $request): View
     {
+        $this->requireManagerOrAdmin();
+
         $threshold = $request->get('threshold', 60);
 
         $customers = Customer::whereHas('riskScoreSnapshots', function ($query) use ($threshold) {
@@ -39,6 +41,8 @@ class RiskDashboardController extends Controller
 
     public function customer(Customer $customer): View
     {
+        $this->requireManagerOrAdmin();
+
         $trends = $this->riskScoringService->getRiskTrend($customer->id, 6);
 
         return view('compliance.risk-dashboard.customer', compact('customer', 'trends'));
@@ -46,6 +50,8 @@ class RiskDashboardController extends Controller
 
     public function trends(): View
     {
+        $this->requireManagerOrAdmin();
+
         $needsRescreening = $this->riskScoringService->getCustomersNeedingRescreening();
         $highRiskTrend = $this->getHighRiskCustomerTrend();
         $alertVolumeTrend = $this->getAlertVolumeTrend();
@@ -59,6 +65,8 @@ class RiskDashboardController extends Controller
 
     public function rescreen(RescreenCustomerRequest $request): RedirectResponse
     {
+        $this->requireAdmin();
+
         $result = $this->riskScoringService->rescreenCustomer($request->customer_id);
 
         return redirect()->back()

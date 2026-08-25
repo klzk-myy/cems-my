@@ -1,13 +1,13 @@
 <x-app-layout title="Create Customer">
-    <div class="p-6">
-        <x-page-header title="Create Customer" description="Add a new customer to the system" class="mb-6" />
+    <div class="space-y-6">
+        <x-page-header title="Create Customer" description="Add a new customer to the system" />
 
         <x-card title="Customer Information" description="Enter the customer's details below" class="max-w-2xl">
             <form method="POST" action="{{ route('customers.store') }}">
                 @csrf
 
-                <div class="p-6 space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <x-input name="full_name" label="Full Name" value="{{ old('full_name') }}" required />
                         <x-input type="email" name="email" label="Email" value="{{ old('email') }}" />
 
@@ -41,7 +41,7 @@
 
                 </div>
 
-                <div class="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+                <div class="px-5 py-3 border-t border-border flex items-center justify-end gap-2">
                     <x-button href="{{ route('customers.index') }}" variant="secondary">Cancel</x-button>
                     <x-button type="submit" variant="primary">Create Customer</x-button>
                 </div>

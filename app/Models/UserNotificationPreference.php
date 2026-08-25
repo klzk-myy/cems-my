@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\NotificationType;
+use App\Exceptions\Domain\NotificationPreferenceException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -48,8 +49,6 @@ class UserNotificationPreference extends BaseModel
         'sms_enabled',
         'in_app_enabled',
         'push_enabled',
-        'webhook_url',
-        'custom_settings',
     ];
 
     /**
@@ -62,7 +61,6 @@ class UserNotificationPreference extends BaseModel
         'sms_enabled' => 'boolean',
         'in_app_enabled' => 'boolean',
         'push_enabled' => 'boolean',
-        'custom_settings' => 'array',
         'notification_type' => NotificationType::class,
     ];
 
@@ -119,6 +117,12 @@ class UserNotificationPreference extends BaseModel
                 'in_app_enabled' => true,
                 'push_enabled' => false,
             ],
+            'transaction_dlq' => [
+                'email_enabled' => true,
+                'sms_enabled' => false,
+                'in_app_enabled' => true,
+                'push_enabled' => false,
+            ],
         ];
     }
 
@@ -136,6 +140,7 @@ class UserNotificationPreference extends BaseModel
             'large_transaction' => 'Large Transaction',
             'sanctions_match' => 'Sanctions Match',
             'system_health_alert' => 'System Health Alert',
+            'transaction_dlq' => 'Dead Letter Queue Alert',
         ];
     }
 
@@ -229,7 +234,7 @@ class UserNotificationPreference extends BaseModel
         $validChannels = ['email', 'sms', 'in_app', 'push'];
 
         if (! in_array($channel, $validChannels)) {
-            throw new \InvalidArgumentException("Invalid channel: {$channel}");
+            throw new NotificationPreferenceException("Invalid channel: {$channel}");
         }
 
         $this->update([

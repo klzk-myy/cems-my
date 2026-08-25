@@ -15,8 +15,6 @@ class Alert extends BaseModel
 {
     use HasFactory, SoftDeletes;
 
-    protected $with = ['flaggedTransaction', 'assignedTo', 'case'];
-
     protected $fillable = [
         'flagged_transaction_id',
         'customer_id',
@@ -74,6 +72,6 @@ class Alert extends BaseModel
 
     public function scopeResolved(Builder $query): Builder
     {
-        return $query->where('status', FlagStatus::Resolved);
+        return $query->where('status', FlagStatus::Resolved->value);
     }
 }

@@ -26,11 +26,9 @@ class ThemeTokenUsageTest extends TestCase
         return [
             'app-layout' => ['components.app-layout', ['slot' => ''], ['bg-canvas-subtle', 'text-ink']],
             'card' => ['components.card', ['title' => 'Title', 'slot' => ''], ['bg-surface', 'border-border', 'text-ink']],
-            'card-body-padding' => ['components.card', ['title' => 'T', 'slot' => 'Body'], ['p-6']],
-            'card-section' => ['components.card-section', ['title' => 'Title', 'slot' => ''], ['bg-surface', 'border-border', 'text-ink']],
-            'card-section-body-padding' => ['components.card-section', ['title' => 'T', 'slot' => 'Body'], ['p-6']],
+            'card-body-padding' => ['components.card', ['title' => 'T', 'slot' => 'Body'], ['p-5']],
             'button-primary' => ['components.button', ['variant' => 'primary', 'slot' => 'Click'], ['bg-primary']],
-            'button-secondary' => ['components.button', ['variant' => 'secondary', 'slot' => 'Click'], ['bg-surface', 'border-border', 'text-ink-muted']],
+            'button-secondary' => ['components.button', ['variant' => 'secondary', 'slot' => 'Click'], ['bg-surface', 'border-border', 'text-ink']],
             'button-primary-foreground' => ['components.button', ['variant' => 'primary', 'slot' => 'Click'], ['text-on-primary']],
             'button-danger-foreground' => ['components.button', ['variant' => 'danger', 'slot' => 'Click'], ['text-on-danger']],
             'button-success-foreground' => ['components.button', ['variant' => 'success', 'slot' => 'Click'], ['text-on-success']],
@@ -44,8 +42,8 @@ class ThemeTokenUsageTest extends TestCase
             'alert' => ['components.alert', ['type' => 'info', 'slot' => 'Message'], ['bg-info-subtle', 'border-info-border', 'text-info-text']],
             'badge' => ['components.badge', ['variant' => 'success', 'slot' => 'Active'], ['bg-success-subtle', 'text-success-text']],
             'badge-gray' => ['components.badge', ['variant' => 'gray', 'slot' => 'Draft'], ['bg-canvas-subtle', 'text-ink-muted']],
-            'input' => ['components.input', ['name' => 'foo', 'errors' => new ViewErrorBag], ['bg-surface', 'border-border', 'text-ink']],
-            'select' => ['components.select', ['name' => 'foo', 'options' => [], 'errors' => new ViewErrorBag], ['bg-surface', 'border-border', 'text-ink']],
+            'input' => ['components.input', ['name' => 'foo', 'errors' => new ViewErrorBag], ['bg-canvas-subtle', 'border-border', 'text-ink']],
+            'select' => ['components.select', ['name' => 'foo', 'options' => [], 'errors' => new ViewErrorBag], ['bg-canvas-subtle', 'border-border', 'text-ink']],
             'input-error-text' => ['components.input', [
                 'name' => 'foo',
                 'label' => 'Foo',
@@ -58,25 +56,21 @@ class ThemeTokenUsageTest extends TestCase
                 'errors' => (new ViewErrorBag)->put('default', new MessageBag(['foo' => ['The foo field is required.']])),
             ], ['text-danger-text']],
             'table' => ['components.table', ['thead' => '', 'tbody' => ''], ['bg-surface', 'divide-border', 'bg-canvas-subtle']],
-            'data-table' => ['components.data-table', [], ['bg-surface', 'border-border']],
             'stat-card' => ['components.stat-card', ['label' => 'X', 'value' => '1'], ['bg-surface', 'border-border', 'text-ink-muted']],
             'stat-card-blue' => ['components.stat-card', ['label' => 'X', 'value' => '1', 'color' => 'blue'], ['text-info']],
             'stat-card-red' => ['components.stat-card', ['label' => 'X', 'value' => '1', 'color' => 'red'], ['text-danger']],
             'stat-card-yellow' => ['components.stat-card', ['label' => 'X', 'value' => '1', 'color' => 'yellow'], ['text-warning']],
             'stat-card-purple' => ['components.stat-card', ['label' => 'X', 'value' => '1', 'color' => 'purple'], ['text-accent']],
             'stat-card-green' => ['components.stat-card', ['label' => 'X', 'value' => '1', 'color' => 'green'], ['text-success']],
-            'stat-card-trend-colors' => ['components.stat-card', ['label' => 'X', 'value' => '1', 'color' => 'red', 'trend' => 10], ['text-success', 'text-danger']],
+            'stat-card-trend-colors' => ['components.stat-card', ['label' => 'X', 'value' => '1', 'color' => 'red', 'trend' => 10], ['text-success-text', 'text-danger']],
             'filter-bar' => ['components.filter-bar', ['slot' => ''], ['bg-surface', 'border-border']],
             'empty-state' => ['components.empty-state', [], ['text-ink-muted']],
-            'progress-bar' => ['components.progress-bar', ['value' => 50], ['bg-canvas-subtle']],
-            'progress-bar-success' => ['components.progress-bar', ['value' => 50], ['bg-success']],
-            'progress-bar-warning' => ['components.progress-bar', ['value' => 85], ['bg-warning']],
-            'progress-bar-danger' => ['components.progress-bar', ['value' => 100], ['bg-danger']],
+            'progress-bar' => ['components.progress-bar', ['value' => 50], ['bg-canvas-subtle', 'bg-primary']],
             'chart-trend' => ['components.chart-trend', ['title' => 'X', 'labels' => [], 'values' => []], ['bg-surface', 'border-border', 'text-ink']],
             'chart-trend-success' => ['components.chart-trend', ['title' => 'Trend', 'labels' => ['Jan'], 'values' => [1], 'color' => 'green'], ['fill-success', 'text-success']],
             'chart-trend-warning' => ['components.chart-trend', ['title' => 'Trend', 'labels' => ['Jan'], 'values' => [1], 'color' => 'yellow'], ['fill-warning', 'text-warning']],
             'chart-trend-danger' => ['components.chart-trend', ['title' => 'Trend', 'labels' => ['Jan'], 'values' => [1]], ['fill-danger', 'text-danger']],
-            'navigation-tokens' => ['components.navigation', [], ['bg-sidebar', 'text-sidebar-text']],
+            'navigation-tokens' => ['components.navigation', [], ['bg-surface-inverted', 'text-sidebar-text']],
             'chart-bar-success' => ['components.chart-bar', ['value' => 80], ['bg-success']],
             'chart-bar-warning' => ['components.chart-bar', ['value' => 65], ['bg-warning']],
             'chart-bar-danger' => ['components.chart-bar', ['value' => 30], ['bg-danger']],
@@ -178,24 +172,18 @@ class ThemeTokenUsageTest extends TestCase
     }
 
     #[Test]
-    public function progress_bar_uses_semantic_color_tokens(): void
+    public function progress_bar_fill_is_always_primary(): void
     {
-        // Success case (value < 80)
-        $html = view('components.progress-bar', ['value' => 50])->render();
-        $this->assertStringContainsString('bg-success', $html, 'Progress bar with value 50 should use bg-success token.');
-        $this->assertStringNotContainsString('bg-green-500', $html, 'Progress bar should not use raw bg-green-500.');
-        $this->assertStringNotContainsString('bg-green-600', $html, 'Progress bar should not use raw bg-green-600.');
-
-        // Warning case (80 <= value < 100)
-        $html = view('components.progress-bar', ['value' => 85])->render();
-        $this->assertStringContainsString('bg-warning', $html, 'Progress bar with value 85 should use bg-warning token.');
-        $this->assertStringNotContainsString('bg-yellow-500', $html, 'Progress bar should not use raw bg-yellow-500.');
-        $this->assertStringNotContainsString('bg-yellow-600', $html, 'Progress bar should not use raw bg-yellow-600.');
-
-        // Danger case (value >= 100)
-        $html = view('components.progress-bar', ['value' => 100])->render();
-        $this->assertStringContainsString('bg-danger', $html, 'Progress bar with value 100 should use bg-danger token.');
-        $this->assertStringNotContainsString('bg-red-500', $html, 'Progress bar should not use raw bg-red-500.');
-        $this->assertStringNotContainsString('bg-red-600', $html, 'Progress bar should not use raw bg-red-600.');
+        // C80: progress bar fill is always bg-primary, regardless of value.
+        foreach ([0, 50, 85, 100] as $value) {
+            $html = view('components.progress-bar', ['value' => $value])->render();
+            $this->assertStringContainsString('bg-primary', $html, 'Progress bar fill should use bg-primary token.');
+            $this->assertStringNotContainsString('bg-success', $html, 'Progress bar should not change fill color.');
+            $this->assertStringNotContainsString('bg-warning', $html, 'Progress bar should not change fill color.');
+            $this->assertStringNotContainsString('bg-danger', $html, 'Progress bar should not change fill color.');
+            $this->assertStringNotContainsString('bg-green-500', $html, 'Progress bar should not use raw bg-green-500.');
+            $this->assertStringNotContainsString('bg-yellow-500', $html, 'Progress bar should not use raw bg-yellow-500.');
+            $this->assertStringNotContainsString('bg-red-500', $html, 'Progress bar should not use raw bg-red-500.');
+        }
     }
 }

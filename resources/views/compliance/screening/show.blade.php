@@ -1,10 +1,10 @@
 <x-app-layout title="Screening Result">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Screening Result" :actions="true">
             Transaction ID: TXN-2024-001
 
             <x-slot:actions>
-                <x-button variant="secondary" href="#">Back</x-button>
+                <x-button variant="secondary" href="{{ url()->previous() }}">Back</x-button>
             </x-slot:actions>
         </x-page-header>
 
@@ -49,7 +49,7 @@
 
         <x-card title="Sanctions Screening">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <x-card-section title="Sanctions Check" :actions="true">
+                <x-card title="Sanctions Check" :actions="true">
                     <x-slot:actions>
                         <x-badge variant="success">Clear</x-badge>
                     </x-slot:actions>
@@ -72,9 +72,9 @@
                             <span class="text-success-text">Clear</span>
                         </div>
                     </div>
-                </x-card-section>
+                </x-card>
 
-                <x-card-section title="AML Screening" :actions="true">
+                <x-card title="AML Screening" :actions="true">
                     <x-slot:actions>
                         <x-badge variant="warning">Review</x-badge>
                     </x-slot:actions>
@@ -97,7 +97,7 @@
                             <span class="text-success-text">Clear</span>
                         </div>
                     </div>
-                </x-card-section>
+                </x-card>
             </div>
         </x-card>
 

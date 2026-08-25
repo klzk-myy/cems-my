@@ -38,23 +38,30 @@ class VelocityMonitor extends BaseMonitor
     public function run(): array
     {
         $findings = [];
-        $cutoffTime = now()->subDays($this->velocityWindowDays);
 
-        $customerData = Transaction::where('created_at', '>=', $cutoffTime)
-            ->where('status', '!=', TransactionStatus::Cancelled->value)
-            ->selectRaw('customer_id, COUNT(*) as transaction_count, CAST(SUM(amount_local) AS CHAR) as total_amount')
-            ->groupBy('customer_id')
-            ->havingRaw('SUM(amount_local) >= ?', [$this->warningThreshold])
-            ->get();
+        try {
+            $cutoffTime = now()->subDays($this->velocityWindowDays);
 
-        $customerIds = $customerData->pluck('customer_id')->unique();
-        $customers = Customer::whereIn('id', $customerIds)->get()->keyBy('id');
+            $customerData = Transaction::where('created_at', '>=', $cutoffTime)
+                ->where('status', '!=', TransactionStatus::Cancelled->value)
+                ->selectRaw('customer_id, COUNT(*) as transaction_count, CAST(SUM(amount_local) AS CHAR) as total_amount')
+                ->groupBy('customer_id')
+                ->havingRaw('SUM(amount_local) >= ?', [$this->warningThreshold])
+                ->get();
 
-        foreach ($customerData as $data) {
-            $finding = $this->createFindingFromData($data, $customers->get($data->customer_id));
-            if ($finding !== null) {
-                $findings[] = $finding;
+            $customerIds = $customerData->pluck('customer_id')->unique();
+            $customers = Customer::whereIn('id', $customerIds)->get()->keyBy('id');
+
+            foreach ($customerData as $data) {
+                $finding = $this->createFindingFromData($data, $customers->get($data->customer_id));
+                if ($finding !== null) {
+                    $findings[] = $finding;
+                }
             }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
         }
 
         return $findings;

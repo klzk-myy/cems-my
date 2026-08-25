@@ -1,5 +1,5 @@
 <x-app-layout title="Exchange Rates">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Exchange Rates" :actions="true">
             <x-slot:actions>
                 @if($currentBranch)
@@ -19,9 +19,35 @@
                 placeholder=""
                 inline
             />
-            <x-button id="fetch-rates-btn" variant="primary" type="button">Fetch from API</x-button>
-            <x-button id="copy-previous-btn" variant="secondary" type="button">Copy Previous</x-button>
+            <x-button
+                x-data="{ loading: false }"
+                @click="loading = true; fetch('{{ route('api.v1.rates.fetch') }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' } }).then(r => r.json()).then(d => { if (d.success) { window.location.reload(); } else { window.dispatchEvent(new CustomEvent('rate-error', { detail: { message: d.message || 'Failed to fetch rates' } })); } }).catch(e => { window.dispatchEvent(new CustomEvent('rate-error', { detail: { message: e.message || 'Network error' } })); }).finally(() => loading = false)"
+                x-bind:disabled="loading"
+                variant="primary"
+                type="button">
+                <span x-show="!loading">Fetch from API</span>
+                <span x-show="loading">Fetching…</span>
+            </x-button>
+            <x-button
+                x-data="{ loading: false }"
+                @click="loading = true; fetch('{{ route('api.v1.rates.copy-previous') }}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' } }).then(r => r.json()).then(d => { if (d.success) { window.location.reload(); } else { window.dispatchEvent(new CustomEvent('rate-error', { detail: { message: d.message || 'Failed to copy previous rates' } })); } }).catch(e => { window.dispatchEvent(new CustomEvent('rate-error', { detail: { message: e.message || 'Network error' } })); }).finally(() => loading = false)"
+                x-bind:disabled="loading"
+                variant="secondary"
+                type="button">
+                <span x-show="!loading">Copy Previous</span>
+                <span x-show="loading">Copying…</span>
+            </x-button>
         </x-filter-bar>
+
+        <div x-data="{ error: '' }"
+             @rate-error.window="error = $event.detail.message"
+             x-show="error"
+             x-transition
+             x-cloak
+             class="p-4 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text mb-4"
+             role="alert">
+            <span x-text="error"></span>
+        </div>
 
         <x-card>
             <x-table>
@@ -50,7 +76,12 @@
                                 {{ $rate['fetched_at'] ? \Carbon\Carbon::parse($rate['fetched_at'])->format('H:i:s') : '-' }}
                             </td>
                             <td class="px-4 py-3 text-right text-sm">
-                                <x-button variant="ghost" size="sm" class="override-btn" data-currency="{{ $rate['currency_code'] }}">Override</x-button>
+                                <x-button
+                                    variant="ghost"
+                                    size="sm"
+                                    @click="$dispatch('override-rate', { currency: '{{ $rate['currency_code'] }}' })">
+                                    Override
+                                </x-button>
                             </td>
                         </tr>
                     @empty
@@ -62,95 +93,52 @@
     </div>
 
     <!-- Override Modal -->
-    <div id="override-modal" class="hidden fixed inset-0 bg-canvas/80 backdrop-blur-sm flex items-center justify-center z-50">
-        <x-card class="w-full max-w-md">
-            <div class="p-6">
-                <h3 class="text-lg font-medium text-ink mb-4">Override Rate</h3>
+    <div x-data="{ showOverride: false, currency: '' }"
+         @override-rate.window="currency = $event.detail.currency; showOverride = true"
+         @keydown.escape.window="showOverride = false"
+         x-cloak>
+        <div x-show="showOverride"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95"
+             @keydown.escape.window="showOverride = false"
+             @click="showOverride = false"
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div class="bg-surface rounded-xl shadow-lg max-w-md w-full mx-4" @click.stop>
+                <div class="flex items-center justify-between px-5 py-3 border-b border-border">
+                    <h3 class="text-lg font-semibold text-ink">Override Rate</h3>
+                    <button @click="showOverride = false" class="text-ink-muted hover:text-ink p-1" aria-label="Close">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
                 <form id="override-form" method="POST" action="{{ route('rates.override') }}">
                     @csrf
-                    <div class="space-y-4">
+                    <div class="p-6 space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-ink-muted">Currency</label>
-                            <x-input type="text" name="currency_code" id="override-currency" inline class="mt-1 w-full" readonly />
+                            <label class="block text-sm font-medium text-ink-muted mb-1">Currency</label>
+                            <x-input type="text" name="currency_code" x-model="currency" readonly />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-ink-muted">Rate Buy</label>
-                            <x-input type="text" name="rate_buy" id="override-rate-buy" inline class="mt-1 w-full" required />
+                            <label class="block text-sm font-medium text-ink-muted mb-1">Rate Buy</label>
+                            <x-input type="text" name="rate_buy" required />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-ink-muted">Rate Sell</label>
-                            <x-input type="text" name="rate_sell" id="override-rate-sell" inline class="mt-1 w-full" required />
+                            <label class="block text-sm font-medium text-ink-muted mb-1">Rate Sell</label>
+                            <x-input type="text" name="rate_sell" required />
                         </div>
-                        <x-textarea name="reason" label="Reason" rows="2" class="mt-1 w-full"></x-textarea>
+                        <x-textarea name="reason" label="Reason" rows="2"></x-textarea>
                     </div>
-                    <div class="mt-6 flex items-center justify-end gap-3">
-                        <x-button type="button" id="cancel-override" variant="secondary">Cancel</x-button>
+                    <div class="flex items-center justify-end gap-3 px-5 py-3 border-t border-border">
+                        <x-button type="button" @click="showOverride = false" variant="secondary">Cancel</x-button>
                         <x-button type="submit" variant="primary">Save Override</x-button>
                     </div>
                 </form>
             </div>
-        </x-card>
+        </div>
     </div>
-
-    <script>
-        document.getElementById('fetch-rates-btn')?.addEventListener('click', async function() {
-            const btn = this;
-            btn.disabled = true;
-            btn.textContent = 'Fetching...';
-
-            try {
-                const response = await fetch('/api/v1/rates/fetch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-                });
-                const data = await response.json();
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Failed: ' + data.message);
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
-
-            btn.disabled = false;
-            btn.textContent = 'Fetch from API';
-        });
-
-        document.getElementById('copy-previous-btn')?.addEventListener('click', async function() {
-            const btn = this;
-            btn.disabled = true;
-            btn.textContent = 'Copying...';
-
-            try {
-                const response = await fetch('/api/v1/rates/copy-previous', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-                });
-                const data = await response.json();
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Failed: ' + data.message);
-                }
-            } catch (e) {
-                alert('Error: ' + e.message);
-            }
-
-            btn.disabled = false;
-            btn.textContent = 'Copy Previous';
-        });
-
-        document.querySelectorAll('.override-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const currency = this.dataset.currency;
-                document.getElementById('override-currency').value = currency;
-                document.getElementById('override-modal').classList.remove('hidden');
-            });
-        });
-
-        document.getElementById('cancel-override')?.addEventListener('click', function() {
-            document.getElementById('override-modal').classList.add('hidden');
-        });
-    </script>
 </x-app-layout>

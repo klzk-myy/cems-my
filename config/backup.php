@@ -95,14 +95,13 @@ return [
              *
              * For a complete list of available customization options, see https://github.com/spatie/db-dumper
              */
+            /*
+             * Spatie 9.x expects a flat list of connection names here
+             * (DbDumperFactory::createFromConnection(string)). Per-connection
+             * dump options live under config/database.php connections.<name>.dump.
+             */
             'databases' => [
                 env('DB_CONNECTION', 'mysql'),
-                'mysql' => [
-                    'dump' => [
-                        'useSingleTransaction' => true,
-                        'skip_lock_tables' => true,
-                    ],
-                ],
             ],
         ],
 
@@ -237,7 +236,7 @@ return [
         'notifiable' => Notifiable::class,
 
         'mail' => [
-            'to' => 'your@example.com',
+            'to' => env('BACKUP_NOTIFY_EMAIL', ''),
 
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
@@ -246,7 +245,7 @@ return [
         ],
 
         'slack' => [
-            'webhook_url' => '',
+            'webhook_url' => env('BACKUP_SLACK_WEBHOOK_URL', ''),
 
             /*
              * If this is set to null the default channel of the webhook will be used.
@@ -259,7 +258,7 @@ return [
         ],
 
         'discord' => [
-            'webhook_url' => '',
+            'webhook_url' => env('BACKUP_DISCORD_WEBHOOK_URL', ''),
 
             /*
              * If this is an empty string, the name field on the webhook will be used.

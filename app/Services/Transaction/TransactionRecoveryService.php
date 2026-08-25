@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\TransactionError;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -75,24 +76,20 @@ class TransactionRecoveryService
             'failure_reason' => $transaction->failure_reason,
         ]);
 
-        // Update transaction with DLQ marker
-        // We use the existing failure_reason to store DLQ info
         $dlqReason = '[DLQ] '.($transaction->failure_reason ?? 'Max retries exceeded');
 
-        $transaction->failure_reason = $dlqReason;
+        DB::transaction(function () use ($transaction, $dlqReason) {
+            $stateMachine = new TransactionStateMachine($transaction);
+            $stateMachine->markAsDlq($dlqReason);
 
-        // Transition to a terminal failed state (stays Failed but with DLQ marker)
-        // The state machine doesn't have a specific DLQ state, so we use Failed with reason
-        $stateMachine = new TransactionStateMachine($transaction);
-        $stateMachine->forceStatus(TransactionStatus::Failed, $dlqReason);
+            // Store DLQ metadata in error record if exists
+            $latestError = $this->latestUnresolvedError($transaction);
 
-        // Store DLQ metadata in error record if exists
-        $latestError = $this->latestUnresolvedError($transaction);
-
-        if ($latestError) {
-            $latestError->resolution_notes = 'Moved to DLQ - max retries exceeded';
-            $latestError->save();
-        }
+            if ($latestError) {
+                $latestError->resolution_notes = 'Moved to DLQ - max retries exceeded';
+                $latestError->save();
+            }
+        });
 
         Log::warning('Transaction moved to dead letter queue', [
             'transaction_id' => $transaction->id,
@@ -113,6 +110,9 @@ class TransactionRecoveryService
         return Transaction::query()
             ->with('transactionErrors')
             ->where('status', TransactionStatus::Failed)
+            // DLQ transactions are recovered via the manual retryFromDLQ flow;
+            // excluding them here prevents a re-dispatch loop on every sweep.
+            ->where('is_dlq', false)
             ->whereHas('transactionErrors', function ($query) {
                 $query->whereNull('resolved_at');
             })
@@ -122,25 +122,25 @@ class TransactionRecoveryService
     /**
      * Get all dead letter queue transactions.
      *
-     * Returns transactions that have been moved to DLQ (failure_reason starts with [DLQ]).
+     * Returns transactions that have been moved to DLQ (is_dlq = true).
      *
      * @return Collection Collection of Transaction models
      */
     public function getDeadLetterQueueTransactions(): Collection
     {
-        return Transaction::where('status', TransactionStatus::Failed)
-            ->whereNotNull('failure_reason')
-            ->where('failure_reason', 'like', '[DLQ]%')
-            ->get();
+        return Transaction::where('is_dlq', true)->get();
     }
 
     /**
      * Retry a transaction from the dead letter queue.
      *
-     * Resets the transaction for a new recovery attempt.
+     * Resets the DLQ state and transitions the transaction back to
+     * PendingApproval for the manual approval flow. No automatic retry job is
+     * dispatched: ProcessTransactionRetry skips anything not in Failed status,
+     * so dispatching it here would always silently no-op.
      *
      * @param  Transaction  $transaction  The DLQ transaction to retry
-     * @return bool True if retry was dispatched
+     * @return bool True if the transaction was returned to PendingApproval
      */
     public function retryFromDLQ(Transaction $transaction): bool
     {
@@ -155,28 +155,42 @@ class TransactionRecoveryService
 
         // Remove DLQ marker from failure reason
         $originalReason = preg_replace('/^\[DLQ\]\s*/', '', $transaction->failure_reason ?? '');
-        $transaction->failure_reason = $originalReason;
 
-        // Reset the transaction status to retry
-        $stateMachine = new TransactionStateMachine($transaction);
-        $stateMachine->transitionTo(TransactionStatus::PendingApproval);
+        $transitioned = false;
 
-        // Reset error retry count for new attempt
-        $latestError = $this->latestUnresolvedError($transaction);
+        DB::transaction(function () use ($transaction, $originalReason, &$transitioned) {
+            $stateMachine = new TransactionStateMachine($transaction);
 
-        if ($latestError) {
-            $latestError->retry_count = 0;
-            $latestError->next_retry_at = now();
-            $latestError->resolution_notes = 'Retrying from DLQ';
-            $latestError->save();
-        }
+            $transitioned = $stateMachine->transitionTo(TransactionStatus::PendingApproval);
 
-        Log::info('Retrying transaction from DLQ', [
+            if (! $transitioned) {
+                // Throwing rolls back everything below/above in this closure,
+                // so the DLQ flag is only cleared when the status transition
+                // also succeeded.
+                throw new \RuntimeException(
+                    "Cannot retry transaction {$transaction->id} from DLQ: status '{$transaction->status->value}' does not allow transition to PendingApproval."
+                );
+            }
+
+            // Restore the original failure reason without the [DLQ] marker
+            $transaction->failure_reason = $originalReason;
+            $transaction->is_dlq = false;
+            $transaction->save();
+
+            $latestError = $this->latestUnresolvedError($transaction);
+            if ($latestError) {
+                $latestError->retry_count = 0;
+                $latestError->next_retry_at = now();
+                $latestError->resolution_notes = 'Retrying from DLQ';
+                $latestError->save();
+            }
+        });
+
+        Log::info('Transaction returned to PendingApproval for manual approval', [
             'transaction_id' => $transaction->id,
         ]);
 
-        // Dispatch retry job
-        return $this->dispatchRetryJob($transaction);
+        return $transitioned;
     }
 
     /**
@@ -187,8 +201,50 @@ class TransactionRecoveryService
      */
     public function isInDeadLetterQueue(Transaction $transaction): bool
     {
-        return $transaction->failure_reason !== null
-            && str_starts_with($transaction->failure_reason, '[DLQ]');
+        return $transaction->is_dlq;
+    }
+
+    /**
+     * Purge (archive) a transaction from the dead letter queue.
+     *
+     * Archiving soft-deletes the transaction, which removes it from the DLQ
+     * listing and the recovery sweep while retaining the row for the 7-year
+     * regulatory retention period. Outstanding error records are resolved so
+     * the recovery sweep never re-picks it. This is not a hard delete.
+     *
+     * @param  Transaction  $transaction  The DLQ transaction to archive
+     * @return bool True if the transaction was archived
+     */
+    public function purgeFromDLQ(Transaction $transaction): bool
+    {
+        // Verify this is actually a DLQ transaction
+        if (! $this->isInDeadLetterQueue($transaction)) {
+            Log::warning('Cannot purge transaction - not in DLQ', [
+                'transaction_id' => $transaction->id,
+            ]);
+
+            return false;
+        }
+
+        // Resolve ALL outstanding error records so the recovery sweep (which
+        // picks up Failed transactions with unresolved errors) never
+        // re-dispatches an archived transaction.
+        $transaction->transactionErrors()
+            ->whereNull('resolved_at')
+            ->update([
+                'resolved_at' => now(),
+                'resolution_notes' => 'Purged from DLQ - archived',
+            ]);
+
+        // Archive: soft-delete. Soft-deleted rows are excluded from the DLQ
+        // listing and recovery queries by default but retained in the table.
+        $transaction->delete();
+
+        Log::warning('Transaction purged from DLQ (archived)', [
+            'transaction_id' => $transaction->id,
+        ]);
+
+        return true;
     }
 
     /**
@@ -214,16 +270,18 @@ class TransactionRecoveryService
      */
     private function latestUnresolvedError(Transaction $transaction): ?TransactionError
     {
+        // Order by id (not created_at): multiple failures within the same second
+        // tie on created_at, and picking an arbitrary row breaks retry accounting.
         if ($transaction->relationLoaded('transactionErrors')) {
             return $transaction->transactionErrors
                 ->whereNull('resolved_at')
-                ->sortByDesc('created_at')
+                ->sortByDesc('id')
                 ->first();
         }
 
         return $transaction->transactionErrors()
             ->whereNull('resolved_at')
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('id')
             ->first();
     }
 
@@ -236,6 +294,11 @@ class TransactionRecoveryService
     protected function dispatchRetryJob(Transaction $transaction): bool
     {
         $delayMs = $this->errorHandler->getNextRetryDelay($transaction);
+
+        // Guard against zero/negative or runaway delays from a misconfigured
+        // backoff strategy: clamp to [0, 1h].
+        $maxDelayMs = (int) config('cems.retry_max_delay_ms', 3600000);
+        $delayMs = max(0, min((int) $delayMs, $maxDelayMs));
 
         ProcessTransactionRetry::dispatch($transaction)
             ->delay(now()->addMilliseconds($delayMs));

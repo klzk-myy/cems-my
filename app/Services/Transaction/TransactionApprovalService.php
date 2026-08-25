@@ -3,27 +3,36 @@
 namespace App\Services\Transaction;
 
 use App\Enums\CddLevel;
+use App\Enums\StockReservationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Events\TransactionApproved;
 use App\Exceptions\Domain\InsufficientStockException;
 use App\Exceptions\Domain\SelfApprovalException;
 use App\Exceptions\Domain\StockReservationExpiredException;
+use App\Exceptions\Domain\TransactionApprovalException;
+use App\Exceptions\Domain\TransactionCreationException;
+use App\Exceptions\Domain\TransactionValidationException;
 use App\Models\Counter;
 use App\Models\Customer;
+use App\Models\StockReservation;
 use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Accounting\CurrencyPositionService;
 use App\Services\Accounting\TransactionAccountingService;
 use App\Services\Audit\AuditTrailHelper;
+use App\Services\AuditService;
 use App\Services\Branch\TellerAllocationService;
 use App\Services\Branch\TillBalanceManager;
+use App\Services\Compliance\AmlRuleEvaluator;
 use App\Services\Contracts\TransactionApprovalServiceInterface;
 use App\Services\DTOs\ApprovalResult;
 use App\Services\System\CacheTagsService;
+use App\Services\System\MathService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 
 class TransactionApprovalService implements TransactionApprovalServiceInterface
 {
@@ -34,13 +43,16 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
         protected AuditTrailHelper $auditTrailHelper,
         protected TillBalanceManager $tillBalanceManager,
         protected CacheTagsService $cacheTagsService,
+        protected AuditService $auditService,
+        protected TellerAllocationService $tellerAllocationService,
+        protected MathService $mathService,
     ) {}
 
     public function validateApprovalEligibility(Transaction $transaction, int $approverId): void
     {
         if (! $transaction->status->isPending()) {
-            throw new \InvalidArgumentException(
-                'Transaction is not pending approval. Current status: '.$transaction->status->label()
+            throw new TransactionValidationException(
+                message: 'Transaction is not pending approval. Current status: '.$transaction->status->label()
             );
         }
 
@@ -51,13 +63,23 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
 
     public function approve(Transaction $transaction, int $approverId, ?string $ipAddress = null): ApprovalResult
     {
-        $ipAddress ??= request()?->ip();
+        $ipAddress ??= optional(request())->ip();
 
         $amlResult = $this->monitoringService->monitorTransaction($transaction);
         $blockResult = $this->handleAmlBlocks($transaction, $amlResult, $approverId, $ipAddress);
 
         if ($blockResult) {
             return $blockResult;
+        }
+
+        try {
+            app(AmlRuleEvaluator::class)
+                ->evaluateActiveRules($transaction, $transaction->customer);
+        } catch (\Throwable $e) {
+            Log::error('AML rule engine skipped', [
+                'transaction_id' => $transaction->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         try {
@@ -114,14 +136,24 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
         return DB::transaction(function () use ($transaction, $approverId, $amlResult, $ipAddress) {
             $lockedTransaction = $this->acquireLockAndCheckVersion($transaction);
             $tillBalance = $this->verifyPreApprovalState($lockedTransaction);
-            $this->recordStatusTransition($lockedTransaction, $approverId);
-            $this->executeSideEffects($lockedTransaction, $tillBalance, $approverId, $amlResult, $ipAddress);
-            $this->postApprovalCleanup($lockedTransaction, $approverId);
+            $requiresProcessing = $this->recordStatusTransition($lockedTransaction, $approverId);
+
+            if (! $requiresProcessing) {
+                // Standard transaction - execute side effects and complete
+                $this->executeSideEffects($lockedTransaction, $tillBalance, $approverId, $amlResult, $ipAddress);
+                $this->postApprovalCleanup($lockedTransaction, $approverId);
+            }
+            // For refunds: side effects will be executed in separate completion step
+
+            $message = $requiresProcessing
+                ? 'Transaction approved. Refund requires compliance review before processing.'
+                : 'Transaction approved and completed successfully.';
 
             return new ApprovalResult(
                 success: true,
-                message: 'Transaction approved and completed successfully.',
-                transaction: $lockedTransaction->fresh()
+                message: $message,
+                transaction: $lockedTransaction->fresh(),
+                requiresProcessing: $requiresProcessing
             );
         });
     }
@@ -134,12 +166,13 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
             ->first();
 
         if (! $lockedTransaction) {
-            throw new \RuntimeException('Transaction was already processed or modified by another user.');
+            throw new TransactionApprovalException(transactionId: $transaction->id, message: 'Transaction was already processed or modified by another user.');
         }
 
         if ((int) $lockedTransaction->version !== (int) $transaction->version) {
-            throw new \RuntimeException(
-                'Transaction was modified by another user since you loaded it. Please refresh the record and try again.'
+            throw new TransactionApprovalException(
+                transactionId: $transaction->id,
+                message: 'Transaction was modified by another user since you loaded it. Please refresh the record and try again.'
             );
         }
 
@@ -150,19 +183,17 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
     {
         $customer = Customer::find($transaction->customer_id);
         if (! $customer) {
-            throw new \RuntimeException('Customer has been deleted. Cannot approve transaction for non-existent customer.');
+            throw new TransactionApprovalException(transactionId: $transaction->id, message: 'Customer has been deleted. Cannot approve transaction for non-existent customer.');
         }
 
-        $counter = Counter::where('code', $transaction->till_id)
-            ->orWhere('id', $transaction->till_id)
-            ->first();
+        $counter = Counter::findByCodeOrId($transaction->till_id);
 
         $tillBalance = $counter
             ? $this->tillBalanceManager->currentBalance($counter, $transaction->currency_code)
             : null;
 
         if (! $tillBalance) {
-            throw new \RuntimeException('Till has been closed. Cannot approve transaction for closed till.');
+            throw new TransactionApprovalException(transactionId: $transaction->id, message: 'Till has been closed. Cannot approve transaction for closed till.');
         }
 
         if ($transaction->type === TransactionType::Sell) {
@@ -172,37 +203,56 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
             );
 
             if (! $position) {
-                throw new \RuntimeException('Currency position has been deleted. Cannot approve Sell transaction without position.');
+                throw new TransactionApprovalException(transactionId: $transaction->id, message: 'Currency position has been deleted. Cannot approve Sell transaction without position.');
             }
         }
 
         return $tillBalance;
     }
 
-    private function recordStatusTransition(Transaction $transaction, int $approverId): void
+    private function recordStatusTransition(Transaction $transaction, int $approverId): bool
     {
-        $history = $transaction->transition_history ?? [];
+        $stateMachine = new TransactionStateMachine($transaction, $this->auditService);
+
+        // For refunds, require full approval flow: PendingApproval -> Approved
+        // This ensures compliance review for high-risk reversal transactions
+        // Returns true if transaction needs further processing (Approved but not Completed)
+        if ($transaction->is_refund) {
+            $stateMachine->approve(); // PendingApproval -> Approved
+
+            $nowIso = now()->toIso8601String();
+            $transaction->approved_by = $approverId;
+            $transaction->approved_at = $nowIso;
+            $transaction->save();
+            $transaction->refresh();
+
+            return true; // Requires further processing
+        }
+
+        // Standard flow for non-refunds: direct to Completed (manager approval)
+        $approver = User::findOrFail($approverId);
+        $stateMachine->approveAndComplete('Transaction approved and completed by manager', $approver);
+
+        // approveAndComplete doesn't set approved_by/approved_at for Completed status
+        // Set them manually after the transition
         $nowIso = now()->toIso8601String();
-
-        $history[] = [
-            'from' => $transaction->status->value,
-            'to' => TransactionStatus::Completed->value,
-            'reason' => 'Transaction approved and completed by manager',
-            'user_id' => $approverId,
-            'timestamp' => $nowIso,
-        ];
-
-        $transaction->status = TransactionStatus::Completed;
         $transaction->approved_by = $approverId;
         $transaction->approved_at = $nowIso;
-        $transaction->transition_history = $history;
-        $transaction->version = $transaction->version + 1;
         $transaction->save();
         $transaction->refresh();
+
+        return false; // Fully completed
     }
 
-    private function executeSideEffects(Transaction $transaction, TillBalance $tillBalance, int $approverId, array $amlResult, ?string $ipAddress): void
-    {
+    private function executeSideEffects(
+        Transaction $transaction,
+        TillBalance $tillBalance,
+        int $approverId,
+        array $amlResult,
+        ?string $ipAddress,
+        string $auditAction = 'transaction_approved',
+        string $auditOldStatus = TransactionStatus::PendingApproval->value
+    ): void {
         $this->consumeSellStockIfNeeded($transaction);
 
         $this->positionService->updatePosition(
@@ -213,9 +263,9 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
             $transaction->branch_id ?? 'HQ'
         );
 
-        $this->updateTillBalance(
+        $this->tillBalanceManager->applyTransaction(
             $tillBalance,
-            $transaction->type->value,
+            $transaction->type,
             (string) $transaction->amount_local,
             (string) $transaction->amount_foreign
         );
@@ -230,7 +280,7 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
             $this->createAccountingEntries($transaction, $ipAddress, $approver);
         }
 
-        $this->recordApprovalAudit($transaction, $approverId, $amlResult, $approver, $ipAddress);
+        $this->recordApprovalAudit($transaction, $approverId, $amlResult, $approver, $ipAddress, $auditAction, $auditOldStatus);
     }
 
     private function consumeSellStockIfNeeded(Transaction $transaction): void
@@ -241,10 +291,10 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
 
         $available = $this->positionService->getAvailableBalance(
             $transaction->currency_code,
-            (string) $transaction->branch_id
+            (string) $transaction->till_id
         );
 
-        if (bccomp($available, (string) $transaction->amount_foreign, 4) < 0) {
+        if ($this->mathService->compare($available, (string) $transaction->amount_foreign) < 0) {
             throw new InsufficientStockException(
                 $transaction->currency_code,
                 (string) $transaction->amount_foreign,
@@ -255,24 +305,52 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
         $reservation = $this->positionService->consumeStockReservation($transaction->id);
 
         if (! $reservation) {
-            throw new StockReservationExpiredException($transaction->id);
+            // Transactions created directly as Completed (no approval flow) never
+            // had a reservation: the stock was never reserved, and a booking
+            // failure rolled back the position update, so re-execution must not
+            // fail on a reservation that was never made.
+            $wentThroughApproval = collect($transaction->transition_history ?? [])
+                ->contains(fn ($step) => ($step['from'] ?? null) === TransactionStatus::PendingApproval->value);
+
+            if (! $wentThroughApproval) {
+                return;
+            }
+
+            // Approval-flow re-execution: the reservation may have been consumed
+            // by the original (partially successful) attempt, in which case the
+            // stock was already deducted from the position and re-consumption
+            // must not fail the retry.
+            $alreadyConsumed = StockReservation::where('transaction_id', $transaction->id)
+                ->where('status', StockReservationStatus::Consumed)
+                ->exists();
+
+            if (! $alreadyConsumed) {
+                throw new StockReservationExpiredException($transaction->id);
+            }
         }
     }
 
-    private function recordApprovalAudit(Transaction $transaction, int $approverId, array $amlResult, ?User $approver, ?string $ipAddress): void
-    {
-        $this->auditTrailHelper->recordTransaction($transaction->id, 'transaction_approved', [
+    private function recordApprovalAudit(
+        Transaction $transaction,
+        int $approverId,
+        array $amlResult,
+        ?User $approver,
+        ?string $ipAddress,
+        string $action = 'transaction_approved',
+        string $oldStatus = TransactionStatus::PendingApproval->value
+    ): void {
+        $this->auditTrailHelper->recordTransactionSealed($transaction->id, $action, [
             'old' => [
-                'status' => TransactionStatus::PendingApproval->value,
+                'status' => $oldStatus,
                 'approved_by' => null,
             ],
             'new' => [
                 'status' => TransactionStatus::Completed->value,
                 'approved_by' => $approverId,
-                'approved_at' => $transaction->approved_at->toIso8601String(),
+                'approved_at' => $transaction->approved_at?->toIso8601String(),
                 'aml_flags_checked' => $amlResult['flags_created'] ?? 0,
             ],
-        ], $approver, 'INFO', $ipAddress);
+        ], $approver, 'CRITICAL', $ipAddress);
     }
 
     private function postApprovalCleanup(Transaction $transaction, int $approverId): void
@@ -282,19 +360,9 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
         DB::afterCommit(fn () => $this->cacheTagsService->invalidate('dashboard'));
     }
 
-    private function updateTillBalance($tillBalance, string $type, string $amountLocal, string $amountForeign): void
-    {
-        $this->tillBalanceManager->applyTransaction(
-            $tillBalance,
-            TransactionType::from($type),
-            $amountLocal,
-            $amountForeign
-        );
-    }
-
     private function updateTellerAllocation(Transaction $transaction): void
     {
-        app(TellerAllocationService::class)->applyTransactionAllocation($transaction);
+        $this->tellerAllocationService->applyTransactionAllocation($transaction);
     }
 
     private function createAccountingEntries(Transaction $transaction, ?string $ipAddress, ?User $user): void
@@ -305,5 +373,172 @@ class TransactionApprovalService implements TransactionApprovalServiceInterface
         }
 
         $this->transactionAccountingService->createImmediateAccountingEntries($transaction);
+    }
+
+    /**
+     * Re-execute a failed transaction and book it to Completed.
+     *
+     * Automated recovery path used by ProcessTransactionRetry. Re-runs the
+     * standard execution side effects (position, till, teller allocation,
+     * accounting) under a row lock inside a database transaction so a failed
+     * attempt rolls back atomically and can never double-book.
+     *
+     * @param  Transaction  $transaction  The failed transaction to re-execute
+     * @param  string|null  $ipAddress  IP address for audit
+     */
+    public function reprocessFailed(Transaction $transaction, ?string $ipAddress = null): ApprovalResult
+    {
+        if (! $transaction->status->isFailed()) {
+            return new ApprovalResult(
+                success: false,
+                message: 'Transaction is not in Failed status. Current status: '.$transaction->status->label()
+            );
+        }
+
+        if ($transaction->is_dlq) {
+            return new ApprovalResult(
+                success: false,
+                message: 'Transaction is in the dead letter queue. Use retryFromDLQ to recover it before reprocessing.'
+            );
+        }
+
+        $ipAddress ??= optional(request())->ip();
+
+        try {
+            return DB::transaction(function () use ($transaction, $ipAddress) {
+                $lockedTransaction = Transaction::where('id', $transaction->id)
+                    ->where('status', TransactionStatus::Failed)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $lockedTransaction) {
+                    throw new TransactionApprovalException(transactionId: $transaction->id, message: 'Transaction was already processed or modified by another process.');
+                }
+
+                $tillBalance = $this->verifyPreApprovalState($lockedTransaction);
+
+                $stateMachine = new TransactionStateMachine($lockedTransaction, $this->auditService);
+                if (! $stateMachine->reprocess()) {
+                    throw new TransactionCreationException('Failed to transition transaction to Completed during reprocessing.');
+                }
+
+                // The re-execution is performed by the automated recovery flow;
+                // the original creator is recorded as the actor so downstream
+                // audit queries have a stable owner. The audit action below
+                // makes it unambiguous that this was a system re-execution,
+                // not a human approval.
+                $actorId = (int) $lockedTransaction->user_id;
+                $lockedTransaction->approved_by = $actorId;
+                $lockedTransaction->approved_at = now();
+                $lockedTransaction->save();
+
+                $this->executeSideEffects(
+                    $lockedTransaction,
+                    $tillBalance,
+                    $actorId,
+                    [],
+                    $ipAddress,
+                    'transaction_reexecuted',
+                    TransactionStatus::Failed->value
+                );
+                $this->postApprovalCleanup($lockedTransaction, $actorId);
+
+                return new ApprovalResult(
+                    success: true,
+                    message: 'Transaction re-executed and completed successfully.',
+                    transaction: $lockedTransaction->fresh(),
+                    requiresProcessing: false,
+                );
+            });
+        } catch (InsufficientStockException $e) {
+            return new ApprovalResult(success: false, message: 'Insufficient stock: '.$e->getMessage());
+        } catch (StockReservationExpiredException $e) {
+            return new ApprovalResult(success: false, message: 'Stock reservation expired: '.$e->getMessage());
+        } catch (\RuntimeException $e) {
+            return new ApprovalResult(success: false, message: $e->getMessage());
+        } catch (\Exception $e) {
+            return new ApprovalResult(success: false, message: 'Transaction reprocessing failed: '.$e->getMessage());
+        }
+    }
+
+    /**
+     * Complete a refund transaction that has been approved (Approved -> Processing -> Completed).
+     * This is a separate step from initial approval for compliance oversight.
+     *
+     * @param  Transaction  $transaction  The refund transaction in Approved status
+     * @param  int  $approverId  The user completing the refund
+     * @param  ?string  $ipAddress  IP address for audit
+     */
+    public function completeRefund(Transaction $transaction, int $approverId, ?string $ipAddress = null): ApprovalResult
+    {
+        $ipAddress ??= optional(request())->ip();
+
+        if (! $transaction->is_refund) {
+            return new ApprovalResult(
+                success: false,
+                message: 'Only refund transactions can be completed via this method.'
+            );
+        }
+
+        if (! $transaction->status->isApproved()) {
+            return new ApprovalResult(
+                success: false,
+                message: 'Refund must be in Approved status to complete. Current: '.$transaction->status->label()
+            );
+        }
+
+        return DB::transaction(function () use ($transaction, $approverId, $ipAddress) {
+            $lockedTransaction = Transaction::where('id', $transaction->id)
+                ->where('status', TransactionStatus::Approved)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((int) $lockedTransaction->version !== (int) $transaction->version) {
+                throw new TransactionApprovalException(transactionId: $transaction->id, message: 'Transaction was modified by another user. Please refresh and try again.');
+            }
+
+            $stateMachine = new TransactionStateMachine($lockedTransaction, $this->auditService);
+
+            // Approved -> Processing -> Completed
+            $stateMachine->startProcessing();
+            $stateMachine->complete();
+
+            // Execute financial side effects
+            $counter = Counter::findByCodeOrId($lockedTransaction->till_id);
+            if (! $counter) {
+                throw new \RuntimeException("Counter not found for till: {$lockedTransaction->till_id}");
+            }
+
+            $tillBalance = $this->tillBalanceManager->currentBalance($counter, $lockedTransaction->currency_code);
+            if (! $tillBalance) {
+                throw new TransactionApprovalException(transactionId: $transaction->id, message: 'Till has been closed. Cannot complete refund for closed till.');
+            }
+
+            $this->executeSideEffects($lockedTransaction, $tillBalance, $approverId, [], $ipAddress);
+            $this->postApprovalCleanup($lockedTransaction, $approverId);
+
+            // Audit the completion
+            $this->auditTrailHelper->recordTransactionSealed(
+                $lockedTransaction->id,
+                'refund_completed',
+                [
+                    'old' => ['status' => TransactionStatus::Approved->value],
+                    'new' => [
+                        'status' => TransactionStatus::Completed->value,
+                        'completed_by' => $approverId,
+                    ],
+                ],
+                User::find($approverId),
+                'INFO',
+                $ipAddress
+            );
+
+            return new ApprovalResult(
+                success: true,
+                message: 'Refund completed successfully.',
+                transaction: $lockedTransaction->fresh(),
+                requiresProcessing: false
+            );
+        });
     }
 }

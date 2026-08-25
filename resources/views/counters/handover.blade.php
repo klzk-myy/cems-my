@@ -1,12 +1,12 @@
 <x-app-layout title="Handover Counter">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Counter Handover"
             description="Transfer counter custody to another operator"
         />
 
         <x-card class="max-w-lg">
-            <x-card-section>
+            <x-card>
                 <div class="grid grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-ink-muted mb-1">Counter</label>
@@ -25,16 +25,16 @@
                         <p class="font-medium text-ink">RM {{ number_format($session->opening_float ?? 5000, 2) }}</p>
                     </div>
                 </div>
-            </x-card-section>
+            </x-card>
 
-            <x-card-section>
+            <x-card>
                 <h2 class="text-lg font-semibold mb-4 text-ink">Transfer Details</h2>
                 <form method="POST" action="{{ route('counters.handover', $counter ?? 1) }}">
                     @csrf
 
                     @php
                         $operatorOptions = collect($availableUsers ?? [])->mapWithKeys(function ($user) {
-                            return [$user->id => $user->name . ' (' . $user->role . ')'];
+                            return [$user->id => $user->username . ' (' . $user->role . ')'];
                         })->toArray();
                     @endphp
 
@@ -75,7 +75,7 @@
                         <x-button href="{{ route('counters.index') }}" variant="secondary">Cancel</x-button>
                     </div>
                 </form>
-            </x-card-section>
+            </x-card>
         </x-card>
     </div>
 </x-app-layout>

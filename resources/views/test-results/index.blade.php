@@ -48,7 +48,7 @@
                                 @elseif($run->status->value === 'error')
                                     <x-badge variant="warning">Error</x-badge>
                                 @else
-                                    <x-badge variant="gray">{{ ucfirst($run->status->value) }}</x-badge>
+                                    <x-badge variant="gray">{{ $run->status?->label() ?? 'N/A' }}</x-badge>
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-sm font-medium text-success-text">{{ $run->passed ?? 0 }}</td>
@@ -66,7 +66,7 @@
             </x-table>
 
             @if($testRuns->hasPages())
-                <div class="px-6 py-4 border-t border-border">
+                <div class="px-5 py-3 border-t border-border">
                     {{ $testRuns->withQueryString()->links() }}
                 </div>
             @endif

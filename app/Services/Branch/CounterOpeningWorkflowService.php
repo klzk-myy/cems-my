@@ -3,13 +3,15 @@
 namespace App\Services\Branch;
 
 use App\Enums\TellerAllocationStatus;
+use App\Exceptions\Domain\InsufficientPoolBalanceException;
+use App\Exceptions\Domain\PendingAllocationNotFoundException;
+use App\Exceptions\Domain\TellerBranchRequiredException;
 use App\Models\Branch;
 use App\Models\Counter;
 use App\Models\CounterSession;
 use App\Models\TellerAllocation;
 use App\Models\User;
 use App\Services\AuditService;
-use Exception;
 use Illuminate\Support\Facades\DB;
 
 class CounterOpeningWorkflowService
@@ -26,28 +28,32 @@ class CounterOpeningWorkflowService
         $branch = $teller->branch;
 
         if (! $branch) {
-            throw new Exception('Teller must be assigned to a branch');
+            throw new TellerBranchRequiredException;
         }
 
-        $requests = [];
-        foreach ($requestedAmounts as $currency => $amount) {
-            $pool = $this->branchPoolService->getOrCreateForBranch($branch, $currency);
+        $requests = DB::transaction(function () use ($branch, $teller, $requestedAmounts, $counter) {
+            $requests = [];
+            foreach ($requestedAmounts as $currency => $amount) {
+                $pool = $this->branchPoolService->getOrCreateForBranch($branch, $currency);
 
-            if (! $pool->hasAvailable($amount)) {
-                throw new Exception("Insufficient {$currency} balance in branch pool. Available: {$pool->available_balance}");
+                if (! $pool->hasAvailable($amount)) {
+                    throw new InsufficientPoolBalanceException($currency, (string) $pool->available_balance, $amount);
+                }
+
+                $allocation = $this->tellerAllocationService->requestAllocation(
+                    $teller,
+                    $teller,
+                    $currency,
+                    $amount,
+                    null,
+                    $counter
+                );
+
+                $requests[] = $allocation;
             }
 
-            $allocation = $this->tellerAllocationService->requestAllocation(
-                $teller,
-                $teller,
-                $currency,
-                $amount,
-                null,
-                $counter
-            );
-
-            $requests[] = $allocation;
-        }
+            return $requests;
+        });
 
         return $requests;
     }
@@ -73,7 +79,7 @@ class CounterOpeningWorkflowService
             foreach ($approvedAmounts as $currency => $amount) {
                 $allocation = $allocations->get($currency);
                 if (! $allocation) {
-                    throw new Exception("No pending allocation found for {$currency}");
+                    throw new PendingAllocationNotFoundException($currency);
                 }
 
                 $dailyLimit = $dailyLimits[$currency] ?? null;

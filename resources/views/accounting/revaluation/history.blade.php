@@ -9,8 +9,8 @@
         </x-page-header>
 
         <x-filter-bar>
-            <x-select name="fiscal_year" :options="['2026' => 'FY 2026', '2025' => 'FY 2025']" placeholder="All Fiscal Years" inline />
-            <x-select name="currency" :options="['USD' => 'USD', 'SGD' => 'SGD', 'GBP' => 'GBP', 'EUR' => 'EUR']" placeholder="All Currencies" inline />
+            <x-select name="fiscal_year" :options="$fiscalYears" placeholder="All Fiscal Years" inline />
+            <x-select name="currency" :options="$currencies" placeholder="All Currencies" inline />
             <x-input name="search" type="text" placeholder="Search..." inline class="md:w-64" />
             <x-button variant="secondary" type="submit">Filter</x-button>
         </x-filter-bar>

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TransactionStatus;
+use App\Enums\TransactionType;
 use App\Exceptions\Domain\DomainException;
 use App\Exceptions\Domain\TransactionBlockedException;
+use App\Http\Concerns\BranchScopedQuery;
+use App\Http\Requests\ExportTransactionRequest;
 use App\Http\Requests\IndexTransactionRequest;
 use App\Http\Requests\StoreTransactionRequest;
 use App\Models\Branch;
@@ -15,18 +18,24 @@ use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Contracts\TransactionCreationServiceInterface;
+use App\Services\Reporting\TransactionExportService;
 use App\Services\Transaction\ReceiptGenerationService;
 use App\Services\Transaction\TransactionCancellationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TransactionController extends Controller
 {
+    use BranchScopedQuery;
+
     public function __construct(
         protected TransactionCreationServiceInterface $creationService,
         protected TransactionCancellationService $cancellationService,
+        protected ReceiptGenerationService $receiptService,
+        protected TransactionExportService $transactionExportService,
     ) {}
 
     /**
@@ -36,13 +45,21 @@ class TransactionController extends Controller
      */
     public function index(IndexTransactionRequest $request): View
     {
+        $this->authorize('viewAny', Transaction::class);
+
         $validated = $request->validated();
 
-        $query = Transaction::with(['customer', 'currency', 'user', 'branch'])
+        $query = Transaction::with(['journalEntry', 'deferredJournalEntry'])
             ->when($validated['search'] ?? null, function ($q, string $search) {
-                $escaped = str_replace(['%', '_'], ['\\%', '\\_'], $search);
+                // `reference` is a computed accessor (TX-00000123), so it cannot
+                // be searched in SQL. Search by the numeric part of the reference
+                // (the row id) and fall back to a purpose match.
+                $referenceId = (int) preg_replace('/\D/', '', $search);
 
-                return $q->whereRaw('reference like ? escape \'\\\'', ["%{$escaped}%"]);
+                return $q->where(function ($query) use ($search, $referenceId) {
+                    $query->where('id', $referenceId > 0 ? $referenceId : 0)
+                        ->orWhere('purpose', 'like', "%{$search}%");
+                });
             })
             ->when($validated['status'] ?? null, function ($q, string $status) {
                 return $q->where('status', $status);
@@ -51,10 +68,7 @@ class TransactionController extends Controller
                 return $q->where('customer_id', $customerId);
             });
 
-        $user = auth()->user();
-        if ($user && $user->branch_id !== null) {
-            $query->where('branch_id', $user->branch_id);
-        }
+        $this->scopeByBranch($query);
 
         $transactions = $query->orderBy('created_at', 'desc')->paginate(50)->withQueryString();
 
@@ -68,10 +82,12 @@ class TransactionController extends Controller
      */
     public function create(): View
     {
+        $this->authorize('create', Transaction::class);
+
         $currencies = Currency::select('code', 'name')->where('is_active', true)->get()->pluck('name', 'code');
-        $customers = Customer::select('id', 'full_name')->orderBy('full_name')->get();
+        $customers = Customer::orderBy('full_name')->pluck('full_name', 'id');
         $branches = Branch::select('id', 'name')->orderBy('name')->get();
-        $counters = Counter::where('status', 'active')->get();
+        $counters = Counter::where('status', 'active')->orderBy('name')->pluck('name', 'id');
 
         $suggested_rate = null;
 
@@ -115,9 +131,9 @@ class TransactionController extends Controller
             return redirect()->route('transactions.show', $transaction)
                 ->with('success', 'Transaction completed successfully. Receipt #'.$transaction->id);
         } catch (TransactionBlockedException $e) {
-            return back()->with('error', $e->getMessage())->withInput();
+            return back()->with('error', 'Transaction blocked due to compliance restrictions. Please contact support.')->withInput();
         } catch (DomainException $e) {
-            return back()->with('error', $e->getMessage())->withInput();
+            return back()->with('error', 'Transaction failed validation. Please check your input and try again.')->withInput();
         } catch (\Exception $e) {
             Log::error('Transaction creation failed', [
                 'error' => $e->getMessage(),
@@ -168,11 +184,16 @@ class TransactionController extends Controller
      */
     public function receipt(Transaction $transaction): RedirectResponse|Response
     {
+        // Enforce the same branch-isolation rule as TransactionController::show:
+        // without this, any authenticated user could download a PII-bearing PDF
+        // receipt for any completed transaction in any branch by ID.
+        $this->authorize('view', $transaction);
+
         if ($response = $this->ensureCanGenerateReceipt($transaction)) {
             return $response;
         }
 
-        return app(ReceiptGenerationService::class)->generate($transaction);
+        return $this->receiptService->generate($transaction);
     }
 
     /**
@@ -184,7 +205,7 @@ class TransactionController extends Controller
      */
     private function ensureCanShowCancel(Transaction $transaction, User $user): ?RedirectResponse
     {
-        if (! $user->role->isManager() && ! $user->role->isAdmin()) {
+        if (! $user->isManager()) {
             abort(403, 'Only managers and admins can cancel transactions.');
         }
 
@@ -219,5 +240,26 @@ class TransactionController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Show the export form.
+     */
+    public function exportForm(): View
+    {
+        return view('transactions.export', [
+            'branches' => Branch::all(),
+            'types' => TransactionType::cases(),
+        ]);
+    }
+
+    /**
+     * Export transactions as CSV.
+     */
+    public function export(ExportTransactionRequest $request): BinaryFileResponse
+    {
+        $filePath = $this->transactionExportService->exportTransactions($request->validated(), auth()->id());
+
+        return response()->download($filePath);
     }
 }

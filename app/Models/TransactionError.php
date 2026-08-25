@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $transaction_id
- * @property string $error_type
+ * @property ErrorType $error_type
  * @property string $error_message
  * @property array|null $error_context
  * @property int $retry_count
@@ -29,8 +29,6 @@ use Illuminate\Support\Carbon;
 class TransactionError extends BaseModel
 {
     use HasFactory;
-
-    protected $with = ['transaction', 'resolver'];
 
     protected $fillable = [
         'transaction_id',

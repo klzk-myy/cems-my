@@ -17,7 +17,6 @@ class ReportSchedule extends BaseModel
         'cron_expression',
         'parameters',
         'is_active',
-        'last_run_at',
         'next_run_at',
         'notification_recipients',
         'created_by',
@@ -27,7 +26,6 @@ class ReportSchedule extends BaseModel
         'report_type' => ReportType::class,
         'parameters' => 'array',
         'is_active' => 'boolean',
-        'last_run_at' => 'datetime',
         'next_run_at' => 'datetime',
         'notification_recipients' => 'array',
     ];

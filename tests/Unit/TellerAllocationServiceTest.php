@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\BranchPool;
 use App\Models\TellerAllocation;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Services\Branch\BranchPoolService;
 use App\Services\Branch\TellerAllocationService;
 use App\Services\System\MathService;
@@ -25,7 +26,7 @@ class TellerAllocationServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->branchPoolService = new BranchPoolService(new MathService);
+        $this->branchPoolService = new BranchPoolService(new AuditService, new MathService);
         $this->service = new TellerAllocationService($this->branchPoolService, new MathService);
     }
 
@@ -118,7 +119,7 @@ class TellerAllocationServiceTest extends TestCase
     }
 
     #[Test]
-    public function validate_transaction_buy_insufficient_balance(): void
+    public function validate_transaction_buy_uses_daily_limit_not_float_balance(): void
     {
         $branch = Branch::factory()->create();
         $teller = User::factory()->create(['role' => 'teller', 'branch_id' => $branch->id]);
@@ -127,14 +128,21 @@ class TellerAllocationServiceTest extends TestCase
             'branch_id' => $branch->id,
             'currency_code' => 'MYR',
             'status' => TellerAllocationStatus::ACTIVE,
-            'current_balance' => '5000.0000',
+            'current_balance' => '5000.0000', // smaller than the requested amount
+            'daily_limit_myr' => '20000.0000',
+            'daily_used_myr' => '0.0000',
             'session_date' => now()->toDateString(),
         ]);
 
+        // A Buy ADDS to the teller's float, so the float balance must not gate it.
         $result = $this->service->validateTransaction($teller, 'MYR', '10000.0000', true);
 
-        $this->assertFalse($result->valid);
-        $this->assertEquals('Insufficient allocation balance', $result->reason);
+        $this->assertTrue($result->valid);
+
+        // ...but exceeding the daily MYR limit still rejects it.
+        $result2 = $this->service->validateTransaction($teller, 'MYR', '21000.0000', true);
+        $this->assertFalse($result2->valid);
+        $this->assertEquals('Daily limit exceeded', $result2->reason);
     }
 
     #[Test]

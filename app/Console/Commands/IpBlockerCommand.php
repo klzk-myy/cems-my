@@ -40,7 +40,8 @@ class IpBlockerCommand extends Command
     protected $description = 'Manage IP blocking for security purposes';
 
     public function __construct(
-        private RateLimitService $rateLimitService
+        private RateLimitService $rateLimitService,
+        private IpValidationService $ipValidationService
     ) {
         parent::__construct();
     }
@@ -344,7 +345,7 @@ class IpBlockerCommand extends Command
             return false;
         }
 
-        $ipValidationService = app(IpValidationService::class);
+        $ipValidationService = $this->ipValidationService;
 
         // Check if CIDR notation
         if (str_contains($value, '/')) {

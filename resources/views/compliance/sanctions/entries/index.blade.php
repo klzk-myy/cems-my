@@ -1,5 +1,5 @@
 <x-app-layout title="Sanctions Entries">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Sanctions Entries"
             description="Manage sanctions list entries"
@@ -55,7 +55,7 @@
                             <td class="px-4 py-3 text-sm text-ink">{{ $entry['id'] }}</td>
                             <td class="px-4 py-3 text-sm text-ink">{{ $entry['entity_name'] }}</td>
                             <td class="px-4 py-3 text-sm text-ink-muted">
-                                {{ $entry['entity_type']?->value ?? ucfirst($entry['entity_type'] ?? 'N/A') }}
+                                {{ $entry['entity_type']?->label() ?? ucfirst($entry['entity_type'] ?? 'N/A') }}
                             </td>
                             <td class="px-4 py-3 text-sm">
                                 <x-badge variant="info">
@@ -73,7 +73,7 @@
                                         default => 'gray',
                                     }"
                                 >
-                                    {{ ucfirst($entry['status']?->value ?? $entry['status'] ?? 'N/A') }}
+                                    {{ $entry['status']?->label() ?? ucfirst($entry['status'] ?? 'N/A') }}
                                 </x-badge>
                             </td>
                             <td class="px-4 py-3 text-sm">

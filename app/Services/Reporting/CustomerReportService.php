@@ -2,7 +2,9 @@
 
 namespace App\Services\Reporting;
 
+use App\Enums\TransactionType;
 use App\Models\Customer;
+use App\Models\Transaction;
 use App\Services\System\MathService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -21,6 +23,8 @@ class CustomerReportService
 
     /**
      * Apply date range filters using the model scope when both bounds are present.
+     *
+     * @param  Builder<Transaction>  $query
      */
     private function applyDateRangeFilters(Builder $query, array $filters): void
     {
@@ -47,7 +51,7 @@ class CustomerReportService
      */
     public function calculateStats(Customer $customer, array $filters): array
     {
-        $baseQuery = $customer->transactions()->completed();
+        $baseQuery = $customer->transactions()->completed()->getQuery();
         $this->applyDateRangeFilters($baseQuery, $filters);
 
         $transactions = $baseQuery->get(['created_at', 'amount_local', 'type']);
@@ -77,7 +81,7 @@ class CustomerReportService
      */
     public function calculateChartData(Customer $customer, array $filters): array
     {
-        $baseQuery = $customer->transactions()->completed();
+        $baseQuery = $customer->transactions()->completed()->getQuery();
         $this->applyDateRangeFilters($baseQuery, $filters);
 
         $transactions = $baseQuery->get(['created_at', 'amount_local', 'type']);
@@ -95,11 +99,18 @@ class CustomerReportService
                 fn ($t) => $t->created_at->year === $date->year && $t->created_at->month === $date->month
             );
 
-            $buyTotal = $monthTransactions->where('type', TransactionType::Buy)->sum('amount_local');
-            $sellTotal = $monthTransactions->where('type', TransactionType::Sell)->sum('amount_local');
+            $buyTotal = '0';
+            foreach ($monthTransactions->where('type', TransactionType::Buy) as $t) {
+                $buyTotal = $this->mathService->add($buyTotal, (string) $t->amount_local);
+            }
 
-            $chartBuyData[] = $buyTotal ?: 0;
-            $chartSellData[] = $sellTotal ?: 0;
+            $sellTotal = '0';
+            foreach ($monthTransactions->where('type', TransactionType::Sell) as $t) {
+                $sellTotal = $this->mathService->add($sellTotal, (string) $t->amount_local);
+            }
+
+            $chartBuyData[] = $buyTotal ?: '0';
+            $chartSellData[] = $sellTotal ?: '0';
         }
 
         return [
@@ -126,7 +137,7 @@ class CustomerReportService
                 'MYR Amount' => $transaction->amount_local,
                 'Rate' => $transaction->rate,
                 'Status' => $transaction->status->label(),
-                'Processed By' => $transaction->user?->name ?? 'N/A',
+                'Processed By' => $transaction->user->name ?? 'N/A',
                 'Purpose' => $transaction->purpose ?? 'N/A',
                 'Source of Funds' => $transaction->source_of_funds ?? 'N/A',
                 'CDD Level' => $transaction->cdd_level?->label() ?? 'N/A',

@@ -157,92 +157,14 @@ parameters:
 			path: app/Console/Commands/ResetTestDatabase.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between App\\Enums\\TestResultStatus and ''failed'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Console/Commands/RunTestsCommand.php
-
-		-
 			message: '#^Parameter \#1 \$status of method App\\Console\\Commands\\SanctionsStatus\:\:formatStatus\(\) expects string\|null, App\\Enums\\UpdateStatus given\.$#'
 			identifier: argument.type
 			count: 2
 			path: app/Console/Commands/SanctionsStatus.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$username\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Console/Commands/SendNotificationDigest.php
-
-		-
-			message: '#^Parameter \#1 \$user of method App\\Console\\Commands\\SendNotificationDigest\:\:sendDigestForUser\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/SendNotificationDigest.php
-
-		-
-			message: '#^Parameter \#1 \$userId of method App\\Console\\Commands\\SendNotificationDigest\:\:getTargetUsers\(\) expects int\|null, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/SendNotificationDigest.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Console/Commands/TestNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$username\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Console/Commands/TestNotification.php
-
-		-
-			message: '#^Parameter \#1 \$flaggedTransaction of class App\\Notifications\\TransactionFlaggedNotification constructor expects App\\Models\\FlaggedTransaction, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/TestNotification.php
-
-		-
-			message: '#^Parameter \#1 \$systemAlert of class App\\Notifications\\SystemHealthAlertNotification constructor expects App\\Models\\SystemAlert, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/TestNotification.php
-
-		-
-			message: '#^Parameter \#1 \$user of method App\\Console\\Commands\\TestNotification\:\:sendAllNotifications\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/TestNotification.php
-
-		-
-			message: '#^Parameter \#1 \$userId of method App\\Console\\Commands\\TestNotification\:\:getTargetUsers\(\) expects int\|null, string\|null given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/TestNotification.php
-
-		-
-			message: '#^Parameter \#2 \$confirmation of class App\\Notifications\\LargeTransactionNotification constructor expects App\\Models\\TransactionConfirmation, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/TestNotification.php
-
-		-
-			message: '#^Parameter \#2 \$user of method App\\Console\\Commands\\TestNotification\:\:sendNotification\(\) expects App\\Models\\User, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Console/Commands/TestNotification.php
-
-		-
 			message: '#^Access to an undefined property App\\Models\\Transaction\:\:\$reference_no\.$#'
 			identifier: property.notFound
-			count: 1
-			path: app/Console/Commands/TestTransactionScenarios.php
-
-		-
-			message: '#^Access to property \$value on an unknown class App\\Models\\CddLevel\.$#'
-			identifier: class.notFound
 			count: 1
 			path: app/Console/Commands/TestTransactionScenarios.php
 
@@ -331,22 +253,16 @@ parameters:
 			path: app/Http/Controllers/Api/V1/CustomerController.php
 
 		-
-			message: '#^Method App\\Http\\Controllers\\Api\\V1\\CustomerController\:\:customerHistory\(\) should return App\\Http\\Resources\\Api\\V1\\TransactionCollection but returns Illuminate\\Http\\Resources\\Json\\JsonResource\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/Api/V1/CustomerController.php
-
-		-
-			message: '#^Method App\\Http\\Controllers\\Api\\V1\\CustomerController\:\:index\(\) should return App\\Http\\Resources\\Api\\V1\\CustomerCollection but returns Illuminate\\Http\\Resources\\Json\\JsonResource\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Http/Controllers/Api/V1/CustomerController.php
-
-		-
 			message: '#^Method App\\Http\\Controllers\\Api\\V1\\CustomerController\:\:show\(\) should return App\\Http\\Resources\\Api\\V1\\CustomerResource\|Illuminate\\Http\\JsonResponse but returns Illuminate\\Http\\Resources\\Json\\JsonResource\.$#'
 			identifier: return.type
 			count: 1
 			path: app/Http/Controllers/Api/V1/CustomerController.php
+
+		-
+			message: '#^Call to static method info\(\) on an unknown class App\\Http\\Controllers\\Api\\V1\\Log\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Http/Controllers/Api/V1/SanctionController.php
 
 		-
 			message: '#^Access to an undefined property App\\Models\\SanctionList\:\:\$update_frequency\.$#'
@@ -514,12 +430,6 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$username\.$#'
 			identifier: property.notFound
 			count: 1
-			path: app/Http/Controllers/Compliance/UnifiedAlertController.php
-
-		-
-			message: '#^Expression on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.expr
-			count: 9
 			path: app/Http/Controllers/Compliance/UnifiedAlertController.php
 
 		-
@@ -722,12 +632,6 @@ parameters:
 
 		-
 			message: '#^Using nullsafe property access "\?\-\>pass_rate" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Http/Controllers/TestResultsController.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>status" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Http/Controllers/TestResultsController.php
@@ -1507,12 +1411,6 @@ parameters:
 			path: app/Http/Traits/LoggerInjectable.php
 
 		-
-			message: '#^Access to property \$value on an unknown class App\\Models\\CddLevel\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Jobs/Accounting/ReconcileDeferredAccountingJob.php
-
-		-
 			message: '#^Using nullsafe property access "\?\-\>entry_hash" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
 			identifier: nullsafe.neverNull
 			count: 1
@@ -1531,24 +1429,6 @@ parameters:
 			path: app/Jobs/ReportGenerationJob.php
 
 		-
-			message: '#^Call to an undefined method App\\Services\\Compliance\\SanctionsImportService\:\:importFromCsv\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Jobs/Sanctions/BaseSanctionsDownloadJob.php
-
-		-
-			message: '#^Call to an undefined method App\\Services\\Compliance\\SanctionsImportService\:\:importFromJson\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Jobs/Sanctions/BaseSanctionsDownloadJob.php
-
-		-
-			message: '#^Call to an undefined method App\\Services\\Compliance\\SanctionsImportService\:\:importFromXml\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Jobs/Sanctions/BaseSanctionsDownloadJob.php
-
-		-
 			message: '#^Call to an undefined method Illuminate\\Notifications\\Notification\:\:toArray\(\)\.$#'
 			identifier: method.notFound
 			count: 1
@@ -1565,18 +1445,6 @@ parameters:
 			identifier: parameter.trait
 			count: 1
 			path: app/Jobs/SendNotificationJob.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$risk_score\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Listeners/ComplianceEventListener.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$type\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Listeners/ComplianceEventListener.php
 
 		-
 			message: '#^Left side of && is always true\.$#'
@@ -1675,20 +1543,8 @@ parameters:
 			path: app/Models/Bases/TransactionModel.php
 
 		-
-			message: '#^Class App\\Models\\Compliance\\BranchClosureWorkflow not found\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Models/Branch.php
-
-		-
 			message: '#^PHPDoc type array\<string\> of property App\\Models\\Branch\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
 			identifier: property.phpDocType
-			count: 1
-			path: app/Models/Branch.php
-
-		-
-			message: '#^Parameter \#1 \$related of method Illuminate\\Database\\Eloquent\\Model\:\:hasMany\(\) expects class\-string\<Illuminate\\Database\\Eloquent\\Model\>, string given\.$#'
-			identifier: argument.type
 			count: 1
 			path: app/Models/Branch.php
 
@@ -1699,38 +1555,8 @@ parameters:
 			path: app/Models/Budget.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$priority\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/Compliance/ComplianceCase.php
-
-		-
 			message: '#^Access to undefined constant App\\Enums\\FlagStatus\:\:Dismissed\.$#'
 			identifier: classConstant.notFound
-			count: 1
-			path: app/Models/Compliance/ComplianceCase.php
-
-		-
-			message: '#^Invalid array key type App\\Enums\\ComplianceCasePriority\:\:Critical\.$#'
-			identifier: array.invalidKey
-			count: 1
-			path: app/Models/Compliance/ComplianceCase.php
-
-		-
-			message: '#^Invalid array key type App\\Enums\\ComplianceCasePriority\:\:High\.$#'
-			identifier: array.invalidKey
-			count: 1
-			path: app/Models/Compliance/ComplianceCase.php
-
-		-
-			message: '#^Invalid array key type App\\Enums\\ComplianceCasePriority\:\:Low\.$#'
-			identifier: array.invalidKey
-			count: 1
-			path: app/Models/Compliance/ComplianceCase.php
-
-		-
-			message: '#^Invalid array key type App\\Enums\\ComplianceCasePriority\:\:Medium\.$#'
-			identifier: array.invalidKey
 			count: 1
 			path: app/Models/Compliance/ComplianceCase.php
 
@@ -1999,12 +1825,6 @@ parameters:
 			path: app/Models/Traits/HasClosedBy.php
 
 		-
-			message: '#^PHPDoc tag @property for property App\\Models\\Transaction\:\:\$cdd_level contains unknown class App\\Models\\CddLevel\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Models/Transaction.php
-
-		-
 			message: '#^PHPDoc type array\<string\> of property App\\Models\\Transaction\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
 			identifier: property.phpDocType
 			count: 1
@@ -2041,18 +1861,6 @@ parameters:
 			path: app/Models/TransactionImport.php
 
 		-
-			message: '#^Method App\\Models\\User\:\:getNotificationPreference\(\) should return App\\Models\\UserNotificationPreference\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Models/User.php
-
-		-
-			message: '#^Method App\\Models\\User\:\:getOrCreateNotificationPreference\(\) should return App\\Models\\UserNotificationPreference but returns Illuminate\\Database\\Eloquent\\Model\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Models/User.php
-
-		-
 			message: '#^PHPDoc type array\<string\> of property App\\Models\\User\:\:\$fillable is not covariant with PHPDoc type list\<string\> of overridden property Illuminate\\Database\\Eloquent\\Model\:\:\$fillable\.$#'
 			identifier: property.phpDocType
 			count: 1
@@ -2069,12 +1877,6 @@ parameters:
 			identifier: property.phpDocType
 			count: 1
 			path: app/Models/UserNotificationPreference.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email_enabled\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/ComplianceCaseAssignedNotification.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
@@ -2170,12 +1972,6 @@ parameters:
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
 			identifier: property.notFound
 			count: 3
-			path: app/Notifications/LargeTransactionNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email_enabled\.$#'
-			identifier: property.notFound
-			count: 1
 			path: app/Notifications/LargeTransactionNotification.php
 
 		-
@@ -2287,12 +2083,6 @@ parameters:
 			path: app/Notifications/SanctionsMatchNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email_enabled\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/SanctionsMatchNotification.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
 			count: 1
@@ -2323,60 +2113,6 @@ parameters:
 			path: app/Notifications/SanctionsMatchNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email_enabled\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/SystemHealthAlertNotification.php
-
-		-
-			message: '#^Call to function in_array\(\) with App\\Enums\\SystemAlertLevel and array\{''warning'', ''critical''\} will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 1
-			path: app/Notifications/SystemHealthAlertNotification.php
-
-		-
-			message: '#^Match arm comparison between App\\Enums\\SystemAlertLevel\:\:Critical\|App\\Enums\\SystemAlertLevel\:\:Info\|App\\Enums\\SystemAlertLevel\:\:Warning and ''critical'' is always false\.$#'
-			identifier: match.alwaysFalse
-			count: 1
-			path: app/Notifications/SystemHealthAlertNotification.php
-
-		-
-			message: '#^Match arm comparison between App\\Enums\\SystemAlertLevel\:\:Critical\|App\\Enums\\SystemAlertLevel\:\:Info\|App\\Enums\\SystemAlertLevel\:\:Warning and ''warning'' is always false\.$#'
-			identifier: match.alwaysFalse
-			count: 1
-			path: app/Notifications/SystemHealthAlertNotification.php
-
-		-
-			message: '#^Parameter \#1 \$string of function ucfirst expects string, App\\Enums\\SystemAlertLevel given\.$#'
-			identifier: argument.type
-			count: 2
-			path: app/Notifications/SystemHealthAlertNotification.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between App\\Enums\\SystemAlertLevel and ''critical'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Notifications/SystemHealthAlertNotification.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between App\\Enums\\SystemAlertLevel and ''warning'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Notifications/SystemHealthAlertNotification.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>email_enabled" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Notifications/SystemHealthAlertNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email_enabled\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/TransactionApprovedNotification.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
 			identifier: property.notFound
 			count: 1
@@ -2401,12 +2137,6 @@ parameters:
 			path: app/Notifications/TransactionApprovedNotification.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email_enabled\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/TransactionCancellationPendingNotification.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
 			identifier: property.notFound
 			count: 1
@@ -2423,12 +2153,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Notifications/TransactionCancellationPendingNotification.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$email_enabled\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Notifications/TransactionFlaggedNotification.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
@@ -2647,6 +2371,12 @@ parameters:
 			path: app/Services/AuditService.php
 
 		-
+			message: '#^Using nullsafe property access "\?\-\>entry_hash" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/AuditService.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
 			identifier: property.notFound
 			count: 1
@@ -2845,32 +2575,8 @@ parameters:
 			path: app/Services/Compliance/AmlRuleEvaluator.php
 
 		-
-			message: '#^Access to undefined constant App\\Enums\\ComplianceCaseType\:\:Str\.$#'
-			identifier: classConstant.notFound
-			count: 1
-			path: app/Services/Compliance/CaseManagementService.php
-
-		-
 			message: '#^Method App\\Services\\Compliance\\CaseManagementService\:\:addDocument\(\) should return App\\Models\\Compliance\\ComplianceCaseDocument but returns Illuminate\\Database\\Eloquent\\Model\.$#'
 			identifier: return.type
-			count: 1
-			path: app/Services/Compliance/CaseManagementService.php
-
-		-
-			message: '#^Parameter \#1 \$priority of method App\\Services\\Compliance\\CaseManagementService\:\:calculateSlaDeadlineFromPriority\(\) expects App\\Enums\\AlertPriority, App\\Enums\\ComplianceCasePriority given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/Compliance/CaseManagementService.php
-
-		-
-			message: '#^Parameter \#1 \$string of function str_pad expects string, int given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/Compliance/CaseManagementService.php
-
-		-
-			message: '#^Relation ''assignedTo'' is not found in App\\Models\\Compliance\\ComplianceCase model\.$#'
-			identifier: larastan.relationExistence
 			count: 1
 			path: app/Services/Compliance/CaseManagementService.php
 
@@ -3103,12 +2809,6 @@ parameters:
 			path: app/Services/Compliance/Monitors/CurrencyFlowMonitor.php
 
 		-
-			message: '#^Method App\\Services\\Compliance\\Monitors\\BaseMonitor\:\:__construct\(\) invoked with 0 parameters, 1 required\.$#'
-			identifier: arguments.count
-			count: 1
-			path: app/Services/Compliance/Monitors/CustomerLocationAnomalyMonitor.php
-
-		-
 			message: '#^Cannot call method gt\(\) on string\.$#'
 			identifier: method.nonObject
 			count: 1
@@ -3175,18 +2875,6 @@ parameters:
 			path: app/Services/Compliance/NarrativeGenerator.php
 
 		-
-			message: '#^Strict comparison using \=\=\= between App\\Enums\\EddStatus and ''Approved'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Services/Compliance/RiskScoringEngine.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between App\\Enums\\EddStatus and ''Rejected'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Services/Compliance/RiskScoringEngine.php
-
-		-
 			message: '#^Parameter \#1 \$array of function array_keys expects array, mixed given\.$#'
 			identifier: argument.type
 			count: 1
@@ -3223,18 +2911,6 @@ parameters:
 			path: app/Services/Customer/UserService.php
 
 		-
-			message: '#^Access to an undefined property App\\Models\\Customer\:\:\$ownership_interest\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/CustomerScreeningService.php
-
-		-
-			message: '#^Access to an undefined property App\\Models\\Customer\:\:\$relation_type\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/CustomerScreeningService.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$date_of_birth\.$#'
 			identifier: property.notFound
 			count: 1
@@ -3253,12 +2929,6 @@ parameters:
 			path: app/Services/CustomerScreeningService.php
 
 		-
-			message: '#^Call to function in_array\(\) with App\\Enums\\RelationType and array\{''beneficial_owner'', ''related_entity'', ''business_partner''\} will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 1
-			path: app/Services/CustomerScreeningService.php
-
-		-
 			message: '#^Call to method Illuminate\\Support\\Collection\<\*NEVER\*,\*NEVER\*\>\:\:isNotEmpty\(\) will always evaluate to false\.$#'
 			identifier: method.impossibleType
 			count: 1
@@ -3267,18 +2937,6 @@ parameters:
 		-
 			message: '#^Cannot access property \$entryId on null\.$#'
 			identifier: property.nonObject
-			count: 1
-			path: app/Services/CustomerScreeningService.php
-
-		-
-			message: '#^Parameter \#1 \$relatedParty of method App\\Services\\CustomerScreeningService\:\:analyzeRelatedPartyTransactions\(\) expects App\\Models\\Customer, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
-			count: 1
-			path: app/Services/CustomerScreeningService.php
-
-		-
-			message: '#^Parameter \#2 \$relatedParty of method App\\Services\\CustomerScreeningService\:\:checkOwnershipControl\(\) expects App\\Models\\Customer, Illuminate\\Database\\Eloquent\\Model given\.$#'
-			identifier: argument.type
 			count: 1
 			path: app/Services/CustomerScreeningService.php
 
@@ -3321,7 +2979,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
-			count: 11
+			count: 10
 			path: app/Services/EodReconciliationService.php
 
 		-
@@ -3350,12 +3008,6 @@ parameters:
 
 		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\CounterHandover\>\:\:map\(\) contains unresolvable type\.$#'
-			identifier: argument.unresolvableType
-			count: 1
-			path: app/Services/EodReconciliationService.php
-
-		-
-			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\TillBalance\>\:\:map\(\) contains unresolvable type\.$#'
 			identifier: argument.unresolvableType
 			count: 1
 			path: app/Services/EodReconciliationService.php
@@ -3401,42 +3053,6 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 2
 			path: app/Services/EodReconciliationService.php
-
-		-
-			message: '#^Access to constant Buy on an unknown class App\\Services\\Reporting\\TransactionType\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Services/Reporting/CustomerReportService.php
-
-		-
-			message: '#^Access to constant Sell on an unknown class App\\Services\\Reporting\\TransactionType\.$#'
-			identifier: class.notFound
-			count: 1
-			path: app/Services/Reporting/CustomerReportService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\:\:forDateRange\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/Reporting/CustomerReportService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:completed\(\)\.$#'
-			identifier: method.notFound
-			count: 2
-			path: app/Services/Reporting/CustomerReportService.php
-
-		-
-			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/Reporting/CustomerReportService.php
-
-		-
-			message: '#^Method App\\Services\\System\\MathService\:\:divide\(\) invoked with 3 parameters, 2 required\.$#'
-			identifier: arguments.count
-			count: 1
-			path: app/Services/Reporting/FinancialRatioService.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
@@ -3601,12 +3217,6 @@ parameters:
 			path: app/Services/System/BackupService.php
 
 		-
-			message: '#^Method App\\Services\\System\\DocumentStorageService\:\:download\(\) should return Symfony\\Component\\HttpFoundation\\BinaryFileResponse but returns Symfony\\Component\\HttpFoundation\\StreamedResponse\.$#'
-			identifier: return.type
-			count: 1
-			path: app/Services/System/DocumentStorageService.php
-
-		-
 			message: '#^Strict comparison using \=\=\= between string and false will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
@@ -3635,36 +3245,6 @@ parameters:
 			identifier: assign.propertyType
 			count: 1
 			path: app/Services/System/SetupService.php
-
-		-
-			message: '#^Match arm comparison between App\\Enums\\SystemAlertLevel\:\:Critical\|App\\Enums\\SystemAlertLevel\:\:Info\|App\\Enums\\SystemAlertLevel\:\:Warning and ''critical'' is always false\.$#'
-			identifier: match.alwaysFalse
-			count: 2
-			path: app/Services/System/SystemAlertService.php
-
-		-
-			message: '#^Match arm comparison between App\\Enums\\SystemAlertLevel\:\:Critical\|App\\Enums\\SystemAlertLevel\:\:Info\|App\\Enums\\SystemAlertLevel\:\:Warning and ''warning'' is always false\.$#'
-			identifier: match.alwaysFalse
-			count: 2
-			path: app/Services/System/SystemAlertService.php
-
-		-
-			message: '#^Part \$alert\-\>level \(App\\Enums\\SystemAlertLevel\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: app/Services/System/SystemAlertService.php
-
-		-
-			message: '#^Part \$level \(App\\Enums\\SystemAlertLevel\) of encapsed string cannot be cast to string\.$#'
-			identifier: encapsedStringPart.nonString
-			count: 1
-			path: app/Services/System/SystemAlertService.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between App\\Enums\\SystemAlertLevel and ''critical'' will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Services/System/SystemAlertService.php
 
 		-
 			message: '#^Offset 0 on non\-empty\-list\<string\> on left side of \?\? always exists and is not nullable\.$#'
@@ -3715,81 +3295,15 @@ parameters:
 			path: app/Services/Transaction/StockReleaseService.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currency_code\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quantity\.$#'
-			identifier: property.notFound
-			count: 3
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$variance\.$#'
-			identifier: property.notFound
-			count: 2
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:hasVariance\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isFullyReceived\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Call to function in_array\(\) with App\\Enums\\StockTransferStatus and array\{''InTransit'', ''PartiallyReceived''\} will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 1
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Parameter \#1 \$a of method App\\Services\\System\\MathService\:\:divide\(\) expects string, float\|int\<0, max\> given\.$#'
+			message: '#^Parameter \#1 \$a of method App\\Services\\System\\MathService\:\:divide\(\) expects string, float given\.$#'
 			identifier: argument.type
 			count: 1
 			path: app/Services/Transaction/StockTransferService.php
 
 		-
-			message: '#^Strict comparison using \!\=\= between App\\Enums\\StockTransferStatus and ''BranchManagerApprov…'' will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Strict comparison using \!\=\= between App\\Enums\\StockTransferStatus and ''HqApproved'' will always evaluate to true\.$#'
-			identifier: notIdentical.alwaysTrue
-			count: 1
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
-			message: '#^Unreachable statement \- code above always terminates\.$#'
-			identifier: deadCode.unreachable
-			count: 3
-			path: app/Services/Transaction/StockTransferService.php
-
-		-
 			message: '#^Property App\\Models\\Transaction\:\:\$approved_at \(Illuminate\\Support\\Carbon\|null\) does not accept string\.$#'
 			identifier: assign.propertyType
-			count: 1
-			path: app/Services/Transaction/TransactionApprovalService.php
-
-		-
-			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Http\\Request\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
+			count: 2
 			path: app/Services/Transaction/TransactionApprovalService.php
 
 		-
@@ -3821,12 +3335,6 @@ parameters:
 			identifier: property.notFound
 			count: 1
 			path: app/Services/Transaction/TransactionConfirmationService.php
-
-		-
-			message: '#^Access to property \$value on an unknown class App\\Models\\CddLevel\.$#'
-			identifier: class.notFound
-			count: 3
-			path: app/Services/Transaction/TransactionCreationService.php
 
 		-
 			message: '#^Method App\\Services\\Transaction\\TransactionCreationService\:\:determineTellerAllocation\(\) has invalid return type App\\Services\\Transaction\\TellerAllocation\.$#'
@@ -3871,26 +3379,8 @@ parameters:
 			path: app/Services/Transaction/TransactionErrorHandler.php
 
 		-
-			message: '#^Using nullsafe property access "\?\-\>retry_count" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
-			identifier: nullsafe.neverNull
-			count: 1
-			path: app/Services/Transaction/TransactionErrorHandler.php
-
-		-
-			message: '#^Offset ''idempotency_key'' on array\{customer_id\: non\-falsy\-string, type\: non\-falsy\-string, currency_code\: non\-falsy\-string, amount_foreign\: non\-falsy\-string&numeric\-string, rate\: non\-falsy\-string&numeric\-string, purpose\: non\-falsy\-string, source_of_funds\: non\-falsy\-string, till_id\: non\-falsy\-string, \.\.\.\} in empty\(\) always exists and is not falsy\.$#'
-			identifier: empty.offset
-			count: 1
-			path: app/Services/Transaction/TransactionImportService.php
-
-		-
-			message: '#^Parameter \#1 \$branchId of method App\\Services\\Accounting\\CurrencyPositionLockService\:\:findForUpdate\(\) expects string, int\<0, max\>\|null given\.$#'
+			message: '#^Parameter \$data of method App\\Services\\Transaction\\TransactionCreationService\:\:createForImport\(\) expects array\{type\: string, currency_code\: string, amount_foreign\: string, rate\: string, purpose\: string, source_of_funds\: string, source_of_wealth\?\: string, idempotency_key\?\: string, \.\.\.\}, array\{customer_id\: non\-falsy\-string, type\: non\-falsy\-string, currency_code\: non\-falsy\-string, amount_foreign\: non\-falsy\-string&numeric\-string, rate\: non\-falsy\-string&numeric\-string, purpose\: non\-falsy\-string, source_of_funds\: non\-falsy\-string, till_id\: non\-falsy\-string, \.\.\.\} given\.$#'
 			identifier: argument.type
-			count: 1
-			path: app/Services/Transaction/TransactionImportService.php
-
-		-
-			message: '#^Property App\\Models\\Transaction\:\:\$status \(App\\Enums\\TransactionStatus\) does not accept string\.$#'
-			identifier: assign.propertyType
 			count: 1
 			path: app/Services/Transaction/TransactionImportService.php
 
@@ -3923,12 +3413,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: app/Services/Transaction/TransactionMonitoringService.php
-
-		-
-			message: '#^Job class App\\Jobs\\ProcessTransactionRetry constructor invoked with 1 parameter in App\\Jobs\\ProcessTransactionRetry\:\:dispatch\(\), 2 required\.$#'
-			identifier: arguments.count
-			count: 1
-			path: app/Services/Transaction/TransactionRecoveryService.php
 
 		-
 			message: '#^Method App\\Services\\Transaction\\TransactionRecoveryService\:\:latestUnresolvedError\(\) should return App\\Models\\TransactionError\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'

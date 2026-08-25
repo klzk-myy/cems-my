@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class CounterHandoverService
 {
+    public function __construct(protected TellerAllocationService $tellerAllocationService) {}
+
     public function findPendingHandover(int $userId, int $counterId, string $date): ?CounterHandover
     {
         return CounterHandover::with(['counterSession', 'fromUser', 'supervisor'])
@@ -36,6 +38,10 @@ class CounterHandoverService
             throw new UnauthorizedException('Only managers can acknowledge handovers');
         }
 
+        if (! $handover->counterSession) {
+            throw new InvalidStateException('Handover counter session not found');
+        }
+
         if ($handover->counterSession->status !== CounterSessionStatus::PendingHandover) {
             throw new InvalidStateException('Handover is not pending acknowledgment');
         }
@@ -53,8 +59,7 @@ class CounterHandoverService
                 ->first();
 
             if ($fromAllocation) {
-                $tellerAllocationService = app(TellerAllocationService::class);
-                $tellerAllocationService->returnToPool($fromAllocation);
+                $this->tellerAllocationService->returnToPool($fromAllocation);
             }
 
             // Activate new teller's allocation
@@ -64,8 +69,7 @@ class CounterHandoverService
                 ->first();
 
             if ($toAllocation) {
-                $tellerAllocationService = app(TellerAllocationService::class);
-                $tellerAllocationService->activateAllocation($toAllocation);
+                $this->tellerAllocationService->activateAllocation($toAllocation);
             }
 
             $handover->counterSession->update([

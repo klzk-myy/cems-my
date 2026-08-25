@@ -6,10 +6,10 @@ use App\Enums\UserRole;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\Branch;
 use App\Models\User;
 use App\Services\Customer\UserService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
@@ -52,7 +52,9 @@ class UserController extends Controller
             UserRole::Admin->value => UserRole::Admin->description(),
         ];
 
-        return view('users.create', compact('roles'));
+        $branches = Branch::orderBy('name')->get(['id', 'name']);
+
+        return view('users.create', compact('roles', 'branches'));
     }
 
     /**
@@ -108,24 +110,6 @@ class UserController extends Controller
     }
 
     /**
-     * Remove the specified user
-     */
-    public function destroy(Request $request, User $user): RedirectResponse
-    {
-        $this->requireAdmin();
-
-        try {
-            $this->userService->deleteUser($user, auth()->id());
-
-            return redirect()->route('users.index')
-                ->with('success', "User {$user->username} deleted successfully!");
-        } catch (\InvalidArgumentException $e) {
-            return redirect()->route('users.index')
-                ->with('error', $e->getMessage());
-        }
-    }
-
-    /**
      * Reset user password
      */
     public function resetPassword(ResetPasswordRequest $request, User $user): RedirectResponse
@@ -136,25 +120,5 @@ class UserController extends Controller
 
         return redirect()->route('users.index')
             ->with('success', "Password for {$user->username} has been reset!");
-    }
-
-    /**
-     * Toggle user active status
-     */
-    public function toggleActive(Request $request, User $user): RedirectResponse
-    {
-        $this->requireAdmin();
-
-        try {
-            $user = $this->userService->toggleActive($user, auth()->id());
-
-            $status = $user->is_active ? 'activated' : 'deactivated';
-
-            return redirect()->route('users.index')
-                ->with('success', "User {$user->username} has been {$status}!");
-        } catch (\InvalidArgumentException $e) {
-            return redirect()->route('users.index')
-                ->with('error', $e->getMessage());
-        }
     }
 }

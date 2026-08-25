@@ -36,7 +36,7 @@ class MonthEndCloseController extends Controller
                 'failures' => $e->getFailures(),
             ]);
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), [], 500);
+            return $this->errorResponse('Month-end close failed. Please try again.', [], 500);
         }
     }
 
@@ -48,7 +48,7 @@ class MonthEndCloseController extends Controller
 
             return $this->successResponse($status);
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), [], 500);
+            return $this->errorResponse('Failed to retrieve month-end status. Please try again.', [], 500);
         }
     }
 }

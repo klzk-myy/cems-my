@@ -6,6 +6,9 @@ use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<FlaggedTransaction>
+ */
 class FlaggedTransactionFactory extends Factory
 {
     protected $model = FlaggedTransaction::class;

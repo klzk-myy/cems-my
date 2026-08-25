@@ -10,6 +10,7 @@ use App\Services\Compliance\ComplianceService;
 use App\Services\Compliance\CustomerRiskScoringService;
 use App\Services\Compliance\PepAssessmentService;
 use App\Services\Compliance\RiskCalculationService;
+use App\Services\Compliance\RoundTripDetector;
 use App\Services\CustomerScreeningService;
 use App\Services\Risk\AmountRiskService;
 use App\Services\Risk\GeographicRiskService;
@@ -49,16 +50,15 @@ class CustomerRiskScoringServiceTest extends TestCase
             $this->thresholdService,
             new VelocityRiskService($this->mathService, $this->thresholdService),
             new StructuringRiskService($this->mathService, $this->thresholdService),
-            new GeographicRiskService,
+            new GeographicRiskService($this->thresholdService),
             new AmountRiskService($this->mathService, $this->thresholdService),
-            new PatternRiskService($this->mathService, $this->thresholdService),
+            new PatternRiskService($this->mathService, new RoundTripDetector($this->mathService)),
         );
 
         $screeningService = $this->createMock(CustomerScreeningService::class);
 
         $this->service = new CustomerRiskScoringService(
             $screeningService,
-            $complianceService,
             $auditService,
             $this->mathService,
             $this->thresholdService,

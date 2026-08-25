@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
+use App\Support\BcmathHelper;
 use Illuminate\Support\Collection;
 
 class AmountRiskService
@@ -65,9 +66,20 @@ class AmountRiskService
      */
     public function getAverageAmount(int $customerId, int $days = 90): string
     {
-        return Transaction::where('customer_id', $customerId)
+        $query = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', now()->subDays($days))
-            ->where('status', '!=', 'cancelled')
-            ->avg('amount_local') ?? '0';
+            ->where('status', '!=', 'cancelled');
+
+        // CAST to CHAR keeps the DECIMAL exact; sum() would return a PHP float.
+        $total = (string) ((clone $query)
+            ->selectRaw('CAST(SUM(amount_local) AS CHAR) AS total')
+            ->value('total') ?? '0');
+        $count = $query->count();
+
+        if ($count === 0 || BcmathHelper::eq($total, '0')) {
+            return '0';
+        }
+
+        return $this->mathService->safeDivide($total, (string) $count);
     }
 }

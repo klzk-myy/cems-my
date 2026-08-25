@@ -15,7 +15,7 @@ class BulkAssignAlertRequest extends ApiFormRequest
     {
         return [
             'alert_ids' => 'required|array|min:1',
-            'alert_ids.*' => 'integer',
+            'alert_ids.*' => 'integer|exists:alerts,id',
             'user_id' => 'required|integer|exists:users,id',
         ];
     }

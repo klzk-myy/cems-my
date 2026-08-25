@@ -185,12 +185,26 @@ class SendNotificationJob implements ShouldBeUnique, ShouldQueue
 
     /**
      * Get the unique ID for the job.
+     *
+     * For iterable notifiables (arrays/collections of users) the id is derived
+     * from the member ids. Using a constant 'collection' marker here would
+     * collapse every collection notification into the same unique lock within
+     * the 60s window and silently drop all but the first one.
      */
     public function uniqueId(): string
     {
+        if (is_iterable($this->notifiable)) {
+            $ids = collect($this->notifiable)
+                ->map(fn ($n) => is_object($n) ? ($n->id ?? spl_object_id($n)) : (string) $n)
+                ->sort()
+                ->implode(',');
+
+            return 'notification-'.get_class($this->notification).'-'.sha1($ids);
+        }
+
         $notifiableId = is_object($this->notifiable)
             ? ($this->notifiable->id ?? spl_object_id($this->notifiable))
-            : 'collection';
+            : (string) $this->notifiable;
 
         return 'notification-'.get_class($this->notification).'-'.$notifiableId;
     }

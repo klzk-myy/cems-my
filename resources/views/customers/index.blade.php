@@ -2,7 +2,9 @@
     <div class="space-y-6">
         <x-page-header title="Customers" description="Manage customer records">
             <x-slot:actions>
-                <x-button href="{{ route('customers.create') }}" variant="primary">Add Customer</x-button>
+                @can('create', \App\Models\Customer::class)
+                    <x-button href="{{ route('customers.create') }}" variant="primary">Add Customer</x-button>
+                @endcan
             </x-slot:actions>
         </x-page-header>
 
@@ -17,13 +19,13 @@
             <x-table>
                 <x-slot:thead>
                     <tr class="text-left text-sm text-ink-muted">
-                        <th class="px-4 py-3">Name</th>
-                        <th class="px-4 py-3">ID Type</th>
-                        <th class="px-4 py-3">ID Number</th>
-                        <th class="px-4 py-3">Nationality</th>
-                        <th class="px-4 py-3">Risk Level</th>
-                        <th class="px-4 py-3">Last Transaction</th>
-                        <th class="px-4 py-3">Actions</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Name</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">ID Type</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">ID Number</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Nationality</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Risk Level</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Last Transaction</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Actions</th>
                     </tr>
                 </x-slot:thead>
                 <x-slot:tbody>
@@ -36,11 +38,15 @@
                             <td class="px-4 py-3">
                                 <x-badge :variant="(
                                     $customer->risk_rating instanceof \App\Enums\RiskRating
-                                        ? match (strtolower($customer->risk_rating->value)) { 'high' => 'danger', 'medium' => 'warning', default => 'success' }
+                                        ? match ($customer->risk_rating) {
+                                            \App\Enums\RiskRating::High, \App\Enums\RiskRating::Critical => 'danger',
+                                            \App\Enums\RiskRating::Medium => 'warning',
+                                            default => 'success',
+                                        }
                                         : 'success'
                                 )">
                                     {{ $customer->risk_rating instanceof \App\Enums\RiskRating
-                                        ? $customer->risk_rating->value
+                                        ? $customer->risk_rating->label()
                                         : ($customer->risk_rating ?? 'Unknown') }}
                                 </x-badge>
                             </td>
@@ -54,7 +60,9 @@
                             <td class="px-4 py-3">
                                 <div class="flex gap-2">
                                     <x-button href="{{ route('customers.show', $customer) }}" variant="ghost" size="sm">View</x-button>
-                                    <x-button href="{{ route('customers.edit', $customer) }}" variant="ghost" size="sm">Edit</x-button>
+                                    @can('update', $customer)
+                                        <x-button href="{{ route('customers.edit', $customer) }}" variant="ghost" size="sm">Edit</x-button>
+                                    @endcan
                                 </div>
                             </td>
                         </tr>

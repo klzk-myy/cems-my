@@ -1,5 +1,5 @@
 <x-app-layout title="Findings">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Compliance Findings"
             description="Audit and compliance findings"
@@ -49,7 +49,6 @@
                         </td>
                         <td class="px-4 py-3 text-sm text-ink-muted">2024-01-25</td>
                         <td class="px-4 py-3 text-sm">
-                            <x-button variant="ghost" size="sm" href="#">View</x-button>
                         </td>
                     </tr>
                     <tr>
@@ -64,7 +63,6 @@
                         </td>
                         <td class="px-4 py-3 text-sm text-ink-muted">2024-01-20</td>
                         <td class="px-4 py-3 text-sm">
-                            <x-button variant="ghost" size="sm" href="#">View</x-button>
                         </td>
                     </tr>
                 </x-slot:tbody>

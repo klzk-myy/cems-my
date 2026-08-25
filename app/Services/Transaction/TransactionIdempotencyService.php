@@ -16,7 +16,10 @@ class TransactionIdempotencyService implements TransactionIdempotencyServiceInte
     public function findDuplicate(?string $idempotencyKey, int $userId, array $data): ?Transaction
     {
         if (! empty($idempotencyKey)) {
-            $existingByKey = Transaction::where('idempotency_key', $idempotencyKey)->first();
+            $existingByKey = Transaction::where('idempotency_key', $idempotencyKey)
+                ->where('user_id', $userId) // Keys are only unique per user
+                ->lockForUpdate() // Prevent concurrent duplicate creation
+                ->first();
             if ($existingByKey) {
                 return $existingByKey;
             }
@@ -42,6 +45,7 @@ class TransactionIdempotencyService implements TransactionIdempotencyServiceInte
             ->where('amount_foreign', $data['amount_foreign'])
             ->where('currency_code', $data['currency_code'])
             ->where('type', $data['type'])
+            ->lockForUpdate()
             ->first();
 
         return $recentAmount;

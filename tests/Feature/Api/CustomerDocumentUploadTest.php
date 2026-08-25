@@ -17,7 +17,7 @@ class CustomerDocumentUploadTest extends TestCase
     #[Test]
     public function upload_document_actually_stores_file(): void
     {
-        $user = User::factory()->create(['role' => UserRole::Teller]);
+        $user = User::factory()->create(['role' => UserRole::Admin]);
         $customer = Customer::factory()->create();
 
         $this->actingAs($user);

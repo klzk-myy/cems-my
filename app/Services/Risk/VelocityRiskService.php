@@ -6,6 +6,7 @@ use App\Enums\TransactionStatus;
 use App\Models\Transaction;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
+use Illuminate\Support\Facades\DB;
 
 class VelocityRiskService
 {
@@ -26,25 +27,26 @@ class VelocityRiskService
     {
         $score = 0;
 
-        $transactions = Transaction::where('customer_id', $customerId)
+        // Per-day totals via SQL SUM (mirrors checkAmountThreshold): collection
+        // sum() float-coerces decimal(18,4) strings and loses precision before
+        // the string cast below.
+        $dailyAmounts = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', now()->subHours($windowHours))
             ->where('status', '!=', TransactionStatus::Cancelled->value)
-            ->get();
+            ->selectRaw('DATE(created_at) as day, CAST(SUM(amount_local) AS CHAR) as total')
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->pluck('total', 'day');
 
-        if ($transactions->isEmpty()) {
+        if ($dailyAmounts->isEmpty()) {
             return 0;
         }
 
-        $dailyAmounts = $transactions->groupBy(fn ($t) => $t->created_at->format('Y-m-d'))
-            ->map(fn ($day) => $day->sum('amount_local'));
-
         foreach ($dailyAmounts as $date => $amount) {
-            $amountStr = (string) $amount;
-            if ($this->mathService->compare($amountStr, $this->thresholdService->getRiskHighThreshold()) >= 0) {
+            if ($this->mathService->compare((string) $amount, $this->thresholdService->getRiskHighThreshold()) >= 0) {
                 $score += 30;
-            } elseif ($this->mathService->compare($amountStr, $this->thresholdService->getRiskMediumThreshold()) >= 0) {
+            } elseif ($this->mathService->compare((string) $amount, $this->thresholdService->getRiskMediumThreshold()) >= 0) {
                 $score += 20;
-            } elseif ($this->mathService->compare($amountStr, $this->thresholdService->getRiskLowThreshold()) >= 0) {
+            } elseif ($this->mathService->compare((string) $amount, $this->thresholdService->getRiskLowThreshold()) >= 0) {
                 $score += 10;
             }
         }
@@ -81,7 +83,7 @@ class VelocityRiskService
      */
     public function checkAmountThreshold(int $customerId, string $newAmount): array
     {
-        $startTime = now()->subHours(24);
+        $startTime = now()->subHours($this->thresholdService->getVelocityAmountWindowHours());
         $velocity = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', $startTime)
             ->whereIn('status', [TransactionStatus::Completed, TransactionStatus::Finalized])
@@ -104,7 +106,7 @@ class VelocityRiskService
     public function get24hAmount(int $customerId): string
     {
         return Transaction::where('customer_id', $customerId)
-            ->where('created_at', '>=', now()->subHours(24))
+            ->where('created_at', '>=', now()->subHours($this->thresholdService->getVelocityAmountWindowHours()))
             ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->selectRaw('CAST(SUM(amount_local) AS CHAR) as total')
             ->value('total') ?? '0';
@@ -116,7 +118,7 @@ class VelocityRiskService
     public function get24hCount(int $customerId): int
     {
         return Transaction::where('customer_id', $customerId)
-            ->where('created_at', '>=', now()->subHours(24))
+            ->where('created_at', '>=', now()->subHours($this->thresholdService->getVelocityAmountWindowHours()))
             ->where('status', '!=', TransactionStatus::Cancelled->value)
             ->count();
     }

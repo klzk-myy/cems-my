@@ -84,7 +84,7 @@ class BranchClosingWorkflowTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->branchClosingService = new BranchClosingService;
+        $this->branchClosingService = $this->app->make(BranchClosingService::class);
     }
 
     #[Test]

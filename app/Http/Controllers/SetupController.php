@@ -21,6 +21,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class SetupController extends Controller
@@ -69,6 +71,10 @@ class SetupController extends Controller
             $this->seedCoreData($validated);
             $this->seedOptionalData($validated);
 
+            // Persist the immutable completion marker inside the same
+            // transaction so an aborted setup cannot leave the wizard open.
+            $this->setupService->markSetupComplete();
+
             DB::commit();
 
             return response()->json([
@@ -82,10 +88,13 @@ class SetupController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Setup wizard quickSetup failed', [
+                'error' => $e->getMessage(),
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Setup failed: '.$e->getMessage(),
+                'message' => 'Setup failed. Please check the server logs or try again.',
             ], 500);
         }
     }
@@ -162,6 +171,10 @@ class SetupController extends Controller
 
             $this->executeSetup($setupData);
 
+            // Persist the immutable completion marker inside the same
+            // transaction so an aborted setup cannot leave the wizard open.
+            $this->setupService->markSetupComplete();
+
             DB::commit();
 
             session()->forget('setup');
@@ -173,10 +186,13 @@ class SetupController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Setup wizard completeSetup failed', [
+                'error' => $e->getMessage(),
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Setup could not be completed. Please check the server logs or try again.',
             ], 500);
         }
     }
@@ -204,14 +220,22 @@ class SetupController extends Controller
             Artisan::call('migrate:fresh', ['--force' => true]);
             session()->forget('setup');
 
+            // migrate:fresh already drops setup_state; clear defensively in
+            // case the drop failed so the wizard can never stay locked out.
+            $this->setupService->clearCompleted();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Setup reset. You can start fresh.',
             ]);
         } catch (\Exception $e) {
+            Log::error('Setup wizard resetSetup failed', [
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => 'Setup could not be reset. Please check the server logs or try again.',
             ], 500);
         }
     }
@@ -293,7 +317,7 @@ class SetupController extends Controller
             $user = User::create([
                 'username' => $setupData['admin']['admin_name'],
                 'email' => $setupData['admin']['admin_email'],
-                'password' => $setupData['admin']['admin_password'],
+                'password' => Hash::make($setupData['admin']['admin_password']),
                 'mfa_enabled' => false,
                 'is_active' => true,
             ]);

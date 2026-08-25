@@ -49,4 +49,18 @@ class BranchScopeAuthorizationTest extends TestCase
         $this->assertNotContains($customerInB->id, $customerIds,
             'User from Branch A should not see Branch B customers');
     }
+
+    #[Test]
+    public function api_customer_index_denies_user_without_branch(): void
+    {
+        Customer::factory()->create(['full_name' => 'ShouldNotLeak-'.uniqid()]);
+
+        $userNoBranch = User::factory()->create(['role' => UserRole::Teller, 'branch_id' => null]);
+
+        // Deny-by-default branch scoping: a non-admin without a branch
+        // assignment is rejected outright rather than served any data.
+        $response = $this->actingAs($userNoBranch)->getJson('/api/v1/customers');
+
+        $response->assertForbidden();
+    }
 }

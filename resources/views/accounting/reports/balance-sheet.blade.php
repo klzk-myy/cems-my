@@ -23,11 +23,11 @@
         @endphp
 
         @if ($isBalanced)
-            <x-alert type="success" title="✓ Balance Sheet is balanced">
+            <x-alert type="success" title="Balance Sheet is balanced">
                 Assets: RM {{ number_format((float) $totalAssets, 2) }} = Liabilities + Equity: RM {{ number_format((float) $totalLiabilitiesEquity, 2) }}
             </x-alert>
         @else
-            <x-alert type="error" title="✗ Balance Sheet is NOT balanced" />
+            <x-alert type="error" title="Balance Sheet is NOT balanced" />
         @endif
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -2,7 +2,7 @@
 
 namespace App\Exceptions\Domain;
 
-class DuplicateTransactionException extends DomainException
+class DuplicateTransactionException extends TransactionException
 {
     public function __construct(int $cooldownSeconds = 30)
     {

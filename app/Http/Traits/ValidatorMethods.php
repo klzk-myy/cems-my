@@ -2,21 +2,30 @@
 
 namespace App\Http\Traits;
 
+use App\Exceptions\Domain\InvalidCurrencyException;
+use App\Exceptions\Domain\InvalidIpAddressException;
 use App\Services\Security\IpValidationService;
 
 trait ValidatorMethods
 {
+    protected ?IpValidationService $validatorIpService = null;
+
+    protected function resolveIpValidationService(): IpValidationService
+    {
+        return $this->validatorIpService ??= app(IpValidationService::class);
+    }
+
     protected function validateCurrencyCode(string $currencyCode): void
     {
         if (! preg_match('/^[A-Z]{3}$/', $currencyCode)) {
-            throw new \InvalidArgumentException("Invalid currency code: {$currencyCode}");
+            throw new InvalidCurrencyException($currencyCode);
         }
     }
 
     protected function validateIpAddress(?string $ipAddress): void
     {
-        if ($ipAddress && ! app(IpValidationService::class)->isValidIp($ipAddress)) {
-            throw new \InvalidArgumentException("Invalid IP address: {$ipAddress}");
+        if ($ipAddress && ! $this->resolveIpValidationService()->isValidIp($ipAddress)) {
+            throw new InvalidIpAddressException($ipAddress);
         }
     }
 

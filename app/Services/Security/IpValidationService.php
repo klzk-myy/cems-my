@@ -15,13 +15,24 @@ class IpValidationService
      * Determine whether an IP is allowed given an allowlist and blocklist.
      *
      * Blocklist entries are evaluated first. An empty allowlist means any IP
-     * (that is not blocked) is allowed. Allowlist entries may be exact IPs or
-     * IPv4 CIDR ranges (e.g. 192.168.1.0/24).
+     * (that is not blocked) is allowed. Allowlist and blocklist entries may
+     * be exact IPs or IPv4 CIDR ranges (e.g. 192.168.1.0/24).
      */
     public function isAllowed(string $ip, array $allowlist = [], array $blocklist = []): bool
     {
-        if (in_array($ip, $blocklist, true)) {
-            return false;
+        foreach ($blocklist as $entry) {
+            $entry = trim($entry);
+            if ($entry === '') {
+                continue;
+            }
+
+            if (str_contains($entry, '/')) {
+                if ($this->ipInCidr($ip, $entry)) {
+                    return false;
+                }
+            } elseif ($entry === $ip) {
+                return false;
+            }
         }
 
         if ($allowlist === []) {

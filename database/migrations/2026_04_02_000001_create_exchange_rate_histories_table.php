@@ -17,7 +17,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
 
-            $table->foreign('currency_code')->references('code')->on('currencies');
+            $table->foreign('currency_code')->references('code')->on('currencies')->restrictOnDelete();
             $table->index('currency_code');
             $table->index('effective_date');
             $table->index(['currency_code', 'effective_date']);

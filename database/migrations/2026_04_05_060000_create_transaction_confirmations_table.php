@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('transaction_confirmations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->constrained();
+            $table->foreignId('transaction_id')->constrained()->restrictOnDelete();
             $table->foreignId('user_id'); // User who requested confirmation
             $table->foreignId('confirmed_by')->nullable(); // User who confirmed
             $table->timestamp('confirmed_at')->nullable();

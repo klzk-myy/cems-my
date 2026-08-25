@@ -30,8 +30,8 @@ Customers who have not been screened in the specified number of days will be res
         $cutoffDate = Carbon::now()->subDays($days);
 
         $customers = Customer::where(function ($q) use ($cutoffDate) {
-            $q->where('last_sanction_screened_at', '<', $cutoffDate)
-                ->orWhereNull('last_sanction_screened_at');
+            $q->where('sanctions_screened_at', '<', $cutoffDate)
+                ->orWhereNull('sanctions_screened_at');
         })->where('is_active', true)->get();
 
         $total = $customers->count();
@@ -60,28 +60,22 @@ Customers who have not been screened in the specified number of days will be res
                     continue;
                 }
 
-                $results = $screeningService->screenName($customer->full_name);
+                // screenCustomer() persists a ScreeningResult and stamps
+                // customers.sanctions_screened_at after a successful screen.
+                $response = $screeningService->screenCustomer($customer);
 
-                if (! empty($results)) {
+                if (! $response->isClear()) {
                     $matches++;
-                    $this->warn("\n  MATCH: {$customer->full_name} - Score: {$results[0]['match_score']}");
+                    $this->warn("\n  MATCH: {$customer->full_name} - Action: {$response->action}, Score: {$response->confidenceScore}");
 
-                    foreach ($results as $result) {
-                        $this->line("    Entry: {$result['entity_name']} ({$result['match_type']})");
+                    foreach ($response->matches as $match) {
+                        $this->line("    Entry: {$match->entityName} (".implode(', ', $match->matchedFields).')');
                     }
-
-                    $customer->update([
-                        'last_sanction_screened_at' => now(),
-                    ]);
-                } else {
-                    $customer->update([
-                        'last_sanction_screened_at' => now(),
-                    ]);
                 }
 
                 $screened++;
                 $progressBar->advance();
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $errors++;
                 Log::error("Sanctions screening error for customer {$customer->id}", [
                     'error' => $e->getMessage(),

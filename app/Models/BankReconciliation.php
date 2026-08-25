@@ -146,4 +146,28 @@ class BankReconciliation extends BaseModel
             'notes' => $this->notes ? $this->notes.'; '.$reason : $reason,
         ]);
     }
+
+    /**
+     * Mark this reconciliation record as manually matched to a journal entry.
+     */
+    public function markMatched(int $journalEntryId): void
+    {
+        $this->update([
+            'status' => 'matched',
+            'matched_to_journal_entry_id' => $journalEntryId,
+            'matched_at' => now(),
+        ]);
+    }
+
+    /**
+     * Unmatch this record (revert to unmatched).
+     */
+    public function markUnmatched(): void
+    {
+        $this->update([
+            'status' => 'unmatched',
+            'matched_to_journal_entry_id' => null,
+            'matched_at' => null,
+        ]);
+    }
 }

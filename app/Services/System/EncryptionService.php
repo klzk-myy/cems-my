@@ -2,7 +2,7 @@
 
 namespace App\Services\System;
 
-use Illuminate\Support\Facades\Log;
+use App\Exceptions\Domain\EncryptionConfigurationException;
 
 class EncryptionService
 {
@@ -12,29 +12,14 @@ class EncryptionService
     {
         $rawKey = config('app.key');
         if (empty($rawKey)) {
-            throw new \RuntimeException('Encryption key not configured');
+            throw new EncryptionConfigurationException('Encryption key not configured');
         }
 
         // Use PBKDF2 for secure key derivation with proper salt and iteration count
         $salt = config('app.encryption_salt');
 
         if (empty($salt)) {
-            $environment = config('app.env');
-            $allowDerived = config('app.allow_derived_encryption_salt', false);
-
-            if ($environment !== 'local' && $environment !== 'testing') {
-                throw new \RuntimeException('APP_ENCRYPTION_SALT is not configured. Set it to a 64-character hex string in .env to ensure encrypted data remains decryptable across restarts.');
-            }
-
-            if (! $allowDerived) {
-                throw new \RuntimeException('APP_ENCRYPTION_SALT is not configured. Set APP_ENCRYPTION_SALT in .env, or set ALLOW_DERIVED_ENCRYPTION_SALT=true for local/testing environments only.');
-            }
-
-            // Deterministic fallback for local/testing environments when explicitly
-            // opted in. Derived from APP_KEY so it is stable across restarts, but
-            // not recommended for production because anyone with APP_KEY can derive it.
-            $salt = hash('sha256', $rawKey.config('app.name', 'Laravel'));
-            Log::warning('APP_ENCRYPTION_SALT is not configured. Using a derived salt for local/testing only. Set APP_ENCRYPTION_SALT in production.');
+            throw new EncryptionConfigurationException('APP_ENCRYPTION_SALT is not configured. Set it to a 64-character hex string in .env to ensure encrypted data remains decryptable across restarts.');
         }
 
         $iterations = config('app.encryption_iterations', 100000);
@@ -85,5 +70,37 @@ class EncryptionService
     public function hash(string $data): string
     {
         return hash_hmac('sha256', $data, $this->key);
+    }
+
+    /**
+     * Static method for blind index computation using the same key derivation.
+     *
+     * PBKDF2 with 100k iterations is expensive (~50ms+ per call), and this is
+     * invoked once per PII attribute during screening/search loops, so the
+     * derived key is memoised for the lifetime of the process.
+     *
+     * @param  string  $data  Data to hash
+     * @return string HMAC-SHA256 hash as hex string
+     */
+    public static function blindIndex(string $data): string
+    {
+        static $derivedKey = null;
+
+        if ($derivedKey === null) {
+            $rawKey = config('app.key');
+            if (empty($rawKey)) {
+                throw new EncryptionConfigurationException('Encryption key not configured');
+            }
+
+            $salt = config('app.encryption_salt');
+            if (empty($salt)) {
+                throw new EncryptionConfigurationException('APP_ENCRYPTION_SALT is not configured');
+            }
+
+            $iterations = config('app.encryption_iterations', 100000);
+            $derivedKey = hash_pbkdf2('sha256', $rawKey, $salt, $iterations, 32, true);
+        }
+
+        return hash_hmac('sha256', $data, $derivedKey);
     }
 }

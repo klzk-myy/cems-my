@@ -1,5 +1,5 @@
 <x-app-layout title="Edit User">
-    <div class="max-w-7xl mx-auto space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Edit User"
             description="Update user details and permissions"
@@ -10,7 +10,7 @@
                 @csrf
                 @method('PUT')
 
-                <div class="p-6 space-y-6">
+                <div class="space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <x-input name="username" label="Username" value="{{ old('username', $user->username) }}" required autofocus inline />
                         <x-input type="email" name="email" label="Email Address" value="{{ old('email', $user->email) }}" required inline />
@@ -94,7 +94,7 @@
                     </div>
                 </div>
 
-                <div class="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+                <div class="px-5 py-3 border-t border-border flex items-center justify-end gap-3">
                     <x-button href="{{ route('users.index') }}" variant="secondary">Cancel</x-button>
                     <x-button type="submit" variant="primary">Update User</x-button>
                 </div>

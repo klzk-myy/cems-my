@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Policies;
 
+use App\Enums\TransactionStatus;
 use App\Enums\UserRole;
 use App\Models\Branch;
 use App\Models\Counter;
@@ -99,7 +100,11 @@ class AuthorizationTest extends TestCase
     {
         $policy = new TransactionPolicy;
         $user = User::factory()->create(['role' => UserRole::Teller]);
-        $transaction = Transaction::factory()->create(['user_id' => $user->id]);
+        // Update is only permitted while the transaction is still editable.
+        $transaction = Transaction::factory()->create([
+            'user_id' => $user->id,
+            'status' => TransactionStatus::PendingApproval,
+        ]);
 
         $this->assertTrue($policy->update($user, $transaction));
     }
@@ -222,8 +227,10 @@ class AuthorizationTest extends TestCase
     public function customer_policy_allows_manager_to_update(): void
     {
         $policy = new CustomerPolicy;
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $branch = Branch::factory()->create();
+        $manager = User::factory()->create(['role' => UserRole::Manager, 'branch_id' => $branch->id]);
         $customer = Customer::factory()->create();
+        Transaction::factory()->create(['branch_id' => $branch->id, 'customer_id' => $customer->id]);
 
         $this->assertTrue($policy->update($manager, $customer));
     }
@@ -253,8 +260,9 @@ class AuthorizationTest extends TestCase
     {
         $policy = new CustomerPolicy;
         $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $customer = Customer::factory()->create();
 
-        $this->assertTrue($policy->delete($admin));
+        $this->assertTrue($policy->delete($admin, $customer));
     }
 
     #[Test]
@@ -262,8 +270,9 @@ class AuthorizationTest extends TestCase
     {
         $policy = new CustomerPolicy;
         $manager = User::factory()->create(['role' => UserRole::Manager]);
+        $customer = Customer::factory()->create();
 
-        $this->assertFalse($policy->delete($manager));
+        $this->assertFalse($policy->delete($manager, $customer));
     }
 
     // ─── Branch Policy ────────────────────────────────────────────────
@@ -388,8 +397,9 @@ class AuthorizationTest extends TestCase
     public function counter_policy_allows_manager_to_update(): void
     {
         $policy = new CounterPolicy;
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
-        $counter = Counter::factory()->create();
+        $branch = Branch::factory()->create();
+        $manager = User::factory()->create(['role' => UserRole::Manager, 'branch_id' => $branch->id]);
+        $counter = Counter::factory()->create(['branch_id' => $branch->id]);
 
         $this->assertTrue($policy->update($manager, $counter));
     }

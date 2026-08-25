@@ -5,6 +5,7 @@ namespace App\Services\Compliance;
 use App\Enums\CddLevel;
 use App\Enums\EddRiskLevel;
 use App\Enums\EddStatus;
+use App\Exceptions\Domain\EddValidationException;
 use App\Models\EnhancedDiligenceRecord;
 use App\Models\FlaggedTransaction;
 use App\Models\User;
@@ -28,11 +29,16 @@ class EddService
         return DB::transaction(function () use ($flag, $data) {
             $eddReference = $this->generateEddReference();
 
+            $riskLevel = $data['risk_level'] ?? EddRiskLevel::Medium;
+            if (! EddRiskLevel::tryFrom($riskLevel)) {
+                throw new \InvalidArgumentException("Invalid EDD risk level: {$riskLevel}");
+            }
+
             $recordData = [
                 'customer_id' => $flag->customer_id ?? $flag->getAttribute('customer_id'),
                 'edd_reference' => $eddReference,
                 'status' => EddStatus::Incomplete,
-                'risk_level' => $data['risk_level'] ?? 'Medium',
+                'risk_level' => $riskLevel,
             ];
 
             // Only set flagged_transaction_id if the flag has an ID (is saved)
@@ -60,7 +66,7 @@ class EddService
     public function submitForReview(EnhancedDiligenceRecord $record): EnhancedDiligenceRecord
     {
         if (! $this->isRecordComplete($record)) {
-            throw new \InvalidArgumentException('EDD record must be complete before submission');
+            throw new EddValidationException('EDD record must be complete before submission');
         }
 
         $record->update(['status' => EddStatus::PendingReview]);
@@ -113,6 +119,22 @@ class EddService
         }
 
         return true;
+    }
+
+    public function expireRecords(?int $maxAgeDays = 365): int
+    {
+        $expiredAt = now()->subDays($maxAgeDays);
+        $expiredRecords = EnhancedDiligenceRecord::where('status', '!=', EddStatus::Expired)
+            ->where('updated_at', '<=', $expiredAt)
+            ->get();
+
+        $count = 0;
+        foreach ($expiredRecords as $record) {
+            $record->update(['status' => EddStatus::Expired]);
+            $count++;
+        }
+
+        return $count;
     }
 
     protected function generateEddReference(): string

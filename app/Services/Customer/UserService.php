@@ -3,6 +3,7 @@
 namespace App\Services\Customer;
 
 use App\Enums\UserRole;
+use App\Exceptions\Domain\UserManagementException;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Support\Facades\Cache;
@@ -40,6 +41,7 @@ class UserService
         $user = User::create([
             'username' => $data['username'],
             'email' => $data['email'],
+            'branch_id' => $data['branch_id'] ?? null,
             'mfa_enabled' => false,
             'is_active' => true,
         ]);
@@ -59,6 +61,7 @@ class UserService
                 'username' => $user->username,
                 'email' => $user->email,
                 'role' => $user->role,
+                'branch_id' => $user->branch_id,
             ]
         );
 
@@ -80,16 +83,20 @@ class UserService
             'email' => $user->email,
             'role' => $user->role->value,
             'is_active' => $user->is_active,
+            'branch_id' => $user->branch_id,
         ];
 
         $user->update([
             'username' => $data['username'],
             'email' => $data['email'],
+            'branch_id' => $data['branch_id'] ?? null,
             'is_active' => $data['is_active'],
         ]);
 
         $user->role = $data['role'];
         $user->save();
+
+        Cache::forget("user:{$user->id}:permissions");
 
         // Log user update
         $this->auditService->log(
@@ -103,6 +110,7 @@ class UserService
                 'email' => $data['email'],
                 'role' => $data['role'],
                 'is_active' => $data['is_active'],
+                'branch_id' => $data['branch_id'] ?? null,
             ]
         );
 
@@ -120,24 +128,26 @@ class UserService
      * @param  int  $deletedBy  User ID deleting the user
      * @return bool True if deleted successfully
      *
-     * @throws \InvalidArgumentException If validation fails
+     * @throws UserManagementException If validation fails
      */
     public function deleteUser(User $user, int $deletedBy): bool
     {
         // Prevent deleting the last admin
         if ($user->isAdmin() && User::where('role', UserRole::Admin)->count() <= 1) {
-            throw new \InvalidArgumentException('Cannot delete the last admin user!');
+            throw new UserManagementException('Cannot delete the last admin user.');
         }
 
         // Prevent self-deletion
         if ($user->id === $deletedBy) {
-            throw new \InvalidArgumentException('Cannot delete your own account!');
+            throw new UserManagementException('Cannot delete your own account.');
         }
 
         $username = $user->username;
         $userId = $user->id;
 
         $user->delete();
+
+        Cache::forget("user:{$userId}:permissions");
 
         // Log user deletion
         $this->auditService->log(
@@ -189,22 +199,24 @@ class UserService
      * @param  int  $toggledBy  User ID toggling the status
      * @return User Updated user
      *
-     * @throws \InvalidArgumentException If validation fails
+     * @throws UserManagementException If validation fails
      */
     public function toggleActive(User $user, int $toggledBy): User
     {
         // Prevent deactivating self
         if ($user->id === $toggledBy) {
-            throw new \InvalidArgumentException('Cannot deactivate your own account!');
+            throw new UserManagementException('Cannot deactivate your own account.');
         }
 
         // Prevent deactivating last admin
         if ($user->isAdmin() && $user->is_active && User::where('role', UserRole::Admin)->where('is_active', true)->count() <= 1) {
-            throw new \InvalidArgumentException('Cannot deactivate the last active admin!');
+            throw new UserManagementException('Cannot deactivate the last active admin.');
         }
 
         $oldStatus = $user->is_active;
         $user->update(['is_active' => ! $user->is_active]);
+
+        Cache::forget("user:{$user->id}:permissions");
 
         // Log status toggle
         $this->auditService->log(

@@ -15,6 +15,7 @@ class OverrideRateRequest extends AuthorizedFormRequest
             'rate_buy' => 'required|numeric|min:0.0001',
             'rate_sell' => 'required|numeric|min:0.0001',
             'reason' => 'nullable|string|max:500',
+            'branch_id' => 'nullable|integer|exists:branches,id',
             'effective_date' => 'nullable|date',
         ];
     }

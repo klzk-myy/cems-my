@@ -10,9 +10,14 @@ class ValidRateTest extends TestCase
 {
     public function test_passes_for_valid_rate(): void
     {
-        $this->expectNotToPerformAssertions();
+        $passed = true;
+        try {
+            $this->assertRulePasses(new ValidRate, 'rate', 1.5);
+        } catch (\Throwable $e) {
+            $passed = false;
+        }
 
-        $this->assertRulePasses(new ValidRate, 'rate', 1.5);
+        $this->assertTrue($passed);
     }
 
     public function test_fails_when_below_minimum(): void

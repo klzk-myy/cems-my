@@ -1,5 +1,5 @@
 <x-app-layout title="Cases">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Case Details" description="{{ $case->case_number }}">
             <x-slot:actions>
                 <x-button variant="secondary" href="{{ route('compliance.cases.index') }}">Back to List</x-button>
@@ -41,7 +41,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-ink-muted uppercase mb-1">Assigned To</label>
-                    <p class="text-sm text-ink">{{ $case->assignee?->name ?? 'Unassigned' }}</p>
+                    <p class="text-sm text-ink">{{ $case->assignee?->username ?? 'Unassigned' }}</p>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-ink-muted uppercase mb-1">Created</label>
@@ -64,14 +64,14 @@
                     <div class="w-2 h-2 mt-2 rounded-full bg-primary"></div>
                     <div>
                         <p class="text-sm font-medium text-ink">Case created</p>
-                        <p class="text-xs text-ink-muted">{{ $case->created_at?->format('Y-m-d H:i:s') }} by {{ $case->creator?->name ?? $case->assignee?->name ?? 'System' }}</p>
+                        <p class="text-xs text-ink-muted">{{ $case->created_at?->format('Y-m-d H:i:s') }} by {{ $case->creator?->username ?? $case->assignee?->username ?? 'System' }}</p>
                     </div>
                 </div>
                 <div class="flex gap-4">
                     <div class="w-2 h-2 mt-2 rounded-full bg-warning"></div>
                     <div>
                         <p class="text-sm font-medium text-ink">Assigned to reviewer</p>
-                        <p class="text-xs text-ink-muted">{{ $case->assignee?->name ?? 'Unassigned' }}</p>
+                        <p class="text-xs text-ink-muted">{{ $case->assignee?->username ?? 'Unassigned' }}</p>
                     </div>
                 </div>
                 <div class="flex gap-4">
@@ -85,24 +85,29 @@
         </x-card>
 
         <x-card title="Attached Evidence">
-            <ul class="space-y-2">
-                <li class="flex items-center gap-2">
-                    <a href="#" class="text-sm text-info-text hover:text-info">transaction_history_2024.pdf</a>
-                    <span class="text-xs text-ink-muted"> (245 KB)</span>
-                </li>
-                <li class="flex items-center gap-2">
-                    <a href="#" class="text-sm text-info-text hover:text-info">customer_kyc_verification.pdf</a>
-                    <span class="text-xs text-ink-muted"> (128 KB)</span>
-                </li>
-            </ul>
+            @forelse($case->documents as $document)
+                <div class="flex items-center gap-2 py-1">
+                    <span class="text-sm text-ink">{{ $document->file_name }}</span>
+                    <span class="text-xs text-ink-muted">
+                        Uploaded {{ $document->uploaded_at?->format('Y-m-d') ?? 'unknown date' }}
+                        @if($document->verified_at)
+                            &middot; Verified {{ $document->verified_at->format('Y-m-d') }}
+                        @endif
+                    </span>
+                </div>
+            @empty
+                <p class="text-sm text-ink-muted">No documents attached to this case.</p>
+            @endforelse
         </x-card>
 
         <x-card title="Actions">
             <div class="flex flex-wrap gap-3">
-                <x-button variant="primary">Update Status</x-button>
-                <x-button variant="secondary">Add Note</x-button>
-                <x-button variant="secondary">Attach Evidence</x-button>
-                <x-button variant="secondary">Close Case</x-button>
+                @can('update', $case)
+                    <x-button variant="primary">Update Status</x-button>
+                @endcan
+                @can('addNote', $case)
+                    <x-button variant="secondary">Add Note</x-button>
+                @endcan
             </div>
         </x-card>
     </div>

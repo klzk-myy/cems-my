@@ -10,13 +10,13 @@ return new class extends Migration
     {
         Schema::create('customer_documents', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('customer_id')->constrained();
+            $table->foreignId('customer_id')->constrained()->restrictOnDelete();
             $table->enum('document_type', ['MyKad', 'Passport', 'Proof_of_Address', 'Others']);
             $table->string('file_path', 500);
             $table->string('file_hash', 64);
             $table->integer('file_size')->nullable();
             $table->boolean('encrypted')->default(true);
-            $table->foreignId('uploaded_by')->constrained('users');
+            $table->foreignId('uploaded_by')->constrained('users')->restrictOnDelete();
             $table->timestamps();
             $table->index('customer_id');
             $table->index('document_type');

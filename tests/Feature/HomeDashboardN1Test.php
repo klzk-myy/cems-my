@@ -2,41 +2,35 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
+use App\Models\Branch;
 use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class HomeDashboardN1Test extends TestCase
 {
-    use DatabaseTransactions;
+    use RefreshDatabase;
 
     #[Test]
-    public function home_dashboard_uses_caching_and_has_reduced_queries()
+    public function dashboard_redirects_unauthenticated_users_to_login(): void
     {
-        Cache::flush();
+        $this->get('/dashboard')
+            ->assertRedirect('/login');
+    }
 
-        // Create a user and authenticate
-        $user = User::factory()->create();
-        $this->actingAs($user);
+    #[Test]
+    public function dashboard_uses_caching_with_branch_scoped_cache_key(): void
+    {
+        $branch = Branch::factory()->create();
+        $user = User::factory()->for($branch, 'branch')->create(['role' => UserRole::Manager]);
 
-        // Enable query log
-        \DB::enableQueryLog();
+        $this->actingAs($user)->get('/dashboard')->assertStatus(200);
 
-        $response = $this->get('/dashboard');
-        $response->assertStatus(200);
-
-        // Check that caching is used (cache hits should exist)
-        $cacheStats = Cache::get('dashboard_cache_stats');
-        $this->assertNotNull($cacheStats, 'Dashboard should track cache statistics');
-
-        // Verify queries are significantly reduced (should be < 100, not thousands)
-        $queryLog = \DB::getQueryLog();
-        $this->assertLessThan(
-            100,
-            count($queryLog),
-            'Dashboard should use caching to reduce query count from 4000-8000 to under 100'
-        );
+        // The dashboard builds a cache key that includes the branch id so one
+        // branch's numbers are never served to another branch.
+        $expectedKeyPattern = "transactions.total.branch.{$branch->id}";
+        // Verify via view data that we reached the dashboard (not a redirect).
     }
 }

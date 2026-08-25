@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\System;
 
+use App\Services\Security\IpValidationService;
 use App\Services\System\RateLimitService;
 use Illuminate\Cache\RedisStore;
 use Illuminate\Support\Facades\Cache;
@@ -10,9 +11,13 @@ use Tests\TestCase;
 
 class RateLimitServiceTest extends TestCase
 {
+    private IpValidationService $ipValidationService;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->ipValidationService = $this->createMock(IpValidationService::class);
 
         config(['security.ip_blocking.enabled' => true]);
         config(['security.ip_blocking.whitelist' => []]);
@@ -29,7 +34,7 @@ class RateLimitServiceTest extends TestCase
     {
         config(['security.ip_blocking.enabled' => false]);
 
-        $service = new RateLimitService;
+        $service = new RateLimitService($this->ipValidationService);
         $service->blockIp('192.168.1.1');
 
         $this->assertFalse($service->isIpBlocked('192.168.1.1'));
@@ -41,7 +46,7 @@ class RateLimitServiceTest extends TestCase
     {
         config(['security.ip_blocking.enabled' => false]);
 
-        $service = new RateLimitService;
+        $service = new RateLimitService($this->ipValidationService);
         $service->recordFailedAttempt('192.168.1.2');
         $service->recordFailedAttempt('192.168.1.2');
         $service->recordFailedAttempt('192.168.1.2');
@@ -53,7 +58,7 @@ class RateLimitServiceTest extends TestCase
     #[Test]
     public function record_failed_attempt_auto_blocks_when_threshold_exceeded(): void
     {
-        $service = new RateLimitService;
+        $service = new RateLimitService($this->ipValidationService);
         $service->recordFailedAttempt('192.168.1.3');
         $service->recordFailedAttempt('192.168.1.3');
 
@@ -67,7 +72,7 @@ class RateLimitServiceTest extends TestCase
     #[Test]
     public function unblock_ip_removes_from_blocked_list(): void
     {
-        $service = new RateLimitService;
+        $service = new RateLimitService($this->ipValidationService);
         $service->blockIp('192.168.1.4');
 
         $this->assertTrue($service->isIpBlocked('192.168.1.4'));
@@ -81,7 +86,7 @@ class RateLimitServiceTest extends TestCase
     #[Test]
     public function get_blocked_ips_returns_block_info(): void
     {
-        $service = new RateLimitService;
+        $service = new RateLimitService($this->ipValidationService);
         $service->blockIp('192.168.1.5');
 
         $blocked = $service->getBlockedIps();
@@ -95,7 +100,7 @@ class RateLimitServiceTest extends TestCase
     #[Test]
     public function blocked_ips_index_supports_multiple_ips(): void
     {
-        $service = new RateLimitService;
+        $service = new RateLimitService($this->ipValidationService);
         $service->blockIp('192.168.1.10');
         $service->blockIp('192.168.1.11');
 
@@ -119,7 +124,7 @@ class RateLimitServiceTest extends TestCase
         config(['ratelimit.store' => 'redis']);
         Cache::store('redis')->flush();
 
-        $service = new RateLimitService;
+        $service = new RateLimitService($this->ipValidationService);
         $service->blockIp('10.0.0.1');
         $service->blockIp('10.0.0.2');
 

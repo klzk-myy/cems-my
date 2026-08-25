@@ -48,21 +48,28 @@ class CustomerRelationService
 
     public function removeRelation(int $relationId): void
     {
-        $relation = CustomerRelation::findOrFail($relationId);
-        $customerId = $relation->customer_id;
-        $isPep = $relation->is_pep;
+        $customerId = null;
+        $relation = DB::transaction(function () use ($relationId, &$customerId) {
+            $relation = CustomerRelation::findOrFail($relationId);
+            $customerId = $relation->customer_id;
+            $isPep = $relation->is_pep;
 
-        $relation->delete();
+            $relation->delete();
 
-        $this->auditService->logCustomerRiskEvent('customer_relation_removed', $customerId, [
-            'relation_id' => $relationId,
-        ]);
-
-        if ($isPep) {
-            $customer = Customer::find($customerId);
-            if ($customer) {
-                $this->updateCustomerPepAssociateStatus($customer);
+            if ($isPep) {
+                $customer = Customer::find($customerId);
+                if ($customer) {
+                    $this->updateCustomerPepAssociateStatus($customer);
+                }
             }
+
+            return $relation;
+        });
+
+        if ($customerId !== null) {
+            $this->auditService->logCustomerRiskEvent('customer_relation_removed', $customerId, [
+                'relation_id' => $relationId,
+            ]);
         }
 
         event(new CustomerRelationRemoved($relation));

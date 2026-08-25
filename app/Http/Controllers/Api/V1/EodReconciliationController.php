@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Eod\CounterReconciliationRequest;
 use App\Http\Requests\Api\V1\Eod\GenerateReportRequest;
 use App\Http\Requests\Api\V1\Eod\ShowReconciliationRequest;
+use App\Models\Counter;
 use App\Services\EodReconciliationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -43,12 +44,16 @@ class EodReconciliationController extends Controller
         }
 
         $user = auth()->user();
-        $branchId = $validated['branch_id'] ?? null;
+        $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
 
-        if ($branchId && ! $user->isAdmin() && $user->branch_id !== $branchId) {
-            if (! $user->isComplianceOfficer()) {
-                return $this->errorResponse('You can only view reports for your own branch.', [], 403);
-            }
+        // Restricted roles without an explicit scope see their own branch
+        // only - never an all-branches summary.
+        if ($branchId === null && ! $this->hasGlobalEodScope($user) && $user->branch_id) {
+            $branchId = (int) $user->branch_id;
+        }
+
+        if ($response = $this->assertBranchAccess($branchId)) {
+            return $response;
         }
 
         try {
@@ -56,7 +61,7 @@ class EodReconciliationController extends Controller
 
             return $this->successResponse($report);
         } catch (\Exception $e) {
-            return $this->errorResponse('Failed to generate reconciliation report: '.$e->getMessage(), [], 500);
+            return $this->errorResponse('Failed to generate reconciliation report. Please try again.', [], 500);
         }
     }
 
@@ -76,12 +81,18 @@ class EodReconciliationController extends Controller
             return $response;
         }
 
+        // Counter reports bypass branch filtering inside the service, so the
+        // counter itself must belong to the caller's branch.
+        if ($response = $this->assertCounterAccess($counterId)) {
+            return $response;
+        }
+
         try {
             $report = $this->eodService->generateCounterReconciliation($counterId, $carbonDate);
 
             return $this->successResponse($report);
         } catch (\Exception $e) {
-            return $this->errorResponse('Failed to generate counter reconciliation: '.$e->getMessage(), [], 500);
+            return $this->errorResponse('Failed to generate counter reconciliation. Please try again.', [], 500);
         }
     }
 
@@ -100,9 +111,26 @@ class EodReconciliationController extends Controller
             return $response;
         }
 
-        $branchId = $validated['branch_id'] ?? null;
-        $counterId = $validated['counter_id'] ?? null;
+        $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
+        $counterId = isset($validated['counter_id']) ? (int) $validated['counter_id'] : null;
         $format = $validated['format'] ?? 'pdf';
+
+        // Explicit foreign branches are rejected for restricted roles, and a
+        // missing scope defaults to the caller's own branch - never global.
+        if ($response = $this->assertBranchAccess($branchId)) {
+            return $response;
+        }
+
+        $user = auth()->user();
+        if ($branchId === null && ! $this->hasGlobalEodScope($user) && $user->branch_id) {
+            $branchId = (int) $user->branch_id;
+        }
+
+        // Counter-scoped reports bypass branch filtering inside the service,
+        // so the requested counter must belong to the caller's branch.
+        if ($response = $this->assertCounterAccess($counterId)) {
+            return $response;
+        }
 
         try {
             $report = $this->eodService->generateReconciliationReport($carbonDate, $branchId, $counterId);
@@ -129,7 +157,7 @@ class EodReconciliationController extends Controller
             return $pdf->download($filename);
 
         } catch (\Exception $e) {
-            return $this->errorResponse('Failed to generate reconciliation report: '.$e->getMessage(), [], 500);
+            return $this->errorResponse('Failed to generate reconciliation report. Please try again.', [], 500);
         }
     }
 
@@ -137,6 +165,62 @@ class EodReconciliationController extends Controller
     {
         if (! $this->canAccessEod(auth()->user())) {
             return $this->errorResponse('Unauthorized. Manager, Compliance Officer, or Admin access required.', [], 403);
+        }
+
+        return null;
+    }
+
+    /**
+     * Admins and compliance officers may report across all branches; every
+     * other EOD user is restricted to their own branch.
+     */
+    private function hasGlobalEodScope($user): bool
+    {
+        return $user->isAdmin() || $user->isComplianceOfficer();
+    }
+
+    /**
+     * Reject an explicitly requested foreign branch for restricted roles.
+     * Both sides are cast to int: branch_id arrives as a validated string
+     * while users.branch_id is an int column, so a strict compare would
+     * 403 the user's own branch.
+     */
+    private function assertBranchAccess(?int $branchId): ?JsonResponse
+    {
+        $user = auth()->user();
+
+        if (
+            $branchId !== null
+            && ! $this->hasGlobalEodScope($user)
+            && (int) $user->branch_id !== $branchId
+        ) {
+            return $this->errorResponse('You can only view reports for your own branch.', [], 403);
+        }
+
+        return null;
+    }
+
+    /**
+     * Ensure a counter-scoped report only touches counters belonging to the
+     * caller's branch (admins and compliance officers exempt). Unknown
+     * counters fall through to the service's existing not-found handling.
+     */
+    private function assertCounterAccess(?int $counterId): ?JsonResponse
+    {
+        if ($counterId === null) {
+            return null;
+        }
+
+        $counter = Counter::find($counterId);
+
+        if ($counter === null) {
+            return null;
+        }
+
+        $user = auth()->user();
+
+        if (! $this->hasGlobalEodScope($user) && (int) $counter->branch_id !== (int) $user->branch_id) {
+            return $this->errorResponse('You can only view reports for your own branch.', [], 403);
         }
 
         return null;

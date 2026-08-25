@@ -4,6 +4,7 @@ namespace App\Services\Branch;
 
 use App\Models\Branch;
 use App\Models\BranchPool;
+use App\Services\AuditService;
 use App\Services\System\MathService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -11,12 +12,10 @@ use Illuminate\Support\Facades\Log;
 
 class BranchPoolService
 {
-    protected MathService $mathService;
-
-    public function __construct()
-    {
-        $this->mathService = new MathService;
-    }
+    public function __construct(
+        protected AuditService $auditService,
+        protected MathService $mathService,
+    ) {}
 
     public function getOrCreateForBranch(Branch $branch, string $currencyCode): BranchPool
     {
@@ -124,6 +123,17 @@ class BranchPoolService
                 'approved_by' => $approvedBy,
                 'pool_id' => $pool->id,
             ]);
+
+            $this->auditService->logBranchEvent(
+                'branch_pool_replenished',
+                $branch->id,
+                [
+                    'currency_code' => $currencyCode,
+                    'amount' => $amount,
+                    'pool_id' => $pool->id,
+                    'approved_by' => $approvedBy,
+                ]
+            );
 
             return $pool;
         });

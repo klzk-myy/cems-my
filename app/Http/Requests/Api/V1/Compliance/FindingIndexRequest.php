@@ -15,11 +15,11 @@ class FindingIndexRequest extends ApiFormRequest
     {
         return [
             'per_page' => 'nullable|integer|min:1|max:100',
-            'status' => 'nullable|string',
-            'severity' => 'nullable|string',
-            'type' => 'nullable|string',
-            'date_from' => 'nullable|string',
-            'date_to' => 'nullable|string',
+            'status' => 'nullable|in:Open,Closed,Resolved,UnderReview',
+            'severity' => 'nullable|in:critical,high,medium,low',
+            'type' => 'nullable|string|max:100',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
         ];
     }
 }

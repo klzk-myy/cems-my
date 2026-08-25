@@ -15,14 +15,14 @@ return new class extends Migration
     {
         Schema::create('data_breach_alerts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained();
-            $table->foreignId('triggered_by')->constrained('users');
+            $table->foreignId('user_id')->constrained()->restrictOnDelete();
+            $table->foreignId('triggered_by')->constrained('users')->restrictOnDelete();
             $table->string('alert_type');
             $table->text('description');
             $table->json('affected_records');
             $table->string('severity');
             $table->string('status')->default('open');
-            $table->foreignId('resolved_by')->nullable()->constrained('users');
+            $table->foreignId('resolved_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('resolved_at')->nullable();
             $table->text('resolution_notes')->nullable();
             $table->timestamps();

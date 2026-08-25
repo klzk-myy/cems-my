@@ -24,6 +24,11 @@ class EnsureMfaVerified
         $user = auth()->user();
 
         if (! $user) {
+            // For API requests, return 401; for web, redirect to login
+            if ($request->expectsJson()) {
+                return $this->jsonResponse('Unauthenticated', 401);
+            }
+
             return redirect()->route('login');
         }
 
@@ -32,13 +37,33 @@ class EnsureMfaVerified
             return $next($request);
         }
 
-        // If MFA not enabled for user, skip
-        if (! $user->mfa_enabled) {
-            return $next($request);
+        // Consult the role requirement BEFORE looking at mfa_enabled: a user
+        // in an MFA-required role cannot opt out by never enrolling.
+        $mfaRequired = $this->mfaService->isMfaRequiredForRole($user);
+
+        // Role requires MFA but the user never enrolled: honor the enrollment
+        // grace period measured from account creation. After it lapses,
+        // force enrollment instead of silently skipping MFA forever.
+        if ($mfaRequired && ! $user->mfa_enabled) {
+            $graceDays = (int) config('cems.mfa.grace_days', 30);
+            $graceEndsAt = $user->created_at?->copy()->addDays($graceDays);
+
+            if ($graceEndsAt !== null && now()->lt($graceEndsAt)) {
+                return $next($request);
+            }
+
+            if (! $request->expectsJson()) {
+                return redirect()->route('mfa.setup');
+            }
+
+            // Point API clients at enrollment, not verification: an
+            // un-enrolled user bounced to mfa.verify would be sent straight
+            // back to setup.
+            return $this->jsonResponse('MFA enrollment required', 403, route('mfa.setup'));
         }
 
-        // Check if MFA is required for this user's role
-        if (! $this->mfaService->isMfaRequiredForRole($user)) {
+        // MFA optional for this role - skip verification entirely
+        if (! $mfaRequired) {
             return $next($request);
         }
 
@@ -49,6 +74,10 @@ class EnsureMfaVerified
             $sessionElapsed = now()->timestamp - $sessionCreatedAt;
 
             if ($sessionElapsed >= $sessionLifetime) {
+                if (! $request->expectsJson()) {
+                    return redirect()->route('login');
+                }
+
                 return $this->jsonResponse('Session expired, please re-authenticate', 401);
             }
         }
@@ -63,27 +92,43 @@ class EnsureMfaVerified
             return $next($request);
         }
 
-        // Check trusted device bypass
-        $fingerprint = $this->mfaService->generateDeviceFingerprint();
-        if ($this->mfaService->hasTrustedDevice($user, $fingerprint)) {
+        // Trusted-device bypass: trust is bound to a random secret delivered
+        // as a long-lived cookie; only the SHA-256 hash is stored server-side.
+        // (User agent / IP are metadata on the record only.)
+        $deviceToken = $request->cookie(MfaService::DEVICE_COOKIE_NAME);
+
+        if (is_string($deviceToken) && $deviceToken !== ''
+            && $this->mfaService->hasTrustedDevice($user, hash('sha256', $deviceToken))) {
             $this->sessionPut($request, 'mfa_verified', true);
             $this->sessionPut($request, 'mfa_verified_at', now()->timestamp);
 
             return $next($request);
         }
 
-        return $this->jsonResponse('MFA verification required', 403);
+        // Web (non-JSON) requests should be redirected to the MFA verification page
+        // instead of receiving a bare JSON 401 they cannot act on.
+        if (! $request->expectsJson()) {
+            return redirect()->route('mfa.verify');
+        }
+
+        return $this->jsonResponse('MFA verification required', 401);
     }
 
     /**
      * Return a JSON response for API requests or redirect for web.
      */
-    protected function jsonResponse(string $message, int $status): Response
+    protected function jsonResponse(string $message, int $status, ?string $redirect = null): Response
     {
-        return response()->json([
+        $response = response()->json([
             'error' => $message,
-            'redirect' => route('mfa.verify'),
+            'redirect' => $redirect ?? route('mfa.verify'),
         ], $status);
+
+        if ($status === 401) {
+            $response->header('WWW-Authenticate', 'Bearer realm="mfa"');
+        }
+
+        return $response;
     }
 
     /**

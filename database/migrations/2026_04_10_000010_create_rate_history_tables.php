@@ -26,7 +26,7 @@ return new class extends Migration
                 $table->timestamp('fetched_at');
                 $table->timestamp('created_at')->useCurrent();
                 $table->index(['currency_code', 'fetched_at']);
-                $table->foreign('currency_code')->references('code')->on('currencies');
+                $table->foreign('currency_code')->references('code')->on('currencies')->restrictOnDelete();
             });
         }
     }

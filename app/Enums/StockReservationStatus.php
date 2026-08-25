@@ -14,6 +14,18 @@ enum StockReservationStatus: string
     case Released = 'released';
 
     /**
+     * Human-readable label for UI display.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Pending => 'Pending',
+            self::Consumed => 'Consumed',
+            self::Released => 'Released',
+        };
+    }
+
+    /**
      * Check if the reservation is pending.
      */
     public function isPending(): bool

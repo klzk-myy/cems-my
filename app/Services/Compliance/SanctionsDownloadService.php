@@ -2,13 +2,13 @@
 
 namespace App\Services\Compliance;
 
-use App\Http\Traits\ValidatorMethods;
+use App\Services\Concerns\ValidatesContentFormat;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SanctionsDownloadService
 {
-    use ValidatorMethods;
+    use ValidatesContentFormat;
 
     protected string $tempDirectory;
 
@@ -35,6 +35,7 @@ class SanctionsDownloadService
         string $format = 'XML',
         int $retryAttempts = 3
     ): array {
+        $this->validateUrl($url);
         $this->ensureTempDirectoryExists();
 
         $filepath = $this->tempDirectory.'/'.$filename;
@@ -44,6 +45,9 @@ class SanctionsDownloadService
             try {
                 $response = Http::timeout($this->timeout)
                     ->withUserAgent(config('sanctions.download.user_agent', 'CEMS-MY/1.0'))
+                    // Never follow redirects: a 302 to an internal address would
+                    // bypass the allowlist and private-IP checks in validateUrl().
+                    ->withoutRedirecting()
                     ->get($url);
 
                 if (! $response->successful()) {
@@ -208,6 +212,41 @@ class SanctionsDownloadService
     {
         if (! is_dir($this->tempDirectory)) {
             mkdir($this->tempDirectory, 0755, true);
+        }
+    }
+
+    protected function validateUrl(string $url): void
+    {
+        $parsed = parse_url($url);
+        if ($parsed === false || empty($parsed['scheme']) || empty($parsed['host'])) {
+            throw new \InvalidArgumentException("Invalid URL: {$url}");
+        }
+
+        if ($parsed['scheme'] !== 'https') {
+            throw new \InvalidArgumentException("Only HTTPS URLs are allowed: {$url}");
+        }
+
+        $host = strtolower($parsed['host']);
+        $allowedHosts = [
+            'sanctions.gov.my', 'ofac.treasury.gov', 'europa.eu',
+            'sdnlists.ofac.treasury.gov', 'un.org', 'unescritor.org',
+        ];
+
+        $isAllowed = false;
+        foreach ($allowedHosts as $allowed) {
+            if ($host === $allowed || str_ends_with($host, '.'.$allowed)) {
+                $isAllowed = true;
+                break;
+            }
+        }
+
+        if (! $isAllowed) {
+            throw new \InvalidArgumentException("Host not in sanctions URL allowlist: {$host}");
+        }
+
+        $ip = gethostbyname($host);
+        if ($ip !== $host && ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            throw new \InvalidArgumentException("URL resolves to private/internal IP: {$ip}");
         }
     }
 }

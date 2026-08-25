@@ -68,15 +68,17 @@ class RegulatoryReportController extends Controller
             ];
         });
 
-        $totalBuyMyr = (string) $summary->sum(function ($row) {
-            return $row['buy_amount_myr'];
-        });
-        $totalSellMyr = (string) $summary->sum(function ($row) {
-            return $row['sell_amount_myr'];
-        });
-        $totalTransactions = $summary->sum(function ($row) {
-            return $row['buy_count'] + $row['sell_count'];
-        });
+        // BCMath accumulation: Collection::sum() casts DECIMAL-string MYR
+        // amounts to float and loses precision on large totals. Counts stay
+        // integer math, which is exact.
+        $totalBuyMyr = '0';
+        $totalSellMyr = '0';
+        $totalTransactions = 0;
+        foreach ($summary as $row) {
+            $totalBuyMyr = $this->mathService->add($totalBuyMyr, $row['buy_amount_myr']);
+            $totalSellMyr = $this->mathService->add($totalSellMyr, $row['sell_amount_myr']);
+            $totalTransactions += $row['buy_count'] + $row['sell_count'];
+        }
         $totalVolume = $this->mathService->add($totalBuyMyr, $totalSellMyr);
 
         // Calculate totals using MathService for precision
@@ -121,7 +123,7 @@ class RegulatoryReportController extends Controller
 
         return $this->successResponse([
             'filename' => basename($filepath),
-            'download_url' => url('/reports/download/'.basename($filepath)),
+            'download_url' => route('api.v1.reports.download', ['filename' => basename($filepath)]),
         ], 'MSB(2) report generated.');
     }
 
@@ -166,7 +168,7 @@ class RegulatoryReportController extends Controller
 
         return $this->successResponse([
             'filename' => basename($filepath),
-            'download_url' => url('/reports/download/'.basename($filepath)),
+            'download_url' => route('api.v1.reports.download', ['filename' => basename($filepath)]),
         ], 'Form LMCA generated successfully.');
     }
 
@@ -247,7 +249,7 @@ class RegulatoryReportController extends Controller
 
         return $this->successResponse([
             'filename' => basename($filepath),
-            'download_url' => url('/reports/download/'.basename($filepath)),
+            'download_url' => route('api.v1.reports.download', ['filename' => basename($filepath)]),
         ], 'Quarterly Large Value Report generated successfully.');
     }
 
@@ -284,7 +286,7 @@ class RegulatoryReportController extends Controller
 
         return $this->successResponse([
             'filename' => basename($filepath),
-            'download_url' => url('/reports/download/'.basename($filepath)),
+            'download_url' => route('api.v1.reports.download', ['filename' => basename($filepath)]),
         ], 'Position Limit Report generated successfully.');
     }
 }

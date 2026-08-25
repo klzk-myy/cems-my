@@ -8,4 +8,9 @@ class FiscalYearNotFoundException extends DomainException
     {
         parent::__construct("Fiscal year not found: {$yearCode}");
     }
+
+    public function getStatusCode(): int
+    {
+        return 404;
+    }
 }

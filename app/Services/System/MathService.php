@@ -2,6 +2,7 @@
 
 namespace App\Services\System;
 
+use App\Exceptions\Domain\MathValidationException;
 use App\Services\Contracts\MathServiceInterface;
 
 /**
@@ -86,10 +87,30 @@ class MathService implements MathServiceInterface
     public function divide(string $a, string $b): string
     {
         if (bccomp($b, '0', $this->scale) === 0) {
-            throw new \InvalidArgumentException('Division by zero');
+            throw new MathValidationException('Division by zero');
         }
 
         return bcdiv($a, $b, $this->scale);
+    }
+
+    /**
+     * Divide two numbers, returning '0' when the divisor is zero.
+     *
+     * Ratios (e.g. financial ratios) must not throw when a denominator is
+     * zero; this is the single shared implementation of that guard.
+     *
+     * @param  string  $a  Dividend
+     * @param  string  $b  Divisor
+     * @param  int|null  $precision  Optional precision override (default: scale)
+     * @return string Quotient of a and b, or '0' when b is zero
+     */
+    public function safeDivide(string $a, string $b, ?int $precision = null): string
+    {
+        if (bccomp($b, '0', $this->scale) === 0) {
+            return '0';
+        }
+
+        return bcdiv($a, $b, $precision ?? $this->scale);
     }
 
     /**
@@ -146,10 +167,16 @@ class MathService implements MathServiceInterface
         string $newRate,
         ?int $precision = null
     ): string {
-        $rateDiff = $this->subtract($newRate, $oldRate);
-        $precision = $precision ?? $this->scale;
+        $outputPrecision = $precision ?? $this->scale;
 
-        return $this->multiply($positionAmount, $rateDiff);
+        // Compute the rate difference at a working scale high enough to keep
+        // every digit the requested output precision needs; otherwise a diff
+        // like 0.000002 would truncate to '0.0000' at scale 4 before the
+        // multiply ever sees it.
+        $workingScale = max($this->scale, $outputPrecision);
+        $rateDiff = bcsub($newRate, $oldRate, $workingScale);
+
+        return bcmul($positionAmount, $rateDiff, $outputPrecision);
     }
 
     /**

@@ -4,8 +4,12 @@ namespace App\Exceptions\Domain;
 
 class TransactionApprovalException extends TransactionException
 {
-    public function getStatusCode(): int
-    {
-        return 422;
+    public function __construct(
+        public int $transactionId,
+        string $message = 'Transaction approval failed',
+        int $code = 0,
+        ?\Throwable $previous = null,
+    ) {
+        parent::__construct($message, $code, $previous);
     }
 }

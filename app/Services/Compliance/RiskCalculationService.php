@@ -55,10 +55,9 @@ class RiskCalculationService
         $score = $this->amountRiskService->calculateScore($transactions, $customer);
 
         if ($currentAmount !== null) {
-            $avgAmount = $transactions->avg('amount_local');
-            if ($avgAmount > 0) {
-                $avgAmountFormatted = number_format($avgAmount, 2, '.', '');
-                $escalation = $this->mathService->divide($currentAmount, $avgAmountFormatted);
+            $avgAmount = (string) ($transactions->avg('amount_local') ?? '0');
+            if ($this->mathService->compare($avgAmount, '0') > 0) {
+                $escalation = $this->mathService->divide($currentAmount, $avgAmount);
                 if ($this->mathService->compare($escalation, '2.0') >= 0) {
                     $score += 10;
                 }

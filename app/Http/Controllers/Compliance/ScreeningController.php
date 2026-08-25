@@ -53,4 +53,23 @@ class ScreeningController extends Controller
             return redirect()->back()->with('error', 'Failed to screen customer');
         }
     }
+
+    public function history(int $customerId): View
+    {
+        $customer = Customer::findOrFail($customerId);
+
+        $history = $this->screeningService->getHistory($customer)
+            ->map(fn ($r) => $r->toArray());
+
+        return view('compliance.screening.history', compact('customer', 'history'));
+    }
+
+    public function status(int $customerId): View
+    {
+        $customer = Customer::findOrFail($customerId);
+
+        $status = $this->screeningService->getStatus($customer);
+
+        return view('compliance.screening.status', compact('customer', 'status'));
+    }
 }

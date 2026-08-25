@@ -16,9 +16,9 @@ $styles = match($variant) {
 
 $sizeClass = match($size) {
     'sm' => 'px-2 py-0.5 text-xs',
-    'md' => 'px-2.5 py-0.5 text-xs',
+    'md' => 'px-2 py-0.5 text-xs',
     'lg' => 'px-3 py-1 text-sm',
-    default => 'px-2.5 py-0.5 text-xs',
+    default => 'px-2 py-0.5 text-xs',
 };
 @endphp
 

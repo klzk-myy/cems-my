@@ -22,10 +22,10 @@
                     @forelse($flags ?? [] as $flag)
                         <tr class="hover:bg-canvas-subtle">
                             <td class="px-4 py-3 text-sm font-mono">{{ $flag->transaction_id }}</td>
-                            <td class="px-4 py-3 text-sm">{{ $flag->flag_type }}</td>
+                            <td class="px-4 py-3 text-sm">{{ $flag->flag_type?->label() ?? $flag->flag_type }}</td>
                             <td class="px-4 py-3 text-sm">
-                                <x-badge variant="{{ $flag->status === 'Open' ? 'warning' : ($flag->status === 'Under_Review' ? 'info' : 'success') }}">
-                                    {{ $flag->status }}
+                                <x-badge variant="{{ $flag->status->value === 'Open' ? 'warning' : ($flag->status->value === 'Under_Review' ? 'info' : 'success') }}">
+                                    {{ $flag->status?->label() ?? $flag->status->value }}
                                 </x-badge>
                             </td>
                             <td class="px-4 py-3 text-sm">{{ $flag->created_at?->format('M d, Y') }}</td>

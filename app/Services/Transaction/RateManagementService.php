@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\AuditService;
 use App\Services\Contracts\RateManagementServiceInterface;
 use App\Services\DTOs\RateOverrideResult;
+use App\Services\System\CacheInvalidationService;
 use App\Services\System\MathService;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -19,7 +20,9 @@ class RateManagementService implements RateManagementServiceInterface
 {
     public function __construct(
         protected RateApiService $rateApiService,
-        protected MathService $mathService
+        protected MathService $mathService,
+        protected AuditService $auditService,
+        protected CacheInvalidationService $cacheInvalidationService,
     ) {}
 
     public function fetchAndStoreRates(?User $initiatedBy = null, ?int $branchId = null): array
@@ -54,7 +57,7 @@ class RateManagementService implements RateManagementServiceInterface
 
     public function getRateForCurrency(string $currencyCode, ?int $branchId = null): ?ExchangeRate
     {
-        $cacheKey = 'rate:'.$currencyCode.($branchId ? ':'.$branchId : '');
+        $cacheKey = $this->rateCacheKey($currencyCode, $branchId);
 
         return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($currencyCode, $branchId) {
             $query = ExchangeRate::where('currency_code', $currencyCode);
@@ -64,6 +67,25 @@ class RateManagementService implements RateManagementServiceInterface
 
             return $query->first();
         });
+    }
+
+    /**
+     * Build the canonical per-currency rate cache key.
+     *
+     * Every writer (override, copy, API fetch) must invalidate this exact key
+     * so readers never serve a stale rate after a rate change.
+     */
+    private function rateCacheKey(string $currencyCode, ?int $branchId = null): string
+    {
+        return 'rate:'.$currencyCode.($branchId !== null ? ':branch:'.$branchId : '');
+    }
+
+    /**
+     * Forget the per-currency rate cache for a currency (optionally branch-scoped).
+     */
+    private function forgetRateCache(string $currencyCode, ?int $branchId = null): void
+    {
+        $this->cacheInvalidationService->forgetRate($currencyCode, $branchId);
     }
 
     public function getRateHistory(string $currencyCode, int $days, ?int $branchId = null): EloquentCollection
@@ -133,8 +155,7 @@ class RateManagementService implements RateManagementServiceInterface
                 }
 
                 // Invalidate cache
-                $cacheKey = 'rate:'.$currencyCode.($branchId ? ':'.$branchId : '');
-                Cache::forget($cacheKey);
+                $this->forgetRateCache($currencyCode, $branchId);
 
                 return new RateOverrideResult(
                     success: true,
@@ -155,10 +176,9 @@ class RateManagementService implements RateManagementServiceInterface
             ]);
 
             // Invalidate cache
-            $cacheKey = 'rate:'.$currencyCode.($branchId ? ':'.$branchId : '');
-            Cache::forget($cacheKey);
+            $this->forgetRateCache($currencyCode, $branchId);
 
-            app(AuditService::class)->log(
+            $this->auditService->log(
                 'rate_overridden',
                 $approvedBy->id,
                 'ExchangeRate',
@@ -212,13 +232,18 @@ class RateManagementService implements RateManagementServiceInterface
 
     public function areAllRatesSet(array $currencyCodes, ?int $branchId = null): array
     {
-        $missing = [];
+        // Single query instead of one exists() query per currency code.
+        $query = ExchangeRate::whereIn('currency_code', $currencyCodes);
 
-        foreach ($currencyCodes as $code) {
-            if (! $this->hasRateForCurrency($code, $branchId)) {
-                $missing[] = $code;
-            }
+        if ($branchId !== null) {
+            $query->forBranch($branchId);
         }
+
+        $existing = $query->pluck('currency_code')->flip();
+        $missing = collect($currencyCodes)
+            ->reject(fn (string $code) => $existing->has($code))
+            ->values()
+            ->all();
 
         return [
             'all_set' => empty($missing),
@@ -310,6 +335,9 @@ class RateManagementService implements RateManagementServiceInterface
                     'source' => "copied_from_{$targetDate}",
                     'fetched_at' => now(),
                 ]);
+
+                // Invalidate per-currency cache so the copied rate is served immediately
+                $this->forgetRateCache($histRate->currency_code, $branchId);
 
                 $copied[] = [
                     'currency' => $histRate->currency_code,

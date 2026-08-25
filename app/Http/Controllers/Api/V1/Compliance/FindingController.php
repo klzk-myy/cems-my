@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Compliance;
 
+use App\Exceptions\Domain\CaseManagementException;
 use App\Http\Concerns\FiltersComplianceFindings;
 use App\Http\Controllers\Api\V1\Traits\ApiResponse;
 use App\Http\Controllers\Controller;
@@ -24,7 +25,7 @@ class FindingController extends Controller
 
         $this->applyFindingFilters($query, $request);
 
-        $perPage = $request->get('per_page', 20);
+        $perPage = min(100, max(1, (int) $request->get('per_page', 20)));
         $findings = $query->orderBy('generated_at', 'desc')->paginate($perPage);
 
         return $this->successResponse($findings, 'Findings retrieved successfully.');
@@ -48,7 +49,12 @@ class FindingController extends Controller
         $validated = $request->validated();
 
         $finding = ComplianceFinding::findOrFail($id);
-        $finding->dismiss($validated['reason']);
+
+        try {
+            $finding->dismiss($validated['reason']);
+        } catch (CaseManagementException $e) {
+            return $this->errorResponse('Failed to dismiss finding. Please try again.', [], 400);
+        }
 
         return $this->successResponse($finding, 'Finding dismissed.');
     }

@@ -6,6 +6,9 @@ use App\Enums\SystemAlertLevel;
 use App\Models\SystemAlert;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/**
+ * @extends Factory<SystemAlert>
+ */
 class SystemAlertFactory extends Factory
 {
     protected $model = SystemAlert::class;

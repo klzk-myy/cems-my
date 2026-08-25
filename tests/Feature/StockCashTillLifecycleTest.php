@@ -18,8 +18,8 @@ class StockCashTillLifecycleTest extends TestCase
     #[Test]
     public function manager_can_open_till_via_stock_cash_route(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $counter = Counter::factory()->create();
+        $manager = User::factory()->for($counter->branch)->create(['role' => UserRole::Manager]);
         $currency = Currency::factory()->create();
 
         $this->actingAs($manager)
@@ -40,12 +40,13 @@ class StockCashTillLifecycleTest extends TestCase
     #[Test]
     public function manager_can_close_till_via_stock_cash_route(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $counter = Counter::factory()->create();
+        $manager = User::factory()->for($counter->branch)->create(['role' => UserRole::Manager]);
         $currency = Currency::factory()->create();
         TillBalance::factory()->create([
             'till_id' => $counter->code,
             'currency_code' => $currency->code,
+            'branch_id' => $counter->branch_id,
             'date' => today(),
             'opening_balance' => '1000',
             'closed_at' => null,

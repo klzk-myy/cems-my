@@ -8,12 +8,10 @@ use App\Enums\TransactionType;
 use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\Customer;
-use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Models\TransactionImport;
-use App\Services\Accounting\CurrencyPositionLockService;
+use App\Models\User;
 use App\Services\Accounting\CurrencyPositionService;
-use App\Services\Accounting\TransactionAccountingService;
 use App\Services\Branch\TillBalanceManager;
 use App\Services\Compliance\ComplianceService;
 use App\Services\System\MathService;
@@ -29,13 +27,21 @@ class TransactionImportService
 
     protected int $successCount = 0;
 
+    /** @var array<string, bool> Currency existence cache, keyed by code. */
+    protected array $currencyCache = [];
+
+    /** @var array<string, Counter|null> Counter lookup cache, keyed by till id. */
+    protected array $counterCache = [];
+
     public function __construct(
         protected MathService $mathService,
         protected ComplianceService $complianceService,
         protected CurrencyPositionService $positionService,
         protected TransactionMonitoringService $monitoringService,
-        protected CurrencyPositionLockService $positionLockService,
         protected ThresholdService $thresholdService,
+        protected TillBalanceManager $tillBalanceManager,
+        protected TransactionCreationService $transactionCreationService,
+        protected RateManagementService $rateManagementService,
     ) {}
 
     /**
@@ -46,6 +52,8 @@ class TransactionImportService
         $this->import = $import;
         $this->errors = [];
         $this->successCount = 0;
+        $this->currencyCache = [];
+        $this->counterCache = [];
 
         $this->import->update([
             'status' => TransactionImportStatus::Processing->value,
@@ -75,9 +83,15 @@ class TransactionImportService
             $threshold = $this->thresholdService->getAutoApproveThreshold();
             $rowNumber = 1;
 
+            // Resolve the importing user once instead of once per row.
+            $importUser = User::find($import->imported_by);
+            if (! $importUser) {
+                throw new \Exception("Import user ID {$import->imported_by} not found");
+            }
+
             while (($row = fgetcsv($handle)) !== false) {
                 $rowNumber++;
-                $this->processRow($this->import, $row, $rowNumber, $threshold);
+                $this->processRow($import, $row, $rowNumber, $threshold, $importUser);
             }
 
             $this->import->update([
@@ -95,184 +109,162 @@ class TransactionImportService
     /**
      * Process single row
      */
-    protected function processRow(TransactionImport $import, array $row, int $rowNumber, string $threshold): void
+    protected function processRow(TransactionImport $import, array $row, int $rowNumber, string $threshold, User $importUser): void
     {
         try {
-            // Expected columns: customer_id, type, currency_code, amount_foreign, rate, purpose, source_of_funds, till_id
-            $data = [
-                'customer_id' => trim($row[0]),
-                'type' => trim($row[1]), // Buy or Sell
-                'currency_code' => strtoupper(trim($row[2])),
-                'amount_foreign' => trim($row[3]),
-                'rate' => trim($row[4]),
-                'purpose' => trim($row[5]),
-                'source_of_funds' => trim($row[6]),
-                'till_id' => isset($row[7]) && ! empty(trim($row[7])) ? trim($row[7]) : 'MAIN',
-            ];
+            DB::transaction(function () use ($row, $threshold, $importUser) {
+                // Pad short rows so malformed CSVs produce clean per-row errors instead
+                // of PHP undefined-array-key warnings on every column access.
+                $row = array_pad($row, 8, '');
 
-            $data['idempotency_key'] = md5(json_encode($data));
+                // Expected columns: customer_id, type, currency_code, amount_foreign, rate, purpose, source_of_funds, till_id
+                $data = [
+                    'customer_id' => trim($row[0]),
+                    'type' => trim($row[1]), // Buy or Sell
+                    'currency_code' => strtoupper(trim($row[2])),
+                    'amount_foreign' => trim($row[3]),
+                    'rate' => trim($row[4]),
+                    'purpose' => trim($row[5]),
+                    'source_of_funds' => trim($row[6]),
+                    'till_id' => isset($row[7]) && ! empty(trim($row[7])) ? trim($row[7]) : 'MAIN',
+                ];
 
-            // Validate required fields
-            if (empty($data['customer_id']) || empty($data['type']) || empty($data['currency_code']) ||
-                empty($data['amount_foreign']) || empty($data['rate']) || empty($data['purpose']) ||
-                empty($data['source_of_funds'])) {
-                throw new \Exception('Missing required fields');
-            }
+                $data['idempotency_key'] = hash('sha256', json_encode($data));
 
-            // Validate customer exists
-            $customer = Customer::find($data['customer_id']);
-            if (! $customer) {
-                throw new \Exception("Customer ID {$data['customer_id']} not found");
-            }
-
-            // Validate currency exists
-            if (! Currency::where('code', $data['currency_code'])->exists()) {
-                throw new \Exception("Currency {$data['currency_code']} not found");
-            }
-
-            // Validate transaction type
-            if (TransactionType::tryFrom($data['type']) === null) {
-                throw new \Exception("Invalid transaction type: {$data['type']}. Must be '".TransactionType::Buy->value."' or '".TransactionType::Sell->value."'");
-            }
-
-            // Validate numeric amounts
-            if (! is_numeric($data['amount_foreign']) || BcmathHelper::lte($data['amount_foreign'], '0')) {
-                throw new \Exception("Invalid amount_foreign: {$data['amount_foreign']}");
-            }
-
-            if (! is_numeric($data['rate']) || BcmathHelper::lte($data['rate'], '0')) {
-                throw new \Exception("Invalid rate: {$data['rate']}");
-            }
-
-            // Validate till is open
-            $counter = Counter::where('code', $data['till_id'])
-                ->orWhere('id', $data['till_id'])
-                ->first();
-
-            if (! $counter) {
-                throw new \Exception("Till {$data['till_id']} is not open for {$data['currency_code']}");
-            }
-
-            $tillBalance = app(TillBalanceManager::class)->currentBalance($counter, $data['currency_code']);
-
-            if (! $tillBalance) {
-                throw new \Exception("Till {$data['till_id']} is not open for {$data['currency_code']}");
-            }
-
-            // Calculate local amount
-            $amountForeign = (string) $data['amount_foreign'];
-            $rate = (string) $data['rate'];
-            $amountLocal = $this->mathService->multiply($amountForeign, $rate);
-
-            // Compliance checks
-            $cddLevel = $this->complianceService->determineCDDLevel(
-                $amountLocal,
-                $customer
-            );
-
-            // Check if requires hold/approval
-            $holdCheck = $this->complianceService->requiresHold(
-                $amountLocal,
-                $customer
-            );
-
-            // Determine initial status
-            $status = TransactionStatus::Completed->value;
-            $holdReason = null;
-            $approvedBy = null;
-
-            if ($holdCheck->requiresHold) {
-                $status = TransactionStatus::PendingApproval->value;
-                $holdReason = implode(', ', $holdCheck->reasons);
-            }
-
-            // Enforce auto-approve threshold: if amount exceeds threshold, require approval
-            if ($this->mathService->compare($amountLocal, $threshold) >= 0) {
-                $status = TransactionStatus::PendingApproval->value;
-                $thresholdReason = 'Transaction amount exceeds auto-approve threshold';
-                $holdReason = $holdReason ? "{$holdReason}; {$thresholdReason}" : $thresholdReason;
-            }
-
-            // Create transaction within database transaction
-            DB::beginTransaction();
-
-            try {
-                // Check idempotency to prevent duplicates
-                if (! empty($data['idempotency_key'])) {
-                    $existing = Transaction::where('idempotency_key', $data['idempotency_key'])->exists();
-                    if ($existing) {
-                        $this->successCount++;
-                        DB::rollBack();
-
-                        return;
-                    }
+                // Validate required fields
+                if (empty($data['customer_id']) || empty($data['type']) || empty($data['currency_code']) ||
+                    empty($data['amount_foreign']) || empty($data['rate']) || empty($data['purpose']) ||
+                    empty($data['source_of_funds'])) {
+                    throw new \Exception('Missing required fields');
                 }
 
-                // For sell transactions, check stock availability with findForUpdate()
-                // so a zero-balance row is not created when there is no position yet.
-                if ($data['type'] === TransactionType::Sell->value) {
-                    $position = $this->positionLockService->findForUpdate(
-                        $tillBalance->branch_id,
-                        $data['currency_code']
-                    );
-
-                    if ($position === null || $this->mathService->compare($position->balance, $amountForeign) < 0) {
-                        $availableBalance = $position ? $position->balance : '0';
-                        throw new \Exception("Insufficient stock. Available: {$availableBalance} {$data['currency_code']}");
-                    }
+                // Validate customer exists
+                $customer = Customer::find($data['customer_id']);
+                if (! $customer) {
+                    throw new \Exception("Customer ID {$data['customer_id']} not found");
                 }
 
-                // Create transaction record
-                $transaction = Transaction::create([
-                    'customer_id' => $data['customer_id'],
-                    'user_id' => $import->imported_by,
-                    'till_id' => $data['till_id'],
-                    'type' => $data['type'],
-                    'currency_code' => $data['currency_code'],
-                    'amount_foreign' => $amountForeign,
-                    'amount_local' => $amountLocal,
-                    'rate' => $rate,
-                    'purpose' => $data['purpose'],
-                    'source_of_funds' => $data['source_of_funds'],
-                    'cdd_level' => $cddLevel,
-                ]);
-
-                $transaction->status = $status;
-                $transaction->hold_reason = $holdReason;
-                $transaction->approved_by = $approvedBy;
-                $transaction->save();
-
-                // Update currency position (if not pending approval)
-                if ($status === TransactionStatus::Completed->value) {
-                    $this->positionService->updatePosition(
-                        $data['currency_code'],
-                        $amountForeign,
-                        $rate,
-                        $data['type'],
-                        $data['till_id']
-                    );
-
-                    // Update till balance (cash)
-                    $this->updateTillBalance($tillBalance, $data['type'], $amountLocal, $amountForeign);
-
-                    // Create accounting entries
-                    app(TransactionAccountingService::class)->createImportAccountingEntries($transaction);
+                // Validate currency exists (cached per import - avoids one query per row)
+                $currencyCode = $data['currency_code'];
+                if (! isset($this->currencyCache[$currencyCode])) {
+                    $this->currencyCache[$currencyCode] = Currency::where('code', $currencyCode)->exists();
                 }
+                if (! $this->currencyCache[$currencyCode]) {
+                    throw new \Exception("Currency {$currencyCode} not found");
+                }
+
+                // Validate transaction type
+                if (TransactionType::tryFrom($data['type']) === null) {
+                    throw new \Exception("Invalid transaction type: {$data['type']}. Must be '".TransactionType::Buy->value."' or '".TransactionType::Sell->value."'");
+                }
+
+                // Validate numeric amounts
+                if (! is_numeric($data['amount_foreign']) || BcmathHelper::lte($data['amount_foreign'], '0')) {
+                    throw new \Exception("Invalid amount_foreign: {$data['amount_foreign']}");
+                }
+
+                if (! is_numeric($data['rate']) || BcmathHelper::lte($data['rate'], '0')) {
+                    throw new \Exception("Invalid rate: {$data['rate']}");
+                }
+
+                // Upper bounds so a single malformed row cannot create unbounded entries.
+                $maxAmountForeign = (string) config('transactions.import.max_amount_foreign');
+                if (BcmathHelper::gt($data['amount_foreign'], $maxAmountForeign)) {
+                    throw new \Exception("amount_foreign {$data['amount_foreign']} exceeds maximum allowed ({$maxAmountForeign})");
+                }
+
+                $maxRate = (string) config('transactions.import.max_rate');
+                if (BcmathHelper::gt($data['rate'], $maxRate)) {
+                    throw new \Exception("rate {$data['rate']} exceeds maximum allowed ({$maxRate})");
+                }
+
+                // Validate till is open (cached per import - avoids one query per row)
+                $tillKey = (string) $data['till_id'];
+                if (! array_key_exists($tillKey, $this->counterCache)) {
+                    $this->counterCache[$tillKey] = Counter::where('code', $data['till_id'])
+                        ->orWhere('id', $data['till_id'])
+                        ->first();
+                }
+                $counter = $this->counterCache[$tillKey];
+
+                if (! $counter) {
+                    throw new \Exception("Till {$data['till_id']} is not open for {$data['currency_code']}");
+                }
+
+                $tillBalance = $this->tillBalanceManager->currentBalance($counter, $data['currency_code']);
+
+                if (! $tillBalance) {
+                    throw new \Exception("Till {$data['till_id']} is not open for {$data['currency_code']}");
+                }
+
+                // Validate the rate against the current market rate so bulk imports
+                // cannot book trades at aberrant rates (same guard the interactive
+                // wizard applies). Skips rows where no market rate is configured.
+                $rateCheck = $this->rateManagementService->validateTransactionRate(
+                    (string) $data['rate'],
+                    $data['currency_code'],
+                    strtolower($data['type']),
+                    $counter->branch_id
+                );
+
+                if (! $rateCheck['valid']) {
+                    throw new \Exception($rateCheck['reason'] ?? 'Rate deviation exceeds maximum allowed');
+                }
+
+                // Calculate local amount
+                $amountForeign = (string) $data['amount_foreign'];
+                $rate = (string) $data['rate'];
+                $amountLocal = $this->mathService->multiply($amountForeign, $rate);
+
+                // Compliance checks
+                $cddLevel = $this->complianceService->determineCDDLevel(
+                    $amountLocal,
+                    $customer
+                );
+
+                // Check if requires hold/approval
+                $holdCheck = $this->complianceService->requiresHold(
+                    $amountLocal,
+                    $customer
+                );
+
+                // Determine initial status
+                $status = TransactionStatus::Completed->value;
+                $holdReason = null;
+                $approvedBy = null;
+
+                if ($holdCheck->requiresHold) {
+                    $status = TransactionStatus::PendingApproval->value;
+                    $holdReason = implode(', ', $holdCheck->reasons);
+                }
+
+                // Enforce auto-approve threshold: if amount exceeds threshold, require approval
+                if ($this->mathService->compare($amountLocal, $threshold) >= 0) {
+                    $status = TransactionStatus::PendingApproval->value;
+                    $thresholdReason = 'Transaction amount exceeds auto-approve threshold';
+                    $holdReason = $holdReason ? "{$holdReason}; {$thresholdReason}" : $thresholdReason;
+                }
+
+                // Create transaction using TransactionCreationService to avoid duplicate logic.
+                // The importing user is resolved once in process() and passed in.
+                $transaction = $this->transactionCreationService->createForImport(
+                    data: $data,
+                    customer: $customer,
+                    tillBalance: $tillBalance,
+                    cddLevel: $cddLevel,
+                    status: TransactionStatus::from($status),
+                    amountLocal: $amountLocal,
+                    user: $importUser,
+                    holdReason: $holdReason,
+                );
 
                 // Run compliance monitoring BEFORE commit (moved before commit)
                 if ($status === TransactionStatus::Completed->value) {
                     $this->monitoringService->monitorTransaction($transaction);
                 }
 
-                DB::commit();
-
                 $this->successCount++;
-            } catch (\Exception $e) {
-                // Only rollback if transaction wasn't committed
-                // If we reach here after commit, the rollback has no effect but is harmless
-                DB::rollBack();
-                throw $e;
-            }
+            });
         } catch (\Exception $e) {
             $this->errors[] = [
                 'row' => $rowNumber,
@@ -280,19 +272,5 @@ class TransactionImportService
                 'error' => $e->getMessage(),
             ];
         }
-    }
-
-    /**
-     * Update till balance for transaction
-     */
-    protected function updateTillBalance(TillBalance $tillBalance, string $type, string $amountLocal, string $amountForeign): void
-    {
-        app(TillBalanceManager::class)->applyTransaction(
-            $tillBalance,
-            TransactionType::from($type),
-            $amountLocal,
-            $amountForeign,
-            false
-        );
     }
 }

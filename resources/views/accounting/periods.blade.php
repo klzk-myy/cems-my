@@ -2,7 +2,7 @@
     <div class="space-y-6">
         <x-page-header title="Accounting Periods" description="Manage monthly accounting periods" :actions="true">
             <x-slot:actions>
-                <x-select name="fiscal_year" :options="['2026' => 'FY 2026', '2025' => 'FY 2025']" placeholder="Fiscal Year" selected="2026" inline />
+                <x-select name="fiscal_year" :options="$fiscalYears" placeholder="Fiscal Year" selected="{{ now()->year }}" inline />
                 <x-button variant="primary">+ New Period</x-button>
             </x-slot:actions>
         </x-page-header>

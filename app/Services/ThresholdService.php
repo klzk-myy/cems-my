@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\Domain\ThresholdNotFoundException;
 use App\Models\ThresholdAudit;
 use App\Services\Contracts\ThresholdServiceInterface;
 use Illuminate\Database\QueryException;
@@ -86,6 +87,20 @@ class ThresholdService implements ThresholdServiceInterface
      */
     public function set(string $category, string $key, string|int|float $value, ?string $reason = null): bool
     {
+        // Derive the valid categories from the thresholds config itself, plus
+        // any code-only categories read by getters (e.g. geographic_risk).
+        $allowedCategories = array_merge(
+            array_keys(config('thresholds') ?? []),
+            ['geographic_risk']
+        );
+        if (! in_array($category, $allowedCategories, true)) {
+            throw new \InvalidArgumentException("Invalid threshold category: {$category}");
+        }
+
+        if (preg_match('/^[a-z_]+$/', $key) !== 1) {
+            throw new \InvalidArgumentException("Invalid threshold key: {$key}");
+        }
+
         // Get the effective old value (respecting any previously persisted override)
         $oldValue = $this->get($category, $key);
 
@@ -140,7 +155,7 @@ class ThresholdService implements ThresholdServiceInterface
             return $this->getFallbackValue($fallbackConstant);
         }
 
-        throw new \RuntimeException("Threshold not found: {$category}.{$key}");
+        throw new ThresholdNotFoundException("{$category}.{$key}");
     }
 
     /**
@@ -199,7 +214,7 @@ class ThresholdService implements ThresholdServiceInterface
             }
         }
 
-        throw new \RuntimeException("Fallback constant not found: {$constantName}");
+        throw new ThresholdNotFoundException($constantName);
     }
 
     /**
@@ -362,7 +377,28 @@ class ThresholdService implements ThresholdServiceInterface
         return (int) $this->get('velocity', 'window_days', 90);
     }
 
+    // Lookback window (in hours) for the per-customer amount-threshold velocity
+    // check. Contractually a 24-hour window; separate from the 90-day scoring
+    // lookback above.
+    public function getVelocityAmountWindowHours(): int
+    {
+        return (int) $this->get('velocity', 'amount_window_hours', 24);
+    }
+
     // Currency Flow thresholds
+
+    // Risk-score point weights for the geographic risk component (not MYR
+    // amounts): points added per high-risk nationality / recent-travel hit,
+    // and the classification cutoffs derived from them.
+    public function getGeographicHighCountryWeight(): int
+    {
+        return (int) $this->get('geographic_risk', 'high_country_weight', 30);
+    }
+
+    public function getGeographicRecentTravelWeight(): int
+    {
+        return (int) $this->get('geographic_risk', 'recent_travel_weight', 15);
+    }
 
     public function getRoundTripThreshold(): string
     {

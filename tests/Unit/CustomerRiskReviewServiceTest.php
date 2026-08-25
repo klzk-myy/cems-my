@@ -11,6 +11,7 @@ use App\Services\Compliance\CustomerRiskReviewService;
 use App\Services\Compliance\CustomerRiskScoringService;
 use App\Services\Compliance\PepAssessmentService;
 use App\Services\Compliance\RiskCalculationService;
+use App\Services\Compliance\RoundTripDetector;
 use App\Services\CustomerScreeningService;
 use App\Services\Risk\AmountRiskService;
 use App\Services\Risk\GeographicRiskService;
@@ -52,7 +53,7 @@ class CustomerRiskReviewServiceTest extends TestCase
             new StructuringRiskService($mathService, $thresholdService),
             new GeographicRiskService,
             new AmountRiskService($mathService, $thresholdService),
-            new PatternRiskService($mathService, $thresholdService),
+            new PatternRiskService($mathService, new RoundTripDetector($mathService)),
         );
         $geographicRiskService = new GeographicRiskService;
 

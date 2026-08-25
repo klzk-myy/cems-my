@@ -1,5 +1,5 @@
 <x-app-layout title="Position Limit Report">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Position Limit Report" :actions="true">
             Currency Position vs Authorized Limits
 
@@ -10,10 +10,10 @@
 
         {{-- Actions Bar --}}
         <x-card>
-            <div class="p-6 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
                 @if($reportGenerated)
                     <div class="flex gap-3">
-                        <x-button variant="secondary" onclick="window.print()">Print</x-button>
+                        <x-button variant="secondary" @click="window.print()">Print</x-button>
                         <form method="POST" action="{{ route('reports.position-limit.export') }}">
                             @csrf
                             <x-button variant="primary" type="submit">Export</x-button>
@@ -79,7 +79,7 @@
 
             @if(!empty($reportData['alerts']))
                 <x-card title="Limit Alerts">
-                    <div class="p-6 space-y-3">
+                    <div class="space-y-3">
                         @foreach($reportData['alerts'] as $alert)
                             <x-alert
                                 :type="$alert['severity'] === 'critical' ? 'error' : 'warning'"

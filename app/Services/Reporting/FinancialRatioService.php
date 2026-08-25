@@ -2,10 +2,10 @@
 
 namespace App\Services\Reporting;
 
+use App\Enums\AccountType;
 use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
 use App\Services\System\MathService;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Financial Ratio Service
@@ -68,12 +68,12 @@ class FinancialRatioService
         $inventory = $this->getInventory($asOfDate, $branchId);
         $cash = $this->getCashBalance($asOfDate, $branchId);
 
-        $currentRatio = $this->divide($currentAssets, $currentLiabilities);
-        $quickRatio = $this->divide(
+        $currentRatio = $this->mathService->safeDivide($currentAssets, $currentLiabilities);
+        $quickRatio = $this->mathService->safeDivide(
             $this->mathService->subtract($currentAssets, $inventory),
             $currentLiabilities
         );
-        $cashRatio = $this->divide($cash, $currentLiabilities);
+        $cashRatio = $this->mathService->safeDivide($cash, $currentLiabilities);
 
         return [
             'current_ratio' => $currentRatio,
@@ -108,10 +108,10 @@ class FinancialRatioService
         $totalAssets = $this->getTotalAssets($toDate, $branchId);
 
         $grossProfit = $this->mathService->subtract($revenue, $cogs);
-        $grossMargin = $this->divide($grossProfit, $revenue);
-        $netMargin = $this->divide($netIncome, $revenue);
-        $roe = $this->divide($netIncome, $equity);
-        $roa = $this->divide($netIncome, $totalAssets);
+        $grossMargin = $this->mathService->safeDivide($grossProfit, $revenue);
+        $netMargin = $this->mathService->safeDivide($netIncome, $revenue);
+        $roe = $this->mathService->safeDivide($netIncome, $equity);
+        $roa = $this->mathService->safeDivide($netIncome, $totalAssets);
 
         return [
             'gross_profit_margin' => $grossMargin,
@@ -143,8 +143,8 @@ class FinancialRatioService
         $equity = $this->getTotalEquity($asOfDate, $branchId);
         $totalAssets = $this->getTotalAssets($asOfDate, $branchId);
 
-        $debtToEquity = $this->divide($totalDebt, $equity);
-        $debtToAssets = $this->divide($totalDebt, $totalAssets);
+        $debtToEquity = $this->mathService->safeDivide($totalDebt, $equity);
+        $debtToAssets = $this->mathService->safeDivide($totalDebt, $totalAssets);
 
         return [
             'debt_to_equity' => $debtToEquity,
@@ -173,8 +173,8 @@ class FinancialRatioService
         $totalAssets = $this->getTotalAssets($toDate, $branchId);
         $inventory = $this->getInventory($toDate, $branchId);
 
-        $assetTurnover = $this->divide($revenue, $totalAssets);
-        $inventoryTurnover = $this->divide($cogs, $inventory);
+        $assetTurnover = $this->mathService->safeDivide($revenue, $totalAssets);
+        $inventoryTurnover = $this->mathService->safeDivide($cogs, $inventory);
 
         return [
             'asset_turnover' => $assetTurnover,
@@ -194,7 +194,10 @@ class FinancialRatioService
      */
     protected function getCurrentAssets(string $asOfDate, ?int $branchId = null): string
     {
-        $accountCodes = ChartOfAccount::where('account_type', 'Asset')->pluck('account_code')->toArray();
+        $accountCodes = ChartOfAccount::where('account_type', AccountType::Asset->value)
+            ->whereBetween('account_code', ['1000', '2199'])
+            ->pluck('account_code')
+            ->toArray();
         $balances = $this->getLatestBalances($accountCodes, $asOfDate, $branchId);
 
         $total = '0';
@@ -213,7 +216,10 @@ class FinancialRatioService
      */
     protected function getCurrentLiabilities(string $asOfDate, ?int $branchId = null): string
     {
-        $accountCodes = ChartOfAccount::where('account_type', 'Liability')->pluck('account_code')->toArray();
+        $accountCodes = ChartOfAccount::where('account_type', AccountType::Liability->value)
+            ->whereBetween('account_code', ['3000', '3199'])
+            ->pluck('account_code')
+            ->toArray();
         $balances = $this->getLatestBalances($accountCodes, $asOfDate, $branchId);
 
         $total = '0';
@@ -233,20 +239,18 @@ class FinancialRatioService
     protected function getInventory(string $asOfDate, ?int $branchId = null): string
     {
         $total = '0';
-        // Inventory accounts (2000-2499 range)
-        $inventoryAccounts = ChartOfAccount::where('account_class', 'Inventory')->pluck('account_code')->toArray();
+        // Inventory accounts: those explicitly classified as Inventory, or falling
+        // in the 2000-2499 range when no explicit classification exists. Union the
+        // two sets so a zero-balance inventory class can never double-count a range
+        // account that is already included.
+        $inventoryAccounts = ChartOfAccount::where('account_class', 'Inventory')
+            ->orWhereBetween('account_code', ['2000', '2499'])
+            ->pluck('account_code')
+            ->unique()
+            ->toArray();
 
         if (! empty($inventoryAccounts)) {
             $balances = $this->getLatestBalances($inventoryAccounts, $asOfDate, $branchId);
-            foreach ($balances as $balance) {
-                $total = $this->mathService->add($total, $balance);
-            }
-        }
-
-        // If no inventory accounts with class, use 2000 range
-        if ($this->mathService->compare($total, '0') === 0) {
-            $rangeAccounts = ChartOfAccount::whereBetween('account_code', ['2000', '2499'])->pluck('account_code')->toArray();
-            $balances = $this->getLatestBalances($rangeAccounts, $asOfDate, $branchId);
             foreach ($balances as $balance) {
                 $total = $this->mathService->add($total, $balance);
             }
@@ -299,9 +303,9 @@ class FinancialRatioService
             $query->where('branch_id', $branchId);
         }
 
-        $balance = (string) $query->value('net');
-
-        return $balance;
+        // value('net') is NULL when there are no ledger rows in the period;
+        // passing '' into bcmath throws a ValueError, so coerce to '0'.
+        return (string) ($query->value('net') ?? '0');
     }
 
     /**
@@ -328,9 +332,7 @@ class FinancialRatioService
             $query->where('branch_id', $branchId);
         }
 
-        $balance = (string) $query->value('net');
-
-        return $balance;
+        return (string) ($query->value('net') ?? '0');
     }
 
     /**
@@ -372,9 +374,7 @@ class FinancialRatioService
             $query->where('branch_id', $branchId);
         }
 
-        $balance = (string) $query->value('net');
-
-        return $balance;
+        return (string) ($query->value('net') ?? '0');
     }
 
     /**
@@ -404,18 +404,32 @@ class FinancialRatioService
      */
     protected function getTotalAssets(string $asOfDate, ?int $branchId = null): string
     {
-        return $this->getCurrentAssets($asOfDate, $branchId);
+        $accountCodes = ChartOfAccount::where('account_type', AccountType::Asset->value)
+            ->pluck('account_code')
+            ->toArray();
+        $balances = $this->getLatestBalances($accountCodes, $asOfDate, $branchId);
+
+        $total = '0';
+        foreach ($balances as $balance) {
+            $total = $this->mathService->add($total, $balance);
+        }
+
+        return $total;
     }
 
-    /**
-     * Get total liabilities.
-     *
-     * @param  string  $asOfDate  Date for balance calculation
-     * @param  int|null  $branchId  Optional branch ID to filter by
-     */
     protected function getTotalLiabilities(string $asOfDate, ?int $branchId = null): string
     {
-        return $this->getCurrentLiabilities($asOfDate, $branchId);
+        $accountCodes = ChartOfAccount::where('account_type', AccountType::Liability->value)
+            ->pluck('account_code')
+            ->toArray();
+        $balances = $this->getLatestBalances($accountCodes, $asOfDate, $branchId);
+
+        $total = '0';
+        foreach ($balances as $balance) {
+            $total = $this->mathService->add($total, $balance);
+        }
+
+        return $total;
     }
 
     /**
@@ -446,48 +460,17 @@ class FinancialRatioService
             return [];
         }
 
-        // Use a direct query to avoid eager loading the 'account' relationship (ChartOfAccount),
-        // which would add extra queries. We only need running_balance.
-        $balances = DB::table('account_ledger')
+        // Use the Eloquent query builder (no eager-load of 'account' so we
+        // avoid extra queries; AccountLedger::$with loads ['account'] by
+        // default and would fire a select per group). Only running_balance
+        // is needed here.
+        $balances = AccountLedger::query()
+            ->with([]) // override the default $with
             ->whereIn('id', $maxIds->values())
             ->pluck('running_balance', 'account_code');
 
-        return $balances->mapWithKeys(fn ($balance, $code) => [$code => (string) $balance])->toArray();
-    }
-
-    /**
-     * Get account balance as of a date.
-     *
-     * @param  string  $accountCode  Account code
-     * @param  string  $asOfDate  Date for balance calculation
-     * @param  int|null  $branchId  Optional branch ID to filter by
-     */
-    protected function getAccountBalance(string $accountCode, string $asOfDate, ?int $branchId = null): string
-    {
-        $query = AccountLedger::where('account_code', $accountCode)
-            ->whereRaw('DATE(entry_date) <= ?', [$asOfDate]);
-
-        if ($branchId !== null) {
-            $query->where('branch_id', $branchId);
-        }
-
-        $lastEntry = $query->orderBy('entry_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->orderBy('id', 'desc')
-            ->first();
-
-        return $lastEntry ? (string) $lastEntry->running_balance : '0';
-    }
-
-    /**
-     * Safe division that returns 0 if divisor is 0.
-     */
-    protected function divide(string $numerator, string $denominator): string
-    {
-        if ($this->mathService->compare($denominator, '0') === 0) {
-            return '0';
-        }
-
-        return $this->mathService->divide($numerator, $denominator, 4);
+        // running_balance can be NULL for ledger rows that were never populated;
+        // coerce to '0' so bcmath never receives an empty string.
+        return $balances->mapWithKeys(fn ($balance, $code) => [$code => (string) ($balance ?? '0')])->toArray();
     }
 }

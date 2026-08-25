@@ -20,7 +20,7 @@ return [
     | notifications. Available channels: mail, sms, database, broadcast, webhook
     |
     */
-    'default_channels' => ['database', 'broadcast'],
+    'default_channels' => array_values(array_filter(['database', 'broadcast'], fn ($channel) => $channel !== 'broadcast' || env('BROADCAST_DRIVER', 'null') !== 'null')),
 
     /*
     |--------------------------------------------------------------------------
@@ -31,7 +31,17 @@ return [
     | sanctions matches, STR failures) and cannot be disabled by users.
     |
     */
-    'critical_channels' => ['database', 'broadcast', 'mail', 'sms'],
+    'critical_channels' => ['database', 'broadcast', 'mail'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | SMS Channel
+    |--------------------------------------------------------------------------
+    |
+    | SMS notifications are NOT enabled. SmsChannel and TwilioService are not
+    | implemented. Add to critical_channels only after configuring Twilio SMS.
+    |
+    */
 
     /*
     |--------------------------------------------------------------------------
@@ -123,6 +133,13 @@ return [
             'default_channels' => ['database', 'broadcast', 'mail'],
             'category' => 'system',
             'priority' => 'medium',
+        ],
+        'transaction_dlq' => [
+            'label' => 'Dead Letter Queue Alert',
+            'description' => 'Sent when transactions are stuck in the dead letter queue and require manual review',
+            'default_channels' => ['database', 'broadcast', 'mail'],
+            'category' => 'operations',
+            'priority' => 'high',
         ],
     ],
 

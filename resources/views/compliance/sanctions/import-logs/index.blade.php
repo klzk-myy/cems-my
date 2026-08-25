@@ -43,7 +43,6 @@
                             <x-badge variant="success">Completed</x-badge>
                         </td>
                         <td class="px-4 py-3 text-sm">
-                            <x-button variant="ghost" size="sm" href="#">View</x-button>
                         </td>
                     </tr>
                     <tr class="hover:bg-canvas-subtle">
@@ -60,7 +59,6 @@
                             <x-badge variant="success">Completed</x-badge>
                         </td>
                         <td class="px-4 py-3 text-sm">
-                            <x-button variant="ghost" size="sm" href="#">View</x-button>
                         </td>
                     </tr>
                     <tr class="hover:bg-canvas-subtle">
@@ -77,7 +75,6 @@
                             <x-badge variant="success">Completed</x-badge>
                         </td>
                         <td class="px-4 py-3 text-sm">
-                            <x-button variant="ghost" size="sm" href="#">View</x-button>
                         </td>
                     </tr>
                     <tr class="hover:bg-canvas-subtle">
@@ -94,7 +91,6 @@
                             <x-badge variant="danger">Failed</x-badge>
                         </td>
                         <td class="px-4 py-3 text-sm">
-                            <x-button variant="ghost" size="sm" href="#">View Log</x-button>
                         </td>
                     </tr>
                 </x-slot:tbody>

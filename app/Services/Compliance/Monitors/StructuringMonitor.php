@@ -19,7 +19,7 @@ class StructuringMonitor extends BaseMonitor
 
     protected int $minTransactions;
 
-    public const LOOKBACK_MINUTES = 60;
+    public const LOOKBACK_MINUTES = 90;
 
     public function __construct(MathService $math, StructuringRiskService $structuringRiskService, ThresholdService $thresholdService)
     {
@@ -37,24 +37,31 @@ class StructuringMonitor extends BaseMonitor
     public function run(): array
     {
         $findings = [];
-        $cutoffTime = now()->subMinutes(self::LOOKBACK_MINUTES);
 
-        $customerData = Transaction::where('created_at', '>=', $cutoffTime)
-            ->where('amount_local', '<', $this->subThreshold)
-            ->where('status', '!=', TransactionStatus::Cancelled->value)
-            ->selectRaw('customer_id, COUNT(*) as transaction_count, CAST(SUM(amount_local) AS CHAR) as total_amount')
-            ->groupBy('customer_id')
-            ->havingRaw('COUNT(*) >= ?', [$this->minTransactions])
-            ->get();
+        try {
+            $cutoffTime = now()->subMinutes(self::LOOKBACK_MINUTES);
 
-        $customerIds = $customerData->pluck('customer_id')->unique();
-        $customers = Customer::whereIn('id', $customerIds)->get()->keyBy('id');
+            $customerData = Transaction::where('created_at', '>=', $cutoffTime)
+                ->where('amount_local', '<', $this->subThreshold)
+                ->where('status', '!=', TransactionStatus::Cancelled->value)
+                ->selectRaw('customer_id, COUNT(*) as transaction_count, CAST(SUM(amount_local) AS CHAR) as total_amount')
+                ->groupBy('customer_id')
+                ->havingRaw('COUNT(*) >= ?', [$this->minTransactions])
+                ->get();
 
-        foreach ($customerData as $data) {
-            $finding = $this->createFindingFromData($data, $customers->get($data->customer_id));
-            if ($finding !== null) {
-                $findings[] = $finding;
+            $customerIds = $customerData->pluck('customer_id')->unique();
+            $customers = Customer::whereIn('id', $customerIds)->get()->keyBy('id');
+
+            foreach ($customerData as $data) {
+                $finding = $this->createFindingFromData($data, $customers->get($data->customer_id));
+                if ($finding !== null) {
+                    $findings[] = $finding;
+                }
             }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
         }
 
         return $findings;

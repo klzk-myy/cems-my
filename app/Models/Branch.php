@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Compliance\BranchClosureWorkflow;
 use App\Models\Traits\HasCodeAndName;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Branch Model
@@ -49,6 +49,11 @@ class Branch extends BaseModel
     public const TYPE_SUB_BRANCH = 'sub_branch';
 
     /**
+     * Width of the branches.code column - tombstoned codes must still fit.
+     */
+    protected const CODE_COLUMN_LENGTH = 20;
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<string>
@@ -78,6 +83,24 @@ class Branch extends BaseModel
         'is_active' => 'boolean',
         'is_main' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Branch $branch) {
+            // code is UNIQUE but rows are soft-deleted: without a tombstone a
+            // deleted branch would permanently burn its code for reuse.
+            if ($branch->isForceDeleting()) {
+                return;
+            }
+
+            $suffix = '_del_'.($branch->id ?? Str::random(6));
+            $base = substr($branch->code ?? '', 0, max(0, self::CODE_COLUMN_LENGTH - strlen($suffix)));
+
+            $branch->code = $base.$suffix;
+            // Quiet save so the delete flow is not re-triggered.
+            $branch->saveQuietly();
+        });
+    }
 
     /**
      * Get all users belonging to this branch.

@@ -108,7 +108,7 @@
         <thead>
             <tr>
                 <th>Description</th>
-                <th class="text-right">Amount (RM)</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Amount (RM)</th>
             </tr>
         </thead>
         <tbody>

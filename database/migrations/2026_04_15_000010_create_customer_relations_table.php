@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('customer_relations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('customer_id')->constrained()->onDelete('cascade');
-            $table->foreignId('related_customer_id')->nullable()->constrained('customers');
+            $table->foreignId('related_customer_id')->nullable()->constrained('customers')->restrictOnDelete();
             $table->enum('relation_type', [
                 'spouse', 'child', 'parent', 'sibling',
                 'close_associate', 'business_partner',

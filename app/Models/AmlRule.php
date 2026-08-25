@@ -100,16 +100,20 @@ class AmlRule extends BaseModel
      * @param  Transaction  $transaction  The transaction to evaluate
      * @return array{triggered: bool, risk_score: int, action: string, reason: string|null}
      */
-    public function evaluate(Transaction $transaction): array
+    public function evaluate(Transaction $transaction, ?Customer $customer = null): array
     {
-        return app(AmlRuleEvaluator::class)->evaluate($transaction, $this);
+        if ($customer === null) {
+            $customer = $transaction->customer;
+        }
+
+        return app(AmlRuleEvaluator::class)->evaluate($transaction, $this, $customer);
     }
 
     /**
      * Check if this rule matches a transaction type/context.
      * Used to filter rules before evaluation.
      */
-    public function isApplicableTo(Transaction $transaction): bool
+    public function isApplicableTo(Transaction $transaction, ?Customer $customer = null): bool
     {
         if (! $this->is_active) {
             return false;
@@ -122,7 +126,9 @@ class AmlRule extends BaseModel
 
         // For geographic rules, check if customer's nationality matches
         if ($ruleTypeValue === AmlRuleType::Geographic->value) {
-            $customer = $transaction->customer;
+            if ($customer === null) {
+                $customer = $transaction->customer;
+            }
             if (! $customer || ! $customer->nationality) {
                 return false;
             }

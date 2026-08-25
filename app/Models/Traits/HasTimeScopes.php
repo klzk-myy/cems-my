@@ -2,6 +2,8 @@
 
 namespace App\Models\Traits;
 
+use Illuminate\Support\Carbon;
+
 trait HasTimeScopes
 {
     protected string $timeScopeColumn = 'created_at';
@@ -13,11 +15,14 @@ trait HasTimeScopes
 
     public function scopeToday($query)
     {
-        return $query->whereDate($this->timeScopeColumn, today());
+        return $query->whereBetween($this->timeScopeColumn, [today()->startOfDay(), today()->endOfDay()]);
     }
 
     public function scopeBetweenDates($query, string $from, string $to)
     {
-        return $query->whereBetween($this->timeScopeColumn, [$from.' 00:00:00', $to.' 23:59:59']);
+        return $query->whereBetween($this->timeScopeColumn, [
+            Carbon::parse($from)->startOfDay(),
+            Carbon::parse($to)->endOfDay(),
+        ]);
     }
 }

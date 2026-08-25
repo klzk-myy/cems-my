@@ -89,12 +89,12 @@ class EodReconciliationService
             ->get();
 
         $largeTransactions = $transactions->filter(function ($tx) {
-            return BcmathHelper::gte((string) $tx->amount_local, '25000');
+            return BcmathHelper::gte((string) $tx->amount_local, $this->thresholdService->getLargeTransactionThreshold());
         });
 
         $flaggedTransactions = FlaggedTransaction::with(['transaction', 'transaction.customer'])
             ->whereHas('transaction', function ($query) use ($date, $branchId) {
-                $query->whereDate('created_at', $date->toDateString());
+                $query->whereBetween('created_at', [$date->copy()->startOfDay(), $date->copy()->endOfDay()]);
                 if ($branchId) {
                     $query->where('branch_id', $branchId);
                 }
@@ -124,7 +124,7 @@ class EodReconciliationService
             'counter_summaries' => $counterSummaries,
             'large_transactions' => [
                 'count' => $largeTransactions->count(),
-                'total_amount' => $largeTransactions->sum('amount_local'),
+                'total_amount' => $this->sumDecimalColumn($largeTransactions, 'amount_local'),
                 'transactions' => $largeTransactions->take(50)->values(),
             ],
             'flagged_transactions' => [
@@ -180,7 +180,7 @@ class EodReconciliationService
             ->where('date', $date->toDateString())
             ->get();
 
-        $openingFloat = $tillBalances->sum('opening_balance');
+        $openingFloat = $this->sumDecimalColumn($tillBalances, 'opening_balance');
 
         // Get transactions for this counter on this date
         $transactions = $this->reconcilableTransactionsQuery($counterId, $date)
@@ -191,11 +191,11 @@ class EodReconciliationService
 
         // Buy transactions = cash received (customer sells foreign currency, we buy)
         $buyTransactions = $transactions->filter(fn ($tx) => $tx->type->value === TransactionType::Buy->value);
-        $totalCashReceived = (clone $sumQuery)->buy()->sum('amount_local');
+        $totalCashReceived = (string) ((clone $sumQuery)->buy()->sum('amount_local'));
 
         // Sell transactions = cash paid out (customer buys foreign currency, we sell)
         $sellTransactions = $transactions->filter(fn ($tx) => $tx->type->value === TransactionType::Sell->value);
-        $totalCashPaidOut = (clone $sumQuery)->sell()->sum('amount_local');
+        $totalCashPaidOut = (string) ((clone $sumQuery)->sell()->sum('amount_local'));
 
         // Expected closing = opening + received - paid out
         $closingFloatExpected = BcmathHelper::subtract(
@@ -204,7 +204,10 @@ class EodReconciliationService
         );
 
         // Actual closing from session close
-        $closingFloatActual = $tillBalances->whereNotNull('closing_balance')->sum('closing_balance');
+        $closingFloatActual = $this->sumDecimalColumn(
+            $tillBalances->whereNotNull('closing_balance'),
+            'closing_balance'
+        );
         $variance = $this->calculateVariance($counterId, $date);
 
         // Get handovers for the day
@@ -221,14 +224,14 @@ class EodReconciliationService
 
         // Large transactions (> RM 10k)
         $largeTransactions = $transactions->filter(function ($tx) {
-            return BcmathHelper::gte((string) $tx->amount_local, '25000');
+            return BcmathHelper::gte((string) $tx->amount_local, $this->thresholdService->getLargeTransactionThreshold());
         });
 
         // Flagged transactions
         $flaggedTransactions = FlaggedTransaction::with(['transaction', 'transaction.customer'])
             ->whereHas('transaction', function ($query) use ($counter, $date) {
                 $query->where('till_id', $counter->code)
-                    ->whereDate('created_at', $date->toDateString());
+                    ->whereBetween('created_at', [$date->copy()->startOfDay(), $date->copy()->endOfDay()]);
             })
             ->where('status', '!=', 'Resolved')
             ->get();
@@ -262,7 +265,7 @@ class EodReconciliationService
             'total_cash_received' => $totalCashReceived,
             'total_cash_paid_out' => $totalCashPaidOut,
             'closing_float_expected' => $closingFloatExpected,
-            'closing_float_actual' => $closingFloatActual ?: null,
+            'closing_float_actual' => BcmathHelper::eq($closingFloatActual, '0') ? null : $closingFloatActual,
             'variance' => $variance,
             'currency_breakdown' => $currencyBreakdown,
             'transactions' => [
@@ -274,7 +277,7 @@ class EodReconciliationService
             ],
             'large_transactions' => [
                 'count' => $largeTransactions->count(),
-                'total_amount' => $largeTransactions->sum('amount_local'),
+                'total_amount' => $this->sumDecimalColumn($largeTransactions, 'amount_local'),
                 'transactions' => $largeTransactions->take(50)->values(),
             ],
             'flagged_transactions' => [
@@ -308,20 +311,23 @@ class EodReconciliationService
             ->where('date', $date->toDateString())
             ->get();
 
-        $openingFloat = $tillBalances->sum('opening_balance');
+        $openingFloat = $this->sumDecimalColumn($tillBalances, 'opening_balance');
 
         // Get transactions
         $baseQuery = $this->reconcilableTransactionsQuery($counterId, $date);
 
-        $buyTotal = (clone $baseQuery)->buy()->sum('amount_local');
-        $sellTotal = (clone $baseQuery)->sell()->sum('amount_local');
+        $buyTotal = (string) ((clone $baseQuery)->buy()->sum('amount_local'));
+        $sellTotal = (string) ((clone $baseQuery)->sell()->sum('amount_local'));
 
         $expectedClosing = BcmathHelper::subtract(
             BcmathHelper::add($openingFloat, $buyTotal),
             $sellTotal
         );
 
-        $actualClosing = $tillBalances->whereNotNull('closing_balance')->sum('closing_balance');
+        $actualClosing = $this->sumDecimalColumn(
+            $tillBalances->whereNotNull('closing_balance'),
+            'closing_balance'
+        );
         $hasClosingBalance = $tillBalances->whereNotNull('closing_balance')->isNotEmpty();
 
         if (! $hasClosingBalance) {
@@ -394,6 +400,25 @@ class EodReconciliationService
     }
 
     /**
+     * Sum a decimal column across an already-loaded collection using BCMath.
+     *
+     * Collection ->sum() adds in float space, which loses precision for
+     * decimal(18,4) money columns; this keeps reconciliation totals exact.
+     *
+     * @param  iterable<object>  $items
+     */
+    private function sumDecimalColumn(iterable $items, string $column): string
+    {
+        $total = '0';
+
+        foreach ($items as $item) {
+            $total = BcmathHelper::add($total, (string) ($item->{$column} ?? '0'));
+        }
+
+        return $total;
+    }
+
+    /**
      * Determine variance status based on thresholds.
      *
      * @param  array  $report  Reconciliation report
@@ -443,7 +468,7 @@ class EodReconciliationService
     {
         $transactions = Transaction::with(['user', 'branch'])
             ->completed()
-            ->whereDate('approved_at', $date->toDateString())
+            ->whereBetween('approved_at', [$date->copy()->startOfDay(), $date->copy()->endOfDay()])
             ->where('cdd_level', 'Enhanced')
             ->when($branchId, function ($query) use ($branchId) {
                 $query->where('branch_id', $branchId);
@@ -490,7 +515,7 @@ class EodReconciliationService
      */
     public function getMissingAccountingEntriesCount(Carbon $date, ?int $branchId = null): int
     {
-        return Transaction::whereDate('approved_at', $date->toDateString())
+        return Transaction::whereBetween('approved_at', [$date->copy()->startOfDay(), $date->copy()->endOfDay()])
             ->completed()
             ->where('cdd_level', 'Enhanced')
             ->when($branchId, function ($query) use ($branchId) {

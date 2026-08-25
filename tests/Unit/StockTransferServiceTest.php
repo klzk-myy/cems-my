@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Enums\UserRole;
+use App\Exceptions\Domain\TransactionValidationException;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Services\AuditService;
@@ -35,7 +36,7 @@ class StockTransferServiceTest extends TestCase
     #[Test]
     public function create_request_validates_source_and_destination_branches(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
         $this->expectExceptionMessage('Source and destination branches are required');
 
         $this->stockTransferService->createRequest([
@@ -48,7 +49,7 @@ class StockTransferServiceTest extends TestCase
     #[Test]
     public function create_request_validates_source_and_destination_not_same(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
         $this->expectExceptionMessage('Source and destination branches cannot be the same');
 
         $this->stockTransferService->createRequest([
@@ -61,7 +62,7 @@ class StockTransferServiceTest extends TestCase
     #[Test]
     public function create_request_validates_items_not_empty(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
         $this->expectExceptionMessage('At least one item is required');
 
         $this->stockTransferService->createRequest([
@@ -74,7 +75,7 @@ class StockTransferServiceTest extends TestCase
     #[Test]
     public function create_request_validates_currency_code_required(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
         $this->expectExceptionMessage('Currency code is required for each item');
 
         $this->stockTransferService->createRequest([
@@ -89,7 +90,7 @@ class StockTransferServiceTest extends TestCase
     #[Test]
     public function create_request_validates_quantity_positive(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
         $this->expectExceptionMessage('Quantity must be a positive number');
 
         $this->stockTransferService->createRequest([
@@ -104,7 +105,7 @@ class StockTransferServiceTest extends TestCase
     #[Test]
     public function create_request_validates_rate_positive(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
         $this->expectExceptionMessage('Rate must be a positive number');
 
         $this->stockTransferService->createRequest([
@@ -119,7 +120,7 @@ class StockTransferServiceTest extends TestCase
     #[Test]
     public function create_request_validates_currency_exists(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
         $this->expectExceptionMessage('Currency XXX does not exist');
 
         $this->stockTransferService->createRequest([
@@ -134,7 +135,7 @@ class StockTransferServiceTest extends TestCase
     #[Test]
     public function create_request_validates_total_value_matches_items(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
         $this->expectExceptionMessage('Total value does not match sum of item values');
 
         $this->stockTransferService->createRequest([
@@ -178,5 +179,70 @@ class StockTransferServiceTest extends TestCase
         ]);
 
         $this->assertEquals('6900.00', $transfer->total_value_myr); // 4500 + 2400
+    }
+
+    #[Test]
+    public function full_workflow_approve_dispatch_complete_succeeds(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
+        $service = new StockTransferService(new MathService, new AuditService, $admin);
+
+        $transfer = $service->createRequest([
+            'source_branch_name' => 'Branch A',
+            'destination_branch_name' => 'Branch B',
+            'items' => [
+                ['currency_code' => 'USD', 'quantity' => '1000', 'rate' => '4.5000'],
+            ],
+        ]);
+
+        // Regression: these steps compared the enum status against ->value
+        // strings, so they always threw and the workflow could never progress.
+        $service->approveByBranchManager($transfer);
+        $this->assertTrue($transfer->fresh()->canApproveHq());
+
+        $service->approveByHQ($transfer);
+        $this->assertTrue($transfer->fresh()->canDispatch());
+
+        $service->dispatch($transfer);
+        $this->assertTrue($transfer->fresh()->canReceive());
+
+        // Complete directly from in-transit (the enum fix makes this reachable).
+        $service->complete($transfer->fresh());
+        $this->assertTrue($transfer->fresh()->isCompleted());
+    }
+
+    #[Test]
+    public function partial_receipt_then_complete_succeeds(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+        ]);
+        $service = new StockTransferService(new MathService, new AuditService, $admin);
+
+        $transfer = $service->createRequest([
+            'source_branch_name' => 'Branch A',
+            'destination_branch_name' => 'Branch B',
+            'items' => [
+                ['currency_code' => 'USD', 'quantity' => '1000', 'rate' => '4.5000'],
+            ],
+        ]);
+
+        $service->approveByBranchManager($transfer);
+        $service->approveByHQ($transfer->fresh());
+        $service->dispatch($transfer->fresh());
+
+        // Partial receipt leaves the transfer in PartiallyReceived, which is
+        // a valid state from which complete() may finalise it.
+        $service->receiveItems($transfer->fresh(), [
+            ['id' => $transfer->items->first()->id, 'quantity_received' => '600'],
+        ]);
+
+        $partiallyReceived = $transfer->fresh();
+        $this->assertTrue($partiallyReceived->canComplete());
+
+        $service->complete($partiallyReceived);
+        $this->assertTrue($transfer->fresh()->isCompleted());
     }
 }

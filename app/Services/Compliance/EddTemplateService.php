@@ -5,9 +5,11 @@ namespace App\Services\Compliance;
 use App\Enums\EddRiskLevel;
 use App\Enums\EddStatus;
 use App\Enums\EddTemplateType;
+use App\Exceptions\Domain\EddValidationException;
 use App\Models\EddTemplate;
 use App\Models\EnhancedDiligenceRecord;
 use App\Services\System\MathService;
+use App\Services\ThresholdService;
 use Illuminate\Support\Collection;
 
 class EddTemplateService
@@ -135,7 +137,7 @@ class EddTemplateService
             return EddRiskLevel::Medium;
         }
 
-        return EddRiskLevel::Medium;
+        return EddRiskLevel::Low;
     }
 
     /**
@@ -168,7 +170,7 @@ class EddTemplateService
         $errors = $this->validateResponses($record, $responses);
 
         if (! empty($errors)) {
-            throw new \InvalidArgumentException('Response validation failed: '.implode(', ', $errors));
+            throw new EddValidationException('Response validation failed: '.implode(', ', $errors));
         }
 
         $record->update([

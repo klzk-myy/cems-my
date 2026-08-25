@@ -48,13 +48,14 @@ class SystemHealthAlertNotification extends Notification implements ShouldQueue
     public function toMail(User $notifiable): MailMessage
     {
         $level = $this->systemAlert->level;
+        $levelValue = $level->value;
 
         $mailMessage = (new MailMessage);
 
         // Set message style based on level
-        if ($level === SystemAlertLevel::Critical->value) {
+        if ($level === SystemAlertLevel::Critical) {
             $mailMessage->error();
-        } elseif ($level === SystemAlertLevel::Warning->value) {
+        } elseif ($level === SystemAlertLevel::Warning) {
             $mailMessage->line('warning');
         }
 
@@ -63,8 +64,8 @@ class SystemHealthAlertNotification extends Notification implements ShouldQueue
             ->markdown('emails.system-health', [
                 'notifiable' => $notifiable,
                 'systemAlert' => $this->systemAlert,
-                'level' => $level,
-                'levelLabel' => ucfirst($level),
+                'level' => $levelValue,
+                'levelLabel' => ucfirst($levelValue),
                 'message' => $this->systemAlert->message,
                 'source' => $this->systemAlert->source,
                 'metadata' => $this->systemAlert->metadata,
@@ -79,11 +80,14 @@ class SystemHealthAlertNotification extends Notification implements ShouldQueue
      */
     public function toArray(User $notifiable): array
     {
+        $level = $this->systemAlert->level;
+        $levelValue = $level->value;
+
         return [
             'type' => 'system_health_alert',
             'alert_id' => $this->systemAlert->id,
-            'level' => $this->systemAlert->level,
-            'level_label' => ucfirst($this->systemAlert->level),
+            'level' => $levelValue,
+            'level_label' => ucfirst($levelValue),
             'message' => $this->systemAlert->message,
             'source' => $this->systemAlert->source,
             'metadata' => $this->systemAlert->metadata,
@@ -113,8 +117,8 @@ class SystemHealthAlertNotification extends Notification implements ShouldQueue
     protected function getSubject(): string
     {
         $prefix = match ($this->systemAlert->level) {
-            SystemAlertLevel::Critical->value => '[CRITICAL]',
-            SystemAlertLevel::Warning->value => '[WARNING]',
+            SystemAlertLevel::Critical => '[CRITICAL]',
+            SystemAlertLevel::Warning => '[WARNING]',
             default => '[INFO]',
         };
 
@@ -127,8 +131,8 @@ class SystemHealthAlertNotification extends Notification implements ShouldQueue
     protected function isEmailWorthy(): bool
     {
         return in_array($this->systemAlert->level, [
-            SystemAlertLevel::Warning->value,
-            SystemAlertLevel::Critical->value,
+            SystemAlertLevel::Warning,
+            SystemAlertLevel::Critical,
         ]);
     }
 
@@ -141,7 +145,7 @@ class SystemHealthAlertNotification extends Notification implements ShouldQueue
             ->where('notification_type', 'system_health_alert')
             ->first();
 
-        return $preference?->email_enabled ?? true;
+        return $preference->email_enabled ?? true;
     }
 
     /**

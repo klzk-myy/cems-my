@@ -1,12 +1,14 @@
 <x-app-layout title="Customer Details">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Customer Details" :actions="true">
             {{ $customer->full_name ?? 'Customer Name' }}
 
             <x-slot:actions>
-                <x-button variant="secondary" href="{{ route('customers.edit', $customer ?? 1) }}">
-                    Edit
-                </x-button>
+                @can('update', $customer)
+                    <x-button variant="secondary" href="{{ route('customers.edit', $customer ?? 1) }}">
+                        Edit
+                    </x-button>
+                @endcan
             </x-slot:actions>
         </x-page-header>
 
@@ -18,7 +20,7 @@
                             {{ strtoupper(substr($customer->full_name ?? 'A', 0, 1)) }}
                         </div>
                         <div>
-                            <h2 class="text-lg font-semibold">{{ $customer->full_name ?? 'Ahmad bin Abu' }}</h2>
+                            <h2 class="text-lg font-semibold">{{ $customer->full_name ?? '-' }}</h2>
                             @php
                                 $riskValue = $customer->risk_rating instanceof \App\Enums\RiskRating ? $customer->risk_rating->value : ($customer->risk_rating ?? 'Medium');
 
@@ -41,15 +43,15 @@
                         </div>
                         <div>
                             <span class="text-ink-muted">Nationality</span>
-                            <p class="font-medium">{{ $customer->nationality ?? 'Malaysian' }}</p>
+                            <p class="font-medium">{{ $customer->nationality ?? '-' }}</p>
                         </div>
                         <div>
                             <span class="text-ink-muted">Email</span>
-                            <p class="font-medium">{{ $customer->email ?? 'ahmad@example.com' }}</p>
+                            <p class="font-medium">{{ $customer->email ?? '-' }}</p>
                         </div>
                         <div>
                             <span class="text-ink-muted">Phone</span>
-                            <p class="font-medium">{{ $customer->phone ?? '+60 12-345 6789' }}</p>
+                            <p class="font-medium">{{ $customer->phone ?? '-' }}</p>
                         </div>
                     </div>
                 </x-card>
@@ -62,11 +64,11 @@
                         </div>
                         <div class="flex justify-between text-sm">
                             <span class="text-ink-muted">Last Verified</span>
-                            <span class="font-medium">{{ $customer->cdd_verified_at?->format('d M Y') ?? '15 Jan 2024' }}</span>
+                            <span class="font-medium">{{ $customer->cdd_verified_at?->format('d M Y') ?? '-' }}</span>
                         </div>
                         <div class="flex justify-between text-sm">
                             <span class="text-ink-muted">Next Review</span>
-                            <span class="font-medium">{{ $customer->cdd_expiry_at?->format('d M Y') ?? '15 Jan 2025' }}</span>
+                            <span class="font-medium">{{ $customer->cdd_expiry_at?->format('d M Y') ?? '-' }}</span>
                         </div>
                     </div>
                 </x-card>
@@ -76,7 +78,7 @@
                 <x-card>
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-lg font-semibold">Recent Transactions</h2>
-                        <x-button variant="ghost" size="sm" href="#">View All</x-button>
+                        <x-button variant="ghost" size="sm" href="{{ route('transactions.index') }}">View All</x-button>
                     </div>
 
                     <x-table>
@@ -92,8 +94,8 @@
                                 <tr class="hover:bg-canvas-subtle">
                                     <td class="px-4 py-3 text-sm">{{ $transaction->created_at->format('d M Y') }}</td>
                                     <td class="px-4 py-3 text-sm">{{ $transaction->type }}</td>
-                                    <td class="px-4 py-3 text-sm">{{ $transaction->currency ?? 'USD' }}</td>
-                                    <td class="px-4 py-3 text-sm">RM {{ number_format($transaction->amount, 2) }}</td>
+                                    <td class="px-4 py-3 text-sm">{{ $transaction->currency ?? $transaction->currency_code ?? 'MYR' }}</td>
+                                    <td class="px-4 py-3 text-sm">RM {{ number_format($transaction->amount_local ?? 0, 2) }}</td>
                                     <td class="px-4 py-3">
                                         <x-badge variant="success">Completed</x-badge>
                                     </td>
@@ -107,8 +109,8 @@
 
                 <x-card title="Compliance Summary">
                     <x-stat-grid cols="4">
-                        <x-stat-card label="Total Txns" :value="$stats['total_transactions'] ?? 24" />
-                        <x-stat-card label="Total Value" value="RM {{ number_format($stats['total_value'] ?? 156750, 2) }}" />
+                        <x-stat-card label="Total Txns" :value="$stats['total_transactions'] ?? 0" />
+                        <x-stat-card label="Total Value" value="RM {{ number_format($stats['total_value'] ?? 0, 2) }}" />
                         <x-stat-card label="Alerts" :value="$stats['alerts'] ?? 0" />
                         <x-stat-card label="STRs Filed" :value="$stats['str_filed'] ?? 0" />
                     </x-stat-grid>
@@ -125,11 +127,13 @@
                             <p class="text-sm text-ink-muted">No notes yet.</p>
                         @endforelse
                     </div>
-                    <form method="POST" action="{{ route('customers.notes.store', $customer) }}" class="mt-4">
-                        @csrf
-                        <x-textarea name="note" label="Add a note" rows="2" placeholder="Add a note...">{{ old('note') }}</x-textarea>
-                        <x-button type="submit" variant="primary" size="sm">Add Note</x-button>
-                    </form>
+                    @can('createNote', $customer)
+                        <form method="POST" action="{{ route('customers.notes.store', $customer) }}" class="mt-4">
+                            @csrf
+                            <x-textarea name="note" label="Add a note" rows="2" placeholder="Add a note...">{{ old('note') }}</x-textarea>
+                            <x-button type="submit" variant="primary" size="sm">Add Note</x-button>
+                        </form>
+                    @endcan
                 </x-card>
             </div>
         </div>

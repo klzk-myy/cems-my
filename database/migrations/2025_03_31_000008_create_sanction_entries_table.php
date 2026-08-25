@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('sanction_entries', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('list_id')->constrained('sanction_lists');
+            $table->foreignId('list_id')->constrained('sanction_lists')->restrictOnDelete();
             $table->string('entity_name', 255);
             $table->enum('entity_type', ['Individual', 'Organization', 'Vessel', 'Aircraft'])->default('Individual');
             $table->text('aliases')->nullable();

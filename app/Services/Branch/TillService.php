@@ -2,10 +2,12 @@
 
 namespace App\Services\Branch;
 
+use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Models\TillBalance;
 use App\Models\Transaction;
 use App\Services\System\MathService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -60,9 +62,19 @@ class TillService
     {
         $date = $date ?? now()->toDateString();
 
+        // Only Completed/Finalized transactions actually moved till cash (via
+        // applyTransaction). Counting cancelled, failed, or pending transactions
+        // would distort the expected closing balance and variance at close time.
         $netFlow = Transaction::where('till_id', $tillId)
             ->where('currency_code', $currencyCode)
-            ->whereDate('created_at', $date)
+            ->whereIn('status', [
+                TransactionStatus::Completed->value,
+                TransactionStatus::Finalized->value,
+            ])
+            ->whereBetween('created_at', [
+                Carbon::parse($date)->startOfDay(),
+                Carbon::parse($date)->endOfDay(),
+            ])
             ->selectRaw("SUM(CASE WHEN type='Buy' THEN amount_local ELSE -amount_local END) as net")
             ->value('net') ?? '0';
 
@@ -70,56 +82,86 @@ class TillService
     }
 
     /**
-     * Generate reconciliation data for a till.
+     * Generate reconciliation data for a till across all of its currency
+     * balances.
+     *
+     * A till has one TillBalance row per currency for the date, so the caller
+     * passes the full collection. The returned shape matches what
+     * resources/views/stock-cash/reconciliation.blade.php renders:
+     * opening_myr/opening_fcy/opener_name, a per-currency
+     * currency_reconciliation list (currency_code/expected/actual/variance),
+     * total_myr_variance/total_fcy_variance and is_balanced.
+     *
+     * @param  Collection<int, TillBalance>  $tillBalances
+     * @return array<string, mixed>
      */
-    public function generateReconciliation(TillBalance $tillBalance, Collection $transactions): array
+    public function generateReconciliation(Collection $tillBalances): array
     {
-        // Calculate summary statistics using MathService for precision
-        $buyAmount = $this->calculateTransactionSum($transactions, TransactionType::Buy);
-        $sellAmount = $this->calculateTransactionSum($transactions, TransactionType::Sell);
-        $netFlow = $this->mathService->subtract($buyAmount, $sellAmount);
+        $currencyReconciliation = $tillBalances->map(function (TillBalance $balance): array {
+            $expected = $this->expectedClosingForBalance($balance);
+            // Open tills have no closing count yet: display the expected value
+            // as the placeholder so variance reads zero until the till closes.
+            $actual = $balance->closing_balance !== null
+                ? (string) $balance->closing_balance
+                : $expected;
+            $variance = $this->mathService->subtract($actual, $expected);
 
-        $summary = [
-            'opening_balance' => $tillBalance->opening_balance,
-            'total_buy_count' => $transactions->where('type', TransactionType::Buy)->count(),
-            'total_buy_amount' => $buyAmount,
-            'total_sell_count' => $transactions->where('type', TransactionType::Sell)->count(),
-            'total_sell_amount' => $sellAmount,
-            'total_transactions' => $transactions->count(),
-            'net_flow' => $netFlow,
-        ];
+            return [
+                'currency_code' => $balance->currency_code,
+                'expected' => $expected,
+                'actual' => $actual,
+                'variance' => $variance,
+            ];
+        })->values()->all();
 
-        // Calculate expected closing balance
-        $expectedClosing = $this->calculateExpectedClosing(
-            (string) $tillBalance->opening_balance,
-            $netFlow
+        $myrBalance = $tillBalances->firstWhere('currency_code', 'MYR');
+        $fcyBalances = $tillBalances->reject(fn (TillBalance $balance) => $balance->currency_code === 'MYR');
+
+        $openingMyr = $myrBalance ? (string) $myrBalance->opening_balance : '0';
+        $openingFcy = $fcyBalances->reduce(
+            fn (string $carry, TillBalance $balance) => $this->mathService->add($carry, (string) $balance->opening_balance),
+            '0'
         );
 
-        // Get actual closing balance (if till is closed) - keep as string for precision
-        $actualClosing = $tillBalance->closing_balance
-            ? (string) $tillBalance->closing_balance
-            : null;
-
-        // Calculate variance
-        $variance = $actualClosing !== null
-            ? $this->calculateVariance($actualClosing, $expectedClosing)
-            : null;
+        $totalMyrVariance = '0';
+        $totalFcyVariance = '0';
+        foreach ($currencyReconciliation as $row) {
+            if ($row['currency_code'] === 'MYR') {
+                $totalMyrVariance = $this->mathService->add($totalMyrVariance, $row['variance']);
+            } else {
+                $totalFcyVariance = $this->mathService->add($totalFcyVariance, $row['variance']);
+            }
+        }
 
         return [
-            'opening_balance' => $summary['opening_balance'],
-            'purchases' => [
-                'count' => $summary['total_buy_count'],
-                'total' => $summary['total_buy_amount'],
-            ],
-            'sales' => [
-                'count' => $summary['total_sell_count'],
-                'total' => $summary['total_sell_amount'],
-            ],
-            'expected_closing' => $expectedClosing,
-            'actual_closing' => $actualClosing,
-            'variance' => $variance,
-            'is_closed' => $tillBalance->closed_at !== null,
+            'opening_myr' => $openingMyr,
+            'opening_fcy' => $openingFcy,
+            'opener_name' => ($myrBalance ?? $tillBalances->first())?->opener?->username,
+            'currency_reconciliation' => $currencyReconciliation,
+            'total_myr_variance' => $totalMyrVariance,
+            'total_fcy_variance' => $totalFcyVariance,
+            'is_balanced' => $this->mathService->compare($totalMyrVariance, '0') === 0
+                && $this->mathService->compare($totalFcyVariance, '0') === 0,
         ];
+    }
+
+    /**
+     * Expected closing balance for one till-balance row.
+     *
+     * MYR balances track net MYR movement in transaction_total (buys subtract,
+     * sells add). FCY balances track position in buy_total_foreign /
+     * sell_total_foreign (see TillBalance::getExpectedBalance()).
+     */
+    public function expectedClosingForBalance(TillBalance $balance): string
+    {
+        if ($balance->currency_code === 'MYR') {
+            return $this->mathService->add(
+                (string) $balance->opening_balance,
+                (string) ($balance->transaction_total ?? '0')
+            );
+        }
+
+        return $balance->getExpectedBalance();
     }
 
     /**

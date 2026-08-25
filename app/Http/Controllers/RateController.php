@@ -3,13 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\EnsuresManagerOrAdmin;
-use App\Http\Requests\CopyPreviousRateRequest;
 use App\Http\Requests\OverrideRateRequest;
 use App\Models\Branch;
 use App\Models\ExchangeRateHistory;
 use App\Models\User;
 use App\Services\Transaction\RateManagementService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -53,50 +51,11 @@ class RateController extends Controller
         ]);
     }
 
-    public function fetchFromApi(Request $request): JsonResponse
-    {
-        $user = Auth::user();
-
-        if ($response = $this->ensureManagerOrAdminResponse(fn () => response()->json([
-            'success' => false,
-            'message' => 'Only managers and admins can fetch rates from API',
-        ], 403))) {
-            return $response;
-        }
-
-        $branchId = $this->resolveBranchId($user, $request);
-
-        $result = $this->rateService->fetchAndStoreRates($user, $branchId);
-
-        return response()->json($result);
-    }
-
-    public function copyPrevious(CopyPreviousRateRequest $request): JsonResponse
-    {
-        $user = Auth::user();
-
-        if ($response = $this->ensureManagerOrAdminResponse(fn () => response()->json([
-            'success' => false,
-            'message' => 'Only managers and admins can copy previous rates',
-        ], 403))) {
-            return $response;
-        }
-
-        $validated = $request->validated();
-        $branchId = $this->resolveBranchId($user, $request);
-
-        $targetDate = $validated['date'] ?? now()->subDay()->toDateString();
-
-        $result = $this->rateService->copyPreviousRates($targetDate, $branchId);
-
-        return response()->json($result, $result['success'] ? 200 : 404);
-    }
-
     public function override(OverrideRateRequest $request): RedirectResponse
     {
         $user = Auth::user();
 
-        if (! $user->role->isManager() && ! $user->role->isAdmin()) {
+        if (! $user->isManager()) {
             abort(403, 'Only managers and admins can override rates');
         }
 
@@ -123,20 +82,6 @@ class RateController extends Controller
         }
 
         return back()->with('success', $result->message);
-    }
-
-    public function history(Request $request, string $currencyCode): JsonResponse
-    {
-        $user = Auth::user();
-        $branchId = $this->resolveBranchId($user, $request);
-        $days = $request->get('days', 30);
-
-        $histories = $this->rateService->getRateHistory($currencyCode, $days, $branchId);
-
-        return response()->json([
-            'success' => true,
-            'data' => $histories,
-        ]);
     }
 
     protected function resolveBranchId(User $user, Request $request): ?int

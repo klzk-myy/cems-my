@@ -12,7 +12,7 @@ class SanctionEntry extends BaseModel
 {
     use HasFactory, SoftDeletes;
 
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'list_id',
@@ -38,6 +38,7 @@ class SanctionEntry extends BaseModel
     protected $casts = [
         'date_of_birth' => 'date',
         'listing_date' => 'date',
+        'details' => 'array',
         'entity_type' => EntityType::class,
         'status' => SanctionStatus::class,
     ];
@@ -48,7 +49,7 @@ class SanctionEntry extends BaseModel
             'list_id' => $data['list_id'],
             'entity_name' => $data['entity_name'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
-            'aliases' => $data['aliases'] ?? null,
+            'aliases' => static::parseAliases($data['aliases'] ?? null),
             'nationality' => $data['nationality'] ?? null,
             'date_of_birth' => $data['date_of_birth'] ?? null,
             'reference_number' => $data['reference_number'] ?? null,
@@ -66,7 +67,7 @@ class SanctionEntry extends BaseModel
         $payload = [
             'entity_name' => $data['entity_name'] ?? null,
             'entity_type' => $data['entity_type'] ?? null,
-            'aliases' => $data['aliases'] ?? null,
+            'aliases' => static::parseAliases($data['aliases'] ?? null),
             'nationality' => $data['nationality'] ?? null,
             'date_of_birth' => $data['date_of_birth'] ?? null,
             'reference_number' => $data['reference_number'] ?? null,
@@ -87,6 +88,34 @@ class SanctionEntry extends BaseModel
         }
 
         return $payload;
+    }
+
+    public function toEntrySummaryArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'entity_name' => $this->entity_name,
+            'entity_type' => $this->entity_type,
+            'list' => $this->sanctionList ? [
+                'id' => $this->sanctionList->id,
+                'name' => $this->sanctionList->name,
+            ] : null,
+            'list_source' => $this->list_source,
+            'nationality' => $this->nationality,
+            'date_of_birth' => $this->date_of_birth?->format('Y-m-d'),
+            'reference_number' => $this->reference_number,
+            'status' => $this->status,
+            'listing_date' => $this->listing_date?->format('Y-m-d'),
+        ];
+    }
+
+    public static function parseAliases(?string $aliases): ?array
+    {
+        if ($aliases === null || trim($aliases) === '') {
+            return null;
+        }
+
+        return array_filter(array_map('trim', explode("\n", $aliases)));
     }
 
     public function sanctionList(): BelongsTo

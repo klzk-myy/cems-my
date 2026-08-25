@@ -64,7 +64,7 @@ return new class extends Migration
                 $table->unsignedInteger('success_count')->default(0);
                 $table->unsignedInteger('error_count')->default(0);
                 $table->json('error_details')->nullable();
-                $table->foreignId('imported_by')->nullable()->constrained('users');
+                $table->foreignId('imported_by')->nullable()->constrained('users')->restrictOnDelete();
                 $table->timestamp('imported_at')->nullable();
                 $table->timestamp('completed_at')->nullable();
                 $table->timestamps();

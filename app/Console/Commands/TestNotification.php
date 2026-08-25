@@ -44,8 +44,15 @@ class TestNotification extends Command
 
     public function handle(): int
     {
+        if (! app()->environment('local', 'testing')) {
+            $this->error('This command is only available in local/testing environments.');
+
+            return Command::FAILURE;
+        }
+
         $type = $this->argument('type');
-        $userId = $this->option('user');
+        $userOption = $this->option('user');
+        $userId = $userOption !== null ? (int) $userOption : null;
         $channel = $this->option('channel');
         $dryRun = $this->option('dry-run');
 

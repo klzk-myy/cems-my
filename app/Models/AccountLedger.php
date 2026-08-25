@@ -34,8 +34,6 @@ class AccountLedger extends AccountingModel
 
     protected $table = 'account_ledger';
 
-    protected $with = ['account'];
-
     protected $fillable = [
         'account_code',
         'branch_id',
@@ -80,5 +78,30 @@ class AccountLedger extends AccountingModel
     public function getNetAmount(): string
     {
         return app(MathService::class)->subtract((string) $this->debit, (string) $this->credit);
+    }
+
+    /**
+     * Scope rows to a date range (start inclusive, end inclusive).
+     */
+    public function scopeEntryDateBetween($query, ?string $startDate, ?string $endDate)
+    {
+        if ($startDate !== null) {
+            $query->whereDate('entry_date', '>=', $startDate);
+        }
+
+        if ($endDate !== null) {
+            $query->whereDate('entry_date', '<=', $endDate);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Scope rows to a branch, when provided.
+     * Nullable: skip the filter when branchId is null.
+     */
+    public function scopeWhereBranch($query, ?int $branchId)
+    {
+        return $branchId === null ? $query : $query->where('branch_id', $branchId);
     }
 }

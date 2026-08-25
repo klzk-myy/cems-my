@@ -10,6 +10,7 @@ use App\Services\System\RateLimitService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
@@ -32,25 +33,32 @@ class LoginController extends Controller
         $user = User::where('username', $validated['username'])->first();
 
         if ($user && $user->is_active && Hash::check($validated['password'], $user->password_hash)) {
-            Auth::login($user);
-            $request->session()->regenerate();
+            try {
+                DB::transaction(function () use ($user, $request) {
+                    Auth::login($user, (bool) $request->boolean('remember'));
+                    $request->session()->regenerate();
+                    $request->session()->put('last_activity', time());
+                    $user->update(['last_login_at' => now()]);
+                    $this->rateLimitService->clearFailedAttempts($request->ip());
+                });
 
-            // Initialize session timeout tracking
-            $request->session()->put('last_activity', time());
+                $this->auditService->logWithSeverity('login', [
+                    'user_id' => $user->id,
+                    'new_values' => ['message' => 'User logged in successfully'],
+                ], 'INFO');
 
-            // Update last login timestamp
-            $user->update(['last_login_at' => now()]);
+                // BNM password policy: force rotation when the password has
+                // expired (or was never stamped).
+                if ($user->passwordExpired()) {
+                    return redirect()
+                        ->route('password.change')
+                        ->with('warning', 'Your password has expired and must be changed before continuing.');
+                }
 
-            // Clear any previous failed login attempts for this IP
-            $this->rateLimitService->clearFailedAttempts($request->ip());
-
-            // Log successful login
-            $this->auditService->logWithSeverity('login', [
-                'user_id' => $user->id,
-                'new_values' => ['message' => 'User logged in successfully'],
-            ], 'INFO');
-
-            return redirect()->intended('/dashboard');
+                return redirect()->intended('/dashboard');
+            } catch (\Throwable $e) {
+                \Log::error('Login transaction failed', ['user_id' => $user->id, 'error' => $e->getMessage()]);
+            }
         }
 
         // Record failed login attempt for IP-based auto-blocking
@@ -90,5 +98,42 @@ class LoginController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+    }
+
+    /**
+     * Forced change-password form shown after login when the password has
+     * expired under the BNM rotation policy.
+     */
+    public function showChangePassword(): View
+    {
+        return view('auth.change-password');
+    }
+
+    public function changePassword(Request $request): RedirectResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'current_password' => ['required'],
+            'password' => ['required', 'confirmed', 'min:12', 'different:current_password'],
+        ], [
+            'password.min' => 'The new password must be at least 12 characters.',
+        ]);
+
+        if (! Hash::check($validated['current_password'], $user->password_hash)) {
+            return back()->withErrors(['current_password' => 'The current password is incorrect.']);
+        }
+
+        $user->password = $validated['password']; // mutator hashes + stamps password_changed_at
+        $user->save();
+
+        $this->auditService->logWithSeverity('password_changed_forced_rotation', [
+            'user_id' => $user->id,
+            'entity_type' => 'User',
+            'entity_id' => $user->id,
+        ], 'INFO');
+
+        return redirect('/dashboard')->with('success', 'Password updated successfully.');
     }
 }

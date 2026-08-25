@@ -41,37 +41,49 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('/user', CurrentUserController::class)->name('api.v1.user');
+    Route::get('/user', CurrentUserController::class)
+        ->middleware('throttle:60,1')
+        ->name('api.v1.user');
 
     Route::middleware(['branch.scope'])->group(function () {
         // Transactions API
         Route::get('/transactions', [TransactionController::class, 'index'])
+            ->middleware('throttle:60,1') // 60 requests per minute per user
             ->name('api.v1.transactions.index');
         Route::post('/transactions', [TransactionController::class, 'store'])
-            ->middleware('mfa.verified') // MFA required for transaction creation (BNM compliance)
+            ->middleware(['mfa.verified', 'throttle:10,1']) // 10 requests per minute per user
             ->name('api.v1.transactions.store');
         Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])
+            ->middleware('throttle:60,1')
             ->name('api.v1.transactions.show');
         Route::post('/transactions/{transaction}/approve', [TransactionApprovalController::class, 'approve'])
-            ->middleware(['role:manager', 'mfa.verified'])
+            ->middleware(['role:manager', 'mfa.verified', 'throttle:20,1'])
             ->name('api.v1.transactions.approve');
+        Route::post('/transactions/{transaction}/reject', [TransactionApprovalController::class, 'reject'])
+            ->middleware(['role:manager', 'mfa.verified', 'throttle:20,1'])
+            ->name('api.v1.transactions.reject');
         Route::post('/transactions/{transaction}/request-cancellation', [TransactionCancellationController::class, 'requestCancellation'])
-            ->middleware(['role:manager', 'mfa.verified'])
+            ->middleware(['role:manager', 'mfa.verified', 'throttle:10,1'])
             ->name('api.v1.transactions.request-cancellation');
         Route::post('/transactions/{transaction}/approve-cancellation', [TransactionCancellationController::class, 'approveCancellation'])
-            ->middleware(['role:manager,compliance', 'mfa.verified'])
+            ->middleware(['role:manager,compliance', 'mfa.verified', 'throttle:5,1'])
             ->name('api.v1.transactions.approve-cancellation');
         Route::post('/transactions/{transaction}/reject-cancellation', [TransactionCancellationController::class, 'rejectCancellation'])
-            ->middleware(['role:manager,compliance', 'mfa.verified'])
+            ->middleware(['role:manager,compliance', 'mfa.verified', 'throttle:10,1'])
             ->name('api.v1.transactions.reject-cancellation');
 
         // Transaction Wizard API
-        Route::prefix('wizard/transactions')->middleware('role:teller')->group(function () {
+        // step1/step2 stay pre-transaction (customer data + document
+        // collection, no records created). step3 performs the full transaction
+        // creation and therefore requires the same mfa.verified gate as the
+        // direct POST /transactions endpoint.
+        Route::prefix('wizard/transactions')->middleware(['role:teller', 'throttle:30,1'])->group(function () {
             Route::post('/step1', [TransactionWizardController::class, 'step1'])
                 ->name('api.v1.wizard.transactions.step1');
             Route::post('/step2', [TransactionWizardController::class, 'step2'])
                 ->name('api.v1.wizard.transactions.step2');
             Route::post('/step3', [TransactionWizardController::class, 'step3'])
+                ->middleware('mfa.verified')
                 ->name('api.v1.wizard.transactions.step3');
             Route::get('/{sessionId}/status', [TransactionWizardController::class, 'status'])
                 ->name('api.v1.wizard.transactions.status');
@@ -81,32 +93,33 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         // Customers API
         Route::get('/customers', [CustomerController::class, 'index'])
+            ->middleware('throttle:60,1')
             ->name('api.v1.customers.index');
         Route::get('/customers/search', [CustomerController::class, 'searchForTransaction'])
+            ->middleware('throttle:20,1')
             ->name('api.v1.customers.search');
         Route::post('/customers', [CustomerController::class, 'store'])
-            ->middleware('throttle:30,1') // 30 requests per minute
+            ->middleware('throttle:10,1') // 10 requests per minute
             ->name('api.v1.customers.store');
         Route::get('/customers/{customer}', [CustomerController::class, 'show'])
+            ->middleware('throttle:60,1')
             ->name('api.v1.customers.show');
         Route::put('/customers/{customer}', [CustomerController::class, 'update'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:15,1')
             ->name('api.v1.customers.update');
         Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])
-            ->middleware('throttle:15,1') // Stricter limit for destructive operation
+            ->middleware('throttle:10,1') // Stricter limit for destructive operation
             ->name('api.v1.customers.destroy');
         Route::get('/customers/{customer}/history', [CustomerController::class, 'customerHistory'])
+            ->middleware('throttle:30,1')
             ->name('api.v1.customers.history');
         Route::post('/customers/{customer}/kyc', [CustomerController::class, 'uploadDocument'])
-            ->middleware('throttle:30,1')
+            ->middleware('throttle:15,1')
             ->name('api.v1.customers.kyc');
 
-        // Sanctions API - Admin only for upload
+        // Sanctions API
         Route::post('/sanctions/search', [SanctionController::class, 'search'])
             ->name('api.v1.sanctions.search');
-        Route::post('/sanctions/upload', [SanctionController::class, 'upload'])
-            ->middleware('role:admin')
-            ->name('api.v1.sanctions.upload');
 
         // Reports API
         Route::prefix('reports')->middleware('role:manager,admin')->group(function () {
@@ -295,16 +308,22 @@ Route::middleware(['auth:sanctum'])->group(function () {
         // Exchange Rates API - Manager/Admin only for modifications
         Route::prefix('rates')->group(function () {
             Route::get('/', [RateController::class, 'index'])
+                ->middleware('role:manager,admin')
                 ->name('api.v1.rates.index');
             Route::get('/summary', [RateController::class, 'summary'])
+                ->middleware('role:manager,admin')
                 ->name('api.v1.rates.summary');
             Route::get('/dates', [RateController::class, 'availableDates'])
+                ->middleware('role:manager,admin')
                 ->name('api.v1.rates.dates');
             Route::get('/history/{currencyCode}', [RateController::class, 'history'])
+                ->middleware('role:manager,admin')
                 ->name('api.v1.rates.history');
             Route::get('/check', [RateController::class, 'checkSet'])
+                ->middleware('role:manager,admin')
                 ->name('api.v1.rates.check');
             Route::get('/{currencyCode}', [RateController::class, 'show'])
+                ->middleware('role:manager,admin')
                 ->name('api.v1.rates.show');
             Route::post('/fetch', [RateController::class, 'fetchFromApi'])
                 ->middleware('role:manager,admin')
@@ -316,6 +335,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
                 ->middleware('role:manager,admin')
                 ->name('api.v1.rates.override');
             Route::post('/validate', [RateController::class, 'validateRate'])
+                ->middleware('role:teller,manager,admin')
                 ->name('api.v1.rates.validate');
         });
 

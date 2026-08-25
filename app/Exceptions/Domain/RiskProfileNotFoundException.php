@@ -8,4 +8,9 @@ class RiskProfileNotFoundException extends DomainException
     {
         parent::__construct("Risk profile not found for customer ID: {$customerId}");
     }
+
+    public function getStatusCode(): int
+    {
+        return 404;
+    }
 }

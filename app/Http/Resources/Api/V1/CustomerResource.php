@@ -45,9 +45,18 @@ class CustomerResource extends JsonResource
             'rejection_reason' => $this->rejection_reason,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-            'documents' => $this->whenLoaded('documents'),
-            'transactions' => $this->whenLoaded('transactions'),
-            'latest_risk_snapshot' => $this->whenLoaded('latestRiskSnapshot'),
+            'documents' => $this->whenLoaded(
+                'documents',
+                fn () => CustomerDocumentResource::collection($this->documents)
+            ),
+            'transactions' => $this->whenLoaded(
+                'transactions',
+                fn () => CustomerTransactionResource::collection($this->transactions)
+            ),
+            'latest_risk_snapshot' => $this->whenLoaded(
+                'latestRiskSnapshot',
+                fn () => new CustomerRiskSnapshotResource($this->latestRiskSnapshot)
+            ),
         ];
     }
 }

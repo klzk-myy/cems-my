@@ -4,8 +4,9 @@ namespace App\Services\System;
 
 use App\Enums\SystemAlertLevel;
 use App\Models\SystemAlert;
+use App\Notifications\SystemAlertNotification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class SystemAlertService
 {
@@ -18,24 +19,23 @@ class SystemAlertService
      */
     public function send(string $message, string $level = SystemAlertLevel::Info->value, array $options = []): SystemAlert
     {
-        // Create alert in database
-        $alert = SystemAlert::create([
-            'level' => $level,
-            'message' => $message,
-            'source' => $options['source'] ?? null,
-            'metadata' => $options['metadata'] ?? null,
-            'created_at' => now(),
-        ]);
+        return DB::transaction(function () use ($message, $level, $options) {
+            $alert = SystemAlert::create([
+                'level' => $level,
+                'message' => $message,
+                'source' => $options['source'] ?? null,
+                'metadata' => $options['metadata'] ?? null,
+                'created_at' => now(),
+            ]);
 
-        // Send email for warning and critical alerts
-        if (in_array($level, [SystemAlertLevel::Warning->value, SystemAlertLevel::Critical->value])) {
-            $this->sendEmail($alert, $options);
-        }
+            if (in_array($level, [SystemAlertLevel::Warning->value, SystemAlertLevel::Critical->value])) {
+                $this->sendEmail($alert, $options);
+            }
 
-        // Log the alert
-        $this->logAlert($alert);
+            $this->logAlert($alert);
 
-        return $alert;
+            return $alert;
+        });
     }
 
     /**
@@ -70,6 +70,13 @@ class SystemAlertService
         try {
             $recipients = $options['recipients'] ?? $this->getDefaultRecipients();
 
+            // Defensive: strip empty entries so a blank SYSTEM_ALERT_RECIPIENTS
+            // or caller-supplied empties never mail a blank address.
+            $recipients = array_values(array_filter(
+                (array) $recipients,
+                fn ($recipient) => is_string($recipient) && trim($recipient) !== ''
+            ));
+
             if (empty($recipients)) {
                 Log::warning('No recipients configured for alerts');
 
@@ -79,19 +86,12 @@ class SystemAlertService
             $subject = $this->buildEmailSubject($alert);
             $body = $this->buildEmailBody($alert);
 
-            foreach ($recipients as $recipient) {
-                Mail::raw($body, function ($message) use ($recipient, $subject, $alert) {
-                    $message->to($recipient)
-                        ->subject($subject);
+            NotificationDispatcher::dispatchToAll(
+                collect($recipients),
+                new SystemAlertNotification($alert),
+                ['mail']
+            );
 
-                    // Set priority for critical alerts
-                    if ($alert->level === SystemAlertLevel::Critical->value) {
-                        $message->priority(1);
-                    }
-                });
-            }
-
-            // Update metadata with email sent status
             $metadata = $alert->metadata ?? [];
             $metadata['email_sent'] = true;
             $metadata['email_sent_at'] = now()->toIso8601String();
@@ -114,14 +114,14 @@ class SystemAlertService
      */
     protected function logAlert(SystemAlert $alert): void
     {
-        $logMessage = "[ALERT: {$alert->level}] {$alert->message}";
+        $logMessage = '[ALERT: '.$alert->level->value.'] '.$alert->message;
 
         match ($alert->level) {
-            SystemAlertLevel::Critical->value => Log::critical($logMessage, [
+            SystemAlertLevel::Critical => Log::critical($logMessage, [
                 'alert_id' => $alert->id,
                 'source' => $alert->source,
             ]),
-            SystemAlertLevel::Warning->value => Log::warning($logMessage, [
+            SystemAlertLevel::Warning => Log::warning($logMessage, [
                 'alert_id' => $alert->id,
                 'source' => $alert->source,
             ]),
@@ -152,8 +152,8 @@ class SystemAlertService
     protected function buildEmailSubject(SystemAlert $alert): string
     {
         $prefix = match ($alert->level) {
-            SystemAlertLevel::Critical->value => '[CRITICAL]',
-            SystemAlertLevel::Warning->value => '[WARNING]',
+            SystemAlertLevel::Critical => '[CRITICAL]',
+            SystemAlertLevel::Warning => '[WARNING]',
             default => '[INFO]',
         };
 
@@ -167,12 +167,12 @@ class SystemAlertService
      */
     protected function buildEmailBody(SystemAlert $alert): string
     {
-        $appName = config('app.name', 'CEMS-MY');
-        $url = config('app.url', 'http://localhost');
-        $source = $alert->source ?? 'N/A';
-        $level = $alert->level;
+        $appName = htmlspecialchars(config('app.name', 'CEMS-MY'), ENT_QUOTES, 'UTF-8');
+        $url = htmlspecialchars(config('app.url', 'http://localhost'), ENT_QUOTES, 'UTF-8');
+        $source = htmlspecialchars($alert->source ?? 'N/A', ENT_QUOTES, 'UTF-8');
+        $level = htmlspecialchars($alert->level->value, ENT_QUOTES, 'UTF-8');
         $time = $alert->created_at->format('Y-m-d H:i:s');
-        $message = $alert->message;
+        $message = htmlspecialchars($alert->message, ENT_QUOTES, 'UTF-8');
         $alertId = $alert->id;
 
         $body = <<<EOT
@@ -192,7 +192,7 @@ EOT;
             $body .= "\nDetails:\n";
             foreach ($alert->metadata as $key => $value) {
                 if (! in_array($key, ['email_sent', 'email_sent_at', 'email_recipients'])) {
-                    $body .= "  {$key}: ".json_encode($value)."\n";
+                    $body .= '  '.htmlspecialchars((string) $key, ENT_QUOTES, 'UTF-8').': '.htmlspecialchars(json_encode($value), ENT_QUOTES, 'UTF-8')."\n";
                 }
             }
         }

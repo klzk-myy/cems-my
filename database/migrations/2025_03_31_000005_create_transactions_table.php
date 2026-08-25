@@ -45,7 +45,7 @@ return new class extends Migration
             $table->index(['type', 'currency_code']);
             $table->index('created_at');
             $table->index('amount_local');
-            $table->foreign('currency_code')->references('code')->on('currencies');
+            $table->foreign('currency_code')->references('code')->on('currencies')->restrictOnDelete();
         });
     }
 

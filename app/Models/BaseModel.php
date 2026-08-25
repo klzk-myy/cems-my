@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 abstract class BaseModel extends Model
 {
-    // Intentionally thin. Only universally shared defaults (e.g. date format,
-    // future UUID/ULID handling) belong here. Business logic lives in traits.
+    /**
+     * Defensive mass-assignment guard.
+     * Forces every concrete model to declare $fillable explicitly.
+     * Adding a new model without $fillable will now fail loudly.
+     */
+    protected $guarded = ['*'];
 }

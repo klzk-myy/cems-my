@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('bank_reconciliations', function (Blueprint $table) {
             $table->id();
             $table->string('account_code', 20); // Cash account being reconciled
-            $table->foreign('account_code')->references('account_code')->on('chart_of_accounts');
+            $table->foreign('account_code')->references('account_code')->on('chart_of_accounts')->restrictOnDelete();
             $table->date('statement_date');
             $table->string('reference', 50)->nullable(); // Statement reference
             $table->text('description');

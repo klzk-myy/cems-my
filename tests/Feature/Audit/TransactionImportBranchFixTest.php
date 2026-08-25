@@ -16,13 +16,17 @@ class TransactionImportBranchFixTest extends TestCase
 
         $content = file_get_contents($file);
         $this->assertStringContainsString(
-            'CurrencyPositionLockService',
+            'createForImport',
             $content,
-            'Should use CurrencyPositionLockService for stock check'
+            'Should delegate stock check to TransactionCreationService'
         );
+
+        $creationFile = base_path('app/Services/Transaction/TransactionCreationService.php');
+        $this->assertFileExists($creationFile);
+        $creationContent = file_get_contents($creationFile);
         $this->assertStringContainsString(
             '$tillBalance->branch_id',
-            $content,
+            $creationContent,
             'Should use $tillBalance->branch_id for position lookup'
         );
     }

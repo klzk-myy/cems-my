@@ -10,11 +10,11 @@
         </x-page-header>
 
         @if ($trialBalance['is_balanced'])
-            <x-alert type="success" title="✓ Trial Balance is balanced">
+            <x-alert type="success" title="Trial Balance is balanced">
                 Total Debits: RM {{ number_format((float) $trialBalance['total_debits'], 2) }} | Total Credits: RM {{ number_format((float) $trialBalance['total_credits'], 2) }}
             </x-alert>
         @else
-            <x-alert type="error" title="✗ Trial Balance is NOT balanced">
+            <x-alert type="error" title="Trial Balance is NOT balanced">
                 Difference: RM {{ number_format((float) $trialBalance['total_balance'], 2) }}
             </x-alert>
         @endif

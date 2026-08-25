@@ -50,7 +50,7 @@ class PerformanceBaselineServiceTest extends TestCase
 
         $service->setBaseline(['response_time_ms' => 150]);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue(true);
     }
 
     #[Test]

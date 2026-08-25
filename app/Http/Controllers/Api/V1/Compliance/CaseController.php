@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Compliance;
 
 use App\Enums\CaseNoteType;
 use App\Enums\CaseResolution;
+use App\Enums\ComplianceCasePriority;
 use App\Enums\ComplianceCaseType;
 use App\Enums\FindingSeverity;
 use App\Http\Controllers\Api\V1\Traits\ApiResponse;
@@ -32,6 +33,8 @@ class CaseController extends Controller
      */
     public function index(CaseIndexRequest $request): CaseCollection
     {
+        $this->authorize('viewAny', ComplianceCase::class);
+
         $query = ComplianceCase::with(['customer', 'assignee']);
 
         if ($request->filled('status')) {
@@ -47,7 +50,7 @@ class CaseController extends Controller
             $query->where('assigned_to', $request->input('assigned_to'));
         }
 
-        $perPage = $request->get('per_page', 20);
+        $perPage = min(100, max(1, (int) $request->get('per_page', 20)));
         $cases = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return $this->resourceWithSuccess(new CaseCollection($cases), 'Cases retrieved successfully.');
@@ -61,6 +64,8 @@ class CaseController extends Controller
         $case = ComplianceCase::with(['customer', 'assignee', 'notes.author', 'documents'])
             ->findOrFail($id);
 
+        $this->authorize('view', $case);
+
         return $this->successResponse($case, 'Case retrieved successfully.');
     }
 
@@ -69,6 +74,8 @@ class CaseController extends Controller
      */
     public function store(StoreCaseRequest $request): JsonResponse
     {
+        $this->authorize('create', ComplianceCase::class);
+
         $validated = $request->validated();
 
         if (! empty($validated['finding_id'])) {
@@ -80,9 +87,12 @@ class CaseController extends Controller
                 summary: $validated['summary'] ?? null
             );
         } else {
+            // Without a finding, a customer must be provided. The request
+            // validation enforces required_without, but guard here too so a 0
+            // (which violates the customers FK) can never reach the service.
             $case = $this->caseService->createManualCase(
                 caseType: ComplianceCaseType::from($validated['case_type']),
-                customerId: $validated['customer_id'] ?? 0,
+                customerId: $validated['customer_id'],
                 assignedTo: $validated['assigned_to'],
                 severity: FindingSeverity::from($validated['severity'] ?? 'Medium'),
                 summary: $validated['summary'] ?? null
@@ -101,6 +111,8 @@ class CaseController extends Controller
 
         $case = ComplianceCase::findOrFail($id);
 
+        $this->authorize('update', $case);
+
         if (! empty($validated['assigned_to'])) {
             $this->caseService->assignCase($case, $validated['assigned_to']);
         }
@@ -110,7 +122,10 @@ class CaseController extends Controller
         }
 
         if (! empty($validated['priority'])) {
-            $case->update(['priority' => $validated['priority']]);
+            // Convert to the enum before persisting: the priority cast is
+            // ComplianceCasePriority, and writing the raw string would raise a
+            // ValueError inside the cast on the next read.
+            $case->update(['priority' => ComplianceCasePriority::from($validated['priority'])]);
         }
 
         return $this->successResponse($case->fresh(), 'Case updated successfully.');
@@ -124,6 +139,8 @@ class CaseController extends Controller
         $validated = $request->validated();
 
         $case = ComplianceCase::findOrFail($id);
+
+        $this->authorize('addNote', $case);
 
         $note = $this->caseService->addNote(
             case: $case,
@@ -145,6 +162,8 @@ class CaseController extends Controller
 
         $case = ComplianceCase::findOrFail($id);
 
+        $this->authorize('update', $case);
+
         $case = $this->caseService->closeCase(
             case: $case,
             resolution: CaseResolution::from($validated['resolution']),
@@ -160,6 +179,7 @@ class CaseController extends Controller
     public function escalate(int $id): JsonResponse
     {
         $case = ComplianceCase::findOrFail($id);
+        $this->authorize('update', $case);
         $case = $this->caseService->escalateCase($case);
 
         return $this->successResponse($case, 'Case escalated successfully.');

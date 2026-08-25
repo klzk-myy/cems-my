@@ -21,6 +21,7 @@ class EnhancedChartOfAccountsSeeder extends Seeder
         $this->createExpenseAccounts();
         $this->createIncomeSummaryAccounts();
         $this->createOtherAssets();
+        $this->createOffBalanceAccounts();
     }
 
     private function createCashAccounts(): void
@@ -282,6 +283,31 @@ class EnhancedChartOfAccountsSeeder extends Seeder
         ];
 
         foreach ($assets as $account) {
+            ChartOfAccount::firstOrCreate(
+                ['account_code' => $account['account_code']],
+                $account
+            );
+        }
+    }
+
+    private function createOffBalanceAccounts(): void
+    {
+        $finCc = CostCenter::where('code', 'FIN-001')->first();
+
+        $accounts = [
+            ['account_code' => '9001', 'account_name' => 'Spot Contracts - USD', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9002', 'account_name' => 'Spot Contracts - EUR', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9003', 'account_name' => 'Spot Contracts - GBP', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9004', 'account_name' => 'Spot Contracts - SGD', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9101', 'account_name' => 'Forward Contracts - USD', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9102', 'account_name' => 'Forward Contracts - EUR', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9103', 'account_name' => 'Forward Contracts - GBP', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9200', 'account_name' => 'Contingent Letters of Credit', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9201', 'account_name' => 'Guarantees Given', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+            ['account_code' => '9202', 'account_name' => 'Guarantees Received', 'account_type' => 'OffBalance', 'account_class' => 'Off-Balance', 'cost_center_id' => $finCc?->id],
+        ];
+
+        foreach ($accounts as $account) {
             ChartOfAccount::firstOrCreate(
                 ['account_code' => $account['account_code']],
                 $account

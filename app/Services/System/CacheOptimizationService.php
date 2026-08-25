@@ -2,6 +2,7 @@
 
 namespace App\Services\System;
 
+use Illuminate\Cache\TaggableStore;
 use Illuminate\Support\Facades\Cache;
 
 class CacheOptimizationService
@@ -13,10 +14,19 @@ class CacheOptimizationService
 
     /**
      * Remember a value by key with tags and TTL, tracking hits/misses.
+     *
+     * Falls back to untagged caching when the active store does not support
+     * tags (e.g. the file driver), otherwise Cache::tags() would throw a
+     * BadMethodCallException on every dashboard read.
      */
-    public function remember(string $key, int $ttl, array $tags, \Closure $callback)
+    public function remember(string $key, int $ttl, array $tags, \Closure $callback): mixed
     {
-        $cache = Cache::tags($tags);
+        if (Cache::getStore() instanceof TaggableStore) {
+            $cache = Cache::tags($tags);
+        } else {
+            $cache = Cache::store();
+        }
+
         if ($cache->has($key)) {
             $this->stats['hits']++;
 

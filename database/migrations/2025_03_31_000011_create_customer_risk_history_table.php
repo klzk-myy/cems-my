@@ -10,13 +10,13 @@ return new class extends Migration
     {
         Schema::create('customer_risk_history', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('customer_id')->constrained();
+            $table->foreignId('customer_id')->constrained()->restrictOnDelete();
             $table->integer('old_score')->nullable();
             $table->integer('new_score');
             $table->enum('old_rating', ['Low', 'Medium', 'High'])->nullable();
             $table->enum('new_rating', ['Low', 'Medium', 'High']);
             $table->text('change_reason');
-            $table->foreignId('assessed_by')->nullable()->constrained('users');
+            $table->foreignId('assessed_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamps();
             $table->index(['customer_id', 'created_at']);
         });

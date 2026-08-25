@@ -23,7 +23,6 @@ class ReportRun extends BaseModel
         'generated_by',
         'row_count',
         'error_message',
-        'downloaded_count',
     ];
 
     protected $casts = [
@@ -32,7 +31,6 @@ class ReportRun extends BaseModel
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
         'row_count' => 'integer',
-        'downloaded_count' => 'integer',
         'report_type' => ReportType::class,
     ];
 

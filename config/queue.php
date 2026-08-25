@@ -131,7 +131,7 @@ return [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
         'database' => env('DB_CONNECTION', 'mysql'),
         'table' => 'failed_jobs',
-        'expire' => 43200,
+        'expire' => 10080,
     ],
 
 ];

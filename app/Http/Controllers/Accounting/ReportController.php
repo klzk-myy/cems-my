@@ -8,14 +8,18 @@ use App\Http\Requests\Accounting\LedgerRequest;
 use App\Http\Requests\Accounting\ProfitLossRequest;
 use App\Http\Requests\Accounting\TrialBalanceRequest;
 use App\Models\ChartOfAccount;
+use App\Services\Accounting\CashFlowService;
 use App\Services\Accounting\LedgerService;
+use App\Services\System\MathService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class ReportController extends Controller
 {
     public function __construct(
+        protected CashFlowService $cashFlowService,
         protected LedgerService $ledgerService,
+        protected MathService $mathService,
     ) {}
 
     public function ledger(LedgerRequest $request): View
@@ -38,6 +42,17 @@ class ReportController extends Controller
 
     public function ledgerAccount(Request $request, string $accountCode): View
     {
+        $this->requireManagerOrAdmin();
+
+        if (! preg_match('/^\d{4,6}$/', $accountCode)) {
+            abort(422, 'Invalid account code format.');
+        }
+
+        $account = ChartOfAccount::where('account_code', $accountCode)->first();
+        if (! $account) {
+            abort(404, 'Account not found.');
+        }
+
         $from = $request->input('from', now()->startOfMonth()->toDateString());
         $to = $request->input('to', now()->toDateString());
 
@@ -78,13 +93,62 @@ class ReportController extends Controller
         return view('accounting.reports.balance-sheet', compact('balanceSheet', 'asOfDate'));
     }
 
-    public function cashFlow(): View
+    public function cashFlow(Request $request): View
     {
-        return view('accounting.reports.cash-flow');
+        $this->requireManagerOrAdmin();
+
+        $from = $request->input('from', now()->startOfMonth()->toDateString());
+        $to = $request->input('to', now()->toDateString());
+
+        $data = $this->cashFlowService->getCashFlow($from, $to);
+
+        return view('accounting.reports.cash-flow', compact('data', 'from', 'to'));
     }
 
-    public function ratios(): View
+    public function ratios(Request $request): View
     {
-        return view('accounting.reports.ratios');
+        $this->requireManagerOrAdmin();
+
+        $asOfDate = $request->input('as_of_date', now()->toDateString());
+        $trialBalance = $this->ledgerService->getTrialBalance($asOfDate);
+
+        $accounts = collect($trialBalance['accounts'] ?? []);
+
+        $totalAssets = '0';
+        $totalLiabilities = '0';
+        $currentAssets = '0';
+        $currentLiabilities = '0';
+
+        foreach ($accounts as $account) {
+            $balance = (string) ($account['balance'] ?? '0');
+            $type = $account['type'] ?? '';
+            $category = $account['category'] ?? $account['account_type'] ?? '';
+
+            if ($type === 'Asset' || str_starts_with($category, 'Asset')) {
+                $totalAssets = $this->mathService->add($totalAssets, $balance);
+                if (str_contains(strtolower($account['account_code'] ?? ''), '1')) {
+                    $currentAssets = $this->mathService->add($currentAssets, $balance);
+                }
+            }
+            if ($type === 'Liability' || str_starts_with($category, 'Liability')) {
+                $totalLiabilities = $this->mathService->add($totalLiabilities, $balance);
+                $currentLiabilities = $this->mathService->add($currentLiabilities, $balance);
+            }
+        }
+
+        $ratios = [
+            'current_ratio' => $this->mathService->compare($currentLiabilities, '0') > 0
+                ? $this->mathService->divide($currentAssets, $currentLiabilities)
+                : 'N/A',
+            'debt_ratio' => $this->mathService->compare($totalAssets, '0') > 0
+                ? $this->mathService->divide($totalLiabilities, $totalAssets)
+                : 'N/A',
+            'total_assets' => $totalAssets,
+            'total_liabilities' => $totalLiabilities,
+            'current_assets' => $currentAssets,
+            'current_liabilities' => $currentLiabilities,
+        ];
+
+        return view('accounting.reports.ratios', compact('ratios', 'trialBalance', 'asOfDate'));
     }
 }

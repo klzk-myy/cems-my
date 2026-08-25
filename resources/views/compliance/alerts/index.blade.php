@@ -1,5 +1,5 @@
 <x-app-layout title="Compliance Alerts">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Compliance Alerts"
             description="Monitor and manage compliance alerts"
@@ -20,7 +20,7 @@
                     @forelse($alerts as $alert)
                         <tr>
                             <td class="px-4 py-3 text-sm text-ink">{{ $alert->id }}</td>
-                            <td class="px-4 py-3 text-sm text-ink">{{ $alert->type ?? 'N/A' }}</td>
+                            <td class="px-4 py-3 text-sm text-ink">{{ $alert->type?->label() ?? 'N/A' }}</td>
                             <td class="px-4 py-3 text-sm">
                                 <x-badge
                                     :variant="match (strtolower($alert->priority?->value ?? 'medium')) {
@@ -31,7 +31,7 @@
                                         default => 'gray',
                                     }"
                                 >
-                                    {{ $alert->priority?->value ?? 'medium' }}
+                                    {{ $alert->priority?->label() ?? 'Medium' }}
                                 </x-badge>
                             </td>
                             <td class="px-4 py-3 text-sm text-ink-muted">{{ $alert->reason ?? $alert->description ?? 'N/A' }}</td>
@@ -45,7 +45,7 @@
                                         default => 'info',
                                     }"
                                 >
-                                    {{ $alert->status?->value ?? 'open' }}
+                                    {{ $alert->status?->label() ?? 'Open' }}
                                 </x-badge>
                             </td>
                             <td class="px-4 py-3 text-sm">

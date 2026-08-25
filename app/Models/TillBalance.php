@@ -8,6 +8,12 @@ use App\Services\System\MathService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property-read Currency|null $currency
+ * @property-read User|null $opener
+ * @property-read User|null $closer
+ * @property-read Counter|null $counter
+ */
 class TillBalance extends BaseModel
 {
     use BelongsToBranch, HasFactory;
@@ -18,7 +24,6 @@ class TillBalance extends BaseModel
         'till_id',
         'currency_code',
         'branch_id',
-        'teller_allocation_id',
         'opening_balance',
         'closing_balance',
         'variance',
@@ -50,16 +55,19 @@ class TillBalance extends BaseModel
         return $this->belongsTo(Currency::class, 'currency_code');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function opener(): BelongsTo
     {
         return $this->belongsTo(User::class, 'opened_by');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function closer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'closed_by');
     }
 
+    /** @return BelongsTo<Counter, $this> */
     public function counter(): BelongsTo
     {
         return $this->belongsTo(Counter::class, 'till_id', 'code');

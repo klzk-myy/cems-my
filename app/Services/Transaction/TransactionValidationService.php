@@ -6,6 +6,7 @@ use App\Exceptions\Domain\InvalidCurrencyException;
 use App\Exceptions\Domain\InvalidIpAddressException;
 use App\Exceptions\Domain\PepApprovalRequiredException;
 use App\Exceptions\Domain\TillBalanceMissingException;
+use App\Exceptions\Domain\TransactionValidationException;
 use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\Customer;
@@ -35,6 +36,8 @@ class TransactionValidationService implements TransactionValidationInterface
         protected HistoricalRiskAnalysisService $historicalRiskAnalysisService,
         protected AuditService $auditService,
         protected TransactionHoldServiceInterface $holdService,
+        protected TillBalanceManager $tillBalanceManager,
+        protected IpValidationService $ipValidationService,
     ) {}
 
     public function validateCurrency(string $currencyCode): void
@@ -50,15 +53,24 @@ class TransactionValidationService implements TransactionValidationInterface
 
     public function validateTillBalance(string $tillId, string $currencyCode): TillBalance
     {
-        $counter = Counter::where('code', $tillId)
-            ->orWhere('id', $tillId)
-            ->first();
+        $counter = Counter::findByCodeOrId($tillId);
 
         if (! $counter) {
             throw new TillBalanceMissingException($currencyCode, $tillId);
         }
 
-        $tillBalance = app(TillBalanceManager::class)->currentBalance($counter, $currencyCode, true);
+        // Mirror the ValidTill rule's cross-branch guard: a user may only book
+        // against tills of their own branch. Report a foreign-branch till as
+        // missing instead of leaking its existence. Without an authenticated
+        // user (CLI/queue context) there is nothing to scope by.
+        $user = auth()->user();
+
+        if ($user !== null && $user->branch_id !== null
+            && (int) $counter->branch_id !== (int) $user->branch_id) {
+            throw new TillBalanceMissingException($currencyCode, $tillId);
+        }
+
+        $tillBalance = $this->tillBalanceManager->currentBalance($counter, $currencyCode, true);
 
         if (! $tillBalance) {
             throw new TillBalanceMissingException($currencyCode, $tillId);
@@ -69,7 +81,7 @@ class TransactionValidationService implements TransactionValidationInterface
 
     public function validateIpAddress(?string $ipAddress): void
     {
-        if ($ipAddress && ! app(IpValidationService::class)->isValidIp($ipAddress)) {
+        if ($ipAddress && ! $this->ipValidationService->isValidIp($ipAddress)) {
             throw new InvalidIpAddressException($ipAddress);
         }
     }
@@ -91,10 +103,10 @@ class TransactionValidationService implements TransactionValidationInterface
 
         if ($customer->pep_status) {
             if (empty($data['source_of_funds'])) {
-                throw new \InvalidArgumentException('Source of funds is required for PEP customers.');
+                throw new TransactionValidationException('Source of funds is required for PEP customers.');
             }
             if (empty($data['source_of_wealth'])) {
-                throw new \InvalidArgumentException('Source of wealth is required for PEP customers per pd-00.md 14C.13.1(c).');
+                throw new TransactionValidationException('Source of wealth is required for PEP customers per pd-00.md 14C.13.1(c).');
             }
         }
     }
@@ -135,24 +147,20 @@ class TransactionValidationService implements TransactionValidationInterface
         // 4. Determine hold status
         $holdRequired = $this->holdService->requiresHold(
             $cddLevel,
-            $customer,
             $result->getRiskFlags()
         );
         $result->setHoldRequired($holdRequired);
 
-        $this->auditService->logWithSeverity(
+        $this->auditService->logPreTransactionEvent(
             'pre_validation_completed',
-            [
-                'entity_type' => 'PreTransaction',
-                'entity_id' => $customer->id,
-                'new_values' => [
-                    'customer_id' => $customer->id,
-                    'amount' => $amount,
-                    'cdd_level' => $cddLevel->value,
-                    'hold_required' => $holdRequired,
-                    'risk_flags' => $result->getRiskFlags(),
-                ],
-            ],
+            $customer->id,
+            ['new_values' => [
+                'customer_id' => $customer->id,
+                'amount' => $amount,
+                'cdd_level' => $cddLevel->value,
+                'hold_required' => $holdRequired,
+                'risk_flags' => $result->getRiskFlags(),
+            ]],
             'INFO'
         );
 
@@ -194,6 +202,6 @@ class TransactionValidationService implements TransactionValidationInterface
      */
     private function isReturningCustomer(Customer $customer): bool
     {
-        return $customer->transactions()->count() > 0;
+        return $customer->transactions()->exists();
     }
 }

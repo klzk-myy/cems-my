@@ -19,6 +19,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Broadcast Driver Warning
+    |--------------------------------------------------------------------------
+    |
+    | If BROADCAST_DRIVER is 'null', broadcast notifications are silently
+    | dropped. Set to 'log' for development visibility, or 'pusher'/'ably'
+    | for production real-time notifications.
+    */
+    'driver_warning' => env('BROADCAST_DRIVER', 'null') === 'null'
+        ? 'Broadcast driver is null - broadcast notifications will be silently dropped'
+        : null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Broadcast Connections
     |--------------------------------------------------------------------------
     |

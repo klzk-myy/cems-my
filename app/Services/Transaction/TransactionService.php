@@ -2,6 +2,7 @@
 
 namespace App\Services\Transaction;
 
+use App\Exceptions\Domain\TransactionCreationException;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\Contracts\TransactionApprovalServiceInterface;
@@ -42,6 +43,12 @@ class TransactionService implements TransactionServiceInterface
     public function approveTransaction(Transaction $transaction, int $approverId, ?string $ipAddress = null): array
     {
         $result = $this->approvalService->approve($transaction, $approverId, $ipAddress);
+
+        if ($result->success && $result->transaction === null) {
+            throw new TransactionCreationException(
+                'Approval reported success but no transaction was returned'
+            );
+        }
 
         return [
             'success' => $result->success,

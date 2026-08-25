@@ -1,9 +1,9 @@
 <x-app-layout title="Branch Closure - {{ $branch->name }}">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Branch Closure: {{ $branch->name }}" :actions="true">
             <x-slot:actions>
                 @if($workflow)
-                    <x-badge variant="warning">{{ ucfirst($workflow->status) }}</x-badge>
+                    <x-badge variant="warning">{{ $workflow->status->label() }}</x-badge>
                 @endif
             </x-slot:actions>
         </x-page-header>
@@ -21,7 +21,7 @@
                 <div class="grid grid-cols-2 gap-6">
                     <div>
                         <p class="text-sm text-ink-muted">Initiated</p>
-                        <p class="text-sm font-medium text-ink">{{ $workflow->initiated_at ? $workflow->initiated_at->format('Y-m-d H:i') : '-' }}</p>
+                        <p class="text-sm font-medium text-ink">{{ $workflow->created_at?->format('Y-m-d H:i') ?? '-' }}</p>
                     </div>
                     @if($workflow->settled_at)
                     <div>
@@ -99,7 +99,7 @@
             </x-card>
 
             <div class="flex items-center justify-between">
-                @if($workflow->status === 'initiated')
+                @if($workflow->isInitiated())
                     <form method="POST" action="{{ route('branches.closing.settle', $branch) }}">
                         @csrf
                         <x-button variant="primary" type="submit">Mark as Settled</x-button>

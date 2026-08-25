@@ -54,7 +54,7 @@ return new class extends Migration
 
             // System user ID for automated updates (null for manual)
             if (! in_array('auto_updated_by', $columns)) {
-                $table->foreignId('auto_updated_by')->nullable()->constrained('users');
+                $table->foreignId('auto_updated_by')->nullable()->constrained('users')->restrictOnDelete();
             }
         });
     }

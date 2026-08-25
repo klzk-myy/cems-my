@@ -8,4 +8,9 @@ class PendingAllocationNotFoundException extends DomainException
     {
         parent::__construct("No pending allocation found for {$currency}");
     }
+
+    public function getStatusCode(): int
+    {
+        return 404;
+    }
 }

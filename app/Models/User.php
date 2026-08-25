@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Exceptions\Domain\UserManagementException;
 use App\Models\Compliance\ComplianceCase;
 use App\Models\Compliance\ComplianceCaseDocument;
 use App\Models\Compliance\ComplianceCaseNote;
@@ -79,7 +80,26 @@ class User extends Authenticatable
         'mfa_verified_at' => 'datetime',
         'mfa_secret' => 'string',
         'password_hash' => 'string',
+        'password_changed_at' => 'datetime',
+        'notification_preferences' => 'array',
     ];
+
+    /**
+     * BNM password policy: passwords must be rotated every
+     * config('security.password_expiry_days') days.
+     */
+    public function passwordExpired(): bool
+    {
+        $days = (int) config('security.password_expiry_days', 90);
+
+        if ($days <= 0) {
+            return false;
+        }
+
+        $changedAt = $this->password_changed_at;
+
+        return $changedAt === null || $changedAt->lt(now()->subDays($days));
+    }
 
     /**
      * Ensure a password hash is always present before creation so the column
@@ -90,7 +110,7 @@ class User extends Authenticatable
     {
         static::creating(function (User $user) {
             if (empty($user->password_hash)) {
-                throw new \InvalidArgumentException(
+                throw new UserManagementException(
                     'A password hash must be provided when creating a User. '
                     .'Use the password mutator or set password_hash explicitly before saving.'
                 );
@@ -124,6 +144,7 @@ class User extends Authenticatable
     public function setPasswordAttribute($value): void
     {
         $this->password_hash = Hash::make($value);
+        $this->password_changed_at = now();
     }
 
     /**
@@ -237,6 +258,9 @@ class User extends Authenticatable
 
     /**
      * Get notification preferences for this user.
+     */
+    /**
+     * @return HasMany<UserNotificationPreference, $this>
      */
     public function notificationPreferences(): HasMany
     {

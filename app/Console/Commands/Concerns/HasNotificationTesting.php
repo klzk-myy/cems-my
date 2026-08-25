@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Notification;
 
 trait HasNotificationTesting
 {
+    /**
+     * @return Collection<int, User>
+     */
     protected function getTargetUsers(?int $userId = null): Collection
     {
         if ($userId) {

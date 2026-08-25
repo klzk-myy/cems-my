@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\TransactionApproved;
+use App\Jobs\Compliance\ComputeBehavioralBaselineJob;
 use App\Models\User;
 use App\Notifications\TransactionApprovedNotification;
 use App\Services\AuditService;
@@ -25,6 +26,12 @@ class TransactionApprovedListener implements ShouldQueue
         Log::info('TransactionApprovedListener: Processing approval', [
             'transaction_id' => $transaction->id,
         ]);
+
+        // Refresh the customer's behavioral baseline so deviation scoring
+        // stays current after each completed/approved transaction.
+        if ($transaction->customer_id) {
+            ComputeBehavioralBaselineJob::dispatch($transaction->customer_id);
+        }
 
         $this->notifyTellerAndManager($transaction);
         $this->auditApprovalEvent($event);

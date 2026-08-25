@@ -33,7 +33,7 @@ return new class extends Migration
                 $table->timestamp('closed_at')->nullable();
                 $table->text('notes')->nullable();
                 $table->unique(['till_id', 'date', 'currency_code']);
-                $table->foreign('currency_code')->references('code')->on('currencies');
+                $table->foreign('currency_code')->references('code')->on('currencies')->restrictOnDelete();
                 $table->index('date');
             });
         }

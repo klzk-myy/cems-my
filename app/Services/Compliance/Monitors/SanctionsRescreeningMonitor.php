@@ -8,6 +8,7 @@ use App\Models\Customer;
 use App\Models\SanctionEntry;
 use App\Models\SanctionList;
 use App\Services\CustomerScreeningService;
+use App\Services\System\MathService;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -18,8 +19,9 @@ class SanctionsRescreeningMonitor extends BaseMonitor
 {
     protected CustomerScreeningService $screeningService;
 
-    public function __construct(CustomerScreeningService $screeningService)
+    public function __construct(MathService $math, CustomerScreeningService $screeningService)
     {
+        parent::__construct($math);
         $this->screeningService = $screeningService;
     }
 
@@ -39,12 +41,25 @@ class SanctionsRescreeningMonitor extends BaseMonitor
             return $findings;
         }
 
-        $customersToRescreen = $this->getCustomersNeedingRescreening($latestSanctionUpdate);
+        try {
+            $customersToRescreen = $this->getCustomersNeedingRescreening($latestSanctionUpdate);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
 
         foreach ($customersToRescreen as $customer) {
-            $finding = $this->checkCustomerSanctions($customer);
-            if ($finding !== null) {
-                $findings[] = $finding;
+            try {
+                $finding = $this->checkCustomerSanctions($customer);
+                if ($finding !== null) {
+                    $findings[] = $finding;
+                }
+            } catch (\Exception $e) {
+                Log::error('Sanctions rescreening failed for customer', [
+                    'customer_id' => $customer->id,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -93,13 +108,15 @@ class SanctionsRescreeningMonitor extends BaseMonitor
             return null;
         }
 
-        $matchDetails = $response->matches->map(function ($match) {
+        // ScreeningMatch exposes entryId/entityName/listName/matchScore (see
+        // App\ValueObjects\ScreeningMatch); it carries no entity type, so none
+        // is recorded here.
+        $matchDetails = ($response->matches ?? collect())->map(function ($match) {
             return [
-                'entry_id' => $match->entryId,
-                'entity_name' => $match->entryName,
-                'entity_type' => $match->entityType,
+                'entry_id' => $match->entryId ?? null,
+                'entity_name' => $match->entityName ?? null,
                 'list_name' => $match->listName ?? 'Unknown',
-                'match_score' => round($match->score, 2),
+                'match_score' => isset($match->matchScore) ? round((float) $match->matchScore, 2) : 0.0,
             ];
         })->toArray();
 
@@ -113,7 +130,7 @@ class SanctionsRescreeningMonitor extends BaseMonitor
                 'customer_nationality' => $customer->nationality,
                 'match_count' => count($matchDetails),
                 'matches' => array_slice($matchDetails, 0, 5),
-                'confidence_score' => round($response->confidenceScore, 2),
+                'confidence_score' => $response->confidenceScore !== null ? round((float) $response->confidenceScore, 2) : 0.0,
                 'action' => $response->action,
                 'last_screened_at' => $customer->sanctions_screened_at?->toDateTimeString(),
                 'recommendation' => 'Immediate referral to Compliance Officer required',

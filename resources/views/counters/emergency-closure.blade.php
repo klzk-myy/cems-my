@@ -1,11 +1,11 @@
 <x-app-layout title="Emergency Counter Closure">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Emergency Counter Closure"
             description="Force close counter due to emergency situation"
         />
 
-        <x-card class="max-w-2xl p-6">
+        <x-card class="max-w-2xl">
             <x-alert type="error" title="Emergency Closure Notice">
                 This action will immediately close the counter and surrender custody to management.
             </x-alert>
@@ -18,7 +18,7 @@
             <form method="POST" action="{{ route('counters.emergency-close', $counter ?? 1) }}">
                 @csrf
 
-                <x-card-section title="Current Cash Holdings" class="mb-6">
+                <x-card title="Current Cash Holdings" class="mb-6">
                     <x-table>
                         <x-slot:thead></x-slot:thead>
                         <x-slot:tbody>
@@ -38,7 +38,7 @@
                             </tr>
                         </x-slot:tbody>
                     </x-table>
-                </x-card-section>
+                </x-card>
 
                 <x-textarea
                     name="reason"

@@ -3,12 +3,15 @@
 namespace App\Services\System;
 
 use App\Enums\UserRole;
+use App\Exceptions\Domain\MfaValidationException;
 use App\Models\DeviceComputations;
 use App\Models\MfaRecoveryCode;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -20,6 +23,18 @@ use Illuminate\Support\Str;
  */
 class MfaService
 {
+    /** Cookie carrying the trusted-device secret token. */
+    public const DEVICE_COOKIE_NAME = 'mfa_device_token';
+
+    /** Max failed TOTP/recovery attempts per user before lockout. */
+    private const MAX_FAILED_ATTEMPTS = 5;
+
+    /** Window (minutes) for the failed-attempt counter. */
+    private const FAILED_ATTEMPT_WINDOW_MINUTES = 15;
+
+    /** Cache key prefix for the per-user failed-attempt counter. */
+    private const FAILED_ATTEMPTS_PREFIX = 'mfa_failed_attempts:';
+
     private int $period;
 
     private int $digits;
@@ -67,7 +82,7 @@ class MfaService
             'issuer' => $this->issuer,
             'period' => $this->period,
             'digits' => $this->digits,
-            'algorithm' => 'SHA1',
+            'algorithm' => 'SHA256',
         ]);
 
         return "otpauth://totp/{$label}?{$params}";
@@ -81,7 +96,9 @@ class MfaService
         $secret = strtoupper($secret);
         $code = trim($code);
 
-        if (! preg_match('/^\d{6}$/', $code)) {
+        // Use the configured digit count instead of hardcoding 6 so the code
+        // remains valid if cems.mfa.digits is changed.
+        if (! preg_match('/^\d{'.$this->digits.'}$/', $code)) {
             return false;
         }
 
@@ -105,14 +122,15 @@ class MfaService
     {
         $timestamp = $timestamp ?? time();
 
-        // Pack timestamp into 8 bytes (big-endian)
-        $time = pack('J', $timestamp / $this->period);
+        // Pack timestamp into 8 bytes (big-endian).
+        // Use intdiv so the value passed to pack('J') is an integer, not a float.
+        $time = pack('J', intdiv($timestamp, $this->period));
 
         // Base32 decode the secret
         $secretDecoded = $this->base32Decode($secret);
 
-        // Generate HMAC-SHA1
-        $hash = hash_hmac('sha1', $time, $secretDecoded, true);
+        // Generate HMAC-SHA256
+        $hash = hash_hmac('sha256', $time, $secretDecoded, true);
 
         // Dynamic truncation
         $offset = ord($hash[strlen($hash) - 1]) & 0x0F;
@@ -225,15 +243,7 @@ class MfaService
         $user->save();
 
         // Log the change
-        $this->auditService->logWithSeverity(
-            'mfa_enabled',
-            [
-                'user_id' => $user->id,
-                'entity_type' => 'User',
-                'entity_id' => $user->id,
-            ],
-            'WARNING'
-        );
+        $this->auditService->logMfaEvent('mfa_enabled', $user->id, ['entity_id' => $user->id]);
     }
 
     /**
@@ -243,35 +253,36 @@ class MfaService
     {
         $oldSecret = $user->mfa_secret;
 
-        $user->mfa_enabled = false;
-        $user->mfa_secret = null;
-        $user->mfa_verified_at = null;
-        $user->save();
+        DB::transaction(function () use ($user) {
+            $user->mfa_enabled = false;
+            $user->mfa_secret = null;
+            $user->mfa_verified_at = null;
+            $user->save();
 
-        // Delete recovery codes
-        MfaRecoveryCode::where('user_id', $user->id)->delete();
+            MfaRecoveryCode::where('user_id', $user->id)->delete();
+        });
 
-        // Log the change
-        $this->auditService->logWithSeverity(
+        $this->auditService->logMfaEvent(
             'mfa_disabled',
+            $user->id,
             [
-                'user_id' => $user->id,
-                'entity_type' => 'User',
                 'entity_id' => $user->id,
                 'old_values' => ['mfa_secret' => 'exists'],
                 'new_values' => ['mfa_secret' => null],
-            ],
-            'WARNING'
+            ]
         );
     }
 
     /**
-     * Check if a user has a trusted device.
+     * Check if a user has a trusted device for the given token hash.
+     *
+     * The argument is the SHA-256 hash of the secret cookie token (never the
+     * raw token), matched against device_fingerprint.
      */
-    public function hasTrustedDevice(User $user, string $fingerprint): bool
+    public function hasTrustedDevice(User $user, string $tokenHash): bool
     {
         $trustedDevice = DeviceComputations::where('user_id', $user->id)
-            ->where('device_fingerprint', $fingerprint)
+            ->where('device_fingerprint', $tokenHash)
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
@@ -290,23 +301,35 @@ class MfaService
 
     /**
      * Remember a device for MFA bypass.
+     *
+     * Trust is bound to a random 64-hex secret: only its SHA-256 hash is
+     * stored in device_fingerprint; the plain token is returned once so the
+     * caller can deliver it to the browser as a secure cookie. A cloneable
+     * UA+IP fingerprint can no longer grant access. Legacy rows recorded from
+     * the old fingerprint simply never match and expire naturally.
+     *
+     * @return string Plain device token (store only in the user's cookie).
      */
-    public function rememberDevice(User $user, string $fingerprint, ?string $deviceName = null, ?int $days = null): void
+    public function rememberDevice(User $user, ?string $deviceName = null, ?int $days = null): string
     {
         $days = $days ?? config('cems.mfa.remember_days', 30);
+
+        $token = bin2hex(random_bytes(32));
 
         DeviceComputations::updateOrCreate(
             [
                 'user_id' => $user->id,
-                'device_fingerprint' => $fingerprint,
+                'device_fingerprint' => hash('sha256', $token),
             ],
             [
                 'device_name' => $deviceName,
-                'ip_address' => request()->ip(),
+                'ip_address' => request()?->ip(),
                 'expires_at' => now()->addDays($days),
                 'last_used_at' => now(),
             ]
         );
+
+        return $token;
     }
 
     /**
@@ -371,23 +394,62 @@ class MfaService
     }
 
     /**
+     * Whether the user is locked out after too many failed TOTP or recovery
+     * code attempts within the configured window.
+     */
+    public function hasTooManyFailedAttempts(User $user): bool
+    {
+        return $this->failedAttemptCount($user) >= self::MAX_FAILED_ATTEMPTS;
+    }
+
+    /**
+     * Record a failed TOTP or recovery-code attempt for the user.
+     */
+    public function recordFailedAttempt(User $user): void
+    {
+        $store = Cache::store(config('ratelimit.store'));
+        $key = self::FAILED_ATTEMPTS_PREFIX.$user->id;
+
+        // Ensure the key exists with a TTL before incrementing so it can
+        // never be left without an expiry under concurrent increments.
+        if (! $store->has($key)) {
+            $store->put($key, 0, now()->addMinutes(self::FAILED_ATTEMPT_WINDOW_MINUTES));
+        }
+
+        $store->increment($key);
+    }
+
+    /**
+     * Clear the failed-attempt counter after a successful verification.
+     */
+    public function clearFailedAttempts(User $user): void
+    {
+        Cache::store(config('ratelimit.store'))
+            ->forget(self::FAILED_ATTEMPTS_PREFIX.$user->id);
+    }
+
+    /**
+     * Current failed-attempt count within the window.
+     */
+    public function failedAttemptCount(User $user): int
+    {
+        return (int) Cache::store(config('ratelimit.store'))
+            ->get(self::FAILED_ATTEMPTS_PREFIX.$user->id, 0);
+    }
+
+    /**
      * Generate a device fingerprint based on request data.
      *
      * SECURITY NOTE: This uses multiple factors to make spoofing more difficult.
-     * The fingerprint includes session-specific data that cannot be easily forged.
+     * The fingerprint includes stable client identifiers (user agent + IP).
+     * Session ID is intentionally excluded as it changes per session.
      */
     public function generateDeviceFingerprint(): string
     {
-        try {
-            $sessionId = request()->session()->getId();
-        } catch (\RuntimeException $e) {
-            $sessionId = 'no-session';
-        }
         $userAgent = request()->userAgent() ?? 'unknown';
         $ip = request()->ip() ?? '0.0.0.0';
 
         $data = implode('|', [
-            $sessionId,
             hash('sha256', $userAgent),
             hash('sha256', $ip),
         ]);
@@ -435,7 +497,7 @@ class MfaService
         foreach (str_split($data) as $char) {
             $index = strpos($alphabet, $char);
             if ($index === false) {
-                throw new \InvalidArgumentException('Invalid base32 character in MFA secret: '.$char);
+                throw new MfaValidationException('Invalid base32 character in MFA secret: '.$char);
             }
             $binary .= str_pad(decbin($index), 5, '0', STR_PAD_LEFT);
         }

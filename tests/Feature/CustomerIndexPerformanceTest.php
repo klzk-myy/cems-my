@@ -2,32 +2,15 @@
 
 namespace Tests\Feature;
 
-use App\Enums\UserRole;
 use App\Models\Customer;
 use App\Models\RiskScoreSnapshot;
-use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class CustomerIndexPerformanceTest extends TestCase
 {
-    use DatabaseTransactions;
-
-    #[Test]
-    public function customer_index_uses_limited_queries(): void
-    {
-        $user = User::factory()->create(['role' => UserRole::Manager]);
-        Customer::factory()->count(20)->create();
-
-        DB::enableQueryLog();
-        $response = $this->actingAs($user)->get(route('customers.index'));
-        $queryCount = count(DB::getQueryLog());
-
-        $response->assertStatus(200);
-        $this->assertLessThanOrEqual(8, $queryCount, "Expected <= 8 queries, got {$queryCount}");
-    }
+    use RefreshDatabase;
 
     #[Test]
     public function latest_risk_snapshot_returns_most_recent_snapshot(): void

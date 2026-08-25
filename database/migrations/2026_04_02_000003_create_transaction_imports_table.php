@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('transaction_imports', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained();
+            $table->foreignId('user_id')->constrained()->restrictOnDelete();
             $table->string('filename');
             $table->string('original_filename');
             $table->integer('total_rows');

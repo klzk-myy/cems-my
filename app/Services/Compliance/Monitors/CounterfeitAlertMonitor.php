@@ -5,7 +5,10 @@ namespace App\Services\Compliance\Monitors;
 use App\Enums\ComplianceFlagType;
 use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
+use App\Enums\FlagStatus;
 use App\Models\FlaggedTransaction;
+use App\Services\System\MathService;
+use App\Services\System\SystemAlertService;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -15,6 +18,14 @@ use Illuminate\Support\Facades\Log;
 class CounterfeitAlertMonitor extends BaseMonitor
 {
     public const LOOKBACK_DAYS = 30;
+
+    protected SystemAlertService $alertService;
+
+    public function __construct(MathService $math, SystemAlertService $alertService)
+    {
+        parent::__construct($math);
+        $this->alertService = $alertService;
+    }
 
     protected function getFindingType(): FindingType
     {
@@ -30,7 +41,7 @@ class CounterfeitAlertMonitor extends BaseMonitor
             // Find flagged transactions with counterfeit currency flags
             $flaggedTransactions = FlaggedTransaction::where('created_at', '>=', $cutoffTime)
                 ->where('flag_type', ComplianceFlagType::CounterfeitCurrency)
-                ->whereIn('status', ['Open', 'Under_Review'])
+                ->whereIn('status', [FlagStatus::Open->value, FlagStatus::UnderReview->value])
                 ->with(['customer', 'transaction'])
                 ->get();
 
@@ -42,6 +53,17 @@ class CounterfeitAlertMonitor extends BaseMonitor
             }
         } catch (\Throwable $e) {
             Log::error('CounterfeitAlertMonitor run failed', ['exception' => $e->getMessage()]);
+
+            try {
+                $this->alertService->critical(
+                    'Counterfeit alert monitor failed to run: '.$e->getMessage(),
+                    ['source' => 'counterfeit_alert_monitor']
+                );
+            } catch (\Throwable $alertError) {
+                Log::error('Failed to dispatch counterfeit monitor failure alert', [
+                    'exception' => $alertError->getMessage(),
+                ]);
+            }
 
             return [];
         }
@@ -55,7 +77,7 @@ class CounterfeitAlertMonitor extends BaseMonitor
     protected function processCounterfeitFlag(FlaggedTransaction $flag): ?array
     {
         // Only process unresolved counterfeit flags
-        if ($flag->status->value !== 'Open' && $flag->status->value !== 'Under_Review') {
+        if ($flag->status->value !== FlagStatus::Open->value && $flag->status->value !== FlagStatus::UnderReview->value) {
             return null;
         }
 

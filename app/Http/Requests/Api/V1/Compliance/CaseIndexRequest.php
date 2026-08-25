@@ -15,10 +15,10 @@ class CaseIndexRequest extends ApiFormRequest
     {
         return [
             'per_page' => 'nullable|integer|min:1|max:100',
-            'status' => 'nullable|string',
-            'type' => 'nullable|string',
-            'severity' => 'nullable|string',
-            'assigned_to' => 'nullable|integer',
+            'status' => 'nullable|in:Open,UnderReview,PendingApproval,Closed,Escalated',
+            'type' => 'nullable|string|max:100',
+            'severity' => 'nullable|in:critical,high,medium,low',
+            'assigned_to' => 'nullable|integer|exists:users,id',
         ];
     }
 }

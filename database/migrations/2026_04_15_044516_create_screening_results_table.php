@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('screening_results', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('customer_id')->nullable()->constrained();
-            $table->foreignId('transaction_id')->nullable()->constrained();
+            $table->foreignId('customer_id')->nullable()->constrained()->restrictOnDelete();
+            $table->foreignId('transaction_id')->nullable()->constrained()->restrictOnDelete();
             $table->string('screened_name');
-            $table->foreignId('sanction_entry_id')->nullable()->constrained('sanction_entries');
+            $table->foreignId('sanction_entry_id')->nullable()->constrained('sanction_entries')->restrictOnDelete();
             $table->enum('match_type', ['exact', 'levenshtein', 'soundex', 'metaphone', 'token']);
             $table->decimal('match_score', 5, 2);
             $table->enum('action_taken', ['clear', 'flag', 'block']);

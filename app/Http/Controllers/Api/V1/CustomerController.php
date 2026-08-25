@@ -13,18 +13,14 @@ use App\Http\Resources\Api\V1\CustomerCollection;
 use App\Http\Resources\Api\V1\CustomerResource;
 use App\Http\Resources\Api\V1\TransactionCollection;
 use App\Models\Customer;
-use App\Models\Transaction;
+use App\Models\User;
+use App\Repositories\CustomerRepository;
 use App\Services\AuditService;
 use App\Services\Customer\CustomerService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Log;
 
-/**
- * NOTE: Authorization gap — branch-level access control is not enforced here.
- * Customers do not have a direct branch_id field. Branch affinity is indirect via
- * their transactions. Adding branch-scoping here would require joining through
- * transactions or adding customer->branch_id, both of which need stakeholder approval.
- */
 class CustomerController extends Controller
 {
     use ApiResponse;
@@ -34,19 +30,32 @@ class CustomerController extends Controller
         protected AuditService $auditService,
     ) {}
 
-    public function index(CustomerIndexRequest $request): CustomerCollection
+    public function index(CustomerIndexRequest $request): JsonResource
     {
+        $user = $request->user();
+        $isAdmin = $user && $user->isAdmin();
+
         $query = Customer::query();
 
-        if ($branchScope = $request->get('_branch_scope')) {
-            $query->whereHas('transactions', function ($q) use ($branchScope) {
-                $q->where('branch_id', $branchScope);
-            })->orWhere('created_by_branch_id', $branchScope);
+        // Enforce branch scoping for non-admin users
+        if (! $isAdmin) {
+            $branchScope = $user?->branch_id;
+            if ($branchScope) {
+                // Branch scope: customers with at least one transaction at the
+                // caller's branch (matches CustomerPolicy::view semantics).
+                $query->whereHas('transactions', fn ($t) => $t->where('branch_id', $branchScope));
+            } else {
+                // User has no branch assignment - return empty result (prevents full data exposure)
+                $query->whereRaw('1 = 0');
+            }
+        } elseif ($branchScope = $request->get('_branch_scope')) {
+            // Admin with explicit branch scope filter
+            $query->whereHas('transactions', fn ($t) => $t->where('branch_id', $branchScope));
         }
 
         if ($request->has('search') && ! empty($request->search)) {
-            $searchTerm = str_replace(['%', '_'], ['\%', '\_'], $request->search);
-            $query->where('full_name', 'like', '%'.$searchTerm.'%');
+            $searchTerm = '%'.CustomerRepository::escapeLike($request->search).'%';
+            $query->whereRaw("full_name LIKE ? ESCAPE '\\'", [$searchTerm]);
         }
 
         if ($request->has('risk_rating') && ! empty($request->risk_rating)) {
@@ -111,17 +120,7 @@ class CustomerController extends Controller
 
         $this->authorize('view', $customer);
 
-        $stats = Transaction::query()
-            ->selectRaw('COUNT(*) as total_transactions, SUM(amount_local) as total_volume, AVG(amount_local) as avg_transaction')
-            ->where('customer_id', $id)
-            ->first();
-
-        $transactionStats = [
-            'total_transactions' => $stats->total_transactions ?? 0,
-            'total_volume' => $stats->total_volume ?? '0',
-            'avg_transaction' => $stats->avg_transaction ?? 0,
-            'last_transaction' => $customer->last_transaction_at,
-        ];
+        $transactionStats = $this->customerService->getTransactionStats($customer);
 
         return $this->resourceWithSuccess(
             new CustomerResource($customer),
@@ -187,14 +186,18 @@ class CustomerController extends Controller
     /**
      * Get customer transaction history.
      */
-    public function customerHistory(int $id): TransactionCollection
+    public function customerHistory(int $id): JsonResource
     {
         $customer = Customer::findOrFail($id);
         $this->authorize('view', $customer);
 
+        $user = auth()->user();
+        $isAdmin = $user && $user->isAdmin();
+        $branchId = $user?->branch_id;
+
         $transactions = $customer->transactions()
-            ->when(! auth()->user()->isAdmin(), function ($query) {
-                $query->where('branch_id', auth()->user()->branch_id);
+            ->when(! $isAdmin, function ($query) use ($branchId) {
+                $query->where('branch_id', $branchId);
             })
             ->orderBy('created_at', 'desc')
             ->paginate(50);
@@ -209,24 +212,15 @@ class CustomerController extends Controller
     {
         $customer = Customer::findOrFail($id);
 
-        $validated = $request->validated();
+        $this->authorize('update', $customer);
 
         $file = $request->file('document');
-        $path = $file->store('kyc/'.$customer->id, 'local');
-
-        $document = $customer->documents()->create([
-            'document_type' => $request->document_type,
-            'file_path' => $path,
-            'file_hash' => hash_file('sha256', $file->getRealPath()),
-            'file_size' => $file->getSize(),
-            'uploaded_by' => auth()->id(),
-        ]);
-
-        $this->auditService->logWithSeverity('kyc_document_uploaded', [
-            'entity_type' => 'Customer',
-            'entity_id' => $customer->id,
-            'new_values' => ['document_type' => $request->document_type],
-        ]);
+        $document = $this->customerService->uploadDocument(
+            customer: $customer,
+            file: $file,
+            documentType: $request->document_type,
+            uploadedBy: auth()->id(),
+        );
 
         return $this->successResponse(['document_id' => $document->id], 'Document uploaded successfully.');
     }
@@ -237,9 +231,24 @@ class CustomerController extends Controller
      */
     public function searchForTransaction(SearchCustomerRequest $request): JsonResponse
     {
+        $user = $request->user();
+
+        // Enforce branch scoping for search - use same logic as CustomerPolicy::viewAny
+        $branchId = null;
+        if (! $user || ! $user->isAdmin()) {
+            if (! $user?->branch_id) {
+                return $this->successResponse([], 'Search completed.', 200, [
+                    'query' => $request->validated()['query'],
+                    'count' => 0,
+                ]);
+            }
+            $branchId = $user->branch_id;
+        }
+
         $validated = $request->validated();
 
-        $results = $this->customerService->searchCustomers($validated['query']);
+        // Pass branchId to service for efficient filtering at query level
+        $results = $this->customerService->searchCustomers($validated['query'], $branchId);
 
         return $this->successResponse($results, 'Search completed.', 200, [
             'query' => $validated['query'],

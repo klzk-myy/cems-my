@@ -1,13 +1,13 @@
 <x-app-layout title="Stock Transfers">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Stock Transfers" :actions="true">
-            @can('role:manager')
+            @if(auth()->user()?->isManager() ?? false)
                 <x-slot:actions>
                     <x-button variant="primary" href="{{ route('stock-transfers.create') }}">
                         New Transfer
                     </x-button>
                 </x-slot:actions>
-            @endcan
+            @endif
         </x-page-header>
 
         <x-card>
@@ -23,12 +23,12 @@
                 <x-slot:tbody>
                     @forelse($transfers ?? [] as $transfer)
                         <tr class="hover:bg-canvas-subtle">
-                            <td class="px-4 py-3 text-sm font-mono">{{ $transfer->reference }}</td>
-                            <td class="px-4 py-3 text-sm">{{ $transfer->source_branch_id }}</td>
-                            <td class="px-4 py-3 text-sm">{{ $transfer->destination_branch_id }}</td>
+                            <td class="px-4 py-3 text-sm font-mono">{{ $transfer->transfer_number }}</td>
+                            <td class="px-4 py-3 text-sm">{{ $transfer->source_branch_name }}</td>
+                            <td class="px-4 py-3 text-sm">{{ $transfer->destination_branch_name }}</td>
                             <td class="px-4 py-3 text-sm">
-                                <x-badge variant="{{ $transfer->status === 'Completed' ? 'success' : ($transfer->status === 'Pending' ? 'warning' : 'gray') }}">
-                                    {{ $transfer->status }}
+                                <x-badge variant="{{ $transfer->status->value === 'Completed' ? 'success' : ($transfer->status->value === 'Requested' ? 'warning' : 'gray') }}">
+                                    {{ $transfer->status->label() }}
                                 </x-badge>
                             </td>
                             <td class="px-4 py-3 text-sm">{{ $transfer->created_at?->format('M d, Y') }}</td>

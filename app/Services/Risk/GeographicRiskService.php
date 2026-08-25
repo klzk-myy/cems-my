@@ -4,15 +4,20 @@ namespace App\Services\Risk;
 
 use App\Models\Customer;
 use App\Models\HighRiskCountry;
+use App\Services\ThresholdService;
 
 class GeographicRiskService
 {
+    public function __construct(
+        protected ThresholdService $thresholdService,
+    ) {}
+
     /**
      * Calculate geographic risk score for a customer.
      *
      * Considers:
-     * - Customer nationality (30 points if high-risk)
-     * - Transaction counterparty countries (15 points per unique high-risk country in 90 days)
+     * - Customer nationality (high-country weight points if high-risk)
+     * - Transaction counterparty countries (recent-travel weight per unique high-risk country in 90 days)
      *
      * @return int Risk score (0-40)
      */
@@ -20,10 +25,10 @@ class GeographicRiskService
     {
         $score = 0;
 
-        $highRiskCountries = HighRiskCountry::pluck('country_code')->toArray();
+        $highRiskCountries = HighRiskCountry::countryCodes();
 
         if ($this->isHighRiskCountry($customer->nationality, $highRiskCountries)) {
-            $score += 30;
+            $score += $this->thresholdService->getGeographicHighCountryWeight();
         }
 
         $recentCountries = $customer->transactions()
@@ -35,7 +40,7 @@ class GeographicRiskService
 
         foreach ($recentCountries as $country) {
             if (in_array($country, $highRiskCountries, true)) {
-                $score += 15;
+                $score += $this->thresholdService->getGeographicRecentTravelWeight();
             }
         }
 
@@ -55,7 +60,7 @@ class GeographicRiskService
         }
 
         if ($highRiskCountries === null) {
-            $highRiskCountries = HighRiskCountry::pluck('country_code')->toArray();
+            $highRiskCountries = HighRiskCountry::countryCodes();
         }
 
         return in_array($countryCode, $highRiskCountries, true);
@@ -70,11 +75,14 @@ class GeographicRiskService
     {
         $score = $this->calculateScore($customer);
 
-        if ($score >= 30) {
+        $highWeight = $this->thresholdService->getGeographicHighCountryWeight();
+        $travelWeight = $this->thresholdService->getGeographicRecentTravelWeight();
+
+        if ($score >= $highWeight) {
             return 'high';
         }
 
-        if ($score >= 15) {
+        if ($score >= $travelWeight) {
             return 'medium';
         }
 
@@ -88,6 +96,6 @@ class GeographicRiskService
      */
     public function getHighRiskCountries(): array
     {
-        return HighRiskCountry::pluck('country_code')->toArray();
+        return HighRiskCountry::countryCodes();
     }
 }

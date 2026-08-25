@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers\Transaction;
 
+use App\Actions\Transaction\ApproveTransactionAction;
 use App\Enums\TransactionConfirmationStatus;
-use App\Exceptions\Domain\DuplicateTransactionException;
-use App\Exceptions\Domain\InsufficientStockException;
 use App\Exceptions\Domain\SelfApprovalException;
 use App\Http\Controllers\Concerns\AuthorizesBranchResource;
 use App\Http\Controllers\Controller;
@@ -21,7 +20,7 @@ use App\Services\ThresholdService;
 use App\Services\Transaction\TransactionApprovalService;
 use App\Services\Transaction\TransactionConfirmationService;
 use App\Services\Transaction\TransactionMonitoringService;
-use App\Services\Transaction\TransactionStateMachine;
+use App\Services\Transaction\TransactionStateMachineFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +32,7 @@ class TransactionApprovalController extends Controller
     use AuthorizesBranchResource;
 
     public function __construct(
+        protected ApproveTransactionAction $approveAction,
         protected TransactionApprovalService $approvalService,
         protected CurrencyPositionService $positionService,
         protected ComplianceService $complianceService,
@@ -41,7 +41,8 @@ class TransactionApprovalController extends Controller
         protected AccountingService $accountingService,
         protected AuditService $auditService,
         protected ThresholdService $thresholdService,
-        protected TransactionConfirmationService $confirmationService
+        protected TransactionConfirmationService $confirmationService,
+        protected TransactionStateMachineFactory $stateMachineFactory
     ) {}
 
     /**
@@ -57,42 +58,14 @@ class TransactionApprovalController extends Controller
         $this->requireManagerOrAdmin();
         $this->ensureCanApproveForBranch($transaction, auth()->user(), 'approve');
 
-        try {
-            $this->approvalService->validateApprovalEligibility($transaction, auth()->id());
+        $result = $this->approveAction->execute($transaction, auth()->id(), $request->ip());
 
-            $result = $this->approvalService->approve(
-                $transaction,
-                auth()->id(),
-                $request->ip()
-            );
-
-            if (! $result->success) {
-                return back()->with('error', $result->message);
-            }
-
-            return redirect()->route('transactions.show', $transaction)
-                ->with('success', $result->message);
-
-        } catch (SelfApprovalException $e) {
-            return back()->with('error', $e->getMessage());
-        } catch (InsufficientStockException $e) {
-            return back()->with('error', $e->getMessage());
-        } catch (DuplicateTransactionException $e) {
-            return back()->with('error', $e->getMessage());
-        } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
-        } catch (\RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
-        } catch (\Exception $e) {
-            Log::error('Transaction approval failed', [
-                'transaction_id' => $transaction->id,
-                'user_id' => auth()->id(),
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return back()->with('error', 'Approval failed due to a system error. Please contact support.');
+        if (! $result->ok) {
+            return back()->with('error', $result->message);
         }
+
+        return redirect()->route('transactions.show', $transaction)
+            ->with('success', $result->message);
     }
 
     /**
@@ -109,17 +82,16 @@ class TransactionApprovalController extends Controller
         try {
             $this->approvalService->validateApprovalEligibility($transaction, auth()->id());
 
-            $stateMachine = new TransactionStateMachine($transaction, $this->auditService);
-            if (! $stateMachine->reject($request->input('reason', 'Rejected by manager'))) {
+            if (! $this->stateMachineFactory->make($transaction)->reject($request->input('reason', 'Rejected by manager'))) {
                 return back()->with('error', 'Transaction cannot be rejected from its current status.');
             }
 
             return redirect()->route('transactions.show', $transaction)
                 ->with('warning', 'Transaction has been rejected.');
         } catch (SelfApprovalException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'You cannot reject your own transaction. Segregation of duties requires a different approver.');
         } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'The transaction is not eligible for rejection in its current state.');
         } catch (\Exception $e) {
             Log::error('Transaction rejection failed', [
                 'transaction_id' => $transaction->id,
@@ -203,7 +175,7 @@ class TransactionApprovalController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return back()->with('error', 'Confirmation failed: '.$e->getMessage());
+            return back()->with('error', 'Confirmation failed. Please try again.');
         }
     }
 

@@ -25,6 +25,11 @@ class CounterApiController extends Controller
 
         $counter = Counter::findOrFail($counterId);
 
+        $branchError = $this->ensureCounterBranchAccess($request, $counter);
+        if ($branchError !== null) {
+            return $branchError;
+        }
+
         $session = $counter->sessions()
             ->where('status', 'open')
             ->latest()
@@ -46,11 +51,31 @@ class CounterApiController extends Controller
                 'session' => $result['session'] ?? $session->fresh(),
             ]);
         } catch (SessionClosedException $e) {
-            return $this->errorResponse($e->getMessage(), [], 422);
+            return $this->errorResponse('The counter session has already been closed.', [], 422);
         } catch (VarianceThresholdException $e) {
-            return $this->errorResponse($e->getMessage(), [], 422);
+            return $this->errorResponse('Variance threshold exceeded. Supervisor review required.', [], 422);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Operation failed. Please contact support.', $e);
         }
+    }
+
+    /**
+     * Enforce branch isolation: non-admins may only close counters belonging
+     * to their own branch. Mirrors the web CounterController guard so the API
+     * surface cannot be used to close another branch's sessions.
+     */
+    private function ensureCounterBranchAccess(CloseCounterRequest $request, Counter $counter): ?JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->role->canManageAllBranches()) {
+            return null;
+        }
+
+        if ($counter->branch_id !== $user->branch_id) {
+            return $this->errorResponse('You do not have access to counters in this branch.', [], 403);
+        }
+
+        return null;
     }
 }

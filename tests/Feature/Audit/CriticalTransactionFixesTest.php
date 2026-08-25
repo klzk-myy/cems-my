@@ -241,7 +241,9 @@ class CriticalTransactionFixesTest extends TestCase
         $reflection->setAccessible(true);
         $analysis = $reflection->invoke($service, $related);
 
-        $this->assertSame('500', (string) $analysis['total_amount_myrr']);
+        // MathService uses scale 4 (decimal(18,4)), so the summed amount is
+        // formatted with four decimal places.
+        $this->assertSame('500.0000', (string) $analysis['total_amount_myrr']);
     }
 
     public function test_month_end_report_recorded_as_failed_when_generation_fails(): void

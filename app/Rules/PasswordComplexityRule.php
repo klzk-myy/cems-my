@@ -66,8 +66,8 @@ class PasswordComplexityRule implements ValidationRule
             return;
         }
 
-        // Check symbols
-        if ($requireSymbols && ! preg_match('/[!@#$%^&*(),.?":{}|<>]/', $password)) {
+        // Check symbols - any non-alphanumeric character counts as a symbol
+        if ($requireSymbols && ! preg_match('/[^A-Za-z0-9]/', $password)) {
             $fail("The {$attribute} must contain at least one symbol.");
 
             return;

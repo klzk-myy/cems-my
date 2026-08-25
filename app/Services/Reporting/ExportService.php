@@ -2,7 +2,10 @@
 
 namespace App\Services\Reporting;
 
-use Illuminate\Support\Facades\Log;
+use App\Exceptions\Domain\ReportValidationException;
+use App\Models\User;
+use App\Notifications\ReportEmailNotification;
+use App\Services\System\NotificationDispatcher;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -17,22 +20,23 @@ class ExportService
 
     public function toCSV(array $data, string $filename): string
     {
+        $filename = $this->sanitizeFilename($filename);
         $path = $this->basePath.'/'.$filename;
 
         if (! file_exists($this->basePath) && ! mkdir($this->basePath, 0755, true) && ! is_dir($this->basePath)) {
-            throw new \RuntimeException("Failed to create reports directory: {$this->basePath}");
+            throw new ReportValidationException("Failed to create reports directory: {$this->basePath}");
         }
 
         $handle = fopen($path, 'w+');
         if (! $handle) {
-            throw new \RuntimeException("Failed to open CSV file for writing: {$path}");
+            throw new ReportValidationException("Failed to open CSV file for writing: {$path}");
         }
 
         if (! empty($data)) {
-            fputcsv($handle, array_keys($data[0]));
+            fputcsv($handle, $this->sanitizeRow(array_keys($data[0])));
 
             foreach ($data as $row) {
-                fputcsv($handle, array_values($row));
+                fputcsv($handle, $this->sanitizeRow(array_values($row)));
             }
         }
 
@@ -41,8 +45,72 @@ class ExportService
         return $path;
     }
 
+    /**
+     * Encode the provided data structure as JSON and store it following the
+     * same conventions as toCSV() (sanitized filename under app/reports),
+     * returning the absolute file path.
+     *
+     * @param  mixed  $data  Any JSON-encodable structure (typically array)
+     */
+    public function toJson(mixed $data, string $filename): string
+    {
+        $filename = $this->sanitizeFilename($filename);
+        $path = $this->basePath.'/'.$filename;
+
+        if (! file_exists($this->basePath) && ! mkdir($this->basePath, 0755, true) && ! is_dir($this->basePath)) {
+            throw new ReportValidationException("Failed to create reports directory: {$this->basePath}");
+        }
+
+        $bytes = file_put_contents(
+            $path,
+            json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
+
+        if ($bytes === false) {
+            throw new ReportValidationException("Failed to open JSON file for writing: {$path}");
+        }
+
+        return $path;
+    }
+
+    /**
+     * Neutralize spreadsheet formula injection (CSV injection, OWASP).
+     * Cells beginning with =, +, -, @, tab, or CR are interpreted by Excel and
+     * Google Sheets as formulas. Prefixing them with a single quote forces them
+     * to be treated as plain text.
+     *
+     * Cells that parse as plain decimal numbers - including negative monetary
+     * values such as "-1234.50" - are exempt from prefixing: a leading "-" is
+     * how negative amounts are rendered in BNM exports, not an injection
+     * vector. Non-numeric cells starting with "-" keep the guard.
+     *
+     * @param  array<int, mixed>  $row
+     * @return array<int, mixed>
+     */
+    protected function sanitizeRow(array $row): array
+    {
+        return array_map(function (mixed $value): mixed {
+            if (! is_string($value) || $value === '') {
+                return $value;
+            }
+
+            if (preg_match('/^-?\d+(\.\d+)?$/', $value) === 1) {
+                return $value;
+            }
+
+            $first = $value[0];
+
+            if (in_array($first, ['=', '+', '-', '@', "\t", "\r"], true)) {
+                return "'".$value;
+            }
+
+            return $value;
+        }, $row);
+    }
+
     public function toPDF(array $data, string $template, string $filename): string
     {
+        $filename = $this->sanitizeFilename($filename);
         $path = $this->basePath.'/'.$filename;
 
         if (! file_exists($this->basePath)) {
@@ -57,6 +125,7 @@ class ExportService
 
     public function toExcel(array $data, string $filename): string
     {
+        $filename = $this->sanitizeFilename($filename);
         $path = $this->basePath.'/'.$filename;
 
         if (! file_exists($this->basePath)) {
@@ -86,28 +155,29 @@ class ExportService
 
     public function emailReport(string $to, string $subject, string $filePath, string $reportType = ''): bool
     {
-        try {
-            \Mail::raw($subject, function ($message) use ($to, $subject, $filePath) {
-                $message->to($to)
-                    ->subject($subject)
-                    ->attach($filePath);
-            });
+        $user = User::where('email', $to)->first();
+        NotificationDispatcher::dispatchSafe(
+            $user ?? $to,
+            new ReportEmailNotification($subject, $filePath),
+            ['mail']
+        );
 
-            return true;
-        } catch (\Exception $e) {
-            Log::error('Failed to email report', [
-                'to' => $to,
-                'subject' => $subject,
-                'error' => $e->getMessage(),
-            ]);
+        return true;
+    }
 
-            return false;
+    protected function sanitizeFilename(string $filename): string
+    {
+        $filename = basename($filename);
+        if (str_contains($filename, '..') || str_contains($filename, '/') || str_contains($filename, '\\')) {
+            throw new ReportValidationException("Invalid filename: {$filename}");
         }
+
+        return $filename;
     }
 
     public function getExportPath(string $filename): string
     {
-        return $this->basePath.'/'.$filename;
+        return $this->basePath.'/'.$this->sanitizeFilename($filename);
     }
 
     public function cleanupOldReports(int $days = 90): int

@@ -3,16 +3,12 @@
 namespace Tests\Unit\Transaction;
 
 use App\Enums\CddLevel;
-use App\Models\Customer;
 use App\Services\Transaction\TransactionHoldService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class TransactionHoldServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected TransactionHoldService $service;
 
     protected function setUp(): void
@@ -24,9 +20,7 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function enhanced_cdd_requires_hold(): void
     {
-        $customer = Customer::factory()->create(['risk_rating' => 'Low']);
-
-        $result = $this->service->requiresHold(CddLevel::Enhanced, $customer, []);
+        $result = $this->service->requiresHold(CddLevel::Enhanced, []);
 
         $this->assertTrue($result);
     }
@@ -34,9 +28,7 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function standard_cdd_no_hold_by_default(): void
     {
-        $customer = Customer::factory()->create(['risk_rating' => 'Low']);
-
-        $result = $this->service->requiresHold(CddLevel::Standard, $customer, []);
+        $result = $this->service->requiresHold(CddLevel::Standard, []);
 
         $this->assertFalse($result);
     }
@@ -44,9 +36,7 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function simplified_cdd_no_hold_by_default(): void
     {
-        $customer = Customer::factory()->create(['risk_rating' => 'Low']);
-
-        $result = $this->service->requiresHold(CddLevel::Simplified, $customer, []);
+        $result = $this->service->requiresHold(CddLevel::Simplified, []);
 
         $this->assertFalse($result);
     }
@@ -54,14 +44,12 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function hold_triggered_by_critical_risk_flag(): void
     {
-        $customer = Customer::factory()->create(['risk_rating' => 'Medium']);
-
         $riskFlags = [
             ['type' => 'velocity', 'severity' => 'medium'],
             ['type' => 'structuring', 'severity' => 'critical'],
         ];
 
-        $result = $this->service->requiresHold(CddLevel::Standard, $customer, $riskFlags);
+        $result = $this->service->requiresHold(CddLevel::Standard, $riskFlags);
 
         $this->assertTrue($result);
     }
@@ -69,14 +57,12 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function hold_not_triggered_by_non_critical_flags(): void
     {
-        $customer = Customer::factory()->create(['risk_rating' => 'Low']);
-
         $riskFlags = [
             ['type' => 'velocity', 'severity' => 'low'],
             ['type' => 'round_trip', 'severity' => 'medium'],
         ];
 
-        $result = $this->service->requiresHold(CddLevel::Standard, $customer, $riskFlags);
+        $result = $this->service->requiresHold(CddLevel::Standard, $riskFlags);
 
         $this->assertFalse($result);
     }
@@ -84,9 +70,7 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function get_hold_reasons_includes_enhanced_cdd(): void
     {
-        $customer = Customer::factory()->create();
-
-        $reasons = $this->service->getHoldReasons(CddLevel::Enhanced, $customer, []);
+        $reasons = $this->service->getHoldReasons(CddLevel::Enhanced, []);
 
         $this->assertContains('Enhanced CDD requires hold', $reasons);
     }
@@ -94,13 +78,11 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function get_hold_reasons_includes_critical_flags(): void
     {
-        $customer = Customer::factory()->create();
-
         $riskFlags = [
             ['type' => 'structuring', 'severity' => 'critical'],
         ];
 
-        $reasons = $this->service->getHoldReasons(CddLevel::Standard, $customer, $riskFlags);
+        $reasons = $this->service->getHoldReasons(CddLevel::Standard, $riskFlags);
 
         $this->assertContains('Critical risk: structuring', $reasons);
     }
@@ -108,9 +90,7 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function get_hold_reasons_only_contains_enhanced_and_critical(): void
     {
-        $customer = Customer::factory()->create();
-
-        $reasons = $this->service->getHoldReasons(CddLevel::Standard, $customer, [
+        $reasons = $this->service->getHoldReasons(CddLevel::Standard, [
             ['type' => 'structuring', 'severity' => 'critical'],
         ]);
 
@@ -121,9 +101,7 @@ class TransactionHoldServiceTest extends TestCase
     #[Test]
     public function no_duplicate_reasons_when_enhanced_and_critical(): void
     {
-        $customer = Customer::factory()->create();
-
-        $reasons = $this->service->getHoldReasons(CddLevel::Enhanced, $customer, [
+        $reasons = $this->service->getHoldReasons(CddLevel::Enhanced, [
             ['type' => 'structuring', 'severity' => 'critical'],
         ]);
 

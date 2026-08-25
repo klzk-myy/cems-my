@@ -16,7 +16,7 @@ class CustomerIndexRequest extends ApiFormRequest
         return [
             'per_page' => 'nullable|integer|min:1|max:100',
             'search' => 'nullable|string',
-            'risk_rating' => 'nullable|string',
+            'risk_rating' => 'nullable|in:Low,Medium,High,Very High',
             'is_active' => 'nullable|boolean',
             'pep_status' => 'nullable|boolean',
         ];

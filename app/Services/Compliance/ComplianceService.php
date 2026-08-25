@@ -11,6 +11,7 @@ use App\Models\CustomerDocument;
 use App\Models\FlaggedTransaction;
 use App\Models\SanctionEntry;
 use App\Models\Transaction;
+use App\Repositories\CustomerRepository;
 use App\Services\Contracts\ComplianceServiceInterface;
 use App\Services\CustomerScreeningService;
 use App\Services\DTOs\ComplianceCheckResult;
@@ -158,11 +159,12 @@ class ComplianceService implements ComplianceServiceInterface
      */
     private function countWorkingDays(Carbon $from, Carbon $to): int
     {
+        $holidayDates = collect(config('compliance.public_holidays', []))->map(fn ($d) => Carbon::parse($d)->format('Y-m-d'));
         $days = 0;
         $current = $from->copy();
 
         while ($current <= $to) {
-            if (! $current->isWeekend()) {
+            if (! $current->isWeekend() && ! $holidayDates->contains($current->format('Y-m-d'))) {
                 $days++;
             }
             $current->addDay();
@@ -197,8 +199,7 @@ class ComplianceService implements ComplianceServiceInterface
 
         // Escape LIKE wildcards to prevent false matches (e.g. % and _ in names)
         // Also escape backslash so our ESCAPE clause behaves predictably.
-        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $customerName);
-        $pattern = '%'.$escaped.'%';
+        $pattern = '%'.CustomerRepository::escapeLike($customerName).'%';
 
         // Use parameter binding with explicit ESCAPE clause to prevent SQL injection
         $query = SanctionEntry::query();
@@ -501,6 +502,7 @@ class ComplianceService implements ComplianceServiceInterface
         // Define required document types per CDD level
         $requiredDocs = match ($cddLevel) {
             CddLevel::Simplified => ['MyKad'],
+            CddLevel::Specific,
             CddLevel::Standard => ['MyKad', 'Proof_of_Address'],
             CddLevel::Enhanced => ['MyKad', 'Proof_of_Address', 'Passport'],
         };

@@ -12,6 +12,7 @@ use App\Models\ExchangeRate;
 use App\Models\FlaggedTransaction;
 use App\Models\Transaction;
 use App\Services\Reporting\TransactionReportQuery;
+use App\Services\System\CacheOptimizationService;
 use App\Services\System\MathService;
 use App\Support\DbDate;
 use Carbon\Carbon;
@@ -23,6 +24,7 @@ class AnalyticsController extends Controller
 {
     public function __construct(
         protected MathService $mathService,
+        protected CacheOptimizationService $cacheOptimizationService,
     ) {}
 
     /**
@@ -106,7 +108,10 @@ class AnalyticsController extends Controller
         $startDate = $request->input('start_date', now()->subMonth()->startOfMonth()->toDateString());
         $endDate = $request->input('end_date', now()->subMonth()->endOfMonth()->toDateString());
 
-        $positionModels = CurrencyPosition::with('currency')->get();
+        $positionModels = $this->cacheOptimizationService->remember(
+            'analytics.positions.all', 300, ['analytics', 'positions'],
+            fn () => CurrencyPosition::with('currency')->get()
+        );
         $currencyCodes = $positionModels->pluck('currency_code')->unique()->values()->toArray();
         $rates = $this->getCurrentRates($currencyCodes);
 
@@ -172,10 +177,17 @@ class AnalyticsController extends Controller
      */
     protected function getCurrentRates(array $currencyCodes): array
     {
+        if (empty($currencyCodes)) {
+            return [];
+        }
+
+        // Fetch only the latest rate row per currency via a correlated subquery
+        // instead of loading the full history and deduplicating in PHP. Backed by
+        // the (currency_code, fetched_at) index.
         return ExchangeRate::whereIn('currency_code', $currencyCodes)
-            ->orderBy('fetched_at', 'desc')
+            ->whereRaw('fetched_at = (SELECT MAX(fetched_at) FROM exchange_rates er2 WHERE er2.currency_code = exchange_rates.currency_code)')
+            ->orderBy('id', 'desc')
             ->get()
-            ->unique('currency_code')
             ->keyBy('currency_code')
             ->map(fn ($rate) => (string) $rate->rate_sell)
             ->toArray();
@@ -188,43 +200,47 @@ class AnalyticsController extends Controller
     {
         $this->requireManagerOrAdmin();
 
-        $topCustomers = Customer::withCount('transactions')
-            ->withSum('transactions', 'amount_local')
-            ->withMin('transactions', 'created_at')
-            ->withMax('transactions', 'created_at')
-            ->orderBy('transactions_count', 'desc')
-            ->take(50)
-            ->get()
-            ->map(function ($customer) {
-                $riskRating = $customer->risk_rating;
+        $topCustomers = $this->cacheOptimizationService->remember(
+            'analytics.top-customers', 300, ['analytics', 'customers'],
+            fn () => Customer::withCount('transactions')
+                ->withSum('transactions', 'amount_local')
+                ->withMin('transactions', 'created_at')
+                ->withMax('transactions', 'created_at')
+                ->orderBy('transactions_count', 'desc')
+                ->take(50)
+                ->get()
+        )->map(function ($customer) {
+            $riskRating = $customer->risk_rating;
 
-                return [
-                    'name' => $customer->full_name,
-                    'customer_code' => sprintf('CUST-%06d', $customer->id),
-                    'id_number' => $customer->id_number_masked,
-                    'transaction_count' => $customer->transactions_count,
-                    'total_volume' => $customer->transactions_sum_amount_local,
-                    'avg_value' => $customer->transactions_count > 0
-                        ? $this->mathService->divide(
-                            (string) $customer->transactions_sum_amount_local,
-                            (string) $customer->transactions_count
-                        )
-                        : '0',
-                    'first_transaction' => $customer->transactions_min_created_at,
-                    'last_transaction' => $customer->transactions_max_created_at,
-                    'risk_rating' => $this->normalizeRiskRating($riskRating),
-                ];
-            });
+            return [
+                'name' => $customer->full_name,
+                'customer_code' => sprintf('CUST-%06d', $customer->id),
+                'id_number' => $customer->id_number_masked,
+                'transaction_count' => $customer->transactions_count,
+                'total_volume' => $customer->transactions_sum_amount_local,
+                'avg_value' => $customer->transactions_count > 0
+                    ? $this->mathService->divide(
+                        (string) $customer->transactions_sum_amount_local,
+                        (string) $customer->transactions_count
+                    )
+                    : '0',
+                'first_transaction' => $customer->transactions_min_created_at,
+                'last_transaction' => $customer->transactions_max_created_at,
+                'risk_rating' => $this->normalizeRiskRating($riskRating),
+            ];
+        });
 
         // Risk distribution
-        $riskCounts = Customer::select('risk_rating', DB::raw('COUNT(*) as count'))
-            ->groupBy('risk_rating')
-            ->get()
-            ->mapWithKeys(function ($row) {
-                $rating = $this->normalizeRiskRating($row->risk_rating);
+        $riskCounts = $this->cacheOptimizationService->remember(
+            'analytics.risk-distribution', 300, ['analytics', 'customers'],
+            fn () => Customer::select('risk_rating', DB::raw('COUNT(*) as count'))
+                ->groupBy('risk_rating')
+                ->get()
+        )->mapWithKeys(function ($row) {
+            $rating = $this->normalizeRiskRating($row->risk_rating);
 
-                return [$rating => $row->count];
-            });
+            return [$rating => $row->count];
+        });
 
         $riskDistribution = [
             'total' => $riskCounts->sum(),
@@ -249,10 +265,13 @@ class AnalyticsController extends Controller
         $endAt = Carbon::parse($endDate)->endOfDay();
 
         // Flagged transactions
-        $flaggedStatsRaw = FlaggedTransaction::whereBetween('created_at', [$startAt, $endAt])
-            ->select('flag_type', DB::raw('COUNT(*) as count'))
-            ->groupBy('flag_type')
-            ->get();
+        $flaggedStatsRaw = $this->cacheOptimizationService->remember(
+            "analytics.flagged.{$startDate}.{$endDate}", 300, ['analytics', 'compliance'],
+            fn () => FlaggedTransaction::whereBetween('created_at', [$startAt, $endAt])
+                ->select('flag_type', DB::raw('COUNT(*) as count'))
+                ->groupBy('flag_type')
+                ->get()
+        );
 
         $flaggedStats = [
             'total' => $flaggedStatsRaw->sum('count'),
@@ -266,14 +285,20 @@ class AnalyticsController extends Controller
         ];
 
         // EDD required count
-        $eddCount = Transaction::where('cdd_level', CddLevel::Enhanced)
-            ->whereBetween('created_at', [$startAt, $endAt])
-            ->count();
+        $eddCount = $this->cacheOptimizationService->remember(
+            "analytics.edd-count.{$startDate}.{$endDate}", 300, ['analytics', 'compliance'],
+            fn () => Transaction::where('cdd_level', CddLevel::Enhanced)
+                ->whereBetween('created_at', [$startAt, $endAt])
+                ->count()
+        );
 
         // Suspicious activity
-        $suspiciousCount = FlaggedTransaction::whereIn('flag_type', [ComplianceFlagType::Structuring, ComplianceFlagType::SanctionMatch])
-            ->whereBetween('created_at', [$startAt, $endAt])
-            ->count();
+        $suspiciousCount = $this->cacheOptimizationService->remember(
+            "analytics.suspicious.{$startDate}.{$endDate}", 300, ['analytics', 'compliance'],
+            fn () => FlaggedTransaction::whereIn('flag_type', [ComplianceFlagType::Structuring, ComplianceFlagType::SanctionMatch])
+                ->whereBetween('created_at', [$startAt, $endAt])
+                ->count()
+        );
 
         return view('reports.compliance-summary', compact(
             'flaggedStats',

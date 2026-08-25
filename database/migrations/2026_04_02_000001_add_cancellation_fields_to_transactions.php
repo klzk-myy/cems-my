@@ -16,9 +16,9 @@ return new class extends Migration
 
         Schema::table('transactions', function (Blueprint $table) {
             $table->timestamp('cancelled_at')->nullable()->after('approved_at');
-            $table->foreignId('cancelled_by')->nullable()->after('cancelled_at')->constrained('users');
+            $table->foreignId('cancelled_by')->nullable()->after('cancelled_at')->constrained('users')->restrictOnDelete();
             $table->text('cancellation_reason')->nullable()->after('cancelled_by');
-            $table->foreignId('original_transaction_id')->nullable()->after('cancellation_reason')->constrained('transactions');
+            $table->foreignId('original_transaction_id')->nullable()->after('cancellation_reason')->constrained('transactions')->restrictOnDelete();
             $table->boolean('is_refund')->default(false)->after('original_transaction_id');
 
             // Add index for cancelled transactions lookup

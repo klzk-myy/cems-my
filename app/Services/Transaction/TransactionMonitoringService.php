@@ -6,6 +6,7 @@ use App\Enums\ComplianceFlagType;
 use App\Enums\FlagStatus;
 use App\Enums\TransactionStatus;
 use App\Models\FlaggedTransaction;
+use App\Models\HighRiskCountry;
 use App\Models\Transaction;
 use App\Services\AuditService;
 use App\Services\Compliance\ComplianceService;
@@ -140,7 +141,7 @@ class TransactionMonitoringService implements TransactionMonitoringServiceInterf
             ->where('created_at', '>=', now()->subDays(90))
             ->avg('amount_local');
 
-        if (! $customerAvg || (float) $customerAvg === 0.0) {
+        if (! $customerAvg || $this->mathService->compare((string) $customerAvg, '0') === 0) {
             return false;
         }
 
@@ -162,11 +163,7 @@ class TransactionMonitoringService implements TransactionMonitoringServiceInterf
             return false;
         }
 
-        $highRiskCountries = DB::table('high_risk_countries')
-            ->pluck('country_code')
-            ->toArray();
-
-        return in_array($transaction->customer->nationality, $highRiskCountries, true);
+        return in_array($transaction->customer->nationality, HighRiskCountry::countryCodes(), true);
     }
 
     protected function isProfileDeviation(Transaction $transaction): bool

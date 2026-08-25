@@ -10,12 +10,12 @@
             <x-table>
                 <x-slot:thead>
                     <tr class="text-left text-sm text-ink-muted">
-                        <th class="px-4 py-3">Name</th>
-                        <th class="px-4 py-3">Username</th>
-                        <th class="px-4 py-3">Email</th>
-                        <th class="px-4 py-3">Role</th>
-                        <th class="px-4 py-3">Branch</th>
-                        <th class="px-4 py-3"></th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Name</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Username</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Email</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Role</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Branch</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase"></th>
                     </tr>
                 </x-slot:thead>
                 <x-slot:tbody>

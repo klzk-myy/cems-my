@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\TellerAllocation;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\AuditService;
 use App\Services\Branch\BranchPoolService;
 use App\Services\Branch\TellerAllocationService;
 use App\Services\System\MathService;
@@ -26,7 +27,7 @@ class TellerAllocationServiceTransactionTest extends TestCase
     {
         parent::setUp();
         $this->service = new TellerAllocationService(
-            new BranchPoolService(new MathService),
+            new BranchPoolService(new AuditService, new MathService),
             new MathService
         );
     }

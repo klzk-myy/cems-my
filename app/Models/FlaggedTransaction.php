@@ -12,12 +12,11 @@ class FlaggedTransaction extends BaseModel
 {
     use HasFactory, SoftDeletes;
 
-    protected $with = ['transaction', 'customer', 'assignedTo', 'reviewer'];
-
     protected $fillable = [
         'transaction_id',
         'flag_type',
         'flag_reason',
+        'severity',
         'status',
         'assigned_to',
         'reviewed_by',

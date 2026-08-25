@@ -18,4 +18,38 @@ class NavigationTest extends TestCase
 
         $this->assertInstanceOf(View::class, $view);
     }
+
+    #[Test]
+    public function it_renders_with_collapsible_true_by_default(): void
+    {
+        $component = new Navigation;
+
+        $this->assertTrue($component->collapsible);
+    }
+
+    #[Test]
+    public function it_renders_with_collapsible_false(): void
+    {
+        $component = new Navigation(collapsible: false);
+
+        $this->assertFalse($component->collapsible);
+    }
+
+    #[Test]
+    public function it_renders_with_collapsed_true(): void
+    {
+        $component = new Navigation(collapsed: true);
+
+        $this->assertTrue($component->collapsed);
+    }
+
+    #[Test]
+    public function it_renders_navigation_view(): void
+    {
+        $component = new Navigation;
+        $view = $component->render();
+
+        $html = $view->render();
+        $this->assertStringContainsString('navigation', $html);
+    }
 }

@@ -111,39 +111,79 @@ class QueueHealthCheck extends Command
     private function checkWorkerStatus(): void
     {
         try {
-            // Check for queue workers by looking for reserved jobs (indicates workers are active)
-            $hasWorkers = false;
-
-            // Try to get a list of reserved jobs
-            $reservedKey = 'queues:default:reserved';
-            if (Redis::exists($reservedKey)) {
-                $hasWorkers = true;
-            }
-
-            // Check if there are any worker heartbeats
-            $horizonKey = 'horizon:*';
-            $horizonKeys = Redis::keys($horizonKey);
-            if (! empty($horizonKeys)) {
-                $hasWorkers = true;
-            }
-
-            // If no workers detected but queues exist, check if jobs are being processed
             $pending = Queue::size('default');
-            if ($pending === 0) {
-                $hasWorkers = true; // Empty queue means workers may be idle but functional
-            }
 
-            if ($hasWorkers) {
+            // Positive evidence only: Horizon master supervisors refresh
+            // their "horizon:master:*" heartbeat keys every few seconds
+            // (15s TTL), so their presence proves workers ran recently.
+            // An empty queue alone is NOT evidence of healthy workers.
+            if ($this->horizonMasterHeartbeatExists()) {
                 $this->checks['workers'] = ['status' => 'OK', 'message' => 'Workers appear to be running'];
+            } elseif ($pending > 0) {
+                $this->checks['workers'] = [
+                    'status' => 'WARNING',
+                    'message' => "No Horizon worker heartbeats detected with {$pending} pending job(s). Check supervisor.",
+                ];
             } else {
                 $this->checks['workers'] = [
                     'status' => 'WARNING',
-                    'message' => 'No active workers detected. Check supervisor.',
+                    'message' => 'No Horizon worker heartbeats detected - Horizon appears inactive. Check supervisor.',
                 ];
             }
         } catch (\Exception $e) {
             $this->checks['workers'] = ['status' => 'ERROR', 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Detect a live Horizon master supervisor heartbeat via SCAN.
+     *
+     * Uses Redis SCAN (never KEYS) so the check never blocks the server,
+     * bounded by a batch cap to keep it cheap on large keyspaces.
+     *
+     * Note: phpredis applies OPT_PREFIX transparently to KEYS but NOT to
+     * SCAN MATCH patterns, so the configured prefix must be included in the
+     * pattern explicitly. The initial cursor must be null - a literal "0"
+     * makes phpredis short-circuit the iteration.
+     */
+    private function horizonMasterHeartbeatExists(): bool
+    {
+        $connection = Redis::connection();
+        $client = $connection->client();
+
+        $prefix = '';
+        if ($client instanceof \Redis) {
+            $prefix = (string) $client->getOption(\Redis::OPT_PREFIX);
+        }
+
+        $cursor = null;
+
+        for ($batches = 0; $batches < 100; $batches++) {
+            $result = $connection->scan($cursor, [
+                'match' => $prefix.'horizon:master:*',
+                'count' => 200,
+            ]);
+
+            // PhpRedisConnection::scan returns false when the full keyspace
+            // was scanned and nothing matched, else [cursor, keys].
+            if ($result === false) {
+                return false;
+            }
+
+            [$cursor, $keys] = $result;
+
+            foreach ((array) $keys as $key) {
+                if ($key !== false && $key !== null && $key !== '') {
+                    return true;
+                }
+            }
+
+            if ((int) $cursor === 0) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**

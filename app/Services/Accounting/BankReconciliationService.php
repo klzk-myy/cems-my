@@ -3,9 +3,11 @@
 namespace App\Services\Accounting;
 
 use App\Enums\CheckStatus;
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Models\BankReconciliation;
 use App\Models\JournalEntry;
 use App\Services\System\MathService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class BankReconciliationService
@@ -85,7 +87,7 @@ class BankReconciliationService
         $record = BankReconciliation::findOrFail($reconciliationId);
 
         if ($record->check_status !== CheckStatus::Issued) {
-            throw new \InvalidArgumentException("Check {$record->check_number} is not in 'issued' status.");
+            throw new AccountingPeriodException("Check {$record->check_number} is not in 'issued' status.");
         }
 
         $record->update([
@@ -103,7 +105,7 @@ class BankReconciliationService
         $record = BankReconciliation::findOrFail($reconciliationId);
 
         if (! in_array($record->check_status, [CheckStatus::Issued, CheckStatus::Presented])) {
-            throw new \InvalidArgumentException("Check {$record->check_number} cannot be cleared from '{$record->check_status}' status.");
+            throw new AccountingPeriodException("Check {$record->check_number} cannot be cleared from '{$record->check_status}' status.");
         }
 
         $record->update([
@@ -122,7 +124,7 @@ class BankReconciliationService
         $record = BankReconciliation::findOrFail($reconciliationId);
 
         if ($record->check_status === CheckStatus::Cleared) {
-            throw new \InvalidArgumentException("Check {$record->check_number} has already been cleared and cannot be stopped.");
+            throw new AccountingPeriodException("Check {$record->check_number} has already been cleared and cannot be stopped.");
         }
 
         $record->update([
@@ -163,9 +165,12 @@ class BankReconciliationService
                 continue;
             }
 
-            // Look for matching journal entry
-            $amount = abs($record->getAmount());
-            $isDebit = $record->getAmount() > 0;
+            // Look for matching journal entry. Keep the amount a BCMath string:
+            // float coercion here would bind a rounded value against decimal
+            // columns and silently miss exact matches.
+            $recordAmount = $record->getAmount();
+            $amount = $this->mathService->abs($recordAmount);
+            $isDebit = $this->mathService->compare($recordAmount, '0') > 0;
             $column = $isDebit ? 'debit' : 'credit';
 
             $matchingEntry = JournalEntry::where('status', 'Posted')
@@ -187,14 +192,31 @@ class BankReconciliationService
     }
 
     /**
+     * Sum reconciliation record amounts with BCMath (never float).
+     *
+     * @param  iterable<BankReconciliation>  $records
+     */
+    protected function sumAmounts(iterable $records): string
+    {
+        $total = '0';
+
+        foreach ($records as $record) {
+            $total = $this->mathService->add($total, $record->getAmount());
+        }
+
+        return $total;
+    }
+
+    /**
      * Get reconciliation report
      */
     public function getReconciliationReport(string $accountCode, string $fromDate, string $toDate): array
     {
-        $statementBalance = BankReconciliation::where('account_code', $accountCode)
+        $statementRecords = BankReconciliation::where('account_code', $accountCode)
             ->whereBetween('statement_date', [$fromDate, $toDate])
-            ->get()
-            ->sum(fn ($r) => $r->getAmount());
+            ->get();
+
+        $statementBalance = $this->sumAmounts($statementRecords);
 
         $unmatchedItems = BankReconciliation::where('account_code', $accountCode)
             ->where('status', 'unmatched')
@@ -235,16 +257,24 @@ class BankReconciliationService
                 'reference' => $item->reference,
                 'amount' => $item->getAmount(),
             ];
-            if ($item->debit > 0) {
+            if ($this->mathService->compare((string) $item->debit, '0') > 0) {
                 $outstandingChecks->push($itemData);
             } else {
                 $outstandingDeposits->push($itemData);
             }
         }
 
-        $statementBalance = sprintf('%0.2f', $rawReport['statement_balance'] ?? '0');
-        $checks = sprintf('%0.2f', $outstandingChecks->sum(fn ($i) => $i['amount']));
-        $deposits = sprintf('%0.2f', $outstandingDeposits->sum(fn ($i) => abs($i['amount'])));
+        $statementBalance = (string) ($rawReport['statement_balance'] ?? '0');
+        // Accumulate with BCMath; the previous ltrim('-', ...) sign strip turned
+        // negative (reversal) deposits into positives and corrupted the balance.
+        $checks = $outstandingChecks->reduce(
+            fn (string $carry, array $item) => $this->mathService->add($carry, (string) $item['amount']),
+            '0'
+        );
+        $deposits = $outstandingDeposits->reduce(
+            fn (string $carry, array $item) => $this->mathService->add($carry, (string) $item['amount']),
+            '0'
+        );
 
         $adjustedBalance = $this->mathService->subtract(
             $this->mathService->add($statementBalance, $checks),
@@ -253,8 +283,8 @@ class BankReconciliationService
 
         return [
             'book_balance' => $rawReport['statement_balance'] ?? 0,
-            'outstanding_checks' => $outstandingChecks->sum(fn ($i) => $i['amount']),
-            'outstanding_deposits' => $outstandingDeposits->sum(fn ($i) => abs($i['amount'])),
+            'outstanding_checks' => $checks,
+            'outstanding_deposits' => $deposits,
             'adjusted_balance' => $adjustedBalance,
             'outstanding_checks_list' => $outstandingChecks->toArray(),
             'outstanding_deposits_list' => $outstandingDeposits->toArray(),
@@ -286,30 +316,33 @@ class BankReconciliationService
             'as_of_date' => $asOfDate,
             'issued' => [
                 'count' => $issued->count(),
-                'total' => $issued->sum(fn ($r) => $r->getAmount()),
+                'total' => $this->sumAmounts($issued),
                 'items' => $issued,
             ],
             'presented' => [
                 'count' => $presented->count(),
-                'total' => $presented->sum(fn ($r) => $r->getAmount()),
+                'total' => $this->sumAmounts($presented),
                 'items' => $presented,
             ],
             'cleared' => [
                 'count' => $cleared->count(),
-                'total' => $cleared->sum(fn ($r) => $r->getAmount()),
+                'total' => $this->sumAmounts($cleared),
                 'items' => $cleared,
             ],
             'returned' => [
                 'count' => $returned->count(),
-                'total' => $returned->sum(fn ($r) => $r->getAmount()),
+                'total' => $this->sumAmounts($returned),
                 'items' => $returned,
             ],
             'stopped' => [
                 'count' => $stopped->count(),
-                'total' => $stopped->sum(fn ($r) => $r->getAmount()),
+                'total' => $this->sumAmounts($stopped),
                 'items' => $stopped,
             ],
-            'total_outstanding' => $issued->sum(fn ($r) => $r->getAmount()) + $presented->sum(fn ($r) => $r->getAmount()),
+            'total_outstanding' => $this->mathService->add(
+                $this->sumAmounts($issued),
+                $this->sumAmounts($presented)
+            ),
         ];
     }
 
@@ -320,7 +353,7 @@ class BankReconciliationService
      */
     public function getChecksAgingReport(string $accountCode, ?string $asOfDate = null): array
     {
-        $asOfDate = $asOfDate ?? today();
+        $asOfDate = $asOfDate ? Carbon::parse($asOfDate) : today();
         $outstanding = BankReconciliation::where('account_code', $accountCode)
             ->whereNotNull('check_number')
             ->whereIn('check_status', [CheckStatus::Issued, CheckStatus::Presented])
@@ -353,27 +386,27 @@ class BankReconciliationService
             'aging' => [
                 'current_0_30' => [
                     'count' => $current->count(),
-                    'total' => $current->sum(fn ($r) => $r->getAmount()),
+                    'total' => $this->sumAmounts($current),
                     'items' => $current,
                 ],
                 'days_31_60' => [
                     'count' => $days30->count(),
-                    'total' => $days30->sum(fn ($r) => $r->getAmount()),
+                    'total' => $this->sumAmounts($days30),
                     'items' => $days30,
                 ],
                 'days_61_90' => [
                     'count' => $days60->count(),
-                    'total' => $days60->sum(fn ($r) => $r->getAmount()),
+                    'total' => $this->sumAmounts($days60),
                     'items' => $days60,
                 ],
                 'days_91_180' => [
                     'count' => $days90->count(),
-                    'total' => $days90->sum(fn ($r) => $r->getAmount()),
+                    'total' => $this->sumAmounts($days90),
                     'items' => $days90,
                 ],
                 'over_180' => [
                     'count' => $over90->count(),
-                    'total' => $over90->sum(fn ($r) => $r->getAmount()),
+                    'total' => $this->sumAmounts($over90),
                     'items' => $over90,
                 ],
             ],
@@ -391,6 +424,28 @@ class BankReconciliationService
             'status' => 'exception',
             'notes' => $reason,
         ]);
+
+        return $record;
+    }
+
+    /**
+     * Manually match a reconciliation record to a journal entry.
+     */
+    public function manualMatch(int $reconciliationId, int $journalEntryId): BankReconciliation
+    {
+        $record = BankReconciliation::findOrFail($reconciliationId);
+        $record->markMatched($journalEntryId);
+
+        return $record;
+    }
+
+    /**
+     * Unmatch a reconciliation record (revert to unmatched).
+     */
+    public function unmatch(int $reconciliationId): BankReconciliation
+    {
+        $record = BankReconciliation::findOrFail($reconciliationId);
+        $record->markUnmatched();
 
         return $record;
     }

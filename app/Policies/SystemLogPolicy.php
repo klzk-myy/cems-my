@@ -15,8 +15,7 @@ class SystemLogPolicy
     public function viewAny(User $user): bool
     {
         return $user->role === UserRole::Admin ||
-               $user->role === UserRole::ComplianceOfficer ||
-               $user->can('access_compliance_dashboard');
+               $user->role === UserRole::ComplianceOfficer;
     }
 
     /**
@@ -26,8 +25,7 @@ class SystemLogPolicy
     public function view(User $user, SystemLog $systemLog): bool
     {
         return $user->role === UserRole::Admin ||
-               $user->role === UserRole::ComplianceOfficer ||
-               $user->can('access_compliance_dashboard');
+               $user->role === UserRole::ComplianceOfficer;
     }
 
     /**

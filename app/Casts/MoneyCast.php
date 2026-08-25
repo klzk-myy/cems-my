@@ -33,19 +33,65 @@ class MoneyCast implements CastsAttributes
 
     private function round(string|int|float $value): string
     {
-        $value = (string) $value;
-        $increment = $this->roundingIncrement();
+        $value = $this->normalizeInput((string) $value);
+        $isNegative = str_starts_with($value, '-');
+        $absValue = ltrim($isNegative ? substr($value, 1) : $value, '+');
 
-        // Apply sign to increment for negative values
-        if (str_starts_with($value, '-')) {
-            $increment = '-'.$increment;
+        // Work on the decimal string directly so rounding decisions are never
+        // lost to float precision or bcmath scale truncation.
+        [$intPart, $fracPart] = array_pad(explode('.', $absValue, 2), 2, '');
+        $intPart = $intPart === '' ? '0' : $intPart;
+
+        // Digits we keep, plus the first dropped digit.
+        $keptFrac = str_pad(substr($fracPart, 0, $this->scale), $this->scale, '0');
+        $roundDigit = (int) ($fracPart[$this->scale] ?? '0');
+
+        // Half-up rounding (round half away from zero): a rounding digit of 5
+        // or more always rounds up. This matches MathService::round() so casted
+        // attributes and value-object math agree - BNM reconciliation treats
+        // mixed half-even/half-up conventions as drift. The sign is reapplied
+        // afterwards on the absolute value, so "up" means away from zero.
+        $shouldRoundUp = $roundDigit >= 5;
+
+        // Rebuild the scaled integer (value * 10^scale) and carry the increment if needed.
+        $scaledInt = $shouldRoundUp
+            ? bcadd($intPart.$keptFrac, '1', 0)
+            : ($intPart.$keptFrac ?: '0');
+
+        // Insert the decimal point at the scale position.
+        if ($this->scale > 0) {
+            $padded = str_pad($scaledInt, $this->scale + 1, '0', STR_PAD_LEFT);
+            $result = substr($padded, 0, -$this->scale).'.'.substr($padded, -$this->scale);
+        } else {
+            $result = $scaledInt;
         }
 
-        return bcadd($value, $increment, $this->scale);
+        // Never emit "-0.0000": a value that rounds to zero is plain zero
+        if (bccomp($result, '0', $this->scale) === 0) {
+            return '0'.($this->scale > 0 ? '.'.str_repeat('0', $this->scale) : '');
+        }
+
+        return $isNegative ? '-'.$result : $result;
     }
 
-    private function roundingIncrement(): string
+    /**
+     * Convert inputs bcmath cannot parse (e.g. "1.0E-8", "2.5E+3") into plain
+     * decimal strings before rounding. PHP casts float attributes to exponent
+     * notation, which would otherwise throw a ValueError inside bcmul/bcadd.
+     */
+    private function normalizeInput(string $value): string
     {
-        return '0.'.str_repeat('0', $this->scale).'5';
+        $trimmed = trim($value);
+
+        if (stripos($trimmed, 'e') === false) {
+            return $trimmed;
+        }
+
+        $normalized = sprintf('%.'.($this->scale + 10).'F', (float) $trimmed);
+
+        // Trim trailing zeros (and trailing dot) but keep at least the integer part
+        $normalized = rtrim(rtrim($normalized, '0'), '.');
+
+        return $normalized === '' || $normalized === '-' ? '0' : $normalized;
     }
 }

@@ -17,7 +17,7 @@ class StoreStockTransferRequest extends AuthorizedFormRequest
             'type' => 'required|in:Standard,Emergency,Scheduled,Return',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.currency_code' => 'required|string',
+            'items.*.currency_code' => 'required|string|exists:currencies,code',
             'items.*.quantity' => 'required|numeric|min:0',
             'items.*.rate' => 'required|numeric|min:0',
             'items.*.value_myr' => 'required|numeric|min:0',

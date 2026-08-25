@@ -5,6 +5,7 @@ namespace App\Services\Compliance;
 use App\Enums\ComplianceCaseStatus;
 use App\Enums\EddStatus;
 use App\Enums\FindingSeverity;
+use App\Enums\FindingStatus;
 use App\Enums\ReportGeneratedStatus;
 use App\Enums\ReportType;
 use App\Models\Compliance\ComplianceCase;
@@ -107,9 +108,12 @@ class ComplianceReportingService
     {
         $sevenDaysAgo = now()->subDays(7);
 
+        // Exclude by enum values: FindingStatus::CaseCreated is stored as
+        // 'Case_Created' (underscored), so a literal 'CaseCreated' here never
+        // matched and case-created findings were counted as pending.
         $findings = ComplianceFinding::query()
             ->where('generated_at', '>=', $sevenDaysAgo)
-            ->whereNotIn('status', ['Dismissed', 'CaseCreated'])
+            ->whereNotIn('status', [FindingStatus::Dismissed->value, FindingStatus::CaseCreated->value])
             ->select('severity', DB::raw('COUNT(*) as count'))
             ->groupBy('severity')
             ->get();
@@ -312,12 +316,17 @@ class ComplianceReportingService
         $toDate = $filters['to_date'] ?? null;
         $caseId = $filters['case_id'] ?? null;
 
+        // Group the disjuncts: without the closure, SQL operator precedence
+        // bound every following whereDate/entity_id filter to only the LAST
+        // orWhere() branch instead of the whole compliance set.
         $query = SystemLog::query()
-            ->where('entity_type', 'like', '%Compliance%')
-            ->orWhere('action', 'like', '%compliance%')
-            ->orWhere('action', 'like', '%case%')
-            ->orWhere('action', 'like', '%edd%')
-            ->orWhere('action', 'like', '%str%')
+            ->where(function ($q) {
+                $q->where('entity_type', 'like', '%Compliance%')
+                    ->orWhere('action', 'like', '%compliance%')
+                    ->orWhere('action', 'like', '%case%')
+                    ->orWhere('action', 'like', '%edd%')
+                    ->orWhere('action', 'like', '%str%');
+            })
             ->orderBy('created_at', 'desc');
 
         if ($fromDate) {

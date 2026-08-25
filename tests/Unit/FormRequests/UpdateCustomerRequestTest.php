@@ -22,7 +22,7 @@ class UpdateCustomerRequestTest extends TestCase
         $this->assertArrayHasKey('nationality', $rules);
         $this->assertArrayHasKey('phone', $rules);
         $this->assertArrayHasKey('email', $rules);
-        $this->assertArrayHasKey('risk_rating', $rules);
+        $this->assertArrayNotHasKey('risk_rating', $rules);
         $this->assertArrayHasKey('is_active', $rules);
     }
 
@@ -33,17 +33,16 @@ class UpdateCustomerRequestTest extends TestCase
         $rules = $request->rules();
 
         $this->assertContains('sometimes', (array) $rules['id_number']);
-        $this->assertContains('required', (array) $rules['id_number']);
+        $this->assertNotContains('required', (array) $rules['id_number']);
     }
 
     #[Test]
-    public function it_allows_risk_rating_to_be_low_medium_or_high(): void
+    public function it_does_not_allow_risk_rating_to_be_set_by_user(): void
     {
         $request = new UpdateCustomerRequest;
         $rules = $request->rules();
 
-        $this->assertContains('nullable', (array) $rules['risk_rating']);
-        $this->assertContains('in:Low,Medium,High', (array) $rules['risk_rating']);
+        $this->assertArrayNotHasKey('risk_rating', $rules);
     }
 
     #[Test]

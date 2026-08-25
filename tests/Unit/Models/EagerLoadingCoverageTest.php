@@ -22,10 +22,12 @@ class EagerLoadingCoverageTest extends TestCase
 
     public function test_key_listing_models_eager_loading_configuration(): void
     {
-        $this->assertSame(['customer', 'assignee'], $this->getModelWithProperty(new ComplianceCase));
-        $this->assertSame(['flaggedTransaction', 'assignedTo', 'case'], $this->getModelWithProperty(new Alert));
-        $this->assertSame(['transaction', 'customer', 'assignedTo', 'reviewer'], $this->getModelWithProperty(new FlaggedTransaction));
-        $this->assertSame(['customer', 'transaction', 'sanctionEntry'], $this->getModelWithProperty(new ScreeningResult));
-        $this->assertSame(['customer', 'reviewer', 'template'], $this->getModelWithProperty(new EnhancedDiligenceRecord));
+        // Models no longer use aggressive $with eager loading.
+        // Eager loading is applied per-query in the service/controller layer.
+        $this->assertSame([], $this->getModelWithProperty(new ComplianceCase));
+        $this->assertSame([], $this->getModelWithProperty(new Alert));
+        $this->assertSame([], $this->getModelWithProperty(new FlaggedTransaction));
+        $this->assertSame([], $this->getModelWithProperty(new ScreeningResult));
+        $this->assertSame([], $this->getModelWithProperty(new EnhancedDiligenceRecord));
     }
 }

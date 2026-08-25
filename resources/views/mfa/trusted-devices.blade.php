@@ -1,5 +1,5 @@
 <x-app-layout title="Trusted Devices">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Trusted Devices"
             description="Manage devices that remember your MFA verification"

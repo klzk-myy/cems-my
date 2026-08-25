@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('parent_code', 20)->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            $table->foreign('parent_code')->references('account_code')->on('chart_of_accounts');
+            $table->foreign('parent_code')->references('account_code')->on('chart_of_accounts')->restrictOnDelete();
             $table->index('account_type');
         });
 

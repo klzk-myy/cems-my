@@ -48,17 +48,12 @@ class ChartOfAccount extends BaseModel
         'account_name',
         'account_type',
         'account_class',
-        'parent_code',
-        'normal_balance',
         'is_active',
-        'allow_journal',
         'cost_center_id',
-        'department_id',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-        'allow_journal' => 'boolean',
         'account_type' => AccountType::class,
     ];
 

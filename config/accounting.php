@@ -13,14 +13,14 @@ return [
     */
 
     // Revaluation accounts (used in RevaluationService)
-    'forex_position_account' => env('ACCOUNT_FOREX_POSITION', '2000'),
-    'revaluation_gain_account' => env('ACCOUNT_REVALUATION_GAIN', '5100'),
-    'revaluation_loss_account' => env('ACCOUNT_REVALUATION_LOSS', '6100'),
+    'forex_position_account' => env('ACCOUNT_FOREX_POSITION'),
+    'revaluation_gain_account' => env('ACCOUNT_REVALUATION_GAIN'),
+    'revaluation_loss_account' => env('ACCOUNT_REVALUATION_LOSS'),
 
     // Period close accounts (used in PeriodCloseService)
-    'revenue_summary_account' => env('ACCOUNT_REVENUE_SUMMARY', '4000'),
-    'expense_summary_account' => env('ACCOUNT_EXPENSE_SUMMARY', '5000'),
-    'retained_earnings_account' => env('ACCOUNT_RETAINED_EARNINGS', '3100'),
+    'revenue_summary_account' => env('ACCOUNT_REVENUE_SUMMARY'),
+    'expense_summary_account' => env('ACCOUNT_EXPENSE_SUMMARY'),
+    'retained_earnings_account' => env('ACCOUNT_RETAINED_EARNINGS'),
 
     /*
     |--------------------------------------------------------------------------

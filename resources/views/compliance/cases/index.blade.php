@@ -1,5 +1,5 @@
 <x-app-layout title="Cases">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="space-y-6">
         <x-page-header
             title="Compliance Cases"
             description="Manage ongoing compliance investigations"
@@ -13,13 +13,13 @@
         <x-filter-bar method="GET">
             <x-select
                 name="priority"
-                :options="['critical' => 'Critical', 'high' => 'High', 'medium' => 'Medium', 'low' => 'Low']"
+                :options="['Critical' => 'Critical', 'High' => 'High', 'Medium' => 'Medium', 'Low' => 'Low']"
                 placeholder="All Priority"
                 inline
             />
             <x-select
                 name="status"
-                :options="['open' => 'Open', 'in_progress' => 'In Progress', 'pending_review' => 'Pending Review', 'closed' => 'Closed']"
+                :options="['Open' => 'Open', 'UnderReview' => 'Under Review', 'PendingApproval' => 'Pending Approval', 'Closed' => 'Closed']"
                 placeholder="All Status"
                 inline
             />

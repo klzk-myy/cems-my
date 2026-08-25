@@ -1,5 +1,5 @@
 <x-app-layout title="Sanctions List Details">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Sanctions List Details"
             description="{{ $list->name }}"
@@ -12,10 +12,10 @@
             </x-slot:actions>
         </x-page-header>
 
-        <x-card-section title="List Information" :actions="true">
+        <x-card title="List Information" :actions="true">
             <x-slot:actions>
                 <x-badge variant="success">
-                    {{ ucfirst($list->update_status?->value ?? (string) $list->update_status) }}
+                    {{ $list->update_status?->label() ?? ucfirst((string) $list->update_status) }}
                 </x-badge>
             </x-slot:actions>
 
@@ -61,9 +61,9 @@
                     <p class="text-sm text-ink">{{ $list->is_active ? 'Yes' : 'No' }}</p>
                 </div>
             </div>
-        </x-card-section>
+        </x-card>
 
-        <x-card-section title="Actions">
+        <x-card title="Actions">
             <div class="flex flex-wrap gap-3">
                 <form method="POST" action="{{ route('compliance.sanctions.import', $list) }}">
                     @csrf
@@ -73,6 +73,6 @@
                     View Entries
                 </x-button>
             </div>
-        </x-card-section>
+        </x-card>
     </div>
 </x-app-layout>

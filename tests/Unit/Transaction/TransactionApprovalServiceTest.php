@@ -4,16 +4,19 @@ namespace Tests\Unit\Transaction;
 
 use App\Enums\CddLevel;
 use App\Enums\ComplianceFlagType;
+use App\Enums\StockReservationStatus;
 use App\Enums\TellerAllocationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Events\TransactionApproved;
 use App\Exceptions\Domain\SelfApprovalException;
+use App\Exceptions\Domain\TransactionValidationException;
 use App\Models\Counter;
 use App\Models\CurrencyPosition;
 use App\Models\Customer;
 use App\Models\FlaggedTransaction;
+use App\Models\StockReservation;
 use App\Models\TellerAllocation;
 use App\Models\TillBalance;
 use App\Models\Transaction;
@@ -21,8 +24,11 @@ use App\Models\User;
 use App\Services\Accounting\CurrencyPositionService;
 use App\Services\Accounting\TransactionAccountingService;
 use App\Services\Audit\AuditTrailHelper;
+use App\Services\AuditService;
+use App\Services\Branch\TellerAllocationService;
 use App\Services\Branch\TillBalanceManager;
 use App\Services\System\CacheTagsService;
+use App\Services\System\MathService;
 use App\Services\Transaction\TransactionApprovalService;
 use App\Services\Transaction\TransactionMonitoringService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,13 +48,23 @@ class TransactionApprovalServiceTest extends TestCase
             $cache->shouldReceive('invalidate')->with('dashboard')->zeroOrMoreTimes();
         }
 
+        $auditService = $mocks['auditService'] ?? Mockery::mock(AuditService::class);
+
+        $tellerAllocation = $mocks['tellerAllocation'] ?? Mockery::mock(TellerAllocationService::class);
+        if (! isset($mocks['tellerAllocation'])) {
+            $tellerAllocation->shouldReceive('applyTransactionAllocation')->andReturnNull();
+        }
+
         return new TransactionApprovalService(
             $mocks['monitoring'] ?? Mockery::mock(TransactionMonitoringService::class),
             $mocks['position'] ?? Mockery::mock(CurrencyPositionService::class),
             $mocks['accounting'] ?? Mockery::mock(TransactionAccountingService::class),
             $mocks['audit'] ?? Mockery::mock(AuditTrailHelper::class),
             $mocks['till'] ?? app(TillBalanceManager::class),
-            $cache
+            $cache,
+            $auditService,
+            $tellerAllocation,
+            new MathService
         );
     }
 
@@ -126,7 +142,7 @@ class TransactionApprovalServiceTest extends TestCase
         $accounting->shouldReceive('createDeferredAccountingEntries')->never();
 
         $audit = Mockery::mock(AuditTrailHelper::class);
-        $audit->shouldReceive('recordTransaction')
+        $audit->shouldReceive('recordTransactionSealed')
             ->once()
             ->withArgs(function (int $transactionId, string $action) {
                 return $transactionId > 0 && $action === 'transaction_approved';
@@ -163,7 +179,7 @@ class TransactionApprovalServiceTest extends TestCase
         $accounting->shouldReceive('createImmediateAccountingEntries')->never();
 
         $audit = Mockery::mock(AuditTrailHelper::class);
-        $audit->shouldReceive('recordTransaction')->once();
+        $audit->shouldReceive('recordTransactionSealed')->once();
 
         $result = $this->service([
             'monitoring' => $this->monitoringMock(),
@@ -240,7 +256,7 @@ class TransactionApprovalServiceTest extends TestCase
         ]);
         $approver = User::factory()->create();
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(TransactionValidationException::class);
 
         $this->service()->validateApprovalEligibility($transaction, $approver->id);
     }
@@ -332,7 +348,7 @@ class TransactionApprovalServiceTest extends TestCase
         $position = Mockery::mock(CurrencyPositionService::class);
         $position->shouldReceive('getPositionWithLock')->andReturn(CurrencyPosition::factory()->make());
         $position->shouldReceive('getAvailableBalance')
-            ->with($transaction->currency_code, (string) $transaction->branch_id)
+            ->with($transaction->currency_code, (string) $transaction->till_id)
             ->andReturn('100.00');
         $position->shouldReceive('consumeStockReservation')->never();
 
@@ -404,13 +420,14 @@ class TransactionApprovalServiceTest extends TestCase
         $accounting->shouldReceive('createImmediateAccountingEntries')->once();
 
         $audit = Mockery::mock(AuditTrailHelper::class);
-        $audit->shouldReceive('recordTransaction')->once();
+        $audit->shouldReceive('recordTransactionSealed')->once();
 
         $result = $this->service([
             'monitoring' => $this->monitoringMock(),
             'position' => $position,
             'accounting' => $accounting,
             'audit' => $audit,
+            'tellerAllocation' => app(TellerAllocationService::class),
         ])->approve($transaction, $approver->id);
 
         $this->assertTrue($result->success);
@@ -430,7 +447,7 @@ class TransactionApprovalServiceTest extends TestCase
         $captured = null;
 
         $audit = Mockery::mock(AuditTrailHelper::class);
-        $audit->shouldReceive('recordTransaction')
+        $audit->shouldReceive('recordTransactionSealed')
             ->once()
             ->withArgs(function (
                 int $transactionId,
@@ -442,7 +459,7 @@ class TransactionApprovalServiceTest extends TestCase
             ) use (&$captured) {
                 $captured = compact('transactionId', 'action', 'metadata', 'user', 'severity', 'ip');
 
-                return $action === 'transaction_approved' && $severity === 'INFO';
+                return $action === 'transaction_approved' && $severity === 'CRITICAL';
             });
 
         $position = Mockery::mock(CurrencyPositionService::class);
@@ -484,7 +501,7 @@ class TransactionApprovalServiceTest extends TestCase
         $accounting->shouldReceive('createImmediateAccountingEntries')->once();
 
         $audit = Mockery::mock(AuditTrailHelper::class);
-        $audit->shouldReceive('recordTransaction')->once();
+        $audit->shouldReceive('recordTransactionSealed')->once();
 
         $result = $this->service([
             'monitoring' => $this->monitoringMock(),
@@ -513,9 +530,9 @@ class TransactionApprovalServiceTest extends TestCase
         $accounting->shouldReceive('createImmediateAccountingEntries')->once();
 
         $audit = Mockery::mock(AuditTrailHelper::class);
-        $audit->shouldReceive('recordTransaction')->once();
+        $audit->shouldReceive('recordTransactionSealed')->once();
 
-        $this->service([
+        $result = $this->service([
             'monitoring' => $this->monitoringMock(),
             'position' => $position,
             'accounting' => $accounting,
@@ -542,7 +559,7 @@ class TransactionApprovalServiceTest extends TestCase
         $accounting->shouldReceive('createImmediateAccountingEntries')->once();
 
         $audit = Mockery::mock(AuditTrailHelper::class);
-        $audit->shouldReceive('recordTransaction')->once();
+        $audit->shouldReceive('recordTransactionSealed')->once();
 
         $result = $this->service([
             'monitoring' => $this->monitoringMock(),
@@ -561,6 +578,136 @@ class TransactionApprovalServiceTest extends TestCase
         $this->assertSame('Transaction approved and completed by manager', $last['reason']);
         $this->assertSame($approver->id, $last['user_id']);
         $this->assertArrayHasKey('timestamp', $last);
+    }
+
+    #[Test]
+    public function reprocess_failed_buy_transaction_books_to_completed(): void
+    {
+        $counter = $this->openTill();
+        $transaction = $this->pendingTransaction($counter, [
+            'status' => TransactionStatus::Failed,
+        ]);
+
+        $position = Mockery::mock(CurrencyPositionService::class);
+        $position->shouldReceive('updatePosition')->once();
+
+        $accounting = Mockery::mock(TransactionAccountingService::class);
+        $accounting->shouldReceive('createImmediateAccountingEntries')->once();
+
+        $audit = Mockery::mock(AuditTrailHelper::class);
+        $audit->shouldReceive('recordTransactionSealed')
+            ->once()
+            ->withArgs(function (int $transactionId, string $action, array $metadata) {
+                return $action === 'transaction_reexecuted'
+                    && $metadata['old']['status'] === TransactionStatus::Failed->value
+                    && $metadata['new']['status'] === TransactionStatus::Completed->value;
+            });
+
+        $result = $this->service([
+            'position' => $position,
+            'accounting' => $accounting,
+            'audit' => $audit,
+        ])->reprocessFailed($transaction);
+
+        $this->assertTrue($result->success);
+        $this->assertSame(TransactionStatus::Completed, $result->transaction->status);
+
+        $history = $result->transaction->fresh()->transition_history;
+        $last = array_pop($history);
+        $this->assertSame(TransactionStatus::Failed->value, $last['from']);
+        $this->assertSame(TransactionStatus::Completed->value, $last['to']);
+        $this->assertSame('Automated retry after failure', $last['reason']);
+    }
+
+    #[Test]
+    public function reprocess_failed_sell_transaction_with_already_consumed_reservation(): void
+    {
+        $counter = $this->openTill();
+        $transaction = $this->pendingTransaction($counter, [
+            'status' => TransactionStatus::Failed,
+            'type' => TransactionType::Sell->value,
+        ]);
+
+        // The original (partially successful) attempt already consumed the stock
+        StockReservation::factory()->create([
+            'transaction_id' => $transaction->id,
+            'currency_code' => 'USD',
+            'till_id' => $counter->code,
+            'amount_foreign' => '100.00',
+            'status' => StockReservationStatus::Consumed,
+        ]);
+
+        $position = Mockery::mock(CurrencyPositionService::class);
+        $position->shouldReceive('getPositionWithLock')
+            ->with($transaction->currency_code, (string) $transaction->branch_id)
+            ->andReturn(CurrencyPosition::factory()->make());
+        $position->shouldReceive('getAvailableBalance')
+            ->with($transaction->currency_code, (string) $transaction->till_id)
+            ->andReturn('1000.00');
+        $position->shouldReceive('consumeStockReservation')
+            ->with($transaction->id)
+            ->andReturnNull();
+        $position->shouldReceive('updatePosition')->once();
+
+        $accounting = Mockery::mock(TransactionAccountingService::class);
+        $accounting->shouldReceive('createImmediateAccountingEntries')->once();
+
+        $audit = Mockery::mock(AuditTrailHelper::class);
+        $audit->shouldReceive('recordTransactionSealed')->once();
+
+        $result = $this->service([
+            'position' => $position,
+            'accounting' => $accounting,
+            'audit' => $audit,
+        ])->reprocessFailed($transaction);
+
+        $this->assertTrue($result->success);
+        $this->assertSame(TransactionStatus::Completed, $result->transaction->status);
+    }
+
+    #[Test]
+    public function reprocess_failed_returns_failure_when_transaction_not_failed(): void
+    {
+        $transaction = Transaction::factory()->create([
+            'status' => TransactionStatus::Completed,
+        ]);
+
+        $result = $this->service()->reprocessFailed($transaction);
+
+        $this->assertFalse($result->success);
+        $this->assertStringContainsString('not in Failed status', $result->message);
+    }
+
+    #[Test]
+    public function reprocess_failed_returns_failure_when_transaction_in_dlq(): void
+    {
+        $transaction = Transaction::factory()->create([
+            'status' => TransactionStatus::Failed,
+            'is_dlq' => true,
+        ]);
+
+        $result = $this->service()->reprocessFailed($transaction);
+
+        $this->assertFalse($result->success);
+        $this->assertStringContainsString('dead letter queue', $result->message);
+    }
+
+    #[Test]
+    public function reprocess_failed_returns_failure_when_till_closed(): void
+    {
+        $counter = $this->openTill();
+        $transaction = $this->pendingTransaction($counter, [
+            'status' => TransactionStatus::Failed,
+        ]);
+
+        TillBalance::where('till_id', $counter->code)
+            ->where('currency_code', 'USD')
+            ->update(['closed_at' => now()]);
+
+        $result = $this->service()->reprocessFailed($transaction);
+
+        $this->assertFalse($result->success);
+        $this->assertStringContainsString('Till has been closed', $result->message);
     }
 
     protected function tearDown(): void

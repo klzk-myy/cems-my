@@ -91,9 +91,12 @@ class TransactionWizardTest extends TestCase
     {
         $customer = Customer::factory()->create();
 
-        // Create 3 recent transactions
+        // Create 3 recent transactions in the acting teller's branch so the
+        // customer passes branch isolation (CustomerPolicy view rule) and the
+        // velocity window sees them.
         Transaction::factory()->count(3)->create([
             'customer_id' => $customer->id,
+            'branch_id' => $this->teller->branch_id,
             'created_at' => now()->subHours(2),
         ]);
 

@@ -1,13 +1,13 @@
 <x-app-layout title="Edit Customer">
-    <div class="p-6">
-        <x-page-header title="Edit Customer" description="Update customer information" class="mb-6" />
+    <div class="space-y-6">
+        <x-page-header title="Edit Customer" description="Update customer information" />
 
         <x-card class="max-w-2xl">
-            <form method="POST" action="{{ route('customers.update', $customer ?? 1) }}" class="p-6">
+            <form method="POST" action="{{ route('customers.update', $customer ?? 1) }}" >
                 @csrf
                 @method('PUT')
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <x-input name="full_name" label="Full Name" value="{{ old('full_name', $customer->full_name ?? '') }}" required />
                     <x-input type="email" name="email" label="Email" value="{{ old('email', $customer->email ?? '') }}" />
 
@@ -20,8 +20,8 @@
                         required
                     />
                     <div>
-                        <label class="block text-sm font-medium text-ink-muted mb-2">ID Number (masked)</label>
-                        <div class="px-4 py-2.5 text-sm bg-canvas-subtle border border-border rounded-lg">
+                        <label class="block text-sm font-medium text-ink">ID Number (masked)</label>
+                        <div class="mt-1 px-3 py-2 text-sm bg-canvas-subtle border border-border rounded-lg">
                             {{ $decryptedIdNumber ? substr($decryptedIdNumber, 0, 4).'****'.substr($decryptedIdNumber, -4) : '****-****-****' }}
                         </div>
                     </div>
@@ -43,7 +43,7 @@
                     rows="2"
                 >{{ old('address', $customer->address ?? '') }}</x-textarea>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     <x-input type="date" name="date_of_birth" label="Date of Birth" value="{{ old('date_of_birth', $customer->date_of_birth ?? '') }}" />
                     <x-select
                         name="risk_rating"
@@ -53,7 +53,7 @@
                     />
                 </div>
 
-                <div class="mt-6 flex gap-3">
+                <div class="mt-6 flex gap-2">
                     <x-button type="submit" variant="primary">Update Customer</x-button>
                     <x-button href="{{ route('customers.show', $customer ?? 1) }}" variant="secondary">Cancel</x-button>
                 </div>

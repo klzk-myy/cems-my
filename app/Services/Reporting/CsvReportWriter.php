@@ -2,6 +2,7 @@
 
 namespace App\Services\Reporting;
 
+use App\Exceptions\Domain\ReportValidationException;
 use Illuminate\Support\Facades\Storage;
 
 class CsvReportWriter
@@ -15,10 +16,10 @@ class CsvReportWriter
     public function write(string $filename, array $headers, array $rows): string
     {
         return $this->writeToDisk($filename, function ($csv) use ($headers, $rows) {
-            fputcsv($csv, $headers);
+            fputcsv($csv, $this->sanitizeRow($headers));
 
             foreach ($rows as $row) {
-                fputcsv($csv, $row);
+                fputcsv($csv, $this->sanitizeRow($row));
             }
         });
     }
@@ -35,16 +36,53 @@ class CsvReportWriter
     {
         return $this->writeToDisk($filename, function ($csv) use ($titleRows, $headers, $rows) {
             foreach ($titleRows as $titleRow) {
-                fputcsv($csv, $titleRow);
+                fputcsv($csv, $this->sanitizeRow($titleRow));
             }
 
             fputcsv($csv, []);
-            fputcsv($csv, $headers);
+            fputcsv($csv, $this->sanitizeRow($headers));
 
             foreach ($rows as $row) {
-                fputcsv($csv, $row);
+                fputcsv($csv, $this->sanitizeRow($row));
             }
         });
+    }
+
+    /**
+     * Neutralize spreadsheet formula injection (CSV injection, OWASP).
+     *
+     * Cells beginning with =, +, -, @, tab, or CR are interpreted by Excel and
+     * Google Sheets as formulas. Prefixing them with a single quote forces them
+     * to be treated as plain text. Non-string values (e.g. numeric amounts) are
+     * passed through untouched.
+     *
+     * Cells that parse as plain decimal numbers - including negative monetary
+     * values such as "-1234.50" - are exempt from prefixing: a leading "-" is
+     * how negative amounts are rendered in BNM exports, not an injection
+     * vector. Non-numeric cells starting with "-" keep the guard.
+     *
+     * @param  array<int, mixed>  $row
+     * @return array<int, mixed>
+     */
+    public function sanitizeRow(array $row): array
+    {
+        return array_map(function (mixed $value): mixed {
+            if (! is_string($value) || $value === '') {
+                return $value;
+            }
+
+            if (preg_match('/^-?\d+(\.\d+)?$/', $value) === 1) {
+                return $value;
+            }
+
+            $first = $value[0];
+
+            if (in_array($first, ['=', '+', '-', '@', "\t", "\r"], true)) {
+                return "'".$value;
+            }
+
+            return $value;
+        }, $row);
     }
 
     /**
@@ -52,6 +90,12 @@ class CsvReportWriter
      */
     protected function writeToDisk(string $filename, callable $writer): string
     {
+        $filename = basename($filename);
+        if (str_contains($filename, '..') || str_contains($filename, '/') || str_contains($filename, '\\') ||
+            $filename === '' || $filename === '.') {
+            throw new ReportValidationException("Invalid report filename: {$filename}");
+        }
+
         if (! Storage::exists('reports')) {
             Storage::makeDirectory('reports');
         }
@@ -60,7 +104,7 @@ class CsvReportWriter
         $csv = fopen(Storage::path($filepath), 'w');
 
         if (! $csv) {
-            throw new \RuntimeException("Failed to open report file for writing: {$filepath}");
+            throw new ReportValidationException("Failed to open report file for writing: {$filepath}");
         }
 
         $writer($csv);

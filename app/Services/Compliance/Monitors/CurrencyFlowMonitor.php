@@ -5,6 +5,7 @@ namespace App\Services\Compliance\Monitors;
 use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
 use App\Models\Transaction;
+use App\Services\Compliance\RoundTripDetector;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
 
@@ -16,12 +17,15 @@ class CurrencyFlowMonitor extends BaseMonitor
 {
     protected ThresholdService $thresholdService;
 
+    protected RoundTripDetector $roundTripDetector;
+
     public const TIME_WINDOW_HOURS = 72;
 
-    public function __construct(MathService $math, ThresholdService $thresholdService)
+    public function __construct(MathService $math, ThresholdService $thresholdService, RoundTripDetector $roundTripDetector)
     {
         parent::__construct($math);
         $this->thresholdService = $thresholdService;
+        $this->roundTripDetector = $roundTripDetector;
     }
 
     protected function getFindingType(): FindingType
@@ -32,20 +36,27 @@ class CurrencyFlowMonitor extends BaseMonitor
     public function run(): array
     {
         $findings = [];
-        $cutoffTime = now()->subDays($this->thresholdService->getCurrencyFlowLookbackDays());
 
-        $grouped = Transaction::with('customer')
-            ->where('created_at', '>=', $cutoffTime)
-            ->notCancelled()
-            ->orderBy('created_at', 'asc')
-            ->get()
-            ->groupBy('customer_id');
+        try {
+            $cutoffTime = now()->subDays($this->thresholdService->getCurrencyFlowLookbackDays());
 
-        foreach ($grouped as $customerId => $recentTransactions) {
-            $finding = $this->checkCustomerRoundTripping($customerId, $recentTransactions);
-            if ($finding !== null) {
-                $findings[] = $finding;
+            $grouped = Transaction::with('customer')
+                ->where('created_at', '>=', $cutoffTime)
+                ->notCancelled()
+                ->orderBy('created_at', 'asc')
+                ->get()
+                ->groupBy('customer_id');
+
+            foreach ($grouped as $customerId => $recentTransactions) {
+                $finding = $this->checkCustomerRoundTripping($customerId, $recentTransactions);
+                if ($finding !== null) {
+                    $findings[] = $finding;
+                }
             }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
         }
 
         return $findings;
@@ -93,63 +104,10 @@ class CurrencyFlowMonitor extends BaseMonitor
      */
     protected function detectRoundTrips($transactions): array
     {
-        $patterns = [];
-
-        // Group transactions by currency
-        $byCurrency = $transactions->groupBy('currency_code');
-
-        foreach ($byCurrency as $currencyCode => $currencyTxns) {
-            $sells = $currencyTxns->filter(fn ($t) => $t->type->value === 'Sell');
-            $buys = $currencyTxns->filter(fn ($t) => $t->type->value === 'Buy');
-
-            if ($sells->isEmpty() || $buys->isEmpty()) {
-                continue;
-            }
-
-            // Look for sell followed by buy of same currency within time window
-            foreach ($sells as $sell) {
-                foreach ($buys as $buy) {
-                    // Buy must come after Sell
-                    if ($buy->created_at->lte($sell->created_at)) {
-                        continue;
-                    }
-
-                    $hoursDiff = $sell->created_at->diffInHours($buy->created_at);
-
-                    // Check if within time window
-                    if ($hoursDiff > self::TIME_WINDOW_HOURS) {
-                        continue;
-                    }
-
-                    // Calculate round-trip amount (use smaller of sell/buy foreign amount)
-                    $sellForeign = ltrim((string) $sell->amount_foreign, '-');
-                    $buyForeign = ltrim((string) $buy->amount_foreign, '-');
-                    $roundTripAmount = $this->math->compare($sellForeign, $buyForeign) <= 0
-                        ? $sellForeign
-                        : $buyForeign;
-
-                    // Only flag if above threshold
-                    if ($this->math->compare((string) $roundTripAmount, $this->thresholdService->getRoundTripThreshold()) < 0) {
-                        continue;
-                    }
-
-                    $patterns[] = [
-                        'currency' => $currencyCode,
-                        'sell_transaction_id' => $sell->id,
-                        'sell_amount_foreign' => (string) $sell->amount_foreign,
-                        'sell_amount_local' => (string) $sell->amount_local,
-                        'sell_at' => $sell->created_at->toDateTimeString(),
-                        'buy_transaction_id' => $buy->id,
-                        'buy_amount_foreign' => (string) $buy->amount_foreign,
-                        'buy_amount_local' => (string) $buy->amount_local,
-                        'buy_at' => $buy->created_at->toDateTimeString(),
-                        'hours_between' => $hoursDiff,
-                        'round_trip_foreign_amount' => $roundTripAmount,
-                    ];
-                }
-            }
-        }
-
-        return $patterns;
+        return $this->roundTripDetector->detect(
+            $transactions,
+            self::TIME_WINDOW_HOURS,
+            $this->thresholdService->getRoundTripThreshold()
+        );
     }
 }

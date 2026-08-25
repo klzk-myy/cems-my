@@ -2,6 +2,7 @@
 
 namespace App\Services\System;
 
+use App\Exceptions\Domain\LogArchiveException;
 use App\Models\SystemLog;
 use App\Services\AuditService;
 use Carbon\Carbon;
@@ -34,52 +35,73 @@ class LogRotationService
         $archiveDir = dirname($archivePath);
 
         if (! file_exists($archiveDir) && ! mkdir($archiveDir, 0755, true) && ! is_dir($archiveDir)) {
-            throw new \RuntimeException("Failed to create archive directory: {$archiveDir}");
+            throw new LogArchiveException("Failed to create archive directory: {$archiveDir}", $archiveDir);
         }
 
         $handle = fopen($archivePath, 'w');
         if (! $handle) {
-            throw new \RuntimeException("Failed to open archive file: {$archivePath}");
+            throw new LogArchiveException("Failed to open archive file: {$archivePath}", $archivePath);
         }
 
+        $writeRow = function ($log, bool $first) {
+            $json = json_encode([
+                'id' => $log->id,
+                'user_id' => $log->user_id,
+                'action' => $log->action,
+                'severity' => $log->severity,
+                'entity_type' => $log->entity_type,
+                'entity_id' => $log->entity_id,
+                'old_values' => $log->old_values,
+                'new_values' => $log->new_values,
+                'ip_address' => $log->ip_address,
+                'user_agent' => $log->user_agent,
+                'session_id' => $log->session_id,
+                'created_at' => $log->created_at->toDateTimeString(),
+            ]);
+
+            return ($first ? '' : ',').$json;
+        };
+
+        // Pass 1: stream the archive file (lazyById bounds memory; no ids are
+        // collected). Nothing is deleted until the file is fully written and
+        // verified, so a crash mid-archive never loses logs.
         fwrite($handle, '[');
         $first = true;
-        $ids = [];
-
         SystemLog::where('created_at', '<', $cutoffDate)
             ->orderBy('id')
-            ->lazyById()
-            ->each(function ($log) use ($handle, &$first, &$ids) {
-                $ids[] = $log->id;
-                fwrite($handle, ($first ? '' : ',').json_encode([
-                    'id' => $log->id,
-                    'user_id' => $log->user_id,
-                    'action' => $log->action,
-                    'severity' => $log->severity,
-                    'entity_type' => $log->entity_type,
-                    'entity_id' => $log->entity_id,
-                    'old_values' => $log->old_values,
-                    'new_values' => $log->new_values,
-                    'ip_address' => $log->ip_address,
-                    'user_agent' => $log->user_agent,
-                    'session_id' => $log->session_id,
-                    'created_at' => $log->created_at->toDateTimeString(),
-                ]));
+            ->lazyById(500)
+            ->each(function ($log) use ($handle, $writeRow, &$first) {
+                fwrite($handle, $writeRow($log, $first));
                 $first = false;
             });
 
         fwrite($handle, ']');
         if (fclose($handle) === false) {
-            throw new \RuntimeException("Failed to close archive file: {$archivePath}");
+            throw new LogArchiveException("Failed to close archive file: {$archivePath}", $archivePath);
         }
 
         if (! is_file($archivePath) || filesize($archivePath) === 0) {
-            throw new \RuntimeException("Archive file was not written: {$archivePath}");
+            throw new LogArchiveException("Archive file was not written: {$archivePath}", $archivePath);
         }
 
+        // Pass 2: delete the archived rows in bounded chunks. A second lazyById
+        // pass keeps memory bounded without holding the full id list.
         $archivedCount = 0;
-        foreach (array_chunk($ids, 1000) as $chunk) {
-            $archivedCount += SystemLog::whereIn('id', $chunk)->delete();
+        $batch = [];
+        SystemLog::where('created_at', '<', $cutoffDate)
+            ->orderBy('id')
+            ->lazyById(500)
+            ->each(function ($log) use (&$batch, &$archivedCount) {
+                $batch[] = $log->id;
+
+                if (count($batch) >= 500) {
+                    $archivedCount += SystemLog::whereIn('id', $batch)->delete();
+                    $batch = [];
+                }
+            });
+
+        if ($batch !== []) {
+            $archivedCount += SystemLog::whereIn('id', $batch)->delete();
         }
 
         $this->auditService->log(

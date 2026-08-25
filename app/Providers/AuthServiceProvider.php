@@ -2,18 +2,24 @@
 
 namespace App\Providers;
 
+use App\Models\Alert;
 use App\Models\Branch;
+use App\Models\Compliance\ComplianceCase;
 use App\Models\Counter;
 use App\Models\Customer;
+use App\Models\EnhancedDiligenceRecord;
 use App\Models\FlaggedTransaction;
 use App\Models\JournalEntry;
 use App\Models\SystemLog;
 use App\Models\ThresholdAudit;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Policies\AlertPolicy;
 use App\Policies\BranchPolicy;
+use App\Policies\ComplianceCasePolicy;
 use App\Policies\CounterPolicy;
 use App\Policies\CustomerPolicy;
+use App\Policies\EnhancedDiligenceRecordPolicy;
 use App\Policies\FlaggedTransactionPolicy;
 use App\Policies\JournalEntryPolicy;
 use App\Policies\SystemLogPolicy;
@@ -40,6 +46,9 @@ class AuthServiceProvider extends ServiceProvider
         User::class => UserPolicy::class,
         JournalEntry::class => JournalEntryPolicy::class,
         FlaggedTransaction::class => FlaggedTransactionPolicy::class,
+        Alert::class => AlertPolicy::class,
+        ComplianceCase::class => ComplianceCasePolicy::class,
+        EnhancedDiligenceRecord::class => EnhancedDiligenceRecordPolicy::class,
     ];
 
     /**

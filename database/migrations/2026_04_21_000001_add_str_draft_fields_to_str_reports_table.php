@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('str_reports', function (Blueprint $table) {
             // Fields from StrDraft to merge
-            $table->foreignId('case_id')->nullable()->after('alert_id')->constrained('compliance_cases');
+            $table->foreignId('case_id')->nullable()->after('alert_id')->constrained('compliance_cases')->restrictOnDelete();
             $table->json('alert_ids')->nullable()->after('case_id');
             $table->text('narrative')->nullable()->after('reason');
             $table->text('suspected_activity')->nullable()->after('narrative');

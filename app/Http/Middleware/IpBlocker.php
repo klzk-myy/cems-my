@@ -43,12 +43,16 @@ class IpBlocker
                 'blocked_since' => $blockInfo['blocked_at'] ?? null,
             ]);
 
-            return response()->json([
-                'error' => 'Access denied',
-                'message' => 'Your IP address has been temporarily blocked due to security policy violations.',
-                'code' => 'IP_BLOCKED',
-                'retry_after' => $blockInfo['expires_at'] ?? null,
-            ], 403);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'error' => 'Access denied',
+                    'message' => 'Your IP address has been temporarily blocked due to security policy violations.',
+                    'code' => 'IP_BLOCKED',
+                    'retry_after' => $blockInfo['expires_at'] ?? null,
+                ], 403);
+            }
+
+            abort(403, 'Access denied. Your IP address has been temporarily blocked.');
         }
 
         return $next($request);

@@ -13,7 +13,7 @@ class CounterPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->isAdmin() || $user->branch_id !== null;
     }
 
     /**
@@ -21,25 +21,31 @@ class CounterPolicy
      */
     public function view(User $user, Counter $counter): bool
     {
-        return true;
+        return $user->isAdmin() || $user->branch_id === $counter->branch_id;
     }
 
     /**
      * Determine whether the user can create counters.
-     * Managers and admins can create counters.
+     * Admins can create counters anywhere. Managers must be attached to a
+     * branch; the target branch cannot be validated here because no Counter
+     * instance exists yet (see view()/update() for the per-counter branch
+     * match).
      */
     public function create(User $user): bool
     {
-        return in_array($user->role, [UserRole::Manager, UserRole::Admin]);
+        return $user->role === UserRole::Admin ||
+               ($user->role === UserRole::Manager && $user->branch_id !== null);
     }
 
     /**
      * Determine whether the user can update the counter.
-     * Managers and admins can update counters.
+     * Mirrors view(): admins may manage counters in any branch; managers are
+     * restricted to counters belonging to their own branch.
      */
     public function update(User $user, Counter $counter): bool
     {
-        return in_array($user->role, [UserRole::Manager, UserRole::Admin]);
+        return $user->role === UserRole::Admin ||
+               ($user->role === UserRole::Manager && $user->branch_id !== null && $user->branch_id === $counter->branch_id);
     }
 
     /**

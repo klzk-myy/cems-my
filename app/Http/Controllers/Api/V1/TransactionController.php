@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Exceptions\Domain\DomainException;
 use App\Exceptions\Domain\TransactionBlockedException;
+use App\Http\Concerns\BranchScopedQuery;
 use App\Http\Controllers\Api\V1\Traits\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Transaction\StoreTransactionRequest;
@@ -16,7 +17,7 @@ use Illuminate\Http\JsonResponse;
 
 class TransactionController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, BranchScopedQuery;
 
     public function __construct(
         protected TransactionCreationServiceInterface $creationService
@@ -30,13 +31,9 @@ class TransactionController extends Controller
         $perPage = $request->get('per_page', 20);
         $query = Transaction::with(['customer', 'user', 'branch']);
 
-        // Branch segregation: non-admin users can only see their branch's transactions
-        $user = auth()->user();
-        if ($user && $user->branch_id !== null) {
-            $query->where('branch_id', $user->branch_id);
-        }
-
-        $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $transactions = $this->scopeByBranch($query)
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
 
         return $this->resourceWithSuccess(new TransactionCollection($transactions), 'Transactions retrieved successfully.');
     }
@@ -60,11 +57,11 @@ class TransactionController extends Controller
                 201
             );
         } catch (TransactionBlockedException $e) {
-            return $this->errorResponse($e->getMessage(), ['reason' => 'blocked'], 403);
+            return $this->errorResponse('Transaction blocked due to compliance restrictions.', ['reason' => 'blocked'], 403);
         } catch (DomainException $e) {
-            return $this->errorResponse($e->getMessage(), [], $e->getStatusCode());
+            return $this->errorResponse('Transaction validation failed.', [], $e->getStatusCode());
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Transaction failed: '.$e->getMessage(), $e);
+            return $this->serverErrorResponse('Transaction failed. Please contact support.', $e);
         }
     }
 
@@ -73,7 +70,7 @@ class TransactionController extends Controller
      */
     public function show(int $id): TransactionResource
     {
-        $transaction = Transaction::with(['customer', 'user', 'approver', 'flags'])
+        $transaction = $this->scopeByBranch(Transaction::with(['customer', 'user', 'approver', 'flags']))
             ->findOrFail($id);
 
         $this->authorize('view', $transaction);

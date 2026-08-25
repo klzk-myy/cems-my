@@ -3,6 +3,7 @@
 namespace Tests\Unit\Transaction;
 
 use App\Enums\CddLevel;
+use App\Enums\StockReservationStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
@@ -12,7 +13,9 @@ use App\Exceptions\Domain\InsufficientStockException;
 use App\Exceptions\Domain\TillBalanceMissingException;
 use App\Models\Counter;
 use App\Models\Currency;
+use App\Models\CurrencyPosition;
 use App\Models\Customer;
+use App\Models\StockReservation;
 use App\Models\TellerAllocation;
 use App\Models\TillBalance;
 use App\Models\Transaction;
@@ -30,6 +33,8 @@ use App\Services\System\MathService;
 use App\Services\ThresholdService;
 use App\Services\Transaction\DTOs\TransactionCreationContext;
 use App\Services\Transaction\TransactionCreationService;
+use App\Services\Transaction\TransactionErrorHandler;
+use App\Services\Transaction\TransactionRecoveryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Mockery;
@@ -47,9 +52,14 @@ class TransactionCreationServiceTest extends TestCase
             $cache->shouldReceive('invalidate')->with('dashboard')->zeroOrMoreTimes();
         }
 
+        $position = $mocks['position'] ?? Mockery::mock(CurrencyPositionService::class);
+        if (! isset($mocks['position'])) {
+            $position->shouldReceive('getPositionWithLock')->andReturnNull();
+        }
+
         return new TransactionCreationService(
             $mocks['idempotency'] ?? Mockery::mock(TransactionIdempotencyServiceInterface::class),
-            $mocks['position'] ?? Mockery::mock(CurrencyPositionService::class),
+            $position,
             $mocks['accounting'] ?? Mockery::mock(TransactionAccountingService::class),
             $mocks['audit'] ?? Mockery::mock(AuditTrailHelper::class),
             $mocks['till'] ?? app(TillBalanceManager::class),
@@ -58,6 +68,13 @@ class TransactionCreationServiceTest extends TestCase
             $mocks['math'] ?? app(MathService::class),
             $mocks['threshold'] ?? app(ThresholdService::class),
             $mocks['tellerAllocation'] ?? app(TellerAllocationService::class),
+            $mocks['errorHandler'] ?? app(TransactionErrorHandler::class),
+            // Recovery dispatch is mocked: with the sync queue a retry job would
+            // re-execute booking inline and re-throw inside the test. The real
+            // recovery service is covered by the scheduled sweep / job tests.
+            $mocks['recoveryService'] ?? tap(Mockery::mock(TransactionRecoveryService::class), function ($mock) {
+                $mock->shouldReceive('attemptRecovery')->zeroOrMoreTimes()->andReturn(false);
+            }),
         );
     }
 
@@ -130,7 +147,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
-        $position->shouldReceive('getPositionWithLock')->once();
+        $position->shouldReceive('getPositionWithLock')->twice();
         $position->shouldReceive('updatePosition')->once();
 
         $accounting = Mockery::mock(TransactionAccountingService::class);
@@ -163,6 +180,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
+        $position->shouldReceive('getPositionWithLock')->twice()->andReturnNull();
         $position->shouldReceive('getAvailableBalance')->andReturn('1000.00');
         $position->shouldReceive('updatePosition')->once();
 
@@ -223,7 +241,22 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency = Mockery::mock(TransactionIdempotencyServiceInterface::class);
         $idempotency->shouldReceive('findDuplicate')->andReturn($existing);
 
-        $service = $this->service(['idempotency' => $idempotency]);
+        $position = Mockery::mock(CurrencyPositionService::class);
+        $position->shouldReceive('getPositionWithLock')->andReturnNull();
+        $position->shouldReceive('updatePosition')->once();
+
+        $accounting = Mockery::mock(TransactionAccountingService::class);
+        $accounting->shouldReceive('createImmediateAccountingEntries')->once();
+
+        $audit = Mockery::mock(AuditTrailHelper::class);
+        $audit->shouldReceive('recordTransaction')->once();
+
+        $service = $this->service([
+            'idempotency' => $idempotency,
+            'position' => $position,
+            'accounting' => $accounting,
+            'audit' => $audit,
+        ]);
 
         $this->assertSame($existing->id, $service->create($this->context())->id);
     }
@@ -250,6 +283,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
+        $position->shouldReceive('getPositionWithLock')->andReturnNull();
         $position->shouldReceive('getAvailableBalance')->andReturn('50.00');
 
         $service = $this->service([
@@ -271,16 +305,74 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
-        $position->shouldReceive('getPositionWithLock')->once();
+        $position->shouldReceive('getPositionWithLock')->twice();
         $position->shouldReceive('updatePosition')->once();
+
+        $audit = Mockery::mock(AuditTrailHelper::class);
+        $audit->shouldReceive('recordTransaction')->zeroOrMoreTimes();
 
         $service = $this->service([
             'idempotency' => $idempotency,
             'position' => $position,
+            'audit' => $audit,
         ]);
 
-        $this->expectException(TillBalanceMissingException::class);
-        $service->create($this->context(['withMyrBalance' => false]));
+        try {
+            $service->create($this->context(['withMyrBalance' => false]));
+            $this->fail('Expected TillBalanceMissingException to propagate');
+        } catch (TillBalanceMissingException $e) {
+            // Booking failed after the record was persisted: the transaction
+            // must now be Failed with an error record (previously the whole
+            // record was rolled back).
+            $transaction = Transaction::latest('id')->first();
+            $this->assertNotNull($transaction);
+            $this->assertEquals(TransactionStatus::Failed, $transaction->status);
+            $this->assertTrue($transaction->transactionErrors()->exists());
+        }
+    }
+
+    #[Test]
+    public function create_marks_transaction_failed_when_booking_throws(): void
+    {
+        $idempotency = Mockery::mock(TransactionIdempotencyServiceInterface::class);
+        $idempotency->shouldReceive('findDuplicate')->andReturnNull();
+        $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
+
+        $position = Mockery::mock(CurrencyPositionService::class);
+        $position->shouldReceive('getPositionWithLock')->andReturnNull();
+        $position->shouldReceive('updatePosition')
+            ->once()
+            ->andThrow(new \RuntimeException('Position update failed'));
+
+        $accounting = Mockery::mock(TransactionAccountingService::class);
+        $accounting->shouldReceive('createImmediateAccountingEntries')->never();
+
+        $audit = Mockery::mock(AuditTrailHelper::class);
+        $audit->shouldReceive('recordTransaction')->zeroOrMoreTimes();
+
+        $service = $this->service([
+            'idempotency' => $idempotency,
+            'position' => $position,
+            'accounting' => $accounting,
+            'audit' => $audit,
+        ]);
+
+        try {
+            $service->create($this->context());
+            $this->fail('Expected booking failure to propagate');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Position update failed', $e->getMessage());
+        }
+
+        // The record must survive in Failed status with an error record so the
+        // recovery sweep can retry it (previously the whole transaction rolled
+        // back and the failure was unrecoverable).
+        $transaction = Transaction::latest('id')->first();
+        $this->assertNotNull($transaction);
+        $this->assertEquals(TransactionStatus::Failed, $transaction->status);
+        $this->assertNotNull($transaction->failure_reason);
+        $this->assertTrue($transaction->transactionErrors()->exists());
+        $this->assertSame('accounting_error', $transaction->transactionErrors()->first()->error_type->value);
     }
 
     #[Test]
@@ -291,6 +383,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
+        $position->shouldReceive('getPositionWithLock')->andReturnNull();
         $position->shouldReceive('getAvailableBalance')->andReturn('1000.00');
         $position->shouldReceive('reserveStock')->once();
 
@@ -323,7 +416,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
-        $position->shouldReceive('getPositionWithLock')->once();
+        $position->shouldReceive('getPositionWithLock')->twice();
         $position->shouldReceive('updatePosition')->once();
 
         $accounting = Mockery::mock(TransactionAccountingService::class);
@@ -371,6 +464,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
+        $position->shouldReceive('getPositionWithLock')->twice()->andReturnNull();
         $position->shouldReceive('getAvailableBalance')->andReturn('1000.00');
         $position->shouldReceive('updatePosition')->once();
 
@@ -416,7 +510,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
-        $position->shouldReceive('getPositionWithLock')->once();
+        $position->shouldReceive('getPositionWithLock')->twice();
         $position->shouldReceive('updatePosition')->once();
 
         $accounting = Mockery::mock(TransactionAccountingService::class);
@@ -478,7 +572,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
-        $position->shouldReceive('getPositionWithLock')->once();
+        $position->shouldReceive('getPositionWithLock')->twice();
         $position->shouldReceive('updatePosition')->once();
 
         $accounting = Mockery::mock(TransactionAccountingService::class);
@@ -516,7 +610,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
-        $position->shouldReceive('getPositionWithLock')->once();
+        $position->shouldReceive('getPositionWithLock')->twice();
         $position->shouldReceive('updatePosition')->once();
 
         $accounting = Mockery::mock(TransactionAccountingService::class);
@@ -545,7 +639,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
-        $position->shouldReceive('getPositionWithLock')->once();
+        $position->shouldReceive('getPositionWithLock')->twice();
         $position->shouldReceive('updatePosition')->once();
 
         $accounting = Mockery::mock(TransactionAccountingService::class);
@@ -604,7 +698,7 @@ class TransactionCreationServiceTest extends TestCase
         $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
 
         $position = Mockery::mock(CurrencyPositionService::class);
-        $position->shouldReceive('getPositionWithLock')->once();
+        $position->shouldReceive('getPositionWithLock')->twice();
         $position->shouldReceive('updatePosition')->once();
 
         $accounting = Mockery::mock(TransactionAccountingService::class);
@@ -635,6 +729,114 @@ class TransactionCreationServiceTest extends TestCase
         $this->assertInstanceOf(Transaction::class, $transaction);
         $this->assertEquals(TransactionStatus::Completed, $transaction->status);
         $this->assertEquals($customer->id, $transaction->customer_id);
+    }
+
+    #[Test]
+    public function sell_stock_check_scopes_pending_reservations_by_till_id(): void
+    {
+        // Regression: ensureStockForSell must count pending reservations by till_id,
+        // not branch_id, to match the scope used by reserveStock() and
+        // getAvailableBalance(). A reservation on the actual till must block a
+        // subsequent Sell that exceeds the remaining position.
+        $customer = Customer::factory()->create();
+        $currency = Currency::factory()->create(['code' => 'USD']);
+        $counter = Counter::factory()->create(['status' => 'active']);
+
+        $tillBalance = TillBalance::factory()->create([
+            'till_id' => $counter->code,
+            'currency_code' => 'USD',
+            'branch_id' => $counter->branch_id,
+        ]);
+
+        // Seed position with 1000 units for the branch.
+        CurrencyPosition::create([
+            'currency_code' => 'USD',
+            'branch_id' => (string) $counter->branch_id,
+            'quantity' => '1000.00',
+            'average_cost' => '4.5000',
+            'current_rate' => '4.5000',
+        ]);
+
+        // A pending reservation for the SAME till for 900 units.
+        StockReservation::create([
+            'transaction_id' => 99999,
+            'currency_code' => 'USD',
+            'till_id' => $counter->code,
+            'amount_foreign' => '900.00',
+            'status' => StockReservationStatus::Pending,
+            'expires_at' => now()->addHours(24),
+            'created_by' => $customer->id,
+        ]);
+
+        $validation = Mockery::mock(TransactionValidationInterface::class);
+        $validation->shouldReceive('validateCurrency')->zeroOrMoreTimes();
+        $validation->shouldReceive('validateIpAddress')->zeroOrMoreTimes();
+        $validation->shouldReceive('validateTillBalance')->zeroOrMoreTimes();
+        $validation->shouldReceive('validatePepRequirements')->zeroOrMoreTimes();
+        $validationResult = new PreValidationResult;
+        $validationResult->setCDDLevel(CddLevel::Standard);
+        $validationResult->setHoldRequired(false);
+        $validation->shouldReceive('preValidate')->zeroOrMoreTimes()->andReturn($validationResult);
+
+        $idempotency = Mockery::mock(TransactionIdempotencyServiceInterface::class);
+        $idempotency->shouldReceive('findDuplicate')->andReturnNull();
+        $idempotency->shouldReceive('checkRecentDuplicate')->andReturnNull();
+
+        $accounting = Mockery::mock(TransactionAccountingService::class);
+        $accounting->shouldReceive('createImmediateAccountingEntries')->never();
+
+        $audit = Mockery::mock(AuditTrailHelper::class);
+        $audit->shouldReceive('recordTransaction')->zeroOrMoreTimes();
+
+        $errorHandler = Mockery::mock(TransactionErrorHandler::class);
+        $errorHandler->shouldReceive('handleProcessingError')->zeroOrMoreTimes();
+
+        $recoveryService = Mockery::mock(TransactionRecoveryService::class);
+        $recoveryService->shouldReceive('attemptRecovery')->zeroOrMoreTimes();
+
+        $service = new TransactionCreationService(
+            $idempotency,
+            app(CurrencyPositionService::class),
+            $accounting,
+            $audit,
+            app(TillBalanceManager::class),
+            app(CacheTagsService::class),
+            $validation,
+            app(MathService::class),
+            app(ThresholdService::class),
+            app(TellerAllocationService::class),
+            $errorHandler,
+            $recoveryService,
+        );
+
+        $user = User::factory()->create();
+
+        // Trying to sell 300 (900 reserved + 300 = 1200 > 1000 position) must fail.
+        $this->expectException(InsufficientStockException::class);
+
+        $context = new TransactionCreationContext(
+            data: [
+                'customer_id' => $customer->id,
+                'type' => TransactionType::Sell->value,
+                'currency_code' => 'USD',
+                'amount_foreign' => '300.00',
+                'rate' => '4.5000',
+                'purpose' => 'Travel',
+                'source_of_funds' => 'Savings',
+                'till_id' => (string) $counter->code,
+            ],
+            customer: $customer,
+            tillBalance: $tillBalance,
+            cddLevel: CddLevel::Standard,
+            holdRequired: false,
+            status: TransactionStatus::Completed,
+            amountLocal: '1350.00',
+            user: $user,
+            allocation: null,
+            holdReason: null,
+        );
+
+        $service->create($context, $user->id, '127.0.0.1');
     }
 
     protected function tearDown(): void

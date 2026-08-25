@@ -302,6 +302,64 @@ class RevaluationServiceTest extends TestCase
         // The RevaluationService uses scale=6 to match MathService, ensuring consistent precision
     }
 
+    #[Test]
+    public function run_revaluation_with_journal_writes_absolute_unrealized_pnl(): void
+    {
+        // Arrange: Create an open accounting period
+        $testDate = now()->toDateString();
+        $this->createTestAccountingPeriod($testDate);
+
+        // Seed a position with a stale/inconsistent unrealized_gain_loss (as set by a
+        // prior Buy via CurrencyPositionService::updatePosition). A journal revaluation
+        // must OVERWRITE it with the absolute mark-to-market value, never accumulate a
+        // delta on top, otherwise repeated revaluations double-count P&L.
+        $position = CurrencyPosition::factory()->create([
+            'currency_code' => 'USD',
+            'branch_id' => 'TEST-BRANCH',
+            'quantity' => '100.00',
+            'average_cost' => '4.00',
+            'current_rate' => '4.20',
+            'unrealized_gain_loss' => '99.0000',
+        ]);
+
+        // Mock the RateApiService to return a rate
+        $mockRateApi = Mockery::mock(RateApiService::class);
+        $mockRateApi->shouldReceive('getRateForCurrency')
+            ->with('USD')
+            ->andReturn(['mid' => 4.40]);
+
+        // Mock the AccountingService to succeed
+        $mockAccounting = Mockery::mock(AccountingService::class);
+        $mockAccounting->shouldReceive('createJournalEntry')
+            ->andReturn(Mockery::mock(JournalEntry::class)->shouldIgnoreMissing());
+
+        // Mock the AuditService
+        $mockAudit = Mockery::mock(AuditService::class);
+
+        // Create the service with mocked dependencies
+        $service = new RevaluationService(
+            $this->mathService,
+            $mockRateApi,
+            $mockAccounting,
+            $mockAudit,
+            Mockery::mock(RevaluationNotificationService::class)->shouldIgnoreMissing()
+        );
+
+        // Act
+        $service->runRevaluationWithJournal($testDate, $this->testUser->id);
+
+        // Assert: gainLoss = 100 * (4.4 - 4.2) = 20, but the field must be the
+        // absolute value 100 * (4.4 - 4.0) = 40, not the accumulated 99 + 20 = 119.
+        $position->refresh();
+        $this->assertSame('40.0000', $position->unrealized_gain_loss);
+        $this->assertSame('4.400000', $position->current_rate);
+        $this->assertDatabaseHas('revaluation_entries', [
+            'currency_code' => 'USD',
+            'gain_loss_amount' => '20',
+            'revaluation_date' => $testDate.' 00:00:00',
+        ]);
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();

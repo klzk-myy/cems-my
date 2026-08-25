@@ -3,6 +3,7 @@
 namespace App\Services\Compliance;
 
 use App\DTO\PepCessationResult;
+use App\Enums\RiskRating;
 use App\Enums\RiskTrend;
 use App\Events\RiskScoreUpdated;
 use App\Exceptions\Domain\RiskProfileNotFoundException;
@@ -22,7 +23,6 @@ class CustomerRiskScoringService
 {
     public function __construct(
         protected CustomerScreeningService $screeningService,
-        protected ComplianceService $complianceService,
         protected AuditService $auditService,
         protected MathService $mathService,
         protected ThresholdService $thresholdService,
@@ -41,13 +41,19 @@ class CustomerRiskScoringService
 
         $scores = $this->calculateRiskScores($customer);
         $previousSnapshots = $this->getRecentSnapshots($customerId);
+        $previous = $previousSnapshots->first();
         $trend = RiskScoreSnapshot::calculateTrend($previousSnapshots->toArray());
         $factors = $this->extractRiskFactors($customer, $scores);
 
         $snapshot = RiskScoreSnapshot::create([
             'customer_id' => $customerId,
             'snapshot_date' => today(),
+            'previous_score' => $previous?->overall_score,
+            'previous_rating' => $previous?->overall_score !== null
+                ? $this->ratingForScore($previous->overall_score)
+                : null,
             'overall_score' => $scores['overall'],
+            'overall_rating_label' => $this->ratingForScore($scores['overall'])->label(),
             'velocity_score' => $scores['velocity'],
             'structuring_score' => $scores['structuring'],
             'geographic_score' => $scores['geographic'],
@@ -332,6 +338,20 @@ class CustomerRiskScoringService
             $score >= 60 => 'High',
             $score >= 30 => 'Medium',
             default => 'Low',
+        };
+    }
+
+    /**
+     * Map a risk score to the RiskRating enum used by the snapshot history
+     * columns (previous_rating / overall_rating_label).
+     */
+    protected function ratingForScore(int $score): RiskRating
+    {
+        return match (true) {
+            $score >= 80 => RiskRating::Critical,
+            $score >= 60 => RiskRating::High,
+            $score >= 30 => RiskRating::Medium,
+            default => RiskRating::Low,
         };
     }
 

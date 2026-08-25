@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Audit;
 
+use App\Exceptions\Domain\AuditIntegrityException;
 use App\Models\SystemLog;
 use App\Services\AuditService;
 use Illuminate\Bus\Queueable;
@@ -47,7 +48,7 @@ class SealAuditHashJob implements ShouldQueue
                 $predecessor = SystemLog::where('id', $predecessorId)->lockForUpdate()->first();
 
                 if (! $predecessor) {
-                    throw new \RuntimeException("Predecessor log {$predecessorId} disappeared.");
+                    throw new AuditIntegrityException("Predecessor log {$predecessorId} disappeared.");
                 }
 
                 // Guard: Check that no unsealed entries exist between predecessor and current entry.
@@ -60,7 +61,7 @@ class SealAuditHashJob implements ShouldQueue
                     ->exists();
 
                 if ($unsealedBetween) {
-                    throw new \RuntimeException(
+                    throw new AuditIntegrityException(
                         "Unsealed entries exist between predecessor {$predecessorId} and target {$this->logId}. ".
                         'Retrying after intermediate entries are sealed.'
                     );
@@ -81,14 +82,20 @@ class SealAuditHashJob implements ShouldQueue
             // Get the predecessor's hash (already locked, so stable)
             $previousHash = $predecessor?->entry_hash ?? null;
 
-            // Compute this entry's hash
+            // Compute this entry's hash. v2 payload: covers old_values,
+            // new_values, severity and ip_address so post-seal payload edits
+            // no longer verify clean (matches AuditService::sealLogEntry).
             $entryHash = $auditService->computeEntryHash(
                 $log->created_at->toIso8601String(),
                 $log->user_id,
                 $log->action,
                 $log->entity_type,
                 $log->entity_id,
-                $previousHash
+                $previousHash,
+                is_array($log->old_values) ? $log->old_values : null,
+                is_array($log->new_values) ? $log->new_values : null,
+                $log->severity,
+                $log->ip_address
             );
 
             // Seal the entry

@@ -2,85 +2,48 @@
 
 namespace App\Http\Controllers\Transaction;
 
-use App\Http\Concerns\CancellableTransaction;
+use App\Actions\Transaction\ApproveCancellationAction;
+use App\Actions\Transaction\RejectCancellationAction;
+use App\Actions\Transaction\RequestCancellationAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ApproveCancelRequest;
 use App\Http\Requests\CancelTransactionRequest;
 use App\Http\Requests\RejectCancelRequest;
 use App\Models\Transaction;
-use App\Services\Transaction\TransactionCancellationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class TransactionCancellationController extends Controller
 {
-    use CancellableTransaction;
-
     public function __construct(
-        protected TransactionCancellationService $cancellationService
+        protected RequestCancellationAction $requestAction,
+        protected ApproveCancellationAction $approveAction,
+        protected RejectCancellationAction $rejectAction,
     ) {}
 
-    /**
-     * Show cancellation confirmation form
-     */
-    public function showCancel(Transaction $transaction): View|RedirectResponse
-    {
-        if (! $this->canRequestCancellation(auth()->user(), $transaction)) {
-            abort(403, 'Unauthorized to cancel this transaction.');
-        }
-
-        if (! $this->canBeCancelled($transaction)) {
-            return back()->with('error', 'This transaction cannot be cancelled in its current state.');
-        }
-
-        return view('transactions.cancel', compact('transaction'));
-    }
-
-    /**
-     * Process transaction cancellation
-     *
-     * Requests cancellation of a transaction, transitioning it to PendingCancellation
-     * status where a supervisor must approve the cancellation.
-     */
     public function cancel(CancelTransactionRequest $request, Transaction $transaction): RedirectResponse
     {
-        if (! $this->canRequestCancellation(auth()->user(), $transaction)) {
-            abort(403, 'Unauthorized to cancel this transaction.');
-        }
-
-        if (! $this->canBeCancelled($transaction)) {
-            return back()->with('error', 'This transaction cannot be cancelled in its current state.');
-        }
+        $this->authorize('requestCancellation', $transaction);
 
         $validated = $request->validated();
 
-        try {
-            $result = $this->cancellationService->requestCancellation(
-                $transaction,
-                auth()->user(),
-                $validated['cancellation_reason']
-            );
+        $result = $this->requestAction->execute(
+            $transaction,
+            auth()->user(),
+            $validated['cancellation_reason']
+        );
 
-            if ($result) {
-                return redirect()->route('transactions.show', $transaction)
-                    ->with('success', 'Cancellation requested. Awaiting supervisor approval.');
-            }
-
-            return back()->with('error', 'Cancellation request failed. Please check your permissions or try again.');
-
-        } catch (\Exception $e) {
-            return back()->with('error', 'Cancellation failed: '.$e->getMessage());
+        if (! $result->ok) {
+            return back()->with('error', $result->message);
         }
+
+        return redirect()->route('transactions.show', $transaction)
+            ->with('success', $result->message);
     }
 
-    /**
-     * Show approve cancellation form
-     */
     public function showApproveCancel(Transaction $transaction): View|RedirectResponse
     {
-        if (! $this->canApproveCancellation(auth()->user(), $transaction)) {
-            abort(403, 'Unauthorized to approve cancellations.');
-        }
+        $this->authorize('approveCancellation', $transaction);
 
         if (! $transaction->status->isPendingCancellation()) {
             return back()->with('error', 'This transaction is not pending cancellation.');
@@ -89,48 +52,29 @@ class TransactionCancellationController extends Controller
         return view('transactions.approve-cancellation', compact('transaction'));
     }
 
-    /**
-     * Approve a pending cancellation request.
-     */
     public function approveCancel(ApproveCancelRequest $request, Transaction $transaction): RedirectResponse
     {
-        if (! $this->canApproveCancellation(auth()->user(), $transaction)) {
-            abort(403, 'Unauthorized to approve cancellations.');
-        }
-
-        if (! $transaction->status->isPendingCancellation()) {
-            return back()->with('error', 'This transaction is not pending cancellation.');
-        }
+        $this->authorize('approveCancellation', $transaction);
 
         $validated = $request->validated();
 
-        try {
-            $result = $this->cancellationService->approveCancellation(
-                $transaction,
-                auth()->user(),
-                $validated['reason'] ?? null
-            );
+        $result = $this->approveAction->execute(
+            $transaction,
+            auth()->user(),
+            $validated['reason'] ?? null
+        );
 
-            if ($result) {
-                return redirect()->route('transactions.show', $transaction)
-                    ->with('success', 'Cancellation approved. Transaction has been cancelled.');
-            }
-
-            return back()->with('error', 'Failed to approve cancellation. Please try again.');
-
-        } catch (\Exception $e) {
-            return back()->with('error', 'Approval failed: '.$e->getMessage());
+        if (! $result->ok) {
+            return back()->with('error', $result->message);
         }
+
+        return redirect()->route('transactions.show', $transaction)
+            ->with('success', $result->message);
     }
 
-    /**
-     * Show reject cancellation form
-     */
     public function showRejectCancel(Transaction $transaction): View|RedirectResponse
     {
-        if (! $this->canApproveCancellation(auth()->user(), $transaction)) {
-            abort(403, 'Unauthorized to reject cancellations.');
-        }
+        $this->authorize('approveCancellation', $transaction);
 
         if (! $transaction->status->isPendingCancellation()) {
             return back()->with('error', 'This transaction is not pending cancellation.');
@@ -139,42 +83,23 @@ class TransactionCancellationController extends Controller
         return view('transactions.reject-cancellation', compact('transaction'));
     }
 
-    /**
-     * Reject a pending cancellation request.
-     */
     public function rejectCancel(RejectCancelRequest $request, Transaction $transaction): RedirectResponse
     {
-        if (! $this->canApproveCancellation(auth()->user(), $transaction)) {
-            abort(403, 'Unauthorized to reject cancellations.');
-        }
-
-        if (! $transaction->status->isPendingCancellation()) {
-            return back()->with('error', 'This transaction is not pending cancellation.');
-        }
+        $this->authorize('approveCancellation', $transaction);
 
         $validated = $request->validated();
 
-        try {
-            $result = $this->cancellationService->rejectCancellation(
-                $transaction,
-                auth()->user(),
-                $validated['reason']
-            );
+        $result = $this->rejectAction->execute(
+            $transaction,
+            auth()->user(),
+            $validated['reason']
+        );
 
-            if ($result) {
-                return redirect()->route('transactions.show', $transaction)
-                    ->with('success', 'Cancellation rejected. Transaction has been restored to its previous status.');
-            }
-
-            return back()->with('error', 'Failed to reject cancellation. Transaction history may be corrupted.');
-
-        } catch (\Exception $e) {
-            return back()->with('error', 'Rejection failed: '.$e->getMessage());
+        if (! $result->ok) {
+            return back()->with('error', $result->message);
         }
-    }
 
-    protected function isWithinCancellationWindow(Transaction $transaction): bool
-    {
-        return $this->cancellationService->isWithinCancellationWindow($transaction);
+        return redirect()->route('transactions.show', $transaction)
+            ->with('success', $result->message);
     }
 }

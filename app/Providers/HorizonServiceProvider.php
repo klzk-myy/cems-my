@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Enums\UserRole;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Horizon\Horizon;
 use Laravel\Horizon\HorizonApplicationServiceProvider;
@@ -15,9 +16,12 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
     {
         parent::boot();
 
-        // Horizon::routeSmsNotificationsTo('15556667777');
-        // Horizon::routeMailNotificationsTo('example@example.com');
-        // Horizon::routeSlackNotificationsTo('slack-webhook-url', '#channel');
+        // Only route failure mail when an address is actually configured;
+        // passing '' would route mail to a blank recipient.
+        $horizonMailTo = env('HORIZON_MAIL_NOTIFICATIONS_TO', '');
+        if ($horizonMailTo !== '') {
+            Horizon::routeMailNotificationsTo($horizonMailTo);
+        }
     }
 
     /**
@@ -28,9 +32,7 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
     protected function gate(): void
     {
         Gate::define('viewHorizon', function ($user = null) {
-            return in_array(optional($user)->email, [
-                //
-            ]);
+            return optional($user)->role->value === UserRole::Admin->value;
         });
     }
 }

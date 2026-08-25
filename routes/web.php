@@ -2,16 +2,21 @@
 
 use App\Http\Controllers\Accounting\BudgetController;
 use App\Http\Controllers\Accounting\JournalController;
+use App\Http\Controllers\Accounting\PeriodController;
 use App\Http\Controllers\Accounting\ReconciliationController;
 use App\Http\Controllers\Accounting\ReportController;
-use App\Http\Controllers\AccountingController;
+use App\Http\Controllers\AllocationController;
 use App\Http\Controllers\BranchClosingController;
+use App\Http\Controllers\BranchPoolController;
 use App\Http\Controllers\Compliance\AlertTriageController;
 use App\Http\Controllers\Compliance\CaseManagementController;
+use App\Http\Controllers\Compliance\EddCustomerController;
 use App\Http\Controllers\Compliance\FindingController;
+use App\Http\Controllers\Compliance\PepApprovalController;
 use App\Http\Controllers\Compliance\RiskDashboardController;
 use App\Http\Controllers\Compliance\SanctionListController;
 use App\Http\Controllers\Compliance\ScreeningController;
+use App\Http\Controllers\Compliance\StrReportController;
 use App\Http\Controllers\Compliance\UnifiedAlertController;
 use App\Http\Controllers\CounterController;
 use App\Http\Controllers\Customer\CustomerSearchController;
@@ -20,17 +25,21 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FiscalYearController;
 use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\KycDocumentController;
 use App\Http\Controllers\MfaController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PerformanceMonitoringController;
 use App\Http\Controllers\RateController;
 use App\Http\Controllers\Report\AnalyticsController;
 use App\Http\Controllers\Report\RegulatoryReportController;
+use App\Http\Controllers\ReportScheduleController;
 use App\Http\Controllers\RevaluationController;
 use App\Http\Controllers\SetupController;
 use App\Http\Controllers\StockCashController;
 use App\Http\Controllers\StockTransferController;
-use App\Http\Controllers\TestQueryLogController;
+use App\Http\Controllers\SystemAlertController;
 use App\Http\Controllers\TestResultsController;
+use App\Http\Controllers\Transaction\DlqController;
 use App\Http\Controllers\Transaction\TransactionApprovalController;
 use App\Http\Controllers\Transaction\TransactionCancellationController;
 use App\Http\Controllers\TransactionBatchController;
@@ -50,11 +59,8 @@ Route::get('/up', function () {
 
 // Health check endpoint
 Route::get('/health', [HealthCheckController::class, 'index'])
-    ->middleware(['auth', 'throttle:60,1'])
+    ->middleware(['auth', 'role:admin', 'throttle:60,1'])
     ->name('health');
-
-Route::middleware(['auth', 'role:admin'])->get('/test/query-log', [TestQueryLogController::class, 'index'])
-    ->name('test.query-log');
 
 Route::prefix('setup')->name('setup.')->middleware(['setup.accessible'])->group(function () {
     Route::get('/', [SetupController::class, 'index'])->name('index');
@@ -69,6 +75,7 @@ Route::prefix('setup')->name('setup.')->middleware(['setup.accessible'])->group(
     Route::post('/complete', [SetupController::class, 'completeSetup'])->name('complete');
     Route::get('/status', [SetupController::class, 'checkStatus'])->name('status');
     Route::post('/reset', [SetupController::class, 'resetSetup'])->middleware(['auth', 'role:admin'])->name('reset');
+
 });
 
 Route::middleware(['auth', 'session.timeout'])->group(function () {
@@ -83,10 +90,15 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/setup', [MfaController::class, 'setup'])->name('setup');
         Route::post('/setup', [MfaController::class, 'setupStore'])->name('setup.store');
         Route::get('/verify', [MfaController::class, 'verify'])->name('verify');
-        Route::post('/verify', [MfaController::class, 'verifyStore'])->name('verify.store');
-        Route::post('/disable', [MfaController::class, 'disable'])->name('disable');
+        // Code entry endpoints are throttled so TOTP/recovery codes cannot be
+        // brute-forced; a per-user counter in MfaService backs this up.
+        Route::post('/verify', [MfaController::class, 'verifyStore'])->name('verify.store')
+            ->middleware('throttle:5,1');
+        Route::post('/disable', [MfaController::class, 'disable'])->name('disable')
+            ->middleware('throttle:5,1');
         Route::get('/recovery', [MfaController::class, 'recovery'])->name('recovery');
-        Route::post('/recovery/verify', [MfaController::class, 'recoveryVerify'])->name('recovery.verify');
+        Route::post('/recovery/verify', [MfaController::class, 'recoveryVerify'])->name('recovery.verify')
+            ->middleware('throttle:5,1');
         Route::get('/recovery-codes', [MfaController::class, 'recoveryCodes'])->name('recovery-codes');
         Route::get('/trusted-devices', [MfaController::class, 'trustedDevices'])->name('trusted-devices');
         Route::delete('/trusted-devices/{deviceId}', [MfaController::class, 'removeDevice'])->name('trusted-devices.remove');
@@ -110,9 +122,19 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::get('/batch-upload', [TransactionBatchController::class, 'showBatchUpload'])->name('batch-upload');
             Route::post('/batch-upload', [TransactionBatchController::class, 'processBatchUpload'])->name('batch-upload.store');
             Route::get('/import/{import}', [TransactionBatchController::class, 'showImportResults'])->name('batch-upload.show');
-            Route::get('/template', [TransactionBatchController::class, 'downloadTemplate'])->name('batch-upload.template');
+            Route::get('/template', [TransactionBatchController::class, 'downloadTemplate'])
+                ->middleware('mfa.verified')
+                ->name('batch-upload.template');
             Route::get('/download-errors/{import}', [TransactionBatchController::class, 'downloadErrors'])
                 ->name('batch-upload.download-errors');
+        });
+
+        // Dead letter queue - admin only. Registered before /{transaction} so
+        // 'dlq' is not captured as a transaction ID.
+        Route::middleware('role:admin')->group(function () {
+            Route::get('/dlq', [DlqController::class, 'index'])->name('dlq');
+            Route::post('/dlq/{transaction}/retry', [DlqController::class, 'retry'])->name('dlq.retry');
+            Route::post('/dlq/{transaction}/purge', [DlqController::class, 'purge'])->name('dlq.purge');
         });
 
         Route::get('/{transaction}', [TransactionController::class, 'show'])->name('show');
@@ -149,13 +171,17 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/', [CustomerController::class, 'index'])->name('index');
         Route::get('/create', [CustomerController::class, 'create'])->name('create');
         Route::post('/', [CustomerController::class, 'store'])->name('store');
+        Route::get('/search', [CustomerSearchController::class, 'search'])->name('search');
+        Route::post('/quick-create', [CustomerSearchController::class, 'quickCreate'])->name('quick-create');
+        Route::get('/exchange-rates', [CustomerController::class, 'getExchangeRates'])->name('exchange-rates');
         Route::get('/{customer}', [CustomerController::class, 'show'])->name('show');
         Route::get('/{customer}/edit', [CustomerController::class, 'edit'])->name('edit');
         Route::put('/{customer}', [CustomerController::class, 'update'])->name('update');
         Route::post('/{customer}/notes', [CustomerController::class, 'storeNote'])->name('notes.store');
-        Route::get('/search', [CustomerSearchController::class, 'search'])->name('search');
-        Route::post('/quick-create', [CustomerSearchController::class, 'quickCreate'])->name('quick-create');
-        Route::get('/exchange-rates', [CustomerController::class, 'getExchangeRates'])->name('exchange-rates');
+        Route::middleware('role:compliance,admin')->group(function () {
+            Route::post('/{customer}/freeze', [CustomerController::class, 'freeze'])->name('customers.freeze');
+            Route::post('/{customer}/unfreeze', [CustomerController::class, 'unfreeze'])->name('customers.unfreeze');
+        });
     });
 
     Route::prefix('counters')->name('counters.')->group(function () {
@@ -196,6 +222,25 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             ->middleware('role:manager');
     });
 
+    // Allocations (manager/admin)
+    Route::middleware('role:manager,admin')->prefix('allocations')->name('allocations.')->group(function () {
+        Route::get('/', [AllocationController::class, 'index'])->name('index');
+        Route::get('/{allocation}', [AllocationController::class, 'show'])->name('show');
+    });
+
+    // Branch Pools (manager/admin)
+    Route::middleware('role:manager,admin')->prefix('branch-pools')->name('branch-pools.')->group(function () {
+        Route::get('/', [BranchPoolController::class, 'index'])->name('index');
+        Route::get('/{branchPool}', [BranchPoolController::class, 'show'])->name('show');
+        Route::post('/{branchPool}/fund', [BranchPoolController::class, 'fund'])->name('fund');
+        Route::post('/{branchPool}/debit', [BranchPoolController::class, 'debit'])->name('debit');
+    });
+
+    // EOD Dashboard (manager/admin)
+    Route::middleware('role:manager,admin')->prefix('eod')->name('eod.')->group(function () {
+        Route::get('/', [DashboardController::class, 'eod'])->name('dashboard');
+    });
+
     Route::prefix('stock-transfers')->name('stock-transfers.')->group(function () {
         Route::get('/', [StockTransferController::class, 'index'])->name('index');
         Route::get('/create', [StockTransferController::class, 'create'])->name('create')
@@ -203,17 +248,17 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::post('/', [StockTransferController::class, 'store'])->name('store');
         Route::get('/{stockTransfer}', [StockTransferController::class, 'show'])->name('show');
 
-        Route::get('/{stockTransfer}/dispatch', [StockTransferController::class, 'show'])->name('dispatch.show')
+        Route::get('/{stockTransfer}/dispatch', [StockTransferController::class, 'showStep'])->defaults('step', 'dispatch')->name('dispatch.show')
             ->middleware('role:admin');
-        Route::get('/{stockTransfer}/receive', [StockTransferController::class, 'show'])->name('receive.show')
+        Route::get('/{stockTransfer}/receive', [StockTransferController::class, 'showStep'])->defaults('step', 'receive')->name('receive.show')
             ->middleware('role:admin');
-        Route::get('/{stockTransfer}/approve-bm', [StockTransferController::class, 'show'])->name('approve-bm.show')
+        Route::get('/{stockTransfer}/approve-bm', [StockTransferController::class, 'showStep'])->defaults('step', 'approve-bm')->name('approve-bm.show')
             ->middleware('role:manager');
-        Route::get('/{stockTransfer}/approve-hq', [StockTransferController::class, 'show'])->name('approve-hq.show')
+        Route::get('/{stockTransfer}/approve-hq', [StockTransferController::class, 'showStep'])->defaults('step', 'approve-hq')->name('approve-hq.show')
             ->middleware('role:admin');
-        Route::get('/{stockTransfer}/cancel', [StockTransferController::class, 'show'])->name('cancel.show')
+        Route::get('/{stockTransfer}/cancel', [StockTransferController::class, 'showStep'])->defaults('step', 'cancel')->name('cancel.show')
             ->middleware('role:manager');
-        Route::get('/{stockTransfer}/complete', [StockTransferController::class, 'show'])->name('complete.show')
+        Route::get('/{stockTransfer}/complete', [StockTransferController::class, 'showStep'])->defaults('step', 'complete')->name('complete.show')
             ->middleware('role:admin');
 
         Route::post('/{stockTransfer}/approve-bm', [StockTransferController::class, 'approveBm'])->name('approve-bm')
@@ -228,6 +273,8 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             ->middleware('role:admin');
         Route::post('/{stockTransfer}/cancel', [StockTransferController::class, 'cancel'])->name('cancel')
             ->middleware('role:manager');
+        Route::post('/{stockTransfer}/reject', [StockTransferController::class, 'reject'])->name('reject')
+            ->middleware('role:admin');
     });
 
     Route::middleware('role:compliance')->group(function () {
@@ -242,6 +289,7 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::post('/{alert}/assign', [AlertTriageController::class, 'assign'])->name('assign');
             Route::post('/{alert}/resolve', [AlertTriageController::class, 'resolve'])->name('resolve');
             Route::post('/{alert}/dismiss', [AlertTriageController::class, 'dismiss'])->name('dismiss');
+            Route::post('/{alert}/escalate', [AlertTriageController::class, 'escalate'])->name('escalate');
         });
 
         Route::get('/compliance/unified', [UnifiedAlertController::class, 'index'])->name('compliance.unified.index');
@@ -260,13 +308,6 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::delete('/{case}/links/{link}', [CaseManagementController::class, 'removeLink'])->name('links.remove');
         });
 
-        Route::prefix('compliance/risk-dashboard')->name('compliance.risk-dashboard.')->group(function () {
-            Route::get('/', [RiskDashboardController::class, 'index'])->name('index');
-            Route::get('/customer/{customer}', [RiskDashboardController::class, 'customer'])->name('customer');
-            Route::get('/trends', [RiskDashboardController::class, 'trends'])->name('trends');
-            Route::post('/rescreen', [RiskDashboardController::class, 'rescreen'])->name('rescreen');
-        });
-
         Route::prefix('compliance/sanctions')->name('compliance.sanctions.')->group(function () {
             Route::get('/', [SanctionListController::class, 'index'])->name('index');
             Route::get('/entries', [SanctionListController::class, 'entriesIndex'])->name('entries.index');
@@ -277,12 +318,18 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::put('/entries/{entry}', [SanctionListController::class, 'updateEntry'])->name('entries.update');
             Route::get('/import-logs', [SanctionListController::class, 'importLogs'])->name('import-logs');
             Route::get('/{list}', [SanctionListController::class, 'show'])->name('show');
-            Route::post('/{list}/import', [SanctionListController::class, 'triggerImport'])->name('import');
+            // Throttle matches the API route (5 imports / 10 min): each call
+            // downloads and imports an external list synchronously.
+            Route::post('/{list}/import', [SanctionListController::class, 'triggerImport'])
+                ->name('import')
+                ->middleware('throttle:5,10');
         });
 
         Route::prefix('compliance/screening')->name('compliance.screening.')->group(function () {
             Route::get('/{customerId}', [ScreeningController::class, 'show'])->name('show');
             Route::post('/{customerId}', [ScreeningController::class, 'screen'])->name('screen');
+            Route::get('/{customerId}/history', [ScreeningController::class, 'history'])->name('history');
+            Route::get('/{customerId}/status', [ScreeningController::class, 'status'])->name('status');
         });
 
         Route::prefix('compliance/findings')->name('compliance.findings.')->group(function () {
@@ -291,7 +338,44 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             Route::post('/{id}/dismiss', [FindingController::class, 'dismiss'])->name('dismiss');
         });
 
-        // Removed STR/compliance reporting routes (P0 cleanup)
+        // STR filings (pd-00 s22): list/detail/draft/submit/acknowledge/export
+        Route::middleware('role:compliance,admin')->prefix('str')->name('compliance.str.')->group(function () {
+            Route::get('/', [StrReportController::class, 'index'])->name('index');
+            Route::get('/export', [StrReportController::class, 'exportCsv'])->name('export');
+            Route::get('/{strReport}', [StrReportController::class, 'show'])->name('show');
+            Route::post('/from-case/{case}', [StrReportController::class, 'createFromCase'])->name('create-from-case');
+            Route::patch('/{strReport}/submit', [StrReportController::class, 'submit'])->name('submit');
+            Route::patch('/{strReport}/acknowledge', [StrReportController::class, 'acknowledge'])->name('acknowledge');
+        });
+    });
+
+    // Risk dashboard role matrix: the controller gates its GETs with
+    // requireManagerOrAdmin(), so a Compliance Officer was always 403'd by
+    // the controller even though this is a compliance surface, while the
+    // surrounding role:compliance group (ComplianceOfficer/Admin only)
+    // 403'd managers at the route. Net effect: only admins could reach
+    // these pages. Authoritative matrix chosen for this wave: manager/admin,
+    // matching the controller's internal gate (the controller is outside
+    // this change's scope); rescreen stays admin-only via requireAdmin()
+    // plus an explicit route gate below. If Compliance Officers should get
+    // access later, relax RiskDashboardController::requireManagerOrAdmin
+    // first, then add 'compliance' to this group's middleware.
+    Route::middleware('role:manager,admin')->prefix('compliance/risk-dashboard')->name('compliance.risk-dashboard.')->group(function () {
+        Route::get('/', [RiskDashboardController::class, 'index'])->name('index');
+        Route::get('/customer/{customer}', [RiskDashboardController::class, 'customer'])->name('customer');
+        Route::get('/trends', [RiskDashboardController::class, 'trends'])->name('trends');
+        Route::post('/rescreen', [RiskDashboardController::class, 'rescreen'])->name('rescreen')
+            ->middleware('role:admin');
+    });
+
+    // PEP head-office approvals (pd-00.md 14C.13.1(d)) - Senior Management
+    // (manager/admin) decisions on pending PepApprovalRequests raised by
+    // TransactionValidationService. POST-only so state changes stay
+    // CSRF-protected.
+    Route::middleware('role:manager,admin')->prefix('compliance/pep-approvals')->name('compliance.pep-approvals.')->group(function () {
+        Route::get('/', [PepApprovalController::class, 'index'])->name('index');
+        Route::post('/{pepApproval}/approve', [PepApprovalController::class, 'approve'])->name('approve');
+        Route::post('/{pepApproval}/reject', [PepApprovalController::class, 'reject'])->name('reject');
     });
 
     Route::middleware('role:manager')->prefix('accounting')->name('accounting.')->group(function () {
@@ -314,14 +398,14 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/cash-flow', [ReportController::class, 'cashFlow'])->name('cash-flow');
         Route::get('/ratios', [ReportController::class, 'ratios'])->name('ratios');
 
-        // Periods & Fiscal Years (remain in AccountingController for now)
-        Route::get('/periods', [AccountingController::class, 'periods'])->name('periods');
-        Route::post('/periods/{period}/close', [AccountingController::class, 'closePeriod'])->name('period.close');
-        Route::get('/fiscal-years', [AccountingController::class, 'fiscalYears'])->name('fiscal-years');
+        // Periods & Fiscal Years
+        Route::get('/periods', [PeriodController::class, 'periods'])->name('periods');
+        Route::post('/periods/{period}/close', [PeriodController::class, 'closePeriod'])->name('period.close');
+        Route::get('/fiscal-years', [FiscalYearController::class, 'list'])->name('fiscal-years');
         Route::post('/fiscal-years', [FiscalYearController::class, 'store'])->name('fiscal-years.store');
         Route::post('/fiscal-years/{year}/close', [FiscalYearController::class, 'close'])->name('fiscal-years.close');
-        Route::get('/revaluation', [AccountingController::class, 'revaluation'])->name('revaluation');
-        Route::get('/revaluation/history', [AccountingController::class, 'revaluationHistory'])->name('revaluation.history');
+        Route::get('/revaluation', [RevaluationController::class, 'index'])->name('revaluation');
+        Route::get('/revaluation/history', [RevaluationController::class, 'history'])->name('revaluation.history');
         Route::post('/revaluation/run', [RevaluationController::class, 'run'])->name('revaluation.run');
 
         // Bank Reconciliation
@@ -329,13 +413,14 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/reconciliation/report', [ReconciliationController::class, 'reconciliationReport'])->name('reconciliation.report');
         Route::post('/reconciliation/import', [ReconciliationController::class, 'importBankStatement'])->name('reconciliation.import');
         Route::post('/reconciliation/{reconciliation}/exception', [ReconciliationController::class, 'markAsException'])->name('reconciliation.exception');
+        Route::post('/reconciliation/{reconciliation}/match', [ReconciliationController::class, 'manualMatch'])->name('reconciliation.match');
+        Route::post('/reconciliation/{reconciliation}/unmatch', [ReconciliationController::class, 'unmatch'])->name('reconciliation.unmatch');
         Route::get('/reconciliation/export', [ReconciliationController::class, 'exportReconciliation'])->name('reconciliation.export');
 
         // Budget
         Route::get('/budget', [BudgetController::class, 'index'])->name('budget');
         Route::post('/budget', [BudgetController::class, 'store'])->name('budget.store');
-        Route::put('/budget/{budget}', [BudgetController::class, 'update'])->name('budget.update');
-        Route::patch('/budget/{budget}', [BudgetController::class, 'update'])->name('budget.patch');
+        Route::patch('/budget/{budget}', [BudgetController::class, 'update'])->name('budget.update');
     });
 
     Route::middleware('role:manager,admin')->prefix('reports')->name('reports.')->group(function () {
@@ -380,7 +465,7 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
             ->name('closing.finalize');
     });
 
-    Route::middleware(['role:admin'])->prefix('test-results')->name('test-results.')->group(function () {
+    Route::middleware(['role:admin', 'test.dashboard'])->prefix('test-results')->name('test-results.')->group(function () {
         Route::get('/compare', [TestResultsController::class, 'compare'])->name('compare');
         Route::get('/', [TestResultsController::class, 'index'])->name('index');
         Route::get('/statistics', [TestResultsController::class, 'statistics'])->name('statistics');
@@ -391,6 +476,56 @@ Route::middleware(['auth', 'session.timeout'])->group(function () {
         Route::get('/{testResult}/output', [TestResultsController::class, 'output'])->name('output');
     });
 
+    // System alerts - admin only. Alerts are operations-sensitive (they
+    // describe failing subsystems), so branch-level staff must not see them.
+    Route::middleware('role:admin')->prefix('system/alerts')->name('system.alerts.')->group(function () {
+        Route::get('/', [SystemAlertController::class, 'index'])->name('index');
+        // State changes are POST-only (CSRF-protected). The emailed link
+        // targets the GET confirmation page, which submits this POST route.
+        Route::get('/{alert}/acknowledge', [SystemAlertController::class, 'showAcknowledge'])->name('acknowledge.show');
+        Route::post('/{alert}/acknowledge', [SystemAlertController::class, 'acknowledge'])->name('acknowledge');
+    });
+
+    // Notifications - the header bell. Any authenticated user manages only
+    // their own in-app notifications; the unread-count endpoint feeds the
+    // bell's live badge polling.
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::post('/read-all', [NotificationController::class, 'markAllRead'])->name('read-all');
+        Route::post('/{notification}/read', [NotificationController::class, 'markRead'])->name('read');
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount'])->name('unread-count');
+    });
+
+    // EDD Customer Portal (signed URLs — no auth required)
+    Route::prefix('compliance/edd')->name('compliance.edd.customer.')->group(function () {
+        Route::get('/', [EddCustomerController::class, 'index'])->name('index');
+        Route::get('/records/{eddRecord}', [EddCustomerController::class, 'show'])->name('show');
+        Route::post('/documents/{eddDocumentRequest}/upload', [EddCustomerController::class, 'upload'])->name('upload');
+        Route::get('/documents/{eddDocumentRequest}/download', [EddCustomerController::class, 'download'])->name('download');
+    });
+
+    // Report Schedules (admin)
+    Route::middleware('role:admin')->prefix('reports/schedules')->name('reports.schedules.')->group(function () {
+        Route::get('/', [ReportScheduleController::class, 'index'])->name('index');
+        Route::get('/create', [ReportScheduleController::class, 'create'])->name('create');
+        Route::post('/', [ReportScheduleController::class, 'store'])->name('store');
+        Route::get('/{schedule}', [ReportScheduleController::class, 'show'])->name('show');
+        Route::get('/{schedule}/edit', [ReportScheduleController::class, 'edit'])->name('edit');
+        Route::put('/{schedule}', [ReportScheduleController::class, 'update'])->name('update');
+        Route::delete('/{schedule}', [ReportScheduleController::class, 'destroy'])->name('destroy');
+    });
+
+    // Transaction Export (manager/admin)
+    Route::middleware('role:manager,admin')->prefix('transactions/export')->name('transactions.export.')->group(function () {
+        Route::get('/', [TransactionController::class, 'exportForm'])->name('form');
+        Route::post('/', [TransactionController::class, 'export'])->name('export');
+    });
+
+    // KYC Documents (compliance/admin)
+    Route::middleware('role:compliance,admin')->prefix('kyc-documents')->name('kyc-documents.')->group(function () {
+        Route::post('/{customerDocument}/verify', [KycDocumentController::class, 'verify'])->name('verify');
+        Route::post('/{customerDocument}/reject', [KycDocumentController::class, 'reject'])->name('reject');
+        Route::get('/{customerDocument}/download', [KycDocumentController::class, 'download'])->name('download');
+    });
 });
 
 require __DIR__.'/auth.php';

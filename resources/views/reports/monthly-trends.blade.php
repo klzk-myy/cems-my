@@ -1,5 +1,5 @@
 <x-app-layout title="Monthly Transaction Trends">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Monthly Transaction Trends" description="Analyze transaction volumes and counts by month" :actions="true">
             <x-slot:actions>
                 <span class="text-sm text-ink-muted">{{ $year }}</span>
@@ -46,20 +46,20 @@
         <x-card title="Monthly Breakdown">
             <x-table>
                 <x-slot:thead>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase">Month</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-ink-muted uppercase">Transactions</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-ink-muted uppercase">Volume ({{ $currency == 'all' ? 'MYR' : $currency }})</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-ink-muted uppercase">Avg Value</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-ink-muted uppercase">MoM Change</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Month</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Transactions</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Volume ({{ $currency == 'all' ? 'MYR' : $currency }})</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Avg Value</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">MoM Change</th>
                 </x-slot:thead>
                 <x-slot:tbody>
                     @forelse($monthlyData as $data)
                         <tr class="hover:bg-canvas-subtle">
-                            <td class="px-6 py-4 text-sm text-ink">{{ $data['month'] }}</td>
-                            <td class="px-6 py-4 text-sm text-ink text-right">{{ number_format($data['count']) }}</td>
-                            <td class="px-6 py-4 text-sm text-ink text-right">{{ number_format($data['volume'], 2) }}</td>
-                            <td class="px-6 py-4 text-sm text-ink text-right">{{ number_format($data['avg_value'], 2) }}</td>
-                            <td class="px-6 py-4 text-right">
+                            <td class="px-4 py-3 text-sm text-ink">{{ $data['month'] }}</td>
+                            <td class="px-4 py-3 text-sm text-ink text-right">{{ number_format($data['count']) }}</td>
+                            <td class="px-4 py-3 text-sm text-ink text-right">{{ number_format($data['volume'], 2) }}</td>
+                            <td class="px-4 py-3 text-sm text-ink text-right">{{ number_format($data['avg_value'], 2) }}</td>
+                            <td class="px-4 py-3 text-right">
                                 @if($data['mom_change'] !== null)
                                     <span class="text-sm {{ $data['mom_change'] >= 0 ? 'text-success-text' : 'text-danger-text' }}">
                                         {{ $data['mom_change'] >= 0 ? '+' : '' }}{{ number_format($data['mom_change'], 1) }}%

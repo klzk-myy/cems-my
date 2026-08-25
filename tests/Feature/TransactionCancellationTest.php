@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\TransactionStatus;
 use App\Enums\UserRole;
+use App\Models\Branch;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Transaction\TransactionCancellationService;
@@ -18,14 +19,12 @@ class TransactionCancellationTest extends TestCase
     #[Test]
     public function cancel_calls_request_cancellation()
     {
-        $transaction = Transaction::factory()->create(['status' => TransactionStatus::Completed]);
+        $branch = Branch::factory()->create();
+        $transaction = Transaction::factory()->for($branch)->create(['status' => TransactionStatus::Completed]);
 
         $cancellationService = \Mockery::mock(TransactionCancellationService::class);
-        $cancellationService->shouldReceive('isWithinCancellationWindow')
+        $cancellationService->shouldReceive('canCancel')
             ->once()
-            ->with(\Mockery::on(function ($t) use ($transaction) {
-                return $t->id === $transaction->id;
-            }))
             ->andReturn(true);
         $cancellationService->shouldReceive('requestCancellation')
             ->once()
@@ -42,7 +41,7 @@ class TransactionCancellationTest extends TestCase
 
         $this->app->instance(TransactionCancellationService::class, $cancellationService);
 
-        $user = User::factory()->create(['role' => UserRole::Manager]);
+        $user = User::factory()->for($branch)->create(['role' => UserRole::Manager]);
         $response = $this->actingAs($user)
             ->post("/transactions/{$transaction->id}/cancel", [
                 'cancellation_reason' => 'Test cancellation reason',
@@ -50,19 +49,5 @@ class TransactionCancellationTest extends TestCase
             ]);
 
         $response->assertRedirect();
-    }
-
-    #[Test]
-    public function direct_cancel_throws_exception()
-    {
-        $transaction = Transaction::factory()->create(['status' => TransactionStatus::Completed]);
-
-        $user = User::factory()->create(['role' => UserRole::Manager]);
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Direct cancellation is not allowed');
-
-        $cancellationService = app(TransactionCancellationService::class);
-        $cancellationService->cancelTransaction($transaction, $user->id, 'Test reason');
     }
 }

@@ -1,12 +1,12 @@
 <x-app-layout title="BNM Form LMCA">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="BNM Form LMCA"
             description="Monthly Large Cash Transaction Report"
             :actions="$reportGenerated"
         >
             <x-slot:actions>
-                <x-button variant="secondary" onclick="window.print()">Print</x-button>
+                <x-button variant="secondary" @click="window.print()">Print</x-button>
                 <form method="POST" action="{{ route('reports.lmca.export', ['month' => $month]) }}">
                     @csrf
                     <x-button variant="primary" type="submit">Export</x-button>
@@ -61,7 +61,7 @@
                     </x-slot:tbody>
                 </x-table>
 
-                <div class="px-6 py-4 border-t border-border">
+                <div class="px-5 py-3 border-t border-border">
                     <p class="text-xs text-ink-muted">
                         Note: This report includes all cash transactions >= RM 25,000 in MYR equivalent.
                     </p>

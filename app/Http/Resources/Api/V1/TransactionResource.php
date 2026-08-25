@@ -52,7 +52,10 @@ class TransactionResource extends JsonResource
             'user' => new UserResource($this->whenLoaded('user')),
             'branch' => new BranchResource($this->whenLoaded('branch')),
             'approver' => new UserResource($this->whenLoaded('approver')),
-            'flags' => $this->whenLoaded('flags'),
+            'flags' => $this->whenLoaded(
+                'flags',
+                fn () => FlagResource::collection($this->flags)
+            ),
         ];
     }
 }

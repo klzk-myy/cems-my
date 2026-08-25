@@ -11,8 +11,6 @@ class ScreeningResult extends BaseModel
 {
     use HasFactory, SoftDeletes;
 
-    protected $with = ['customer', 'transaction', 'sanctionEntry'];
-
     protected $fillable = [
         'customer_id',
         'transaction_id',

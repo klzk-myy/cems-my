@@ -46,9 +46,9 @@ class CounterHandoverController extends Controller
 
             return $this->successResponse(null, 'Handover acknowledged successfully');
         } catch (UnauthorizedException $e) {
-            return $this->errorResponse($e->getMessage(), [], 403);
+            return $this->errorResponse('You are not authorized to acknowledge this handover.', [], 403);
         } catch (InvalidStateException $e) {
-            return $this->errorResponse($e->getMessage(), [], 422);
+            return $this->errorResponse('The handover is no longer in a valid state for acknowledgment.', [], 422);
         }
     }
 }

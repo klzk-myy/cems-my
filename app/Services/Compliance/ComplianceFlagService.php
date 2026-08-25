@@ -2,6 +2,7 @@
 
 namespace App\Services\Compliance;
 
+use App\Enums\FlagStatus;
 use App\Models\FlaggedTransaction;
 use App\Models\User;
 use App\Services\AuditService;
@@ -21,23 +22,22 @@ class ComplianceFlagService
 
         $flaggedTransaction->update([
             'assigned_to' => $user->id,
-            'status' => 'Under_Review',
+            'status' => FlagStatus::UnderReview->value,
         ]);
 
         $this->cacheTagsService->invalidate('dashboard');
 
-        $this->auditService->logWithSeverity(
+        $this->auditService->logFlaggedTransactionEvent(
             'compliance_flag_assigned',
+            $flaggedTransaction->id,
             [
                 'user_id' => $user->id,
-                'entity_type' => 'FlaggedTransaction',
-                'entity_id' => $flaggedTransaction->id,
                 'old_values' => [
                     'status' => $oldStatus,
                     'assigned_to' => $oldAssignedTo,
                 ],
                 'new_values' => [
-                    'status' => 'Under_Review',
+                    'status' => FlagStatus::UnderReview->value,
                     'assigned_to' => $user->id,
                     'assigned_by' => $user->username,
                 ],
@@ -51,24 +51,21 @@ class ComplianceFlagService
         $oldStatus = $flaggedTransaction->status;
 
         $flaggedTransaction->update([
-            'status' => 'Resolved',
+            'status' => FlagStatus::Resolved->value,
             'reviewed_by' => $user->id,
             'resolved_at' => now(),
         ]);
 
         $this->cacheTagsService->invalidate('dashboard');
 
-        $this->auditService->logWithSeverity(
+        $this->auditService->logFlaggedTransactionEvent(
             'compliance_flag_resolved',
+            $flaggedTransaction->id,
             [
                 'user_id' => $user->id,
-                'entity_type' => 'FlaggedTransaction',
-                'entity_id' => $flaggedTransaction->id,
-                'old_values' => [
-                    'status' => $oldStatus,
-                ],
+                'old_values' => ['status' => $oldStatus],
                 'new_values' => [
-                    'status' => 'Resolved',
+                    'status' => FlagStatus::Resolved->value,
                     'reviewed_by' => $user->id,
                     'reviewed_by_username' => $user->username,
                     'resolved_at' => now()->toDateTimeString(),

@@ -23,13 +23,16 @@ class SessionTimeout
 
         // Skip timeout check for certain paths (e.g., MFA setup, recovery)
         $excludedPaths = [
-            'mfa/setup',
-            'mfa/recovery',
+            'mfa/*',
             'logout',
+            // The header bell polls this endpoint every 60s to keep badges
+            // fresh. It must not stamp last_activity, otherwise an open tab
+            // would silently defeat the idle-session-timeout control.
+            'notifications/unread-count',
         ];
 
         foreach ($excludedPaths as $path) {
-            if ($request->is($path) || $request->is("{$path}/*")) {
+            if ($request->is($path)) {
                 return $next($request);
             }
         }

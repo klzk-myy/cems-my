@@ -111,8 +111,8 @@ return new class extends Migration
             Schema::create('transactions', function (Blueprint $table) {
                 $table->id();
                 $table->string('idempotency_key', 100)->nullable()->unique();
-                $table->foreignId('customer_id')->constrained();
-                $table->foreignId('user_id')->constrained();
+                $table->foreignId('customer_id')->constrained()->restrictOnDelete();
+                $table->foreignId('user_id')->constrained()->restrictOnDelete();
                 $table->string('till_id', 50)->default('MAIN');
                 $table->enum('type', ['Buy', 'Sell']);
                 $table->string('currency_code', 3);
@@ -128,13 +128,13 @@ return new class extends Migration
                 $table->enum('status', ['Pending', 'Completed', 'OnHold', 'Rejected', 'Reversed', 'Cancelled'])->default('Pending');
                 $table->unsignedInteger('version')->default(0);
                 $table->text('hold_reason')->nullable();
-                $table->foreignId('approved_by')->nullable()->constrained('users');
+                $table->foreignId('approved_by')->nullable()->constrained('users')->restrictOnDelete();
                 $table->timestamp('approved_at')->nullable();
                 $table->enum('cdd_level', ['Simplified', 'Specific', 'Standard', 'Enhanced']);
                 $table->timestamp('cancelled_at')->nullable();
-                $table->foreignId('cancelled_by')->nullable()->constrained('users');
+                $table->foreignId('cancelled_by')->nullable()->constrained('users')->restrictOnDelete();
                 $table->text('cancellation_reason')->nullable();
-                $table->foreignId('original_transaction_id')->nullable()->constrained('transactions');
+                $table->foreignId('original_transaction_id')->nullable()->constrained('transactions')->restrictOnDelete();
                 $table->boolean('is_refund')->default(false);
                 $table->timestamps();
                 $table->index(['customer_id', 'created_at']);
@@ -154,7 +154,7 @@ return new class extends Migration
         if (! Schema::hasTable('system_logs')) {
             Schema::create('system_logs', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('user_id')->nullable()->constrained();
+                $table->foreignId('user_id')->nullable()->constrained()->restrictOnDelete();
                 $table->string('action', 100);
                 $table->text('description')->nullable();
                 $table->enum('severity', ['INFO', 'WARNING', 'ERROR', 'CRITICAL'])->default('INFO');
@@ -189,7 +189,7 @@ return new class extends Migration
                 $table->string('name', 255);
                 $table->enum('list_type', ['UNSCR', 'MOHA', 'Internal']);
                 $table->string('source_file', 255)->nullable();
-                $table->foreignId('uploaded_by')->constrained('users');
+                $table->foreignId('uploaded_by')->constrained('users')->restrictOnDelete();
                 $table->boolean('is_active')->default(true);
                 $table->timestamp('uploaded_at')->default(DB::raw('CURRENT_TIMESTAMP'));
                 $table->timestamps();
@@ -220,7 +220,7 @@ return new class extends Migration
             Schema::create('flagged_transactions', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('transaction_id')->nullable()->constrained()->onDelete('cascade');
-                $table->foreignId('customer_id')->nullable()->constrained('customers');
+                $table->foreignId('customer_id')->nullable()->constrained('customers')->restrictOnDelete();
                 $table->enum('flag_type', [
                     'Large_Amount', 'Sanctions_Hit', 'Velocity', 'Structuring',
                     'EDD_Required', 'Pep_Status', 'Sanction_Match', 'High_Risk_Customer',
@@ -229,8 +229,8 @@ return new class extends Migration
                 ]);
                 $table->text('flag_reason');
                 $table->enum('status', ['Open', 'Under_Review', 'Resolved', 'Rejected'])->default('Open');
-                $table->foreignId('assigned_to')->nullable()->constrained('users');
-                $table->foreignId('reviewed_by')->nullable()->constrained('users');
+                $table->foreignId('assigned_to')->nullable()->constrained('users')->restrictOnDelete();
+                $table->foreignId('reviewed_by')->nullable()->constrained('users')->restrictOnDelete();
                 $table->text('notes')->nullable();
                 $table->timestamp('resolved_at')->nullable();
                 $table->timestamps();

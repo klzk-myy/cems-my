@@ -6,6 +6,7 @@ use App\Enums\TransactionStatus;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\Compliance\RiskCalculationService;
+use App\Services\Compliance\RoundTripDetector;
 use App\Services\Risk\AmountRiskService;
 use App\Services\Risk\GeographicRiskService;
 use App\Services\Risk\PatternRiskService;
@@ -40,7 +41,7 @@ class RiskCalculationServiceTest extends TestCase
             new StructuringRiskService($this->mathService, $this->thresholdService),
             new GeographicRiskService($this->mathService, $this->thresholdService),
             new AmountRiskService($this->mathService, $this->thresholdService),
-            new PatternRiskService($this->mathService, $this->thresholdService),
+            new PatternRiskService($this->mathService, new RoundTripDetector($this->mathService)),
         );
     }
 

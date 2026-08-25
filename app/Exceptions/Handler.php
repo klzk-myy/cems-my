@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -30,7 +31,39 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
-            //
+            if (! app()->isProduction()) {
+                return;
+            }
+
+            Log::critical('Unhandled production exception', [
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            // Defensive: strip empty entries so an unset SYSTEM_ALERT_RECIPIENTS
+            // (config yields [''] without filtering) never mails a blank address.
+            $recipients = array_values(array_filter(
+                (array) config('monitoring.alert_recipients'),
+                fn ($recipient) => is_string($recipient) && trim($recipient) !== ''
+            ));
+            if (! empty($recipients)) {
+                $subject = '[CRITICAL] Unhandled Exception in CEMS-MY';
+                $body = sprintf(
+                    "An unhandled exception occurred in production.\n\nType: %s\nMessage: %s\nLocation: %s:%d\nTime: %s\n\nStack trace:\n%s",
+                    get_class($e),
+                    $e->getMessage(),
+                    basename($e->getFile()),
+                    $e->getLine(),
+                    now()->toDateTimeString(),
+                    $e->getTraceAsString()
+                );
+
+                Mail::raw($body, function ($message) use ($recipients, $subject) {
+                    $message->to($recipients)->subject($subject);
+                });
+            }
         });
     }
 

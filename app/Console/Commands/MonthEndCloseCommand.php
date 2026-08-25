@@ -40,7 +40,18 @@ class MonthEndCloseCommand extends Command
         }
 
         try {
-            $user = auth()->user() ?? User::first();
+            // Attribute scheduled closes to the configured system user so the
+            // audit trail is deterministic; User::first() would attribute the
+            // close to an arbitrary user. Only an ACTIVE user qualifies -
+            // deactivated accounts are skipped and soft-deleted users are
+            // excluded automatically by the SoftDeletes global scope.
+            $user = auth()->user() ?? User::where('is_active', true)->find(config('cems.system_user_id'));
+
+            if (! $user) {
+                $this->error('Month-end close aborted: set cems.system_user_id to an active user for audit attribution.');
+
+                return 1;
+            }
             $results = $service->runMonthEndClosing($date, $user);
 
             $this->info('Month-end close completed successfully.');

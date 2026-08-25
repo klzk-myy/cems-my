@@ -18,7 +18,7 @@ return new class extends Migration
             $table->decimal('running_balance', 18, 4)->nullable(false);
             $table->timestamps();
 
-            $table->foreign('account_code')->references('account_code')->on('chart_of_accounts');
+            $table->foreign('account_code')->references('account_code')->on('chart_of_accounts')->restrictOnDelete();
             $table->index(['account_code', 'entry_date']);
             $table->index('journal_entry_id');
         });

@@ -9,6 +9,7 @@ use App\Models\SanctionEntry;
 use App\Models\SanctionList;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -36,32 +37,29 @@ class SanctionListControllerTest extends TestCase
             'list_source' => $entry->list_source,
         ];
 
-        $formRequest = $this->getMockBuilder(UpdateSanctionEntryRequest::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        // UpdateSanctionEntryRequest extends FormRequest, which defines a
+        // method() method. PHPUnit's mock builder deprecates doubling classes
+        // with a method named "method", so use Mockery instead.
+        $formRequest = Mockery::mock(UpdateSanctionEntryRequest::class);
 
-        $formRequest->expects($this->any())
-            ->method('validated')
-            ->willReturn($data);
-
-        $formRequest->expects($this->any())
-            ->method('has')
-            ->willReturnCallback(fn ($key) => array_key_exists($key, $data));
-
-        $formRequest->expects($this->any())
-            ->method('input')
-            ->willReturnCallback(fn ($key, $default = null) => $data[$key] ?? $default);
-
-        $formRequest->expects($this->any())
-            ->method('merge')
-            ->willReturnCallback(function ($arr) use (&$data) {
-                $data = array_merge($data, $arr);
-            });
+        $formRequest->shouldReceive('validated')->andReturn($data);
+        $formRequest->shouldReceive('has')->andReturnUsing(fn ($key) => array_key_exists($key, $data));
+        $formRequest->shouldReceive('input')->andReturnUsing(fn ($key, $default = null) => $data[$key] ?? $default);
+        $formRequest->shouldReceive('merge')->andReturnUsing(function ($arr) use (&$data) {
+            $data = array_merge($data, $arr);
+        });
 
         $controller = $this->app->make(SanctionListController::class);
         $response = $controller->updateEntry($formRequest, $entry);
 
         $this->assertEquals('2024-03-15', $entry->fresh()->listing_date?->format('Y-m-d'));
         $this->assertEquals(302, $response->getStatusCode());
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+
+        parent::tearDown();
     }
 }

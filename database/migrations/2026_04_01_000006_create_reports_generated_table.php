@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('report_type', 50)->nullable(false);
             $table->date('period_start')->nullable(false);
             $table->date('period_end')->nullable(false);
-            $table->foreignId('generated_by')->nullable(false)->constrained('users');
+            $table->foreignId('generated_by')->nullable(false)->constrained('users')->restrictOnDelete();
             $table->timestamp('generated_at')->useCurrent();
             $table->string('file_path', 500)->nullable();
             $table->enum('file_format', ['CSV', 'PDF', 'XLSX'])->nullable(false);

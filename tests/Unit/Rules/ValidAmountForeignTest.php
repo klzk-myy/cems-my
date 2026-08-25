@@ -10,9 +10,14 @@ class ValidAmountForeignTest extends TestCase
 {
     public function test_passes_for_valid_amount(): void
     {
-        $this->expectNotToPerformAssertions();
+        $passed = true;
+        try {
+            $this->assertRulePasses(new ValidAmountForeign, 'amount_foreign', 100);
+        } catch (\Throwable $e) {
+            $passed = false;
+        }
 
-        $this->assertRulePasses(new ValidAmountForeign, 'amount_foreign', 100);
+        $this->assertTrue($passed);
     }
 
     public function test_fails_when_below_minimum(): void

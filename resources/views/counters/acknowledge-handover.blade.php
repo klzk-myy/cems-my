@@ -1,12 +1,12 @@
 <x-app-layout title="Acknowledge Handover">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Acknowledge Counter Handover"
             description="Confirm receipt of counter custody from previous operator"
         />
 
         <x-card title="Handover Details" class="max-w-lg">
-            <x-card-section>
+            <x-card>
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <span class="text-ink-muted">Counter</span>
@@ -25,9 +25,9 @@
                         <p class="font-medium">{{ $handover?->to_user?->name ?? auth()->user()?->name ?? 'Unknown User' }}</p>
                     </div>
                 </div>
-            </x-card-section>
+            </x-card>
 
-            <x-card-section title="Opening Float">
+            <x-card title="Opening Float">
                 <x-table>
                     <x-slot:thead>
                         <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Currency</th>
@@ -48,15 +48,15 @@
                         @endisset
                     </x-slot:tbody>
                 </x-table>
-            </x-card-section>
+            </x-card>
 
             @isset($notes)
-                <x-card-section title="Notes">
+                <x-card title="Notes">
                     <p class="text-sm text-ink-muted bg-canvas-subtle rounded-lg p-3">{{ $notes }}</p>
-                </x-card-section>
+                </x-card>
             @endisset
 
-            <x-card-section>
+            <x-card>
                 <form method="POST" action="{{ route('counters.handover.acknowledge', $counter) }}">
                     @csrf
                     <div class="mb-4">
@@ -67,7 +67,7 @@
                         <x-button href="{{ route('counters.index') }}" variant="secondary">Cancel</x-button>
                     </div>
                 </form>
-            </x-card-section>
+            </x-card>
         </x-card>
     </div>
 </x-app-layout>

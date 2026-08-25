@@ -23,4 +23,6 @@ interface ReportingServiceInterface
     public function generatePositionLimitReport(): array;
 
     public function generatePositionLimitCsv(): string;
+
+    public function generateReport(string $reportType, string $period): string;
 }

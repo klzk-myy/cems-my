@@ -17,7 +17,7 @@ $change = $firstValue > 0 ? round((($lastValue - $firstValue) / $firstValue) * 1
 $changeLabel = $change >= 0 ? 'increase' : 'decrease';
 @endphp
 
-<div {{ $attributes->merge(['class' => 'bg-surface border border-border rounded-xl p-6']) }}>
+<div {{ $attributes->merge(['class' => 'bg-surface border border-border rounded-xl shadow-sm p-5']) }}>
     <h3 class="text-lg font-semibold text-ink mb-4">{{ $title }}</h3>
     <div class="h-48 flex items-end justify-between gap-2">
         @foreach($labels as $index => $label)
@@ -26,9 +26,9 @@ $changeLabel = $change >= 0 ? 'increase' : 'decrease';
                 $maxValue = max($values) ?: 1;
                 $barHeight = min(($value / $maxValue) * 100, 100);
             @endphp
-            <div class="flex-1 flex flex-col items-center justify-end h-full">
+            <div class="flex-1 flex flex-col items-center justify-end h-full" x-data="{ h: {{ $barHeight }} }">
                 <span class="text-xs font-medium text-ink-muted mb-1">{{ $value }}</span>
-                <svg class="w-full" style="height: {{ $barHeight }}%;" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <svg class="w-full" :style="'height: ' + h + '%'" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <rect x="15" y="0" width="70" height="100" rx="4" class="{{ $colorClass }}"></rect>
                 </svg>
                 <span class="mt-2 text-xs text-ink-muted">{{ $label }}</span>

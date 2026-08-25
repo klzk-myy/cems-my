@@ -3,11 +3,14 @@
 namespace App\Services\Branch;
 
 use App\Enums\TransactionType;
+use App\Exceptions\Domain\TillAlreadyOpenException;
 use App\Exceptions\Domain\TillBalanceMissingException;
+use App\Exceptions\Domain\TillClosedException;
 use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\TillBalance;
 use App\Services\System\MathService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class TillBalanceManager
@@ -19,17 +22,15 @@ class TillBalanceManager
 
     private function resolveCounter(string|int $tillIdentifier): ?Counter
     {
-        return Counter::where('code', $tillIdentifier)
-            ->orWhere('id', $tillIdentifier)
-            ->first();
+        return Counter::findByCodeOrId($tillIdentifier);
     }
 
-    private function resolveOpenedBy(?int $openedBy): int
+    private function resolveOpenedBy(?int $openedBy, string $currencyCode, string $tillId): int
     {
         $openedBy = $openedBy ?? auth()->id();
 
         if ($openedBy === null) {
-            throw new \InvalidArgumentException('opened_by is required to open a till balance');
+            throw new TillBalanceMissingException($currencyCode, $tillId);
         }
 
         return $openedBy;
@@ -43,7 +44,7 @@ class TillBalanceManager
         ?string $notes = null
     ): TillBalance {
         $currency = Currency::where('code', $currencyCode)->firstOrFail();
-        $openedBy = $this->resolveOpenedBy($openedBy);
+        $openedBy = $this->resolveOpenedBy($openedBy, $currency->code, $till->code);
 
         $existing = TillBalance::where('till_id', $till->code)
             ->where('currency_code', $currency->code)
@@ -51,7 +52,7 @@ class TillBalanceManager
             ->first();
 
         if ($existing) {
-            throw new \RuntimeException('Till already opened for this currency today.');
+            throw new TillAlreadyOpenException($till->code);
         }
 
         return TillBalance::create([
@@ -78,7 +79,7 @@ class TillBalanceManager
         ?string $notes = null
     ): TillBalance {
         if ($tillBalance->closed_at) {
-            throw new \RuntimeException('Till already closed for today.');
+            throw new TillClosedException($tillBalance->till_id);
         }
 
         $counter = $this->resolveCounter($tillBalance->till_id);
@@ -89,13 +90,13 @@ class TillBalanceManager
                 'currency_code' => $tillBalance->currency_code,
             ]);
 
-            throw new \RuntimeException('Counter not found for till balance.');
+            throw new TillBalanceMissingException($tillBalance->currency_code, $tillBalance->till_id);
         }
 
         $closedBy = $closedBy ?? auth()->id();
 
         if ($closedBy === null) {
-            throw new \InvalidArgumentException('closed_by is required to close a till balance');
+            throw new TillBalanceMissingException($tillBalance->currency_code, $tillBalance->till_id);
         }
 
         $netFlow = $this->tillService->calculateNetFlow($tillBalance->till_id, $tillBalance->currency_code);
@@ -121,17 +122,28 @@ class TillBalanceManager
     {
         $currency = Currency::where('code', $currencyCode)->firstOrFail();
 
-        $openedBy = $this->resolveOpenedBy($openedBy);
+        $openedBy = $this->resolveOpenedBy($openedBy, $currency->code, $till->code);
 
-        return TillBalance::firstOrCreate(
-            [
+        // The (till_id, date, currency_code) unique index was dropped by
+        // migration 2026_04_16_060922, so firstOrCreate() could race into
+        // duplicate open rows. Lock candidate rows inside a transaction and
+        // create only when no open row exists yet.
+        return DB::transaction(function () use ($till, $currency, $openedBy) {
+            $existing = TillBalance::where('till_id', $till->code)
+                ->where('currency_code', $currency->code)
+                ->whereDate('date', today())
+                ->whereNull('closed_at')
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            return TillBalance::create([
                 'till_id' => $till->code,
                 'currency_code' => $currency->code,
-                'date' => today(),
-            ],
-            [
                 'branch_id' => $till->branch_id,
-                'opened_by' => $openedBy,
                 'opening_balance' => '0',
                 'closing_balance' => null,
                 'variance' => null,
@@ -139,8 +151,10 @@ class TillBalanceManager
                 'transaction_total' => '0',
                 'buy_total_foreign' => '0',
                 'sell_total_foreign' => '0',
-            ]
-        );
+                'date' => today(),
+                'opened_by' => $openedBy,
+            ]);
+        });
     }
 
     public function adjustBalance(TillBalance $balance, string $field, string $amount, string $operation = 'add', bool $lock = false): TillBalance
@@ -155,7 +169,7 @@ class TillBalanceManager
         ];
 
         if (! in_array($field, $allowedFields, true)) {
-            throw new \InvalidArgumentException("Invalid till balance field: {$field}");
+            throw new TillBalanceMissingException($balance->currency_code, $balance->till_id);
         }
 
         if ($lock) {
@@ -168,7 +182,7 @@ class TillBalanceManager
         $newValue = match ($operation) {
             'add' => $this->mathService->add($currentString, $amount),
             'subtract' => $this->mathService->subtract($currentString, $amount),
-            default => throw new \InvalidArgumentException("Unknown till balance operation: {$operation}"),
+            default => throw new TillBalanceMissingException($balance->currency_code, $balance->till_id),
         };
 
         $balance->update([$field => $newValue]);
@@ -202,32 +216,38 @@ class TillBalanceManager
         string $amountForeign,
         bool $lock = true
     ): void {
-        $counter = $this->resolveCounter($tillBalance->till_id);
+        // All adjustments happen exactly once, inside a single DB transaction.
+        // Rows are read with lockForUpdate() inside that transaction so the row
+        // locks are held until commit and concurrent bookings serialize.
+        DB::transaction(function () use ($tillBalance, $type, $amountLocal, $amountForeign, $lock) {
+            $counter = $this->resolveCounter($tillBalance->till_id);
 
-        if (! $counter) {
-            throw new TillBalanceMissingException($tillBalance->currency_code, $tillBalance->till_id);
-        }
+            if (! $counter) {
+                throw new TillBalanceMissingException($tillBalance->currency_code, $tillBalance->till_id);
+            }
 
-        $foreignBalance = $this->currentBalance($counter, $tillBalance->currency_code, $lock);
-        if (! $foreignBalance) {
-            throw new TillBalanceMissingException($tillBalance->currency_code, $tillBalance->till_id);
-        }
+            $foreignBalance = $this->currentBalance($counter, $tillBalance->currency_code, $lock);
+            if (! $foreignBalance) {
+                throw new TillBalanceMissingException($tillBalance->currency_code, $tillBalance->till_id);
+            }
 
-        $myrBalance = $this->currentBalance($counter, 'MYR', $lock);
-        if (! $myrBalance) {
-            throw new TillBalanceMissingException('MYR', $tillBalance->till_id);
-        }
+            $myrBalance = $this->currentBalance($counter, 'MYR', $lock);
+            if (! $myrBalance) {
+                throw new TillBalanceMissingException('MYR', $tillBalance->till_id);
+            }
 
-        if ($type === TransactionType::Buy) {
-            $this->adjustBalance($foreignBalance, 'buy_total_foreign', $amountForeign, 'add', false);
-            $this->adjustBalance($foreignBalance, 'foreign_total', $amountForeign, 'add', false);
-        } else {
-            $this->adjustBalance($foreignBalance, 'sell_total_foreign', $amountForeign, 'add', false);
-            $this->adjustBalance($foreignBalance, 'foreign_total', $amountForeign, 'subtract', false);
-        }
+            if ($type === TransactionType::Buy) {
+                $this->adjustBalance($foreignBalance, 'buy_total_foreign', $amountForeign, 'add', false);
+                $this->adjustBalance($foreignBalance, 'foreign_total', $amountForeign, 'add', false);
+            } else {
+                $this->adjustBalance($foreignBalance, 'sell_total_foreign', $amountForeign, 'add', false);
+                $this->adjustBalance($foreignBalance, 'foreign_total', $amountForeign, 'subtract', false);
+            }
 
-        $myrOperation = $type === TransactionType::Buy ? 'subtract' : 'add';
-        $this->adjustBalance($myrBalance, 'transaction_total', $amountLocal, $myrOperation, false);
+            $myrOperation = $type === TransactionType::Buy ? 'subtract' : 'add';
+
+            $this->adjustBalance($myrBalance, 'transaction_total', $amountLocal, $myrOperation, false);
+        });
     }
 
     public function reverseTransaction(
@@ -237,39 +257,52 @@ class TillBalanceManager
         string $amountForeign,
         bool $lock = true
     ): void {
-        $counter = $this->resolveCounter($tillBalance->till_id);
+        // A single transaction holds the locked reads and applies exactly one
+        // set of adjustments covering both the FX and MYR legs. Missing counter
+        // or till balances throw so callers know the books were not corrected.
+        DB::transaction(function () use ($tillBalance, $type, $amountLocal, $amountForeign, $lock) {
+            $counter = $this->resolveCounter($tillBalance->till_id);
 
-        if (! $counter) {
-            Log::warning('No counter found for reversal', [
-                'till_id' => $tillBalance->till_id,
-                'currency_code' => $tillBalance->currency_code,
-            ]);
+            if (! $counter) {
+                Log::warning('No counter found for reversal', [
+                    'till_id' => $tillBalance->till_id,
+                    'currency_code' => $tillBalance->currency_code,
+                ]);
 
-            return;
-        }
+                throw new TillBalanceMissingException($tillBalance->currency_code, $tillBalance->till_id);
+            }
 
-        $foreignBalance = $this->currentBalance($counter, $tillBalance->currency_code, $lock);
-        if (! $foreignBalance) {
-            Log::warning('No open till balance found for reversal', [
-                'till_id' => $tillBalance->till_id,
-                'currency_code' => $tillBalance->currency_code,
-            ]);
+            $foreignBalance = $this->currentBalance($counter, $tillBalance->currency_code, $lock);
+            if (! $foreignBalance) {
+                Log::warning('No open till balance found for reversal', [
+                    'till_id' => $tillBalance->till_id,
+                    'currency_code' => $tillBalance->currency_code,
+                ]);
 
-            return;
-        }
+                throw new TillBalanceMissingException($tillBalance->currency_code, $tillBalance->till_id);
+            }
 
-        if ($type === TransactionType::Buy) {
-            $this->adjustBalance($foreignBalance, 'foreign_total', $amountForeign, 'subtract', false);
-            $this->adjustBalance($foreignBalance, 'buy_total_foreign', $amountForeign, 'subtract', false);
-        } else {
-            $this->adjustBalance($foreignBalance, 'foreign_total', $amountForeign, 'add', false);
-            $this->adjustBalance($foreignBalance, 'sell_total_foreign', $amountForeign, 'subtract', false);
-        }
+            $myrBalance = $this->currentBalance($counter, 'MYR', $lock);
 
-        $myrBalance = $this->currentBalance($counter, 'MYR', $lock);
-        if ($myrBalance) {
+            if (! $myrBalance) {
+                Log::warning('No open MYR till balance found for reversal', [
+                    'till_id' => $tillBalance->till_id,
+                ]);
+
+                throw new TillBalanceMissingException('MYR', $tillBalance->till_id);
+            }
+
+            if ($type === TransactionType::Buy) {
+                $this->adjustBalance($foreignBalance, 'foreign_total', $amountForeign, 'subtract', false);
+                $this->adjustBalance($foreignBalance, 'buy_total_foreign', $amountForeign, 'subtract', false);
+            } else {
+                $this->adjustBalance($foreignBalance, 'foreign_total', $amountForeign, 'add', false);
+                $this->adjustBalance($foreignBalance, 'sell_total_foreign', $amountForeign, 'subtract', false);
+            }
+
             $myrOperation = $type === TransactionType::Buy ? 'add' : 'subtract';
+
             $this->adjustBalance($myrBalance, 'transaction_total', $amountLocal, $myrOperation, false);
-        }
+        });
     }
 }

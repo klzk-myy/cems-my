@@ -4,14 +4,13 @@
  * Consolidated Migration: Miscellaneous Tables
  * Replaces: 2025_03_31_000011_create_customer_risk_history_table (moved),
  *          2025_03_31_000016_create_data_breach_alerts_table,
- *          2026_04_01_000005_create_report_templates_table,
  *          2026_04_01_000006_create_reports_generated_table,
  *          2026_04_05_000011_create_tasks_table,
  *          2026_04_05_000012_create_stock_transfers_tables,
  *          2026_04_05_060000_create_transaction_confirmations_table
  *
- * Creates: data_breach_alerts, report_templates, reports_generated,
- *          tasks, stock_transfers, stock_transfer_items, transaction_confirmations
+ * Creates: data_breach_alerts, reports_generated,
+ *          tasks, stock_transfers, transaction_confirmations
  */
 
 use Illuminate\Database\Migrations\Migration;
@@ -41,22 +40,6 @@ return new class extends Migration
                 $table->timestamps();
                 $table->index(['status', 'severity']);
                 $table->index('customer_id');
-            });
-        }
-
-        // Report templates table
-        if (! Schema::hasTable('report_templates')) {
-            Schema::create('report_templates', function (Blueprint $table) {
-                $table->id();
-                $table->string('name', 100);
-                $table->string('type', 50);
-                $table->text('description')->nullable();
-                $table->json('parameters')->nullable();
-                $table->json('columns')->nullable();
-                $table->boolean('is_active')->default(true);
-                $table->foreignId('created_by')->nullable()->constrained('users');
-                $table->timestamps();
-                $table->index(['type', 'is_active']);
             });
         }
 
@@ -124,21 +107,6 @@ return new class extends Migration
             });
         }
 
-        // Stock transfer items table
-        if (! Schema::hasTable('stock_transfer_items')) {
-            Schema::create('stock_transfer_items', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('transfer_id')->constrained('stock_transfers')->onDelete('cascade');
-                $table->string('currency_code', 3);
-                $table->decimal('quantity', 18, 4);
-                $table->decimal('rate', 18, 6);
-                $table->decimal('value_myr', 18, 4);
-                $table->timestamps();
-                $table->index('transfer_id');
-                $table->foreign('currency_code')->references('code')->on('currencies');
-            });
-        }
-
         // Transaction confirmations table
         if (! Schema::hasTable('transaction_confirmations')) {
             Schema::create('transaction_confirmations', function (Blueprint $table) {
@@ -158,11 +126,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('transaction_confirmations');
-        Schema::dropIfExists('stock_transfer_items');
         Schema::dropIfExists('stock_transfers');
         Schema::dropIfExists('tasks');
         Schema::dropIfExists('reports_generated');
-        Schema::dropIfExists('report_templates');
         Schema::dropIfExists('data_breach_alerts');
     }
 };

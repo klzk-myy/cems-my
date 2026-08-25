@@ -6,6 +6,7 @@ use App\Enums\FindingSeverity;
 use App\Enums\FindingType;
 use App\Enums\TransactionStatus;
 use App\Models\Customer;
+use App\Services\System\MathService;
 use App\Services\ThresholdService;
 
 /**
@@ -20,7 +21,7 @@ class CustomerLocationAnomalyMonitor extends BaseMonitor
 
     public function __construct(ThresholdService $thresholdService)
     {
-        parent::__construct();
+        parent::__construct(new MathService);
         $this->highValueThreshold = $thresholdService->getLargeTransactionThreshold();
     }
 
@@ -32,28 +33,35 @@ class CustomerLocationAnomalyMonitor extends BaseMonitor
     public function run(): array
     {
         $findings = [];
-        $cutoffTime = now()->subDays(self::LOOKBACK_DAYS);
 
-        // Get customers with foreign nationality who have recent high-value transactions
-        $foreignCustomers = Customer::where('is_active', true)
-            ->whereNotIn('nationality', ['Malaysian', 'Malaysia'])
-            ->whereHas('transactions', function ($query) use ($cutoffTime) {
-                $query->where('created_at', '>=', $cutoffTime)
-                    ->where('status', '!=', TransactionStatus::Cancelled->value)
-                    ->where('amount_local', '>=', $this->highValueThreshold);
-            })
-            ->with(['transactions' => function ($query) use ($cutoffTime) {
-                $query->where('created_at', '>=', $cutoffTime)
-                    ->where('status', '!=', TransactionStatus::Cancelled->value)
-                    ->where('amount_local', '>=', $this->highValueThreshold);
-            }])
-            ->get();
+        try {
+            $cutoffTime = now()->subDays(self::LOOKBACK_DAYS);
 
-        foreach ($foreignCustomers as $customer) {
-            $finding = $this->checkCustomerLocationAnomaly($customer, $cutoffTime);
-            if ($finding !== null) {
-                $findings[] = $finding;
+            // Get customers with foreign nationality who have recent high-value transactions
+            $foreignCustomers = Customer::where('is_active', true)
+                ->whereNotIn('nationality', config('compliance.domestic_nationalities', ['Malaysian', 'Malaysia']))
+                ->whereHas('transactions', function ($query) use ($cutoffTime) {
+                    $query->where('created_at', '>=', $cutoffTime)
+                        ->where('status', '!=', TransactionStatus::Cancelled->value)
+                        ->where('amount_local', '>=', $this->highValueThreshold);
+                })
+                ->with(['transactions' => function ($query) use ($cutoffTime) {
+                    $query->where('created_at', '>=', $cutoffTime)
+                        ->where('status', '!=', TransactionStatus::Cancelled->value)
+                        ->where('amount_local', '>=', $this->highValueThreshold);
+                }])
+                ->get();
+
+            foreach ($foreignCustomers as $customer) {
+                $finding = $this->checkCustomerLocationAnomaly($customer, $cutoffTime);
+                if ($finding !== null) {
+                    $findings[] = $finding;
+                }
             }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
         }
 
         return $findings;
@@ -75,7 +83,10 @@ class CustomerLocationAnomalyMonitor extends BaseMonitor
         // 1. Multiple different currencies in short period (suggesting travel)
         // 2. Very high amounts compared to customer's annual volume estimate
         $currencies = $recentTransactions->pluck('currency_code')->unique();
-        $totalAmount = $recentTransactions->sum('amount_local');
+        $totalAmount = '0';
+        foreach ($recentTransactions as $txn) {
+            $totalAmount = $this->math->add($totalAmount, (string) $txn->amount_local);
+        }
         $transactionCount = $recentTransactions->count();
 
         $anomalyDetected = false;

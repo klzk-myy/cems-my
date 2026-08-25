@@ -9,9 +9,11 @@ namespace App\Enums;
  */
 enum FiscalYearStatus: string
 {
+    case Draft = 'Draft';
     case Open = 'Open';
     case Closed = 'Closed';
     case Archived = 'Archived';
+    case Deleted = 'Deleted';
 
     /**
      * Check if the fiscal year is open.
@@ -35,9 +37,11 @@ enum FiscalYearStatus: string
     public function label(): string
     {
         return match ($this) {
+            self::Draft => 'Draft',
             self::Open => 'Open',
             self::Closed => 'Closed',
             self::Archived => 'Archived',
+            self::Deleted => 'Deleted',
         };
     }
 
@@ -47,9 +51,11 @@ enum FiscalYearStatus: string
     public function color(): string
     {
         return match ($this) {
+            self::Draft => 'warning',
             self::Open => 'success',
             self::Closed => 'secondary',
             self::Archived => 'info',
+            self::Deleted => 'danger',
         };
     }
 }

@@ -50,4 +50,14 @@ enum CacheKeys: string
     {
         return "customer:{$customerId}";
     }
+
+    public static function rate(string $currencyCode, ?int $branchId = null): string
+    {
+        return 'rate:'.$currencyCode.($branchId !== null ? ':branch:'.$branchId : '');
+    }
+
+    public static function exchangeRates(?int $branchId = null): string
+    {
+        return $branchId ? "exchange_rates_branch_{$branchId}" : 'exchange_rates';
+    }
 }

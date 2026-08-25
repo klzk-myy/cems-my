@@ -6,10 +6,11 @@ use App\Enums\IdType;
 use App\Enums\RelationType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CustomerRelation extends BaseModel
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'customer_id',
@@ -47,6 +48,9 @@ class CustomerRelation extends BaseModel
         return $this->belongsTo(Customer::class);
     }
 
+    /**
+     * @return BelongsTo<Customer, $this>
+     */
     public function relatedCustomer(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'related_customer_id');

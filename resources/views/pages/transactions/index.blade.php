@@ -16,14 +16,14 @@
             <x-table>
                 <x-slot:thead>
                     <tr class="text-left text-sm text-ink-muted">
-                        <th class="px-4 py-3">Reference</th>
-                        <th class="px-4 py-3">Date</th>
-                        <th class="px-4 py-3">Customer</th>
-                        <th class="px-4 py-3">Type</th>
-                        <th class="px-4 py-3">Amount</th>
-                        <th class="px-4 py-3">Rate</th>
-                        <th class="px-4 py-3">Status</th>
-                        <th class="px-4 py-3"></th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Reference</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Date</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Customer</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Type</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Amount</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Rate</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase"></th>
                     </tr>
                 </x-slot:thead>
                 <x-slot:tbody>

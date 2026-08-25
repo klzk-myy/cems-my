@@ -150,25 +150,6 @@ class TransactionCancellationServiceTest extends TestCase
     }
 
     #[Test]
-    public function cancel_transaction_throws_exception_direct_cancel_not_allowed(): void
-    {
-        $transaction = Transaction::factory()->make([
-            'id' => 99905,
-            'currency_code' => 'USD',
-            'till_id' => 'TEST-TILL',
-            'type' => TransactionType::Buy,
-            'amount_foreign' => '100.00',
-            'rate' => '4.50',
-            'status' => TransactionStatus::Completed,
-        ]);
-
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Direct cancellation is not allowed');
-
-        $this->cancellationService->cancelTransaction($transaction, 1, 'Test reason');
-    }
-
-    #[Test]
     public function refund_requires_different_approver_than_requester(): void
     {
         // Create a teller who will request the reversal

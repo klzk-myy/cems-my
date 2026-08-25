@@ -39,13 +39,12 @@ class ComplianceFlagServiceTest extends TestCase
         $flag = FlaggedTransaction::factory()->open()->create();
 
         $this->auditService->expects($this->once())
-            ->method('logWithSeverity')
+            ->method('logFlaggedTransactionEvent')
             ->with(
                 'compliance_flag_assigned',
-                $this->callback(function (array $data) use ($user, $flag) {
+                $flag->id,
+                $this->callback(function (array $data) use ($user) {
                     return $data['user_id'] === $user->id
-                        && $data['entity_type'] === 'FlaggedTransaction'
-                        && $data['entity_id'] === $flag->id
                         && $data['old_values']['status'] === FlagStatus::Open
                         && $data['old_values']['assigned_to'] === null
                         && $data['new_values']['status'] === FlagStatus::UnderReview->value
@@ -75,13 +74,12 @@ class ComplianceFlagServiceTest extends TestCase
         ]);
 
         $this->auditService->expects($this->once())
-            ->method('logWithSeverity')
+            ->method('logFlaggedTransactionEvent')
             ->with(
                 'compliance_flag_resolved',
-                $this->callback(function (array $data) use ($user, $flag) {
+                $flag->id,
+                $this->callback(function (array $data) use ($user) {
                     return $data['user_id'] === $user->id
-                        && $data['entity_type'] === 'FlaggedTransaction'
-                        && $data['entity_id'] === $flag->id
                         && $data['old_values']['status'] === FlagStatus::UnderReview
                         && $data['new_values']['status'] === FlagStatus::Resolved->value
                         && $data['new_values']['reviewed_by'] === $user->id

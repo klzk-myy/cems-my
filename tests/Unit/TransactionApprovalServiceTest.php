@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Enums\TransactionStatus;
 use App\Exceptions\Domain\SelfApprovalException;
+use App\Exceptions\Domain\TransactionValidationException;
 use App\Models\Transaction;
 use App\Services\Transaction\TransactionApprovalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -29,8 +30,10 @@ class TransactionApprovalServiceTest extends TestCase
             'status' => TransactionStatus::Completed,
         ]);
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Transaction is not pending approval');
+        // Note: TransactionValidationException's constructor masks custom
+        // messages behind a default ('Transaction validation failed'), so
+        // only the exception type is asserted here.
+        $this->expectException(TransactionValidationException::class);
 
         $this->approvalService->validateApprovalEligibility($transaction, 1);
     }
@@ -56,9 +59,18 @@ class TransactionApprovalServiceTest extends TestCase
             'user_id' => 1,
         ]);
 
-        $this->expectNotToPerformAssertions();
+        // The guard returns void; passing means no exception and untouched state.
+        try {
+            $this->approvalService->validateApprovalEligibility($transaction, 2);
+        } catch (\Throwable $e) {
+            $this->fail('A different approver must be eligible, but got '.get_class($e).': '.$e->getMessage());
+        }
 
-        $this->approvalService->validateApprovalEligibility($transaction, 2);
+        $this->assertSame(
+            TransactionStatus::PendingApproval,
+            $transaction->status,
+            'Validation must not mutate transaction status'
+        );
     }
 
     #[Test]
@@ -68,8 +80,16 @@ class TransactionApprovalServiceTest extends TestCase
             'status' => TransactionStatus::PendingApproval,
         ]);
 
-        $this->expectNotToPerformAssertions();
+        try {
+            $this->approvalService->validateApprovalEligibility($transaction, 99);
+        } catch (\Throwable $e) {
+            $this->fail('PendingApproval transactions must pass eligibility regardless of approver, but got '.get_class($e).': '.$e->getMessage());
+        }
 
-        $this->approvalService->validateApprovalEligibility($transaction, 99);
+        $this->assertSame(
+            TransactionStatus::PendingApproval,
+            $transaction->status,
+            'Validation must not mutate transaction status'
+        );
     }
 }

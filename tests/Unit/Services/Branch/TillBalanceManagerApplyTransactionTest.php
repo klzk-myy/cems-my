@@ -129,15 +129,16 @@ class TillBalanceManagerApplyTransactionTest extends TestCase
     }
 
     #[Test]
-    public function reverse_transaction_logs_warning_when_counter_missing(): void
+    public function reverse_transaction_throws_when_counter_missing(): void
     {
+        // A missing counter/open till must surface loudly so callers never
+        // treat the books as corrected when the reversal was not applied.
         $foreignBalance = TillBalance::factory()->create([
             'till_id' => 'UNKNOWN',
             'currency_code' => 'USD',
         ]);
 
+        $this->expectException(TillBalanceMissingException::class);
         $this->manager->reverseTransaction($foreignBalance, TransactionType::Buy, '150.00', '100.00');
-
-        $this->assertEquals('0.0000', (string) $foreignBalance->fresh()->foreign_total);
     }
 }

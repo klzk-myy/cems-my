@@ -2,13 +2,17 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\UserRole;
+use App\Services\AuditService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
 {
+    public function __construct(
+        protected AuditService $auditService
+    ) {}
+
     /**
      * Handle an incoming request.
      *
@@ -19,7 +23,9 @@ class CheckRole
         $user = auth()->user();
 
         if (! $user) {
-            return redirect()->route('login');
+            return $request->expectsJson()
+                ? response()->json(['error' => 'Unauthorized'], 401)
+                : redirect()->route('login');
         }
 
         // Check if user has any of the required roles
@@ -28,9 +34,8 @@ class CheckRole
             $hasRole = match ($role) {
                 'admin' => $user->isAdmin(),
                 'manager' => $user->isManager(),
-                'compliance' => $user->isComplianceOfficer(),
-                'compliance_officer' => $user->isComplianceOfficer(),
-                'teller' => $user->role === UserRole::Teller,
+                'compliance', 'compliance_officer' => $user->isComplianceOfficer(),
+                'teller' => $user->isTeller(),
                 default => false,
             };
 
@@ -40,6 +45,16 @@ class CheckRole
         }
 
         if (! $hasRole) {
+            $this->auditService->logPermissionDenied(
+                $request->path(),
+                'role_check',
+                'Missing required role: '.implode(',', $roles)
+            );
+
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'Unauthorized. You do not have permission to access this resource.'], 403);
+            }
+
             abort(403, 'Unauthorized. You do not have permission to access this resource.');
         }
 

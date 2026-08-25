@@ -6,6 +6,7 @@ use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Enums\UserRole;
 use App\Http\Middleware\VerifyCsrfToken;
+use App\Models\Branch;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\Transaction;
@@ -35,12 +36,11 @@ class TransactionCancellationFlowTest extends TestCase
     #[Test]
     public function cancelled_completed_transactions_have_cancel_option(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        $manager = User::factory()->for($teller->branch)->create(['role' => UserRole::Manager]);
 
-        // Create a completed transaction
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Buy,
             'currency_code' => 'USD',
@@ -49,13 +49,13 @@ class TransactionCancellationFlowTest extends TestCase
             'rate' => '4.50',
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
             'status' => TransactionStatus::Completed,
             'cdd_level' => 'Simplified',
             'idempotency_key' => uniqid('test_', true),
         ]);
 
-        // Manager can access cancel form for completed transaction
         $response = $this->actingAs($manager)->get("/transactions/{$transaction->id}/cancel");
         $response->assertStatus(200);
     }
@@ -63,12 +63,11 @@ class TransactionCancellationFlowTest extends TestCase
     #[Test]
     public function old_transactions_cannot_be_cancelled(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        $manager = User::factory()->for($teller->branch)->create(['role' => UserRole::Manager]);
 
-        // Create an old completed transaction (beyond 24 hour window)
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Buy,
             'currency_code' => 'USD',
@@ -77,6 +76,7 @@ class TransactionCancellationFlowTest extends TestCase
             'rate' => '4.50',
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
             'status' => TransactionStatus::Completed,
             'cdd_level' => 'Simplified',
@@ -88,20 +88,19 @@ class TransactionCancellationFlowTest extends TestCase
         $transaction->refresh();
 
         $response = $this->actingAs($manager)->get("/transactions/{$transaction->id}/cancel");
-        // Old completed transactions are outside the cancellation window and are rejected.
         $response->assertRedirect();
         $response->assertSessionHas('error', 'This transaction is outside the cancellation window.');
     }
 
     #[Test]
-    public function only_completed_transactions_can_be_cancelled(): void
+    public function only_finalized_transactions_cannot_be_cancelled(): void
     {
         $teller = User::factory()->create(['role' => UserRole::Teller]);
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        $manager = User::factory()->for($teller->branch)->create(['role' => UserRole::Manager]);
 
-        // Create a transaction with PendingApproval status (can be tested for cancellation restrictions)
+        // Create a transaction with Finalized status (terminal state, cannot be cancelled)
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Buy,
             'currency_code' => 'USD',
@@ -110,24 +109,24 @@ class TransactionCancellationFlowTest extends TestCase
             'rate' => '4.50',
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
-            'status' => TransactionStatus::PendingApproval,
+            'status' => TransactionStatus::Finalized,
             'cdd_level' => 'Simplified',
             'idempotency_key' => uniqid('test_', true),
         ]);
 
-        // Try to cancel PendingApproval transaction - should fail (can only cancel Completed)
+        // Try to cancel a finalized transaction - should fail
         $response = $this->actingAs($manager)->post("/transactions/{$transaction->id}/cancel", [
             'cancellation_reason' => 'Test cancellation reason with minimum length',
             'confirm_cancellation' => true,
         ]);
 
-        // Should redirect back with error
         $response->assertRedirect();
-        // Transaction should remain in PendingApproval status
+        // Transaction should remain Finalized
         $this->assertDatabaseHas('transactions', [
             'id' => $transaction->id,
-            'status' => TransactionStatus::PendingApproval,
+            'status' => TransactionStatus::Finalized,
         ]);
     }
 
@@ -164,9 +163,9 @@ class TransactionCancellationFlowTest extends TestCase
     public function cancellation_reason_is_required_and_min_length(): void
     {
         $teller = User::factory()->create(['role' => UserRole::Teller]);
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        $manager = User::factory()->for($teller->branch)->create(['role' => UserRole::Manager]);
 
         // Setup initial position for the sell transaction
         CurrencyPosition::create([
@@ -176,7 +175,6 @@ class TransactionCancellationFlowTest extends TestCase
             'avg_cost_rate' => '4.40',
         ]);
 
-        // Create a completed transaction
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Sell,
             'currency_code' => 'USD',
@@ -185,6 +183,7 @@ class TransactionCancellationFlowTest extends TestCase
             'rate' => '4.60',
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
             'status' => TransactionStatus::Completed,
             'cdd_level' => 'Simplified',
@@ -211,9 +210,9 @@ class TransactionCancellationFlowTest extends TestCase
     public function confirmation_checkbox_is_required(): void
     {
         $teller = User::factory()->create(['role' => UserRole::Teller]);
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        $manager = User::factory()->for($teller->branch)->create(['role' => UserRole::Manager]);
 
         // Setup initial position
         CurrencyPosition::create([
@@ -223,7 +222,6 @@ class TransactionCancellationFlowTest extends TestCase
             'avg_cost_rate' => '4.40',
         ]);
 
-        // Create a completed transaction
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Sell,
             'currency_code' => 'USD',
@@ -232,6 +230,7 @@ class TransactionCancellationFlowTest extends TestCase
             'rate' => '4.60',
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
             'status' => TransactionStatus::Completed,
             'cdd_level' => 'Simplified',
@@ -250,9 +249,9 @@ class TransactionCancellationFlowTest extends TestCase
     public function cancelled_transactions_cannot_be_cancelled_again(): void
     {
         $teller = User::factory()->create(['role' => UserRole::Teller]);
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        $manager = User::factory()->for($teller->branch)->create(['role' => UserRole::Manager]);
 
         // Setup initial position
         CurrencyPosition::create([
@@ -262,8 +261,7 @@ class TransactionCancellationFlowTest extends TestCase
             'avg_cost_rate' => '4.40',
         ]);
 
-        // Create an already completed transaction with cancelled_at set
-        // Note: The DB constraint only allows certain status values
+        // Create an already cancelled transaction (note: DB constraint only allows certain status values)
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Sell,
             'currency_code' => 'USD',
@@ -272,6 +270,7 @@ class TransactionCancellationFlowTest extends TestCase
             'rate' => '4.60',
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
             'status' => TransactionStatus::Reversed,
             'cdd_level' => 'Simplified',
@@ -287,20 +286,17 @@ class TransactionCancellationFlowTest extends TestCase
             'confirm_cancellation' => true,
         ]);
 
-        // Should redirect back with error
         $response->assertRedirect();
     }
 
     #[Test]
     public function teller_transaction_can_be_cancelled_by_manager(): void
     {
-        // This test verifies that managers CAN cancel transactions created by tellers
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $teller = User::factory()->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        $manager = User::factory()->for($teller->branch)->create(['role' => UserRole::Manager]);
 
-        // Setup initial position
         CurrencyPosition::create([
             'currency_code' => 'USD',
             'till_id' => (string) $counter->id,
@@ -308,7 +304,6 @@ class TransactionCancellationFlowTest extends TestCase
             'avg_cost_rate' => '4.40',
         ]);
 
-        // Create a completed transaction by the teller
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Sell,
             'currency_code' => 'USD',
@@ -317,13 +312,13 @@ class TransactionCancellationFlowTest extends TestCase
             'rate' => '4.60',
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
             'status' => TransactionStatus::Completed,
             'cdd_level' => 'Simplified',
             'idempotency_key' => uniqid('test_', true),
         ]);
 
-        // Manager can cancel the teller's transaction
         $response = $this->actingAs($manager)->get("/transactions/{$transaction->id}/cancel");
         $response->assertStatus(200);
     }
@@ -332,11 +327,10 @@ class TransactionCancellationFlowTest extends TestCase
     public function manager_can_cancel_transaction(): void
     {
         $teller = User::factory()->create(['role' => UserRole::Teller]);
-        $manager = User::factory()->create(['role' => UserRole::Manager]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller, 'USD', '1000.00');
+        $manager = User::factory()->for($teller->branch)->create(['role' => UserRole::Manager]);
 
-        // Setup initial position
         CurrencyPosition::create([
             'currency_code' => 'USD',
             'till_id' => (string) $counter->id,
@@ -344,7 +338,6 @@ class TransactionCancellationFlowTest extends TestCase
             'avg_cost_rate' => '4.40',
         ]);
 
-        // Create a completed transaction
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Sell,
             'currency_code' => 'USD',
@@ -353,13 +346,13 @@ class TransactionCancellationFlowTest extends TestCase
             'rate' => '4.60',
             'customer_id' => $customer->id,
             'user_id' => $teller->id,
+            'branch_id' => $counter->branch_id,
             'till_id' => (string) $counter->id,
             'status' => TransactionStatus::Completed,
             'cdd_level' => 'Simplified',
             'idempotency_key' => uniqid('test_', true),
         ]);
 
-        // Manager can access cancel form
         $response = $this->actingAs($manager)->get("/transactions/{$transaction->id}/cancel");
         $response->assertStatus(200);
     }
@@ -367,12 +360,12 @@ class TransactionCancellationFlowTest extends TestCase
     #[Test]
     public function teller_cannot_cancel_other_teller_transaction(): void
     {
-        $teller1 = User::factory()->create(['role' => UserRole::Teller]);
-        $teller2 = User::factory()->create(['role' => UserRole::Teller]);
+        $branch = Branch::factory()->create();
+        $teller1 = User::factory()->for($branch)->create(['role' => UserRole::Teller]);
+        $teller2 = User::factory()->for($branch)->create(['role' => UserRole::Teller]);
         $customer = $this->createTestCustomer();
         $counter = $this->setupOpenTill($teller1, 'USD', '1000.00');
 
-        // Setup initial position
         CurrencyPosition::create([
             'currency_code' => 'USD',
             'till_id' => (string) $counter->id,
@@ -380,7 +373,6 @@ class TransactionCancellationFlowTest extends TestCase
             'avg_cost_rate' => '4.40',
         ]);
 
-        // Create a completed transaction by teller1
         $transaction = Transaction::factory()->create([
             'type' => TransactionType::Sell,
             'currency_code' => 'USD',

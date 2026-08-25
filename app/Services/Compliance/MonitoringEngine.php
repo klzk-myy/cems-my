@@ -68,7 +68,18 @@ class MonitoringEngine
 
     public function getMonitor(string $monitorClass): BaseMonitor
     {
-        return new $monitorClass($this->mathService, $this->complianceService);
+        // Resolve via the container so each monitor receives its own declared
+        // dependencies. Constructing with a fixed ($mathService, $complianceService)
+        // argument list throws ArgumentCountError/TypeError for monitors with
+        // 1-arg or 3-arg constructors (SanctionsRescreening, CustomerLocation,
+        // Velocity, Structuring, ...), silently disabling the whole sweep.
+        $monitor = app()->make($monitorClass);
+
+        if (! $monitor instanceof BaseMonitor) {
+            throw new \UnexpectedValueException("{$monitorClass} is not a BaseMonitor");
+        }
+
+        return $monitor;
     }
 
     protected function isCircuitBroken(): bool

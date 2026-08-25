@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Log;
  */
 class RateLimitService
 {
+    public function __construct(protected IpValidationService $ipValidationService) {}
+
     /** @var string Cache prefix for IP blocking */
     private const IP_BLOCK_PREFIX = 'ip_block:';
 
@@ -64,7 +66,7 @@ class RateLimitService
             return false;
         }
 
-        return app(IpValidationService::class)->isAllowed($ip, $whitelist, []);
+        return $this->ipValidationService->isAllowed($ip, $whitelist, []);
     }
 
     /**
@@ -72,7 +74,7 @@ class RateLimitService
      */
     public function ipInCidr(string $ip, string $cidr): bool
     {
-        return app(IpValidationService::class)->ipInCidr($ip, $cidr);
+        return $this->ipValidationService->ipInCidr($ip, $cidr);
     }
 
     /**
@@ -168,10 +170,36 @@ class RateLimitService
         $window = config('security.ip_blocking.time_window_minutes', 5);
         $threshold = config('security.ip_blocking.failed_attempts_threshold', 10);
 
-        // Seed counter atomically and then increment to avoid a TTL-reset race
         $store = Cache::store(config('ratelimit.store'));
+
+        // Atomically seed the counter to 0 ONLY when it does not exist.
+        // Cache::add() maps to SET-NX-with-TTL under Redis (and equivalent
+        // atomic add on other stores), so two concurrent first attempts can
+        // never both reset the counter - unlike the previous has()+put()
+        // pair, which raced exactly there. The increment below still runs
+        // against whichever seeding won, keeping the key's TTL intact.
         $store->add($cacheKey, 0, now()->addMinutes($window));
+
+        // Atomic increment - creates key if missing with Redis
         $attempts = $store->increment($cacheKey);
+
+        // TOCTOU guard: the key can expire between the add() seeding above and
+        // the increment, and Redis INCR then recreates it WITHOUT a TTL,
+        // leaving a permanent failed-attempt counter that keeps feeding
+        // auto-blocks. RedisStore::increment() accepts no TTL argument in
+        // this framework version, so re-apply the window whenever the live
+        // key has none (TTL === -1; false covers phpredis failure sentinels).
+        $underlyingStore = $store->getStore();
+
+        if ($underlyingStore instanceof RedisStore) {
+            $connection = $underlyingStore->connection();
+            $prefixedKey = $underlyingStore->getPrefix().$cacheKey;
+            $keyTtl = $connection->ttl($prefixedKey);
+
+            if ($keyTtl === -1 || $keyTtl === false) {
+                $connection->expire($prefixedKey, $window * 60);
+            }
+        }
 
         // Auto-block if threshold exceeded
         if ($attempts >= $threshold) {

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->enum('period_type', ['month', 'quarter', 'year'])->default('month');
             $table->enum('status', ['open', 'closing', 'closed'])->default('open');
             $table->timestamp('closed_at')->nullable();
-            $table->foreignId('closed_by')->nullable()->constrained('users');
+            $table->foreignId('closed_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamps();
             $table->index('start_date');
             $table->index('end_date');

@@ -1,5 +1,5 @@
 <x-app-layout title="Sanctions Lists">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Sanctions Lists"
             description="Manage and monitor sanctions list sources"
@@ -49,7 +49,7 @@
                                         default => 'success',
                                     }"
                                 >
-                                    {{ ucfirst($statusValue ?: 'N/A') }}
+                                    {{ ucfirst(str_replace('_', ' ', $statusValue ?: 'N/A')) }}
                                 </x-badge>
                             </td>
                             <td class="px-4 py-3 text-sm text-ink">{{ $list['entries_count'] ?? 0 }}</td>

@@ -21,7 +21,7 @@ return new class extends Migration
             $table->timestamp('last_revalued_at')->nullable();
             $table->timestamps();
             $table->unique(['currency_code', 'branch_id']);
-            $table->foreign('currency_code')->references('code')->on('currencies');
+            $table->foreign('currency_code')->references('code')->on('currencies')->restrictOnDelete();
             $table->index('currency_code');
             $table->index('branch_id');
         });

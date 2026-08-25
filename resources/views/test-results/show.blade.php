@@ -23,7 +23,7 @@
                     'error' => 'warning',
                     default => 'gray',
                 }">
-                    {{ ucfirst($testResult->status->value) }}
+                    {{ $testResult->status?->label() ?? ucfirst($testResult->status) }}
                 </x-badge>
             </x-stat-card>
 
@@ -36,7 +36,7 @@
         @if(($testResult->failed ?? 0) > 0 && !empty($testResult->failures))
             <x-card title="Failed Tests ({{ count($testResult->failures) }})">
                 @foreach($testResult->failures as $index => $failure)
-                    <x-card-section>
+                    <x-card>
                         <h3 class="text-sm font-medium text-ink">{{ $failure['test_name'] ?? 'Test ' . ($index + 1) }}</h3>
 
                         @if(!empty($failure['message']))
@@ -46,7 +46,7 @@
                         @if(!empty($failure['stack_trace']))
                             <pre class="mt-3 p-3 bg-surface-inverted text-canvas rounded-lg text-xs overflow-x-auto">{{ $failure['stack_trace'] }}</pre>
                         @endif
-                    </x-card-section>
+                    </x-card>
                 @endforeach
             </x-card>
         @endif
@@ -54,7 +54,7 @@
         @if(count($testResult->errors ?? []) > 0 && !empty($testResult->errors))
             <x-card title="Errors ({{ count($testResult->errors) }})">
                 @foreach($testResult->errors as $index => $error)
-                    <x-card-section>
+                    <x-card>
                         <h3 class="text-sm font-medium text-ink">{{ $error['test_name'] ?? 'Error ' . ($index + 1) }}</h3>
 
                         @if(!empty($error['message']))
@@ -64,21 +64,21 @@
                         @if(!empty($error['stack_trace']))
                             <pre class="mt-3 p-3 bg-surface-inverted text-canvas rounded-lg text-xs overflow-x-auto">{{ $error['stack_trace'] }}</pre>
                         @endif
-                    </x-card-section>
+                    </x-card>
                 @endforeach
             </x-card>
         @endif
 
         @if(!empty($testResult->output))
             <x-card title="Test Output">
-                <x-card-section>
+                <x-card>
                     <pre class="p-4 bg-surface-inverted text-canvas rounded-lg text-xs overflow-x-auto">{{ $testResult->output }}</pre>
-                </x-card-section>
+                </x-card>
             </x-card>
         @endif
 
         <x-card title="Run Information">
-            <x-card-section>
+            <x-card>
                 <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                     <div>
                         <dt class="text-sm font-medium text-ink-muted">Run ID</dt>
@@ -105,12 +105,12 @@
                         <dd class="mt-1 text-sm text-ink">{{ $testResult->executed_by ?? 'N/A' }}</dd>
                     </div>
                 </dl>
-            </x-card-section>
+            </x-card>
         </x-card>
 
         @if($previousRun)
             <x-card>
-                <x-card-section>
+                <x-card>
                     <div class="flex items-center justify-between">
                         <div>
                             <h3 class="text-sm font-medium text-ink">Previous Run</h3>
@@ -123,7 +123,7 @@
                             View Previous Run
                         </x-button>
                     </div>
-                </x-card-section>
+                </x-card>
             </x-card>
         @endif
     </div>

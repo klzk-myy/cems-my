@@ -52,7 +52,10 @@ class TransactionApprovedNotification extends Notification implements ShouldQueu
             'customer_name' => $this->transaction->customer?->full_name ?? 'Unknown',
             'amount_local' => $this->transaction->amount_local,
             'currency_code' => $this->transaction->currency_code,
-            'type' => $this->transaction->type,
+            // 'type' is the notification discriminator consumed by
+            // NotificationBadgeService - the transaction's Buy/Sell kind goes
+            // under transaction_type so it cannot overwrite it.
+            'transaction_type' => $this->transaction->type,
             'url' => route('transactions.show', $this->transaction->id),
         ];
     }

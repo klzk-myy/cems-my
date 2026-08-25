@@ -3,10 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Notifications\NotificationDigestMail;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Send daily notification digest to users.
@@ -41,7 +44,8 @@ class SendNotificationDigest extends Command
     public function handle(): int
     {
         $period = $this->option('period');
-        $userId = $this->option('user');
+        $userOption = $this->option('user');
+        $userId = $userOption !== null ? (int) $userOption : null;
         $dryRun = $this->option('dry-run');
 
         $this->info("Sending notification digests (period: {$period})");
@@ -148,9 +152,19 @@ class SendNotificationDigest extends Command
         }
 
         if (! $dryRun) {
-            // Send digest notification via Laravel's notification system
-            // In a real implementation, you would create a DigestNotification class
-            // For now, we log the digest
+            $body = "You have {$notifications->count()} unread notification(s) from the past {$cutoff->diffForHumans()}.\n\n";
+            foreach ($digestData['notifications_by_type'] as $type => $count) {
+                $body .= "- {$type}: {$count}\n";
+            }
+            $body .= "\nLog in to CEMS-MY to view and manage your notifications.";
+
+            Mail::to($user->email)->send(new NotificationDigestMail(
+                $user->full_name,
+                $notifications->count(),
+                $digestData['notifications_by_type'],
+                $cutoff->diffForHumans()
+            ));
+
             Log::info('Notification digest sent', [
                 'user_id' => $user->id,
                 'total_notifications' => $notifications->count(),
@@ -172,14 +186,8 @@ class SendNotificationDigest extends Command
     protected function getFriendlyTypeName(string $type): string
     {
         $className = class_basename($type);
+        $name = str_replace('Notification', '', $className);
 
-        return match ($className) {
-            'TransactionFlaggedNotification' => 'Transaction Flags',
-            'ComplianceCaseAssignedNotification' => 'Case Assignments',
-            'LargeTransactionNotification' => 'Large Transactions',
-            'SanctionsMatchNotification' => 'Sanctions Matches',
-            'SystemHealthAlertNotification' => 'System Health',
-            default => str_replace('Notification', '', $className),
-        };
+        return preg_replace('/(?<=\w)(?=[A-Z][a-z])/', ' ', $name);
     }
 }

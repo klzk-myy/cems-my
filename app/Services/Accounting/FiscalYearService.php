@@ -2,7 +2,10 @@
 
 namespace App\Services\Accounting;
 
+use App\Enums\AccountCode;
+use App\Enums\AccountingPeriodType;
 use App\Enums\AccountType;
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Exceptions\Domain\AccountNotFoundException;
 use App\Exceptions\Domain\FiscalYearClosedException;
 use App\Exceptions\Domain\FiscalYearNotFoundException;
@@ -17,6 +20,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\System\CacheTagsService;
 use App\Services\System\MathService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +40,7 @@ class FiscalYearService
         protected AuditService $auditService,
         protected MathService $mathService,
         protected LedgerService $ledgerService,
+        protected CacheTagsService $cacheTagsService,
     ) {}
 
     /**
@@ -83,15 +88,26 @@ class FiscalYearService
             throw new FiscalYearClosedException;
         }
 
-        // Validate all periods in the year are closed
-        $this->validateAllPeriodsClosed($year);
-
         return DB::transaction(function () use ($year, $userId) {
-            $yearEndDate = $year->end_date->toDateString();
+            // Lock the fiscal-year row and re-validate under the lock so two
+            // concurrent closes serialise instead of double-booking the
+            // deterministic CE-Ym-* closing entries.
+            $lockedYear = FiscalYear::where('id', $year->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $lockedYear || $lockedYear->isClosed()) {
+                throw new FiscalYearClosedException;
+            }
+
+            // Validate all periods in the year are closed
+            $this->validateAllPeriodsClosed($lockedYear);
+
+            $yearEndDate = $lockedYear->end_date->toDateString();
 
             // Step 1: Get revenue and expense totals
-            $revenueTotal = $this->getAccountTypeTotal('Revenue', $year->start_date->toDateString(), $yearEndDate);
-            $expenseTotal = $this->getAccountTypeTotal('Expense', $year->start_date->toDateString(), $yearEndDate);
+            $revenueTotal = $this->getAccountTypeTotal('Revenue', $lockedYear->start_date->toDateString(), $yearEndDate);
+            $expenseTotal = $this->getAccountTypeTotal('Expense', $lockedYear->start_date->toDateString(), $yearEndDate);
             $netIncome = $this->mathService->subtract($revenueTotal, $expenseTotal);
 
             // Step 2: Create closing entries
@@ -113,7 +129,7 @@ class FiscalYearService
             }
 
             // Update fiscal year status
-            $year->update([
+            $lockedYear->update([
                 'status' => 'Closed',
                 'closed_by' => $userId,
                 'closed_at' => now(),
@@ -123,16 +139,16 @@ class FiscalYearService
                 'fiscal_year_closed',
                 $userId,
                 'FiscalYear',
-                $year->id,
+                $lockedYear->id,
                 [],
                 [
-                    'year_code' => $year->year_code,
+                    'year_code' => $lockedYear->year_code,
                     'net_income' => $netIncome,
                 ],
             );
 
             return [
-                'fiscal_year' => $year->fresh(),
+                'fiscal_year' => $lockedYear->fresh(),
                 'revenue_total' => $revenueTotal,
                 'expense_total' => $expenseTotal,
                 'net_income' => $netIncome,
@@ -189,7 +205,7 @@ class FiscalYearService
             $openingDate = $year->start_date->toDateString();
 
             // Get retained earnings from closing
-            $retainedEarnings = $this->getAccountBalance('4999', $year->end_date->toDateString());
+            $retainedEarnings = $this->getAccountBalance(AccountCode::RETAINED_EARNINGS->value, $year->end_date->toDateString());
 
             // Create opening entry
             $entryNumber = 'OE-'.$year->year_code.'-0001';
@@ -210,13 +226,18 @@ class FiscalYearService
             if ($this->mathService->compare($retainedEarnings, '0') !== 0) {
                 JournalLine::create([
                     'journal_entry_id' => $entry->id,
-                    'account_code' => '4999',
+                    'account_code' => AccountCode::RETAINED_EARNINGS->value,
                     'debit' => $this->mathService->compare($retainedEarnings, '0') < 0
                         ? $this->mathService->subtract('0', $retainedEarnings)
                         : '0',
                     'credit' => $this->mathService->compare($retainedEarnings, '0') >= 0 ? $retainedEarnings : 0,
                     'description' => 'Opening retained earnings',
                 ]);
+
+                // Post the opening balance to the ledger - previously the entry
+                // was created but never posted, so the new year's opening equity
+                // never reached the account ledger.
+                $this->createClosingLedgerEntries($entry);
             }
 
             $this->auditService->log(
@@ -312,7 +333,7 @@ class FiscalYearService
         // Credit Income Summary
         JournalLine::create([
             'journal_entry_id' => $entry->id,
-            'account_code' => '4998',
+            'account_code' => AccountCode::INCOME_SUMMARY->value,
             'debit' => 0,
             'credit' => $total,
             'description' => 'Income Summary',
@@ -335,6 +356,7 @@ class FiscalYearService
             'entry_number' => $entryNumber,
             'entry_date' => $entryDate,
             'period_id' => $this->getPeriodId($entryDate),
+            'reference_type' => 'FiscalYearClosing',
             'description' => 'Closing Expenses to Income Summary',
             'status' => 'Posted',
             'created_by' => $userId,
@@ -366,7 +388,7 @@ class FiscalYearService
         // Debit Income Summary
         JournalLine::create([
             'journal_entry_id' => $entry->id,
-            'account_code' => '4998',
+            'account_code' => AccountCode::INCOME_SUMMARY->value,
             'debit' => $total,
             'credit' => 0,
             'description' => 'Income Summary',
@@ -389,6 +411,7 @@ class FiscalYearService
             'entry_number' => $entryNumber,
             'entry_date' => $entryDate,
             'period_id' => $this->getPeriodId($entryDate),
+            'reference_type' => 'FiscalYearClosing',
             'description' => 'Close Income Summary to Retained Earnings',
             'status' => 'Posted',
             'created_by' => $userId,
@@ -401,14 +424,14 @@ class FiscalYearService
         if ($this->mathService->compare($netIncome, '0') >= 0) {
             JournalLine::create([
                 'journal_entry_id' => $entry->id,
-                'account_code' => '4998',
+                'account_code' => AccountCode::INCOME_SUMMARY->value,
                 'debit' => $netIncome,
                 'credit' => 0,
                 'description' => 'Close Income Summary',
             ]);
             JournalLine::create([
                 'journal_entry_id' => $entry->id,
-                'account_code' => '4999',
+                'account_code' => AccountCode::RETAINED_EARNINGS->value,
                 'debit' => 0,
                 'credit' => $netIncome,
                 'description' => 'Transfer to Retained Earnings',
@@ -416,14 +439,14 @@ class FiscalYearService
         } else {
             JournalLine::create([
                 'journal_entry_id' => $entry->id,
-                'account_code' => '4998',
+                'account_code' => AccountCode::INCOME_SUMMARY->value,
                 'debit' => 0,
                 'credit' => $this->mathService->abs($netIncome),
                 'description' => 'Close Income Summary (Loss)',
             ]);
             JournalLine::create([
                 'journal_entry_id' => $entry->id,
-                'account_code' => '4999',
+                'account_code' => AccountCode::RETAINED_EARNINGS->value,
                 'debit' => $this->mathService->abs($netIncome),
                 'credit' => 0,
                 'description' => 'Transfer to Retained Earnings (Loss)',
@@ -448,7 +471,7 @@ class FiscalYearService
             // for closing entry calculations, despite being classified as Equity.
             // When closing revenue: credit to 4998 increases balance
             // When closing expenses: debit to 4998 decreases balance
-            if ($line->account_code === '4998') {
+            if ($line->account_code === AccountCode::INCOME_SUMMARY->value) {
                 $newBalance = $this->mathService->add(
                     $this->mathService->add($currentBalance, (string) $line->debit),
                     $this->mathService->multiply((string) $line->credit, '-1')
@@ -467,6 +490,7 @@ class FiscalYearService
 
             AccountLedger::create([
                 'account_code' => $line->account_code,
+                'branch_id' => $entry->branch_id,
                 'entry_date' => $entry->entry_date,
                 'journal_entry_id' => $entry->id,
                 'debit' => $line->debit,
@@ -474,6 +498,10 @@ class FiscalYearService
                 'running_balance' => $newBalance,
             ]);
         }
+
+        // Ledger financial reports are cached under the 'ledger' tag; flush it
+        // so trial balances/balance sheets are not stale after a posting.
+        $this->cacheTagsService->invalidate('ledger');
     }
 
     /**
@@ -541,16 +569,15 @@ class FiscalYearService
 
     /**
      * Get account balance as of a date.
+     *
+     * Delegates to the canonical running-balance lookup in LedgerService
+     * (which itself delegates to AccountingService). The delegate includes
+     * the id tie-breaker this method previously lacked, so entries posted
+     * within the same second resolve deterministically.
      */
     protected function getAccountBalance(string $accountCode, string $asOfDate): string
     {
-        $lastEntry = AccountLedger::where('account_code', $accountCode)
-            ->whereRaw('DATE(entry_date) <= ?', [$asOfDate])
-            ->orderBy('entry_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->first();
-
-        return $lastEntry ? (string) $lastEntry->running_balance : '0';
+        return $this->ledgerService->getAccountBalance($accountCode, $asOfDate);
     }
 
     /**
@@ -575,7 +602,7 @@ class FiscalYearService
     {
         $timestamp = strtotime($entryDate);
         if ($timestamp === false) {
-            throw new \InvalidArgumentException("Invalid entry date: {$entryDate}");
+            throw new AccountingPeriodException("Invalid entry date: {$entryDate}");
         }
 
         return 'CE-'.date('Ym', $timestamp).'-'.$suffix;
@@ -589,5 +616,58 @@ class FiscalYearService
         $period = AccountingPeriod::forDate($date)->first();
 
         return $period?->id;
+    }
+
+    public function createPeriod(
+        string $periodCode,
+        string $startDate,
+        string $endDate,
+        AccountingPeriodType $type,
+        ?int $fiscalYearId = null,
+    ): AccountingPeriod {
+        return AccountingPeriod::create([
+            'period_code' => $periodCode,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'period_type' => $type,
+            'status' => 'Open',
+            'fiscal_year_id' => $fiscalYearId,
+        ]);
+    }
+
+    public function createQuarterPeriods(FiscalYear $year): array
+    {
+        return DB::transaction(function () use ($year) {
+            $quarters = [
+                ['Q1', $year->start_date, (new \DateTime($year->start_date))->modify('+3 months')->format('Y-m-d')],
+                ['Q2', (new \DateTime($year->start_date))->modify('+3 months')->format('Y-m-d'), (new \DateTime($year->start_date))->modify('+6 months')->format('Y-m-d')],
+                ['Q3', (new \DateTime($year->start_date))->modify('+6 months')->format('Y-m-d'), (new \DateTime($year->start_date))->modify('+9 months')->format('Y-m-d')],
+                ['Q4', (new \DateTime($year->start_date))->modify('+9 months')->format('Y-m-d'), $year->end_date],
+            ];
+
+            $periods = [];
+            foreach ($quarters as [$code, $start, $end]) {
+                $periods[] = $this->createPeriod(
+                    $year->year_code.'-'.$code,
+                    $start,
+                    $end,
+                    AccountingPeriodType::Quarter,
+                    $year->id,
+                );
+            }
+
+            return $periods;
+        });
+    }
+
+    public function createYearPeriod(FiscalYear $year): AccountingPeriod
+    {
+        return $this->createPeriod(
+            $year->year_code,
+            $year->start_date,
+            $year->end_date,
+            AccountingPeriodType::Year,
+            $year->id,
+        );
     }
 }

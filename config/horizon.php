@@ -201,7 +201,10 @@ return [
     'defaults' => [
         'supervisor-1' => [
             'connection' => 'redis',
-            'queue' => ['high', 'default', 'low'],
+            // 'compliance' and 'audit' MUST stay listed: AuditService dispatches
+            // SealAuditHashJob onQueue('audit') and TriggerSanctionsRescreening
+            // pushes onQueue('compliance'). Without workers these jobs are dead.
+            'queue' => ['high', 'default', 'low', 'compliance', 'audit'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,
@@ -218,7 +221,7 @@ return [
         'production' => [
             'supervisor-1' => [
                 'connection' => 'redis',
-                'queue' => ['high', 'default', 'low'],
+                'queue' => ['high', 'default', 'low', 'compliance', 'audit'],
                 'balance' => 'auto',
                 'maxProcesses' => 10,
                 'minProcesses' => 2,
@@ -232,7 +235,7 @@ return [
         'local' => [
             'supervisor-1' => [
                 'connection' => 'redis',
-                'queue' => ['high', 'default', 'low'],
+                'queue' => ['high', 'default', 'low', 'compliance', 'audit'],
                 'balance' => 'simple',
                 'maxProcesses' => 3,
                 'tries' => 1,

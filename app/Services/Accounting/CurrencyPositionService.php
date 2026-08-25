@@ -5,18 +5,19 @@ namespace App\Services\Accounting;
 use App\Enums\CounterSessionStatus;
 use App\Enums\StockReservationStatus;
 use App\Enums\TransactionType;
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Models\CounterSession;
+use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\StockReservation;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\Contracts\CurrencyPositionServiceInterface;
-use App\Services\System\CacheKeys;
+use App\Services\System\CacheInvalidationService;
 use App\Services\System\MathService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class CurrencyPositionService implements CurrencyPositionServiceInterface
 {
@@ -30,6 +31,8 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
      */
     protected CurrencyPositionLockService $lockService;
 
+    protected CacheInvalidationService $cacheInvalidationService;
+
     /**
      * Precision for position calculations (4 decimals for rates/balances)
      */
@@ -41,10 +44,14 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
      * @param  MathService  $mathService  Math service for high-precision calculations
      * @param  CurrencyPositionLockService  $lockService  Lock service for pessimistic position locking
      */
-    public function __construct(MathService $mathService, CurrencyPositionLockService $lockService)
-    {
+    public function __construct(
+        MathService $mathService,
+        CurrencyPositionLockService $lockService,
+        CacheInvalidationService $cacheInvalidationService
+    ) {
         $this->mathService = $mathService;
         $this->lockService = $lockService;
+        $this->cacheInvalidationService = $cacheInvalidationService;
         $this->positionPrecision = (int) config('thresholds.rates.precision', 4);
     }
 
@@ -97,13 +104,13 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
                 $position = $this->lockService->findForUpdate($branchId, $currencyCode);
 
                 if ($position === null || $this->mathService->compare($position->quantity, '0') <= 0) {
-                    throw new \InvalidArgumentException(
+                    throw new AccountingPeriodException(
                         'Cannot sell: Position is empty or negative'
                     );
                 }
 
                 if ($this->mathService->compare($position->quantity, $amount) < 0) {
-                    throw new \InvalidArgumentException(
+                    throw new AccountingPeriodException(
                         "Insufficient balance. Available: {$position->quantity}, Requested: {$amount}"
                     );
                 }
@@ -116,11 +123,14 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
 
             $newBalance = $position->quantity;
 
+            $roundedAvgCost = $this->mathService->round($newAvgCost, $this->positionPrecision);
+            $roundedRate = $this->mathService->round($rate, $this->positionPrecision);
+
             $position->update([
-                'average_cost' => $this->mathService->round($newAvgCost, $this->positionPrecision),
-                'current_rate' => $this->mathService->round($rate, $this->positionPrecision),
+                'average_cost' => $roundedAvgCost,
+                'current_rate' => $roundedRate,
                 'unrealized_gain_loss' => $this->mathService->round(
-                    $this->mathService->calculateRevaluationPnl($newBalance, $newAvgCost, $rate),
+                    $this->mathService->calculateRevaluationPnl($newBalance, $roundedAvgCost, $roundedRate),
                     $this->positionPrecision
                 ),
                 'last_revalued_at' => now(),
@@ -130,8 +140,7 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
         });
 
         // Invalidate cache for available balance
-        $cacheKey = "position:{$branchId}:{$currencyCode}:available";
-        Cache::forget($cacheKey);
+        $this->cacheInvalidationService->forgetPosition($branchId, $currencyCode);
 
         return $position;
     }
@@ -173,21 +182,17 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
      * Get a specific currency position.
      *
      * @param  string  $currencyCode  Currency code (e.g., 'USD', 'EUR')
-     * @param  string|null  $branchId  Branch identifier (default: 'HQ' with warning log)
+     * @param  string|null  $branchId  Branch identifier (required)
      * @return CurrencyPosition|null Position model or null if not found
+     *
+     * @throws \InvalidArgumentException If branch_id is null or empty
      */
     public function getPosition(string $currencyCode, ?string $branchId = null): ?CurrencyPosition
     {
-        // If no branch specified, use HQ as fallback (but log a warning)
-        if ($branchId === null) {
-            Log::warning(
-                'getPosition called without branch_id - using HQ as fallback',
-                [
-                    'currency_code' => $currencyCode,
-                    'stack_trace' => collect(debug_backtrace())->take(5)->pluck('file')->toArray(),
-                ]
+        if ($branchId === null || $branchId === '') {
+            throw new AccountingPeriodException(
+                'branch_id is required for position lookup. Transaction must specify a branch.'
             );
-            $branchId = 'HQ';
         }
 
         return CurrencyPosition::where('currency_code', $currencyCode)
@@ -207,7 +212,7 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
     public function getPositionForTransaction(string $currencyCode, string $branchId): ?CurrencyPosition
     {
         if (empty($branchId) || $branchId === 'undefined') {
-            throw new \InvalidArgumentException(
+            throw new AccountingPeriodException(
                 'branch_id is required for position lookup. Transaction must specify a branch.'
             );
         }
@@ -295,47 +300,51 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
      */
     protected function getConsolidatedPositions(): Collection
     {
-        $positions = CurrencyPosition::with('currency')->get();
+        // Aggregate per currency in SQL so we fetch one row per currency instead of
+        // the full positions table, then doing a PHP-side groupBy on the dashboard path.
+        $rows = CurrencyPosition::query()
+            ->selectRaw('currency_code')
+            ->selectRaw('SUM(quantity) AS total_quantity')
+            ->selectRaw('SUM(quantity * average_cost) AS total_value')
+            ->selectRaw('SUM(unrealized_gain_loss) AS total_unrealized_gain_loss')
+            ->selectRaw('MAX(last_revalued_at) AS last_revalued_at')
+            ->selectRaw(
+                '(SELECT cp2.current_rate FROM currency_positions cp2 '
+                .'WHERE cp2.currency_code = currency_positions.currency_code '
+                .'ORDER BY (cp2.last_revalued_at IS NULL) ASC, cp2.last_revalued_at DESC, cp2.id DESC LIMIT 1) AS latest_current_rate'
+            )
+            ->groupBy('currency_code')
+            ->get();
 
-        if ($positions->isEmpty()) {
+        if ($rows->isEmpty()) {
             return new Collection;
         }
 
-        // Group by currency_code and consolidate
-        $consolidated = $positions->groupBy('currency_code')->map(function ($group, $currencyCode) {
-            $totalQuantity = '0';
-            $totalValue = '0';
-            $totalUnrealizedGainLoss = '0';
-            $firstCurrency = null;
+        $currencyCodes = $rows->pluck('currency_code')->all();
+        $currencies = Currency::whereIn('code', $currencyCodes)->get()->keyBy('code');
 
-            foreach ($group as $position) {
-                $firstCurrency = $firstCurrency ?? $position->currency;
-                $totalQuantity = $this->mathService->add($totalQuantity, $position->quantity);
-                // Value = quantity * average_cost
-                $positionValue = $this->mathService->multiply($position->quantity, $position->average_cost ?? '0');
-                $totalValue = $this->mathService->add($totalValue, $positionValue);
-                $totalUnrealizedGainLoss = $this->mathService->add($totalUnrealizedGainLoss, $position->unrealized_gain_loss ?? '0');
-            }
+        $consolidated = $rows->map(function ($row) use ($currencies) {
+            $totalQuantity = (string) ($row->total_quantity ?? 0);
+            $totalValue = (string) ($row->total_value ?? 0);
 
-            // Weighted average cost = total value / total quantity
+            // Weighted average cost = total value / total quantity (BCMath).
             $weightedAvgCost = $this->mathService->compare($totalQuantity, '0') !== 0
                 ? $this->mathService->divide($totalValue, $totalQuantity)
                 : '0';
 
-            // Create a virtual consolidated position
-            $consolidatedPosition = new CurrencyPosition([
-                'currency_code' => $currencyCode,
+            $position = new CurrencyPosition([
+                'currency_code' => $row->currency_code,
                 'branch_id' => null, // Indicates consolidated across branches
                 'quantity' => $totalQuantity,
                 'average_cost' => $weightedAvgCost,
-                'current_rate' => $group->first()->current_rate,
-                'unrealized_gain_loss' => $totalUnrealizedGainLoss,
-                'last_revalued_at' => $group->max('last_revalued_at'),
+                'current_rate' => $row->latest_current_rate,
+                'unrealized_gain_loss' => (string) ($row->total_unrealized_gain_loss ?? 0),
+                'last_revalued_at' => $row->last_revalued_at,
             ]);
-            $consolidatedPosition->setRelation('currency', $firstCurrency);
-            $consolidatedPosition->setAttribute('is_consolidated', true);
+            $position->setRelation('currency', $currencies->get($row->currency_code));
+            $position->setAttribute('is_consolidated', true);
 
-            return $consolidatedPosition;
+            return $position;
         });
 
         return new Collection($consolidated->values());
@@ -404,6 +413,7 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
                 ->where('till_id', $locationId)
                 ->where('status', StockReservationStatus::Pending)
                 ->where('expires_at', '>', now())
+                ->lockForUpdate()
                 ->sum('amount_foreign');
 
             $result = $this->mathService->subtract($quantity, (string) $reserved);
@@ -420,6 +430,14 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
      */
     public function reserveStock(Transaction $transaction): StockReservation
     {
+        if (empty($transaction->currency_code) || strlen($transaction->currency_code) !== 3) {
+            throw new \InvalidArgumentException('Invalid currency code for stock reservation');
+        }
+
+        if (! $transaction->amount_foreign || $this->mathService->compare((string) $transaction->amount_foreign, '0') <= 0) {
+            throw new \InvalidArgumentException('Amount foreign must be positive for stock reservation');
+        }
+
         $reservation = StockReservation::create([
             'transaction_id' => $transaction->id,
             'currency_code' => $transaction->currency_code,
@@ -431,7 +449,7 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
             'created_by' => $transaction->user_id,
         ]);
 
-        Cache::forget(CacheKeys::positionAvailable($transaction->branch_id, $transaction->currency_code));
+        $this->cacheInvalidationService->forgetPosition($transaction->branch_id, $transaction->currency_code);
 
         return $reservation;
     }
@@ -444,19 +462,26 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
      */
     public function consumeStockReservation(int $transactionId): ?StockReservation
     {
-        $reservation = StockReservation::where('transaction_id', $transactionId)
-            ->where('status', StockReservationStatus::Pending)
-            ->lockForUpdate()
-            ->first();
+        return DB::transaction(function () use ($transactionId) {
+            $reservation = StockReservation::where('transaction_id', $transactionId)
+                ->where('status', StockReservationStatus::Pending)
+                ->lockForUpdate()
+                ->first();
 
-        if ($reservation === null || $reservation->isExpired()) {
-            return null;
-        }
+            if ($reservation === null) {
+                return null;
+            }
 
-        $reservation->update(['status' => StockReservationStatus::Consumed]);
-        Cache::forget(CacheKeys::positionAvailable($reservation->branch_id, $reservation->currency_code));
+            // Re-check expiry after acquiring lock to prevent race condition
+            if ($reservation->expires_at <= now()) {
+                return null;
+            }
 
-        return $reservation;
+            $reservation->update(['status' => StockReservationStatus::Consumed]);
+            $this->cacheInvalidationService->forgetPosition($reservation->branch_id, $reservation->currency_code);
+
+            return $reservation;
+        });
     }
 
     /**
@@ -467,18 +492,20 @@ class CurrencyPositionService implements CurrencyPositionServiceInterface
      */
     public function releaseStockReservation(int $transactionId): ?StockReservation
     {
-        $reservation = StockReservation::where('transaction_id', $transactionId)
-            ->where('status', StockReservationStatus::Pending)
-            ->lockForUpdate()
-            ->first();
+        return DB::transaction(function () use ($transactionId) {
+            $reservation = StockReservation::where('transaction_id', $transactionId)
+                ->where('status', StockReservationStatus::Pending)
+                ->lockForUpdate()
+                ->first();
 
-        if ($reservation === null) {
-            return null;
-        }
+            if ($reservation === null) {
+                return null;
+            }
 
-        $reservation->update(['status' => StockReservationStatus::Released]);
-        Cache::forget(CacheKeys::positionAvailable($reservation->branch_id, $reservation->currency_code));
+            $reservation->update(['status' => StockReservationStatus::Released]);
+            $this->cacheInvalidationService->forgetPosition($reservation->branch_id, $reservation->currency_code);
 
-        return $reservation;
+            return $reservation;
+        });
     }
 }

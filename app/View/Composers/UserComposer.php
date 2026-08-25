@@ -13,6 +13,6 @@ class UserComposer
     {
         $view->with('currentUser', auth()->user());
         $view->with('userRole', auth()->check() ? auth()->user()->role : null);
-        $view->with('userName', auth()->check() ? auth()->user()->name : 'Guest');
+        $view->with('userName', auth()->check() ? auth()->user()->username : 'Guest');
     }
 }

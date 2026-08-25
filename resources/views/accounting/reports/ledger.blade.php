@@ -18,7 +18,7 @@
 
         @if ($ledger)
             <x-card>
-                <div class="px-6 py-4 border-b border-border bg-canvas-subtle">
+                <div class="px-5 py-3 border-b border-border bg-canvas-subtle">
                     <div class="flex items-center justify-between">
                         <h3 class="text-sm font-semibold text-ink">
                             {{ $ledger['account']->account_code }} - {{ $ledger['account']->account_name }}

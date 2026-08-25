@@ -4,6 +4,7 @@ namespace App\Models\Compliance;
 
 use App\Enums\EddDocumentStatus;
 use App\Models\BaseModel;
+use App\Models\Customer;
 use App\Models\EnhancedDiligenceRecord;
 use App\Models\Traits\HasStatus;
 use App\Models\User;
@@ -68,6 +69,22 @@ class EddDocumentRequest extends BaseModel
     public function verifier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    /**
+     * The customer under review, reached through the parent EDD record
+     * (edd_document_requests has no customer_id column of its own).
+     */
+    public function customer()
+    {
+        return $this->hasOneThrough(
+            Customer::class,
+            EnhancedDiligenceRecord::class,
+            'id',
+            'id',
+            'edd_record_id',
+            'customer_id',
+        );
     }
 
     public function markReceived(string $filePath): void

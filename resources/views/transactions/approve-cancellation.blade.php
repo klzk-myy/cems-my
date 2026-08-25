@@ -9,27 +9,27 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-ink-muted mb-1">Transaction ID</label>
-                    <p class="text-sm text-ink">{{ $transaction['id'] ?? 'N/A' }}</p>
+                    <p class="text-sm text-ink">{{ $transaction->id }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-ink-muted mb-1">Transaction Type</label>
-                    <p class="text-sm text-ink">{{ $transaction['type'] ?? 'N/A' }}</p>
+                    <p class="text-sm text-ink">{{ $transaction->type?->value ?? 'N/A' }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-ink-muted mb-1">Amount</label>
-                    <p class="text-sm text-ink">{{ $transaction['amount'] ?? 'N/A' }}</p>
+                    <p class="text-sm text-ink">{{ number_format($transaction->amount_foreign ?? 0, 2) }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-ink-muted mb-1">Currency</label>
-                    <p class="text-sm text-ink">{{ $transaction['currency'] ?? 'N/A' }}</p>
+                    <p class="text-sm text-ink">{{ $transaction->currency_code ?? 'N/A' }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-ink-muted mb-1">Customer</label>
-                    <p class="text-sm text-ink">{{ $transaction['customer_name'] ?? 'N/A' }}</p>
+                    <p class="text-sm text-ink">{{ $transaction->customer?->full_name ?? 'N/A' }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-ink-muted mb-1">Original Date</label>
-                    <p class="text-sm text-ink">{{ $transaction['created_at'] ?? 'N/A' }}</p>
+                    <p class="text-sm text-ink">{{ $transaction->created_at?->toDateTimeString() ?? 'N/A' }}</p>
                 </div>
             </div>
         </x-card>
@@ -47,7 +47,7 @@
         </x-card>
 
         <x-card title="Manager Approval">
-            <form method="POST" action="{{ route('transactions.approve-cancellation.store', $transaction['id'] ?? 0) }}">
+            <form method="POST" action="{{ route('transactions.approve-cancellation.store', $transaction->id) }}">
                 @csrf
                 <x-textarea
                     name="approval_notes"

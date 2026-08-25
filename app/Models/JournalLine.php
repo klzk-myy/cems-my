@@ -31,8 +31,6 @@ class JournalLine extends AccountingModel
 {
     use HasFactory;
 
-    protected $with = ['account'];
-
     protected $fillable = [
         'journal_entry_id',
         'account_code',

@@ -32,12 +32,22 @@ trait HasStatus
 
     public function isActive(): bool
     {
-        return in_array($this->normalizeStatus($this->getAttribute($this->statusColumn)), $this->activeStatusValues(), true);
+        // Normalize BOTH sides: activeStatusValues() implementations may return
+        // enum instances while the model attribute normalizes to a scalar.
+        return in_array(
+            $this->normalizeStatus($this->getAttribute($this->statusColumn)),
+            $this->normalizedValues($this->activeStatusValues()),
+            true
+        );
     }
 
     public function isOpen(): bool
     {
-        return in_array($this->normalizeStatus($this->getAttribute($this->statusColumn)), $this->openStatusValues(), true);
+        return in_array(
+            $this->normalizeStatus($this->getAttribute($this->statusColumn)),
+            $this->normalizedValues($this->openStatusValues()),
+            true
+        );
     }
 
     public function statusLabel(): string

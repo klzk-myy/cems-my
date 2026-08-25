@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\MoneyCast;
+use App\Enums\CddLevel;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
 use App\Models\Bases\TransactionModel;
@@ -59,14 +60,12 @@ class Transaction extends TransactionModel
      *
      * @var array<string>
      *
-     * SECURITY NOTE: These fields are protected by controller validation, not just
-     * model-level fillable guards. The controller validates all inputs before
-     * calling create()/update() with these fields.
+     * SECURITY NOTE: Only user-controllable fields are fillable.
+     * System-managed fields (approvals, journal entries, sync status, etc.)
+     * are set explicitly by service layer methods, not mass assignment.
      */
     protected $fillable = [
         'customer_id',
-        'user_id',
-        'branch_id',
         'currency_code',
         'counter_id',
         'till_id',
@@ -75,27 +74,23 @@ class Transaction extends TransactionModel
         'amount_local',
         'amount_foreign',
         'rate',
-        'base_rate',
-        'rate_override',
-        'rate_override_approved_by',
-        'rate_override_approved_at',
         'purpose',
         'source_of_funds',
         'source_of_wealth',
-        'cdd_level',
-        'original_transaction_id',
-        'idempotency_key',
-        'failure_reason',
-        'rejection_reason',
-        'reversal_reason',
-        'journal_entry_id',
-        'deferred_journal_entry_id',
-        'journal_entries_created_at',
-        'has_deferred_accounting',
-        'approval_sync_failed',
-        'approval_sync_failed_at',
-        'approval_sync_error',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Transaction $transaction) {
+            // Free the unique idempotency_key when a soft delete occurs so a
+            // retried operation presenting the same key can proceed. Assigned
+            // quietly so the delete flow is not re-triggered.
+            if (! $transaction->isForceDeleting() && $transaction->idempotency_key !== null) {
+                $transaction->idempotency_key = null;
+                $transaction->saveQuietly();
+            }
+        });
+    }
 
     /**
      * The attributes that should be cast.
@@ -111,7 +106,7 @@ class Transaction extends TransactionModel
         'is_refund' => 'boolean',
         'type' => TransactionType::class,
         'status' => TransactionStatus::class,
-        'cdd_level' => \App\Enums\CddLevel::class,
+        'cdd_level' => CddLevel::class,
         'cancelled_at' => 'datetime',
         'rate_override_approved_at' => 'datetime',
         'transition_history' => 'array',
@@ -128,7 +123,19 @@ class Transaction extends TransactionModel
         'hold_reason' => 'string',
         'cancelled_by' => 'integer',
         'cancellation_reason' => 'string',
+        'is_dlq' => 'boolean',
     ];
+
+    /**
+     * Human-readable transaction reference.
+     *
+     * There is no `reference` column in the transactions table; the reference is
+     * derived from the row id so it is stable, unique, and searchable by number.
+     */
+    public function getReferenceAttribute(): string
+    {
+        return 'TX-'.str_pad((string) $this->id, 8, '0', STR_PAD_LEFT);
+    }
 
     public function scopeCompleted(Builder $query): Builder
     {
@@ -142,8 +149,14 @@ class Transaction extends TransactionModel
 
     public function scopeForDateRange(Builder $query, string $from, string $to): Builder
     {
-        return $query->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to);
+        // Range predicate on the raw column (not DATE(created_at)) so an index
+        // on created_at can be used on the transactions table. Carbon::parse
+        // preserves the previous whereDate semantics even when $from/$to carry
+        // a time component, without any string concatenation.
+        return $query->whereBetween('created_at', [
+            Carbon::parse($from)->startOfDay(),
+            Carbon::parse($to)->endOfDay(),
+        ]);
     }
 
     public function scopeForBranch(Builder $query, ?int $branchId): Builder

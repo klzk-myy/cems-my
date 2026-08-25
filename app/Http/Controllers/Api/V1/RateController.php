@@ -100,7 +100,9 @@ class RateController extends Controller
             $currencyCode,
             $validated['rate_buy'],
             $validated['rate_sell'],
-            Auth::user()
+            Auth::user(),
+            $validated['reason'] ?? null,
+            $validated['branch_id'] ?? null
         );
 
         return $this->successResponse($result, $result->message);

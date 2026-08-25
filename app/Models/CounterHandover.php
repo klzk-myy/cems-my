@@ -10,10 +10,7 @@ class CounterHandover extends BaseModel
 {
     use HasFactory;
 
-    protected $with = ['fromUser', 'toUser', 'supervisor'];
-
     protected $fillable = [
-        'counter_session_id',
         'from_user_id',
         'to_user_id',
         'supervisor_id',

@@ -1,12 +1,12 @@
 <x-app-layout title="Customer Risk Dashboard">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Customer Risk Dashboard"
             description="Risk assessment for: Ahmad Razali"
         />
 
         <x-card>
-            <x-card-section>
+            <x-card>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div>
                         <label class="block text-xs font-medium text-ink-muted uppercase mb-1">Customer ID</label>
@@ -14,7 +14,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-ink-muted uppercase mb-1">Risk Level</label>
-                        <x-badge variant="danger">High</x-badge>
+                        <x-badge>High</x-badge>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-ink-muted uppercase mb-1">CDD Level</label>
@@ -22,10 +22,10 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-ink-muted uppercase mb-1">Account Status</label>
-                        <x-badge variant="warning">Under Review</x-badge>
+                        <x-badge>Under Review</x-badge>
                     </div>
                 </div>
-            </x-card-section>
+            </x-card>
         </x-card>
 
         <x-card title="Risk Factors">
@@ -35,7 +35,7 @@
                         <span class="text-sm text-ink-muted">Transaction Velocity</span>
                         <span class="text-sm font-medium text-danger-text">High Risk</span>
                     </div>
-                    <x-progress-bar value="85" variant="danger" />
+                    <x-progress-bar value="85" />
                     <p class="text-xs text-ink-muted mt-2">RM 125,000 in last 30 days</p>
                 </x-card>
                 <x-card>
@@ -43,7 +43,7 @@
                         <span class="text-sm text-ink-muted">Structuring Risk</span>
                         <span class="text-sm font-medium text-danger-text">High Risk</span>
                     </div>
-                    <x-progress-bar value="72" variant="danger" />
+                    <x-progress-bar value="72" />
                     <p class="text-xs text-ink-muted mt-2">5 transactions near threshold</p>
                 </x-card>
                 <x-card>
@@ -51,7 +51,7 @@
                         <span class="text-sm text-ink-muted">PEP Exposure</span>
                         <span class="text-sm font-medium text-warning-text">Medium</span>
                     </div>
-                    <x-progress-bar value="50" variant="warning" />
+                    <x-progress-bar value="50" />
                     <p class="text-xs text-ink-muted mt-2">Indirect connection detected</p>
                 </x-card>
             </div>
@@ -71,7 +71,7 @@
                         <td class="px-4 py-3 text-sm text-ink">Buy USD</td>
                         <td class="px-4 py-3 text-sm text-ink">RM 28,000</td>
                         <td class="px-4 py-3 text-sm">
-                            <x-badge variant="danger">Alert</x-badge>
+                            <x-badge>Alert</x-badge>
                         </td>
                     </tr>
                     <tr>
@@ -79,7 +79,7 @@
                         <td class="px-4 py-3 text-sm text-ink">Sell USD</td>
                         <td class="px-4 py-3 text-sm text-ink">RM 35,000</td>
                         <td class="px-4 py-3 text-sm">
-                            <x-badge variant="danger">Alert</x-badge>
+                            <x-badge>Alert</x-badge>
                         </td>
                     </tr>
                     <tr>
@@ -87,7 +87,7 @@
                         <td class="px-4 py-3 text-sm text-ink">Buy EUR</td>
                         <td class="px-4 py-3 text-sm text-ink">RM 25,000</td>
                         <td class="px-4 py-3 text-sm">
-                            <x-badge variant="warning">Review</x-badge>
+                            <x-badge>Review</x-badge>
                         </td>
                     </tr>
                 </x-slot:tbody>

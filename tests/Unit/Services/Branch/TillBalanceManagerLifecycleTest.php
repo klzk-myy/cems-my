@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Services\Branch;
 
+use App\Exceptions\Domain\TillAlreadyOpenException;
+use App\Exceptions\Domain\TillClosedException;
 use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\TillBalance;
@@ -11,7 +13,6 @@ use App\Services\Branch\TillService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 
 class TillBalanceManagerLifecycleTest extends TestCase
@@ -61,8 +62,7 @@ class TillBalanceManagerLifecycleTest extends TestCase
 
         $this->manager->openTill($till, $currency->code, '1000.00', $user->id);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Till already opened for this currency today.');
+        $this->expectException(TillAlreadyOpenException::class);
 
         $this->manager->openTill($till, $currency->code, '2000.00', $user->id);
     }
@@ -110,8 +110,7 @@ class TillBalanceManagerLifecycleTest extends TestCase
             'closed_at' => now(),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Till already closed for today.');
+        $this->expectException(TillClosedException::class);
 
         $this->manager->closeTill($balance, '1100.00');
     }

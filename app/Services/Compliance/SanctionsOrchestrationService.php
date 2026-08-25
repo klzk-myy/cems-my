@@ -14,6 +14,8 @@ class SanctionsOrchestrationService
 
     public function syncSanctionsList(SanctionList $list, bool $manual = false): array
     {
+        $this->validateUrl($list->source_url);
+
         $downloadResult = $this->downloadService->download(
             $list->source_url,
             $list->slug.'_'.time().'.json',
@@ -77,5 +79,46 @@ class SanctionsOrchestrationService
         }
 
         return array_merge($result, ['success' => true]);
+    }
+
+    protected function validateUrl(string $url): void
+    {
+        $parsed = parse_url($url);
+        if ($parsed === false || empty($parsed['scheme']) || empty($parsed['host'])) {
+            throw new \InvalidArgumentException("Invalid URL: {$url}");
+        }
+
+        if ($parsed['scheme'] !== 'https') {
+            throw new \InvalidArgumentException("Only HTTPS URLs are allowed: {$url}");
+        }
+
+        $host = strtolower($parsed['host']);
+        $allowedHosts = [
+            'sanctions.gov.my',
+            'ofac.treasury.gov',
+            'europa.eu',
+            'sdnlists.ofac.treasury.gov',
+            'un.org',
+            'unescritor.org',
+        ];
+
+        $isAllowed = false;
+        foreach ($allowedHosts as $allowed) {
+            if ($host === $allowed || str_ends_with($host, '.'.$allowed)) {
+                $isAllowed = true;
+                break;
+            }
+        }
+
+        if (! $isAllowed) {
+            throw new \InvalidArgumentException("Host not in sanctions URL allowlist: {$host}");
+        }
+
+        $ip = gethostbyname($host);
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            // Resolved to a valid public IP
+        } elseif ($ip !== $host) {
+            throw new \InvalidArgumentException("URL resolves to private/internal IP: {$ip}");
+        }
     }
 }

@@ -29,6 +29,7 @@ enum ComplianceFlagType: string
     case AmlRuleTriggered = 'Aml_Rule_Triggered';
     case CounterfeitCurrency = 'Counterfeit_Currency';
     case RiskScoreEscalation = 'Risk_Score_Escalation';
+    case RelatedPartyOwnership = 'Related_Party_Ownership';
 
     /**
      * Check if this flag type indicates a sanctions issue.
@@ -117,6 +118,7 @@ enum ComplianceFlagType: string
             self::AmlRuleTriggered => 'AML Rule Triggered',
             self::CounterfeitCurrency => 'Counterfeit Currency',
             self::RiskScoreEscalation => 'Risk Score Escalation',
+            self::RelatedPartyOwnership => 'Related Party Ownership',
         };
     }
 
@@ -142,6 +144,7 @@ enum ComplianceFlagType: string
             self::AmlRuleTriggered => 'Automated AML rule triggered for review',
             self::CounterfeitCurrency => 'Counterfeit currency detected in transaction',
             self::RiskScoreEscalation => 'Customer risk score has been escalated',
+            self::RelatedPartyOwnership => 'Related party with ownership interest raised an ownership concern',
         };
     }
 
@@ -153,7 +156,8 @@ enum ComplianceFlagType: string
         return match ($this) {
             self::SanctionsHit, self::SanctionMatch, self::CounterfeitCurrency => 'critical',
             self::Structuring => 'high',
-            self::HighRiskCustomer, self::EddRequired, self::LargeAmount => 'medium',
+            self::HighRiskCustomer, self::EddRequired, self::LargeAmount,
+            self::RelatedPartyOwnership => 'medium',
             default => 'low',
         };
     }

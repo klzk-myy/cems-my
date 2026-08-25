@@ -44,7 +44,7 @@ class KycDocumentExpiryService
 
     protected function isMissingRequiredDocuments(Customer $customer): bool
     {
-        $cddLevel = $customer->cdd_level;
+        $cddLevel = $customer->cdd_level ?? CddLevel::Standard;
 
         // All CDD levels require MyKad (or Passport for foreigners)
         $hasIdentityDocument = $customer->documents()

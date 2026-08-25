@@ -7,6 +7,7 @@ use App\Services\Transaction\ReceiptGenerationService;
 use Barryvdh\DomPDF\PDF;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Response;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Picqer\Barcode\BarcodeGeneratorPNG;
 use Tests\TestCase;
@@ -20,15 +21,13 @@ class ReceiptGenerationServiceTest extends TestCase
     {
         $transaction = Transaction::factory()->completed()->create();
 
-        $pdf = $this->getMockBuilder(PDF::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['loadView', 'download'])
-            ->addMethods(['setPaper'])
-            ->getMock();
-
-        $pdf->expects($this->once())
-            ->method('loadView')
-            ->willReturnCallback(function ($view, $data) use ($pdf, $transaction) {
+        // PDF forwards setPaper through __call magic, so Mockery (which allows
+        // expectations on magic methods) is used instead of PHPUnit's mock
+        // builder, whose addMethods() is deprecated.
+        $pdf = Mockery::mock(PDF::class);
+        $pdf->shouldReceive('loadView')
+            ->once()
+            ->andReturnUsing(function ($view, $data) use ($pdf, $transaction) {
                 $this->assertSame('transactions.receipt', $view);
                 $this->assertSame($transaction->id, $data['transaction']->id);
                 $this->assertArrayHasKey('barcodeImage', $data);
@@ -37,8 +36,8 @@ class ReceiptGenerationServiceTest extends TestCase
 
                 return $pdf;
             });
-        $pdf->expects($this->once())->method('setPaper')->with([0, 0, 226.77, 841.89], 'portrait')->willReturnSelf();
-        $pdf->expects($this->once())->method('download')->willReturn(new Response('pdf-content'));
+        $pdf->shouldReceive('setPaper')->once()->with([0, 0, 226.77, 841.89], 'portrait')->andReturnSelf();
+        $pdf->shouldReceive('download')->once()->andReturn(new Response('pdf-content'));
 
         $barcodeGenerator = $this->createMock(BarcodeGeneratorPNG::class);
         $barcodeGenerator->method('getBarcode')->willReturn('barcode-bytes');
@@ -55,22 +54,17 @@ class ReceiptGenerationServiceTest extends TestCase
     {
         $transaction = Transaction::factory()->completed()->create();
 
-        $pdf = $this->getMockBuilder(PDF::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['loadView', 'download'])
-            ->addMethods(['setPaper'])
-            ->getMock();
-
-        $pdf->expects($this->once())
-            ->method('loadView')
-            ->willReturnCallback(function ($view, $data) use ($pdf) {
+        $pdf = Mockery::mock(PDF::class);
+        $pdf->shouldReceive('loadView')
+            ->once()
+            ->andReturnUsing(function ($view, $data) use ($pdf) {
                 $this->assertSame('transactions.receipt', $view);
                 $this->assertNull($data['barcodeImage']);
 
                 return $pdf;
             });
-        $pdf->expects($this->once())->method('setPaper')->willReturnSelf();
-        $pdf->method('download')->willReturn(new Response('pdf-content'));
+        $pdf->shouldReceive('setPaper')->once()->andReturnSelf();
+        $pdf->shouldReceive('download')->andReturn(new Response('pdf-content'));
 
         $barcodeGenerator = $this->createMock(BarcodeGeneratorPNG::class);
         $barcodeGenerator->method('getBarcode')->willThrowException(new \Exception('Barcode failed'));
@@ -79,5 +73,12 @@ class ReceiptGenerationServiceTest extends TestCase
         $response = $service->generate($transaction);
 
         $this->assertInstanceOf(Response::class, $response);
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+
+        parent::tearDown();
     }
 }

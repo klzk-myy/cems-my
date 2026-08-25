@@ -11,6 +11,7 @@ use App\Models\Customer;
 use App\Models\TellerAllocation;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\System\EncryptionService;
 use App\Services\System\MathService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
@@ -42,6 +43,12 @@ class TestTransactionScenarios extends Command
 
     public function handle(): int
     {
+        if (! app()->environment('local', 'testing')) {
+            $this->error('This command is only available in local/testing environments.');
+
+            return Command::FAILURE;
+        }
+
         $this->info('=== CEMS-MY CDD/Risk Test Scenarios ===');
         $this->info('');
 
@@ -323,15 +330,15 @@ class TestTransactionScenarios extends Command
         $this->info("         Customer: {$scenario['customer_name']} ({$scenario['nationality']})");
         $this->info("         Amount: {$scenario['foreign_amount']} {$scenario['currency']} @ {$scenario['rate']} = RM ".number_format((float) $scenario['foreign_amount'] * (float) $scenario['rate'], 2));
 
-        // Create or find customer by ID number hash
-        $customer = Customer::where('id_number_hash', hash('sha256', $scenario['customer_ic']))->first();
+        // Create or find customer by ID number hash (production HMAC blind index)
+        $customer = Customer::where('id_number_hash', EncryptionService::blindIndex($scenario['customer_ic']))->first();
 
         if (! $customer) {
             $customer = Customer::create([
                 'full_name' => $scenario['customer_name'],
                 'id_type' => 'MyKad',
                 'id_number_encrypted' => encrypt($scenario['customer_ic']),
-                'id_number_hash' => hash('sha256', $scenario['customer_ic']),
+                'id_number_hash' => EncryptionService::blindIndex($scenario['customer_ic']),
                 'date_of_birth' => '1990-01-15',
                 'customer_type' => $scenario['customer_type'],
                 'nationality' => $scenario['nationality'],

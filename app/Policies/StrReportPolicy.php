@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Policies;
+
+use App\Enums\UserRole;
+use App\Models\StrReport;
+use App\Models\User;
+
+/**
+ * StrReportPolicy
+ *
+ * STR records are regulatory filings: only Compliance Officers and Admins
+ * may view or act on them. Laravel auto-discovers this policy for
+ * App\Models\StrReport by convention (no AuthServiceProvider entry needed).
+ */
+class StrReportPolicy
+{
+    public function viewAny(User $user): bool
+    {
+        return $user->role === UserRole::Admin || $user->role === UserRole::ComplianceOfficer;
+    }
+
+    public function view(User $user, StrReport $strReport): bool
+    {
+        return $this->viewAny($user);
+    }
+
+    public function create(User $user): bool
+    {
+        return $this->viewAny($user);
+    }
+
+    public function update(User $user, StrReport $strReport): bool
+    {
+        return $this->viewAny($user);
+    }
+}

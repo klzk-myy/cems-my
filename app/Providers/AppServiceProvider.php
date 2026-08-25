@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Customer;
 use App\Models\Transaction;
+use App\Services\Contracts\MathServiceInterface;
 use App\Services\Contracts\TransactionApprovalServiceInterface;
 use App\Services\Contracts\TransactionCreationServiceInterface;
 use App\Services\Contracts\TransactionHoldServiceInterface;
@@ -11,6 +12,7 @@ use App\Services\Contracts\TransactionIdempotencyServiceInterface;
 use App\Services\Contracts\TransactionServiceInterface;
 use App\Services\Contracts\TransactionStatusServiceInterface;
 use App\Services\Contracts\TransactionValidationInterface;
+use App\Services\System\MathService;
 use App\Services\Transaction\TransactionApprovalService;
 use App\Services\Transaction\TransactionCreationService;
 use App\Services\Transaction\TransactionHoldService;
@@ -19,6 +21,7 @@ use App\Services\Transaction\TransactionService;
 use App\Services\Transaction\TransactionStatusService;
 use App\Services\Transaction\TransactionValidationService;
 use App\View\Composers\NavigationComposer;
+use App\View\Composers\NotificationComposer;
 use App\View\Composers\UserComposer;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -67,6 +70,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             TransactionApprovalServiceInterface::class,
             TransactionApprovalService::class
+        );
+
+        $this->app->bind(
+            MathServiceInterface::class,
+            MathService::class
         );
     }
 
@@ -193,5 +201,6 @@ class AppServiceProvider extends ServiceProvider
     {
         View::composer('*', NavigationComposer::class);
         View::composer('*', UserComposer::class);
+        View::composer('components.app-layout', NotificationComposer::class);
     }
 }

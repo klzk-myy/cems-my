@@ -1,5 +1,5 @@
 <x-app-layout title="Sanctions Entry Details">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Sanctions Entry Details" :actions="true">
             Reference: {{ $sanctionEntry->reference_number ?: 'N/A' }}
 
@@ -10,7 +10,7 @@
         </x-page-header>
 
         <x-card>
-            <x-card-section title="Entry Information">
+            <x-card title="Entry Information">
                 <x-slot:actions>
                     <x-badge
                         :variant="match (strtolower($sanctionEntry->status->value ?? $sanctionEntry->status)) {
@@ -21,7 +21,7 @@
                             default => 'success',
                         }"
                     >
-                        {{ ucfirst($sanctionEntry->status->value ?? $sanctionEntry->status) }}
+                        {{ $sanctionEntry->status?->label() ?? ucfirst($sanctionEntry->status) }}
                     </x-badge>
                 </x-slot:actions>
 
@@ -32,7 +32,7 @@
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-ink-muted uppercase mb-1">Entity Type</label>
-                        <p class="text-sm text-ink">{{ $sanctionEntry->entity_type?->value ?? ucfirst($sanctionEntry->entity_type) }}</p>
+                        <p class="text-sm text-ink">{{ $sanctionEntry->entity_type?->label() ?? ucfirst($sanctionEntry->entity_type) }}</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-ink-muted uppercase mb-1">List Source</label>
@@ -59,11 +59,11 @@
                         <p class="text-sm text-ink">{{ $sanctionEntry->listing_date?->format('Y-m-d') ?? 'N/A' }}</p>
                     </div>
                 </div>
-            </x-card-section>
+            </x-card>
         </x-card>
 
         <x-card>
-            <x-card-section title="Aliases">
+            <x-card title="Aliases">
                 @if (count($sanctionEntry->aliases) > 0)
                     <ul class="space-y-2">
                         @foreach ($sanctionEntry->aliases as $alias)
@@ -76,11 +76,11 @@
                 @else
                     <x-empty-state message="No aliases recorded." />
                 @endif
-            </x-card-section>
+            </x-card>
         </x-card>
 
         <x-card>
-            <x-card-section title="Address">
+            <x-card title="Address">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
                         <label class="block text-xs font-medium text-ink-muted uppercase mb-1">Street</label>
@@ -99,24 +99,24 @@
                         <p class="text-sm text-ink">{{ $sanctionEntry->postal_code ?: 'N/A' }}</p>
                     </div>
                 </div>
-            </x-card-section>
+            </x-card>
         </x-card>
 
         <x-card>
-            <x-card-section title="Additional Information">
+            <x-card title="Additional Information">
                 <p class="text-sm text-ink-muted">{{ $sanctionEntry->details ?: 'No additional information.' }}</p>
-            </x-card-section>
+            </x-card>
         </x-card>
 
         <x-card>
-            <x-card-section title="Actions">
+            <x-card title="Actions">
                 <div class="flex flex-wrap gap-3">
                     <x-button variant="primary" href="{{ route('compliance.sanctions.entries.edit', $sanctionEntry) }}">Edit Entry</x-button>
                     <x-button variant="secondary">View Related Transactions</x-button>
                     <x-button variant="secondary">Export</x-button>
                     <x-button variant="danger">Deactivate</x-button>
                 </div>
-            </x-card-section>
+            </x-card>
         </x-card>
     </div>
 </x-app-layout>

@@ -2,34 +2,35 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\Sanctions\DownloadEuSanctionsList;
-use App\Jobs\Sanctions\DownloadMohaSanctionsList;
-use App\Jobs\Sanctions\DownloadOfacSanctionsList;
-use App\Jobs\Sanctions\DownloadUnSanctionsList;
+use App\Jobs\ImportSanctionsJob;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Bus;
 
 class UpdateSanctionsLists extends Command
 {
-    use Concerns\HasSanctionsImport;
-
     protected $signature = 'sanctions:update
-                            {--source= : Update specific source (un, ofac, moha, eu)}
+                            {--source= : Update specific source (un, moha)}
                             {--sync : Run synchronously instead of dispatching to queue}';
 
     protected $description = 'Download and update sanctions lists from configured sources';
 
+    /**
+     * CLI source key => SanctionList slug (config/sanctions.php source key).
+     *
+     * Only sources configured in config/sanctions.php are supported. The
+     * legacy file-download jobs (UN/OFAC/EU XML/CSV) referenced source keys
+     * that were never configured and methods that were never implemented, so
+     * this command routes through the OpenSanctions import pipeline instead.
+     */
     protected array $sourceJobs = [
-        'un' => DownloadUnSanctionsList::class,
-        'ofac' => DownloadOfacSanctionsList::class,
-        'moha' => DownloadMohaSanctionsList::class,
-        'eu' => DownloadEuSanctionsList::class,
+        'un' => 'un_consolidated',
+        'moha' => 'moha_malaysia',
     ];
 
     public function handle(): int
     {
         $source = $this->option('source');
-        $sync = $this->option('sync');
+        $sync = (bool) $this->option('sync');
 
         if ($source) {
             return $this->updateSingleSource($source, $sync);
@@ -47,16 +48,13 @@ class UpdateSanctionsLists extends Command
             return Command::FAILURE;
         }
 
-        $jobClass = $this->sourceJobs[$source];
+        $slug = $this->sourceJobs[$source];
 
-        $this->info("Dispatching {$source} sanctions download job...");
+        $this->info("Dispatching {$source} sanctions update job...");
 
-        if ($sync) {
-            $this->info('Running synchronously...');
-            Bus::dispatchSync(new $jobClass);
-        } else {
-            Bus::dispatch(new $jobClass);
-        }
+        $job = new ImportSanctionsJob(null, $slug);
+
+        $this->dispatchOrSync($job, $sync);
 
         $this->info("Job dispatched for {$source}.");
         $this->line('Run "php artisan sanctions:status" to check status.');
@@ -69,10 +67,10 @@ class UpdateSanctionsLists extends Command
         $this->info('Dispatching sanctions list update jobs...');
         $this->newLine();
 
-        foreach ($this->sourceJobs as $key => $jobClass) {
-            $config = config("sanctions.sources.{$key}");
+        foreach ($this->sourceJobs as $key => $slug) {
+            $config = config("sanctions.sources.{$slug}");
 
-            if (! $config || ! ($config['enabled'] ?? false)) {
+            if (! $config || ! ($config['enabled'] ?? true)) {
                 $this->warn("  [SKIP] {$key}: Disabled in configuration");
 
                 continue;
@@ -87,13 +85,13 @@ class UpdateSanctionsLists extends Command
             if ($sync) {
                 $this->line("  [SYNC] {$key}: Running...");
                 try {
-                    Bus::dispatchSync(new $jobClass);
+                    $this->dispatchOrSync(new ImportSanctionsJob(null, $slug), $sync);
                     $this->info("  [DONE] {$key}: Completed");
                 } catch (\Exception $e) {
                     $this->error("  [FAIL] {$key}: {$e->getMessage()}");
                 }
             } else {
-                Bus::dispatch(new $jobClass);
+                $this->dispatchOrSync(new ImportSanctionsJob(null, $slug), $sync);
                 $this->info("  [QUEUE] {$key}: Dispatched");
             }
         }
@@ -104,5 +102,16 @@ class UpdateSanctionsLists extends Command
         $this->line('Check "storage/logs/laravel.log" for detailed progress.');
 
         return Command::SUCCESS;
+    }
+
+    protected function dispatchOrSync(ImportSanctionsJob $job, bool $sync): void
+    {
+        if ($sync) {
+            Bus::dispatchSync($job);
+
+            return;
+        }
+
+        Bus::dispatch($job);
     }
 }

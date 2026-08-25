@@ -7,7 +7,7 @@
 <div {{ $attributes->merge(['class' => "flex items-center justify-between"]) }}>
     <div>
         @if($title)
-            <h1 class="text-2xl font-semibold text-ink">{{ $title }}</h1>
+            <h1 class="text-2xl font-bold text-ink">{{ $title }}</h1>
         @endif
         @if($description)
             <p class="mt-1 text-sm text-ink-muted">{{ $description }}</p>
@@ -17,7 +17,7 @@
         @endif
     </div>
     @if($actions)
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
             {{ $actions }}
         </div>
     @endif

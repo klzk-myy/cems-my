@@ -13,7 +13,7 @@
 
         {{-- Date Selector --}}
         <x-card>
-            <div class="p-6 space-y-4">
+            <div class="space-y-4">
                 <form method="GET" action="{{ route('reports.msb2') }}" class="flex flex-wrap gap-4 items-end">
                     <x-input
                         type="date"
@@ -50,12 +50,12 @@
             <x-card title="Currency Breakdown" description="for {{ \Carbon\Carbon::parse($date)->format('d M Y') }}">
                 <x-table>
                     <x-slot:thead>
-                        <th class="text-left px-4 py-3 text-xs font-medium text-ink-muted uppercase">Currency</th>
-                        <th class="text-right px-4 py-3 text-xs font-medium text-ink-muted uppercase">Buy Count</th>
-                        <th class="text-right px-4 py-3 text-xs font-medium text-ink-muted uppercase">Buy Volume</th>
-                        <th class="text-right px-4 py-3 text-xs font-medium text-ink-muted uppercase">Sell Count</th>
-                        <th class="text-right px-4 py-3 text-xs font-medium text-ink-muted uppercase">Sell Volume</th>
-                        <th class="text-right px-4 py-3 text-xs font-medium text-ink-muted uppercase">Net Volume</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Currency</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Buy Count</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Buy Volume</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Sell Count</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Sell Volume</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Net Volume</th>
                     </x-slot:thead>
                     <x-slot:tbody>
                         @forelse($summary as $currency => $data)
@@ -83,7 +83,7 @@
             </x-stat-grid>
 
             <div class="flex justify-end gap-3">
-                <x-button variant="secondary" type="button" onclick="window.print()">Print Report</x-button>
+                <x-button variant="secondary" type="button" @click="window.print()">Print Report</x-button>
                 <form method="POST" action="{{ route('reports.msb2.export', ['date' => $date]) }}">
                     @csrf
                     <x-button type="submit" variant="primary">Export Report</x-button>

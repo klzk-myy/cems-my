@@ -7,7 +7,6 @@ use App\Models\ChartOfAccount;
 use App\Services\System\MathService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Ledger Service
@@ -221,13 +220,22 @@ class LedgerService
             ->orderBy('id')
             ->get();
 
+        // Sum with bcmath: Collection::sum() casts DECIMAL strings to float,
+        // losing precision on large monetary totals.
+        $totalDebits = '0';
+        $totalCredits = '0';
+        foreach ($entries as $entry) {
+            $totalDebits = $this->mathService->add($totalDebits, (string) $entry->debit);
+            $totalCredits = $this->mathService->add($totalCredits, (string) $entry->credit);
+        }
+
         return [
             'account' => $account,
             'entries' => $entries,
             'opening_balance' => $this->getOpeningBalance($accountCode, $fromDate, $branchId),
             'closing_balance' => $this->getClosingBalance($accountCode, $toDate, $branchId),
-            'total_debits' => (string) $entries->sum('debit'),
-            'total_credits' => (string) $entries->sum('credit'),
+            'total_debits' => $totalDebits,
+            'total_credits' => $totalCredits,
             'period' => ['from' => $fromDate, 'to' => $toDate],
         ];
     }
@@ -482,31 +490,17 @@ class LedgerService
     /**
      * Get account balance as of a specific date.
      *
-     * Retrieves the running balance from the most recent ledger entry.
+     * Delegates to the canonical AccountingService::getAccountBalance so the
+     * running-balance lookup lives in exactly one place.
      *
      * @param  string  $accountCode  Unique code of the account
      * @param  string  $asOfDate  Date for balance calculation (YYYY-MM-DD format)
      * @param  int|null  $branchId  Optional branch ID to filter by
      * @return string Account balance as a string
      */
-    protected function getAccountBalance(string $accountCode, string $asOfDate, ?int $branchId = null): string
+    public function getAccountBalance(string $accountCode, string $asOfDate, ?int $branchId = null): string
     {
-        $query = AccountLedger::where('account_code', $accountCode);
-
-        if ($asOfDate) {
-            $query->whereRaw('DATE(entry_date) <= ?', [$asOfDate]);
-        }
-
-        if ($branchId !== null) {
-            $query->where('branch_id', $branchId);
-        }
-
-        $lastEntry = $query->orderBy('entry_date', 'desc')
-            ->orderBy('created_at', 'desc')
-            ->orderBy('id', 'desc')
-            ->first();
-
-        return $lastEntry ? (string) $lastEntry->running_balance : '0';
+        return $this->accountingService->getAccountBalance($accountCode, $asOfDate, $branchId);
     }
 
     /**
@@ -523,50 +517,6 @@ class LedgerService
     }
 
     /**
-     * Calculate the net activity for an account within a date range.
-     *
-     * Computes the total activity by summing debits and credits for the period,
-     * adjusting based on account type. For Expense accounts, activity equals
-     * debits minus credits. For Revenue accounts, activity equals credits minus debits.
-     *
-     * @param  string  $accountCode  Unique code of the account
-     * @param  string  $fromDate  Start date for activity calculation (YYYY-MM-DD format)
-     * @param  string  $toDate  End date for activity calculation (YYYY-MM-DD format)
-     * @param  int|null  $branchId  Optional branch ID to filter by
-     * @return string Net activity amount as a string
-     */
-    protected function getAccountActivity(string $accountCode, string $fromDate, string $toDate, ?int $branchId = null): string
-    {
-        $query = AccountLedger::where('account_code', $accountCode)
-            ->whereBetween('entry_date', [$fromDate, $toDate]);
-
-        if ($branchId !== null) {
-            $query->where('branch_id', $branchId);
-        }
-
-        $entries = $query->get();
-
-        // Get account type to determine proper activity calculation
-        $account = ChartOfAccount::find($accountCode);
-        $accountType = $account ? $account->account_type : 'Asset';
-
-        $activity = '0';
-        foreach ($entries as $entry) {
-            if ($accountType === 'Expense') {
-                // Expense: activity = debits - credits (debit-normal)
-                $activity = $this->mathService->add($activity, (string) $entry->debit);
-                $activity = $this->mathService->subtract($activity, (string) $entry->credit);
-            } else {
-                // Revenue: activity = credits - debits (credit-normal)
-                $activity = $this->mathService->add($activity, (string) $entry->credit);
-                $activity = $this->mathService->subtract($activity, (string) $entry->debit);
-            }
-        }
-
-        return $activity;
-    }
-
-    /**
      * Get aggregated account balances (debits and credits) for a period.
      *
      * Efficiently retrieves total debits and credits per account, and overall totals,
@@ -580,22 +530,23 @@ class LedgerService
         $cacheTags = ['ledger', 'balances'];
 
         return Cache::tags($cacheTags)->remember($cacheKey, 60, function () use ($startDate, $endDate, $branchId) {
-            $query = DB::table('account_ledger')
+            // Eloquent query on AccountLedger joined to ChartOfAccount.
+            // with([]) suppresses the default eager-load of 'account' so we
+            // don't fire a second select per group.
+            $results = AccountLedger::query()
+                ->with([])
                 ->join('chart_of_accounts', 'account_ledger.account_code', '=', 'chart_of_accounts.account_code')
                 ->select(
                     'account_ledger.account_code',
-                    'chart_of_accounts.account_name',
-                    DB::raw('SUM(account_ledger.debit) as total_debit'),
-                    DB::raw('SUM(account_ledger.credit) as total_credit')
+                    'chart_of_accounts.account_name'
                 )
+                ->selectRaw('SUM(account_ledger.debit) as total_debit')
+                ->selectRaw('SUM(account_ledger.credit) as total_credit')
                 ->whereBetween('account_ledger.entry_date', [$startDate, $endDate])
-                ->when($branchId !== null, function ($q) use ($branchId) {
-                    $q->where('account_ledger.branch_id', $branchId);
-                })
+                ->whereBranch($branchId)
                 ->groupBy('account_ledger.account_code', 'chart_of_accounts.account_name')
-                ->orderBy('account_ledger.account_code');
-
-            $results = $query->get();
+                ->orderBy('account_ledger.account_code')
+                ->get();
 
             $totalDebit = '0';
             $totalCredit = '0';
@@ -634,24 +585,14 @@ class LedgerService
      */
     protected function getAggregatedAccountBalances(?string $fromDate = null, ?string $toDate = null, ?int $branchId = null): \Illuminate\Support\Collection
     {
-        $query = DB::table('account_ledger')
-            ->select(
-                'account_code',
-                DB::raw('SUM(debit) as total_debit'),
-                DB::raw('SUM(credit) as total_credit')
-            )
-            ->when($fromDate !== null, function ($q) use ($fromDate) {
-                $q->whereDate('entry_date', '>=', $fromDate);
-            })
-            ->when($toDate !== null, function ($q) use ($toDate) {
-                $q->whereDate('entry_date', '<=', $toDate);
-            })
-            ->when($branchId !== null, function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            })
-            ->groupBy('account_code');
-
-        $results = $query->get();
+        $results = AccountLedger::query()
+            ->with([])
+            ->select('account_code')
+            ->selectRaw('SUM(debit) as total_debit, SUM(credit) as total_credit')
+            ->entryDateBetween($fromDate, $toDate)
+            ->whereBranch($branchId)
+            ->groupBy('account_code')
+            ->get();
 
         $balances = \Illuminate\Support\Collection::make();
         foreach ($results as $row) {

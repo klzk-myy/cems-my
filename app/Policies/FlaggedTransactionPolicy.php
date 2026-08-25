@@ -12,7 +12,7 @@ class FlaggedTransactionPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isComplianceOfficer();
+        return $user->isComplianceOfficer() || $user->isAdmin();
     }
 
     /**
@@ -20,7 +20,7 @@ class FlaggedTransactionPolicy
      */
     public function assign(User $user, FlaggedTransaction $flaggedTransaction): bool
     {
-        return $user->isComplianceOfficer();
+        return $user->isComplianceOfficer() || $user->isAdmin();
     }
 
     /**
@@ -28,6 +28,6 @@ class FlaggedTransactionPolicy
      */
     public function resolve(User $user, FlaggedTransaction $flaggedTransaction): bool
     {
-        return $user->isComplianceOfficer();
+        return $user->isComplianceOfficer() || $user->isAdmin();
     }
 }

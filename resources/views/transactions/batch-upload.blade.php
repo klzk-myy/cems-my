@@ -1,5 +1,5 @@
 <x-app-layout title="Batch Upload">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Batch Upload"
             description="Upload multiple transactions in bulk"

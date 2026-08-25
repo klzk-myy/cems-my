@@ -40,10 +40,10 @@ return new class extends Migration
             $table->index('sla_deadline');
 
             // Foreign key constraints (without onDelete for now to avoid circular dependency issues)
-            $table->foreign('customer_id')->references('id')->on('customers');
-            $table->foreign('primary_flag_id')->references('id')->on('flagged_transactions');
-            $table->foreign('primary_finding_id')->references('id')->on('compliance_findings');
-            $table->foreign('assigned_to')->references('id')->on('users');
+            $table->foreign('customer_id')->references('id')->on('customers')->restrictOnDelete();
+            $table->foreign('primary_flag_id')->references('id')->on('flagged_transactions')->restrictOnDelete();
+            $table->foreign('primary_finding_id')->references('id')->on('compliance_findings')->restrictOnDelete();
+            $table->foreign('assigned_to')->references('id')->on('users')->restrictOnDelete();
         });
     }
 

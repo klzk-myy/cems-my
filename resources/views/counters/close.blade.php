@@ -1,5 +1,5 @@
 <x-app-layout title="Close Counter">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Close Counter"
             description="Record closing balances and end your session"

@@ -1,5 +1,5 @@
 <x-app-layout title="Counters">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header title="Counters" />
 
         <x-stat-grid cols="3">

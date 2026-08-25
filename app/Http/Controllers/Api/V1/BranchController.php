@@ -34,7 +34,7 @@ class BranchController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->get('per_page', 20);
+        $perPage = min(100, max(1, (int) $request->get('per_page', 20)));
         $branches = Branch::orderBy('code')->paginate($perPage);
 
         return $this->successResponse($branches->items(), 'Branches retrieved successfully.', 200, [
@@ -98,7 +98,7 @@ class BranchController extends Controller
 
             return $this->successResponse(null, 'Branch deactivated successfully');
         } catch (\RuntimeException $e) {
-            return $this->errorResponse($e->getMessage(), [], 400);
+            return $this->errorResponse('Failed to deactivate branch. Please try again.', [], 400);
         }
     }
 

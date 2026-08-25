@@ -9,7 +9,9 @@ use App\Enums\ComplianceCasePriority;
 use App\Enums\ComplianceCaseStatus;
 use App\Enums\ComplianceCaseType;
 use App\Enums\FindingSeverity;
+use App\Enums\FlagStatus;
 use App\Events\CaseOpened;
+use App\Exceptions\Domain\CaseManagementException;
 use App\Models\Alert;
 use App\Models\Compliance\ComplianceCase;
 use App\Models\Compliance\ComplianceCaseDocument;
@@ -20,6 +22,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -28,6 +31,12 @@ use Illuminate\Support\Str;
  */
 class CaseManagementService
 {
+    /**
+     * Storage extension allowlist for case documents.
+     * Mirrors UploadCaseDocumentRequest validation.
+     */
+    private const ALLOWED_DOCUMENT_EXTENSIONS = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+
     /**
      * Create a compliance case from a finding.
      */
@@ -136,17 +145,17 @@ class CaseManagementService
 
     /**
      * Calculate SLA deadline based on severity and case type.
+     *
+     * Hours come from ComplianceCase::slaHoursFor() (single source of truth);
+     * urgent case types are capped at 24h. Previously the cap referenced a
+     * non-existent ComplianceCaseType::Str case, which threw an Error on every
+     * call and made case creation via the API fail.
      */
     protected function calculateSlaDeadline(FindingSeverity $severity, ComplianceCaseType $caseType): Carbon
     {
-        $hours = match ($severity) {
-            FindingSeverity::Critical => 24,
-            FindingSeverity::High => 48,
-            FindingSeverity::Medium => 120,
-            FindingSeverity::Low => 240,
-        };
+        $hours = ComplianceCase::slaHoursFor($severity);
 
-        if ($caseType === ComplianceCaseType::Str || $caseType === ComplianceCaseType::SanctionReview) {
+        if ($caseType === ComplianceCaseType::SanctionReview || $caseType === ComplianceCaseType::Counterfeit) {
             $hours = min($hours, 24);
         }
 
@@ -167,27 +176,9 @@ class CaseManagementService
     }
 
     /**
-     * Generate next case number.
-     */
-    public function generateCaseNumber(): string
-    {
-        $year = now()->year;
-        $prefix = "CASE-{$year}-";
-
-        // Use lock to prevent race conditions
-        $lastCase = DB::table('compliance_cases')
-            ->where('case_number', 'like', $prefix.'%')
-            ->lockForUpdate()
-            ->orderBy('case_number', 'desc')
-            ->first();
-
-        $newNumber = $lastCase ? ((int) substr($lastCase->case_number, -5)) + 1 : 1;
-
-        return $prefix.str_pad($newNumber, 5, '0', STR_PAD_LEFT);
-    }
-
-    /**
      * Create a case from one or more alerts.
+     *
+     * @throws CaseManagementException when alerts span multiple customers
      */
     public function createFromAlerts(array $alertIds, int $openedBy): ComplianceCase
     {
@@ -195,21 +186,32 @@ class CaseManagementService
             $alerts = Alert::whereIn('id', $alertIds)->get();
 
             if ($alerts->isEmpty()) {
-                throw new \InvalidArgumentException('No alerts provided');
+                throw new CaseManagementException('No alerts provided');
             }
 
-            $customerId = $alerts->first()->customer_id;
-            $maxRiskScore = $alerts->max('risk_score');
-            $priority = AlertPriority::fromRiskScore($maxRiskScore);
+            $customerIds = $alerts->pluck('customer_id')->unique()->filter();
 
+            if ($customerIds->count() > 1) {
+                throw new CaseManagementException('Alerts belong to multiple customers; cannot create a single case');
+            }
+
+            $priority = AlertPriority::fromRiskScore($alerts->max('risk_score'));
+            $casePriority = $this->casePriorityForAlertPriority($priority);
+
+            // Every NOT NULL column must be populated: case_type, severity,
+            // assigned_to and created_via previously went missing (and a
+            // non-existent 'opened_by' column was written), so the insert always
+            // failed. The case is assigned to the officer who opened it.
             $case = ComplianceCase::create([
                 'case_number' => ComplianceCase::generateCaseNumber(),
-                'customer_id' => $customerId,
+                'case_type' => ComplianceCaseType::Investigation,
                 'status' => ComplianceCaseStatus::Open,
-                'priority' => $priority,
-                'assigned_to' => null,
-                'opened_by' => $openedBy,
-                'sla_deadline' => $this->calculateSlaDeadlineFromPriority($priority),
+                'severity' => $this->severityForPriority($priority),
+                'priority' => $casePriority,
+                'customer_id' => $customerIds->first(),
+                'assigned_to' => $openedBy,
+                'created_via' => 'Manual',
+                'sla_deadline' => $this->calculateSlaDeadlineFromPriority($casePriority),
             ]);
 
             foreach ($alerts as $alert) {
@@ -224,44 +226,107 @@ class CaseManagementService
 
     /**
      * Link an alert to an existing case.
+     *
+     * @throws CaseManagementException when the alert belongs to another case or customer
      */
     public function linkAlertToCase(Alert $alert, ComplianceCase $case): Alert
     {
         if ($alert->case_id && $alert->case_id !== $case->id) {
-            throw new \InvalidArgumentException('Alert already linked to another case');
+            throw new CaseManagementException('Alert already linked to another case');
         }
 
-        $alert->update(['case_id' => $case->id]);
+        if ($alert->customer_id && $case->customer_id && $alert->customer_id !== $case->customer_id) {
+            throw new CaseManagementException('Alert belongs to a different customer than the case');
+        }
 
-        $this->recalculateCasePriority($case);
-        $this->recalculateCaseSla($case);
+        return DB::transaction(function () use ($alert, $case) {
+            $alert->update(['case_id' => $case->id]);
+            $this->recalculateCasePriority($case);
+            $this->recalculateCaseSla($case);
 
-        return $alert->fresh();
-    }
-
-    /**
-     * Merge two cases together.
-     */
-    public function mergeCases(ComplianceCase $sourceCase, ComplianceCase $targetCase): ComplianceCase
-    {
-        return DB::transaction(function () use ($sourceCase, $targetCase) {
-            Alert::where('case_id', $sourceCase->id)
-                ->update(['case_id' => $targetCase->id]);
-
-            $sourceCase->update(['status' => ComplianceCaseStatus::Closed]);
-
-            $this->recalculateCasePriority($targetCase);
-            $this->recalculateCaseSla($targetCase);
-
-            return $targetCase->fresh()->load('alerts');
+            return $alert->fresh();
         });
     }
 
     /**
-     * Update case status.
+     * Merge two cases together.
+     *
+     * @throws CaseManagementException for self-merges, closed targets or
+     *                                 cases belonging to different customers
+     */
+    public function mergeCases(ComplianceCase $sourceCase, ComplianceCase $targetCase): ComplianceCase
+    {
+        if ($sourceCase->is($targetCase)) {
+            throw new CaseManagementException('Cannot merge a case into itself');
+        }
+
+        if ($targetCase->status === ComplianceCaseStatus::Closed) {
+            throw new CaseManagementException('Cannot merge into a closed case');
+        }
+
+        if ($sourceCase->customer_id !== $targetCase->customer_id) {
+            throw new CaseManagementException('Cannot merge cases for different customers');
+        }
+
+        return DB::transaction(function () use ($sourceCase, $targetCase) {
+            Alert::where('case_id', $sourceCase->id)
+                ->update(['case_id' => $targetCase->id]);
+
+            // Move evidence with the case so it stays visible on the target.
+            ComplianceCaseDocument::where('case_id', $sourceCase->id)
+                ->update(['case_id' => $targetCase->id]);
+            ComplianceCaseLink::where('case_id', $sourceCase->id)
+                ->update(['case_id' => $targetCase->id]);
+
+            $sourceCase->update([
+                'status' => ComplianceCaseStatus::Closed,
+                'resolved_at' => now(),
+            ]);
+
+            $this->recalculateCasePriority($targetCase);
+            $this->recalculateCaseSla($targetCase);
+
+            return $targetCase->fresh()->load(['alerts', 'documents', 'links']);
+        });
+    }
+
+    /**
+     * Update case status, enforcing the model's allowed transitions.
+     *
+     * @throws CaseManagementException when the transition is not allowed
      */
     public function updateStatus(ComplianceCase $case, ComplianceCaseStatus $status): ComplianceCase
     {
+        $current = $case->status;
+
+        // Submitting the current status is a no-op, not an error.
+        if ($status === $current) {
+            return $case;
+        }
+
+        if (! $current->canMoveTo($status)) {
+            throw new CaseManagementException(
+                "Cannot move case from {$current->value} to {$status->value}"
+            );
+        }
+
+        // Closing must satisfy the same requirements as resolveCase(): every
+        // linked alert must be resolved/rejected first. The previous direct
+        // Open -> Closed transition bypassed that gate and left the resolution
+        // workflow (closeCase()/resolveCase()) unenforced.
+        if ($status === ComplianceCaseStatus::Closed) {
+            $unresolvedAlertIds = $case->alerts()
+                ->whereNotIn('status', [FlagStatus::Resolved->value, FlagStatus::Rejected->value])
+                ->pluck('id')
+                ->all();
+
+            if ($unresolvedAlertIds !== []) {
+                throw new CaseManagementException(
+                    'Cannot close case '.$case->id.': unresolved alerts ('.implode(', ', $unresolvedAlertIds).')'
+                );
+            }
+        }
+
         DB::transaction(function () use ($case, $status) {
             $case->update(['status' => $status]);
 
@@ -269,6 +334,10 @@ class CaseManagementService
                 $case->update(['resolved_at' => now()]);
             }
         });
+
+        if ($status === ComplianceCaseStatus::Closed) {
+            $this->autoDraftStrForClosedCase($case);
+        }
 
         return $case->fresh();
     }
@@ -278,13 +347,15 @@ class CaseManagementService
      */
     public function assignToOfficer(ComplianceCase $case, int $userId): ComplianceCase
     {
-        $case->update(['assigned_to' => $userId]);
+        return DB::transaction(function () use ($case, $userId) {
+            $case->update(['assigned_to' => $userId]);
 
-        if ($case->status === ComplianceCaseStatus::Open) {
-            $case->update(['status' => ComplianceCaseStatus::UnderReview]);
-        }
+            if ($case->status === ComplianceCaseStatus::Open) {
+                $case->update(['status' => ComplianceCaseStatus::UnderReview]);
+            }
 
-        return $case->fresh();
+            return $case->fresh();
+        });
     }
 
     /**
@@ -293,7 +364,7 @@ class CaseManagementService
     public function resolveCase(ComplianceCase $case, int $resolvedBy, ?string $notes = null): ComplianceCase
     {
         if (! $case->canBeResolved()) {
-            throw new \RuntimeException('Cannot resolve case: not all alerts are linked');
+            throw new CaseManagementException('Cannot resolve case: not all alerts are linked');
         }
 
         $case->update([
@@ -301,22 +372,64 @@ class CaseManagementService
             'resolved_at' => now(),
         ]);
 
+        // pd-00 s22: qualifying closed cases auto-draft an STR filing.
+        $this->autoDraftStrForClosedCase($case);
+
         return $case->fresh();
     }
 
     /**
-     * Calculate SLA deadline based on priority.
+     * Best-effort STR auto-draft for a newly Closed case. Never blocks the
+     * closure: StrReportService guards threshold/duplicates internally.
      */
-    protected function calculateSlaDeadlineFromPriority(AlertPriority $priority): Carbon
+    protected function autoDraftStrForClosedCase(ComplianceCase $case): void
     {
-        $hours = match ($priority) {
-            AlertPriority::Critical => 4,
-            AlertPriority::High => 8,
-            AlertPriority::Medium => 24,
-            AlertPriority::Low => 72,
-        };
+        try {
+            app(StrReportService::class)->autoDraftForClosedCase($case);
+        } catch (\Throwable $e) {
+            Log::error('STR auto-draft failed', [
+                'case_id' => $case->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 
-        return now()->addHours($hours);
+    /**
+     * Calculate SLA deadline based on priority (single source: ComplianceCasePriority::slaHours()).
+     */
+    protected function calculateSlaDeadlineFromPriority(ComplianceCasePriority $priority): Carbon
+    {
+        return now()->addHours($priority->slaHours());
+    }
+
+    /**
+     * Map an alert priority to the matching case severity.
+     */
+    protected function severityForPriority(AlertPriority $priority): FindingSeverity
+    {
+        return match ($priority) {
+            AlertPriority::Critical => FindingSeverity::Critical,
+            AlertPriority::High => FindingSeverity::High,
+            AlertPriority::Medium => FindingSeverity::Medium,
+            AlertPriority::Low => FindingSeverity::Low,
+        };
+    }
+
+    /**
+     * Map an alert priority to a case priority.
+     *
+     * The two enums share display names but differ in backing values (lowercase
+     * vs TitleCase); storing the raw AlertPriority value in the case's priority
+     * column made every read throw ValueError in the enum cast.
+     */
+    protected function casePriorityForAlertPriority(AlertPriority $priority): ComplianceCasePriority
+    {
+        return match ($priority) {
+            AlertPriority::Critical => ComplianceCasePriority::Critical,
+            AlertPriority::High => ComplianceCasePriority::High,
+            AlertPriority::Medium => ComplianceCasePriority::Medium,
+            AlertPriority::Low => ComplianceCasePriority::Low,
+        };
     }
 
     /**
@@ -342,9 +455,9 @@ class CaseManagementService
      */
     public function getOpenCases(): Collection
     {
-        return ComplianceCase::with(['customer', 'assignedTo', 'alerts'])
+        return ComplianceCase::with(['customer', 'assignee', 'alerts'])
             ->open()
-            ->orderByRaw("FIELD(priority, 'critical', 'high', 'medium', 'low')")
+            ->orderByRaw("CASE priority WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Medium' THEN 3 WHEN 'Low' THEN 4 ELSE 5 END")
             ->orderBy('sla_deadline')
             ->get();
     }
@@ -357,13 +470,13 @@ class CaseManagementService
         return [
             'total_open' => ComplianceCase::open()->count(),
             'critical' => ComplianceCase::open()
-                ->where('priority', AlertPriority::Critical)->count(),
+                ->where('priority', ComplianceCasePriority::Critical)->count(),
             'high' => ComplianceCase::open()
-                ->where('priority', AlertPriority::High)->count(),
+                ->where('priority', ComplianceCasePriority::High)->count(),
             'medium' => ComplianceCase::open()
-                ->where('priority', AlertPriority::Medium)->count(),
+                ->where('priority', ComplianceCasePriority::Medium)->count(),
             'low' => ComplianceCase::open()
-                ->where('priority', AlertPriority::Low)->count(),
+                ->where('priority', ComplianceCasePriority::Low)->count(),
             'overdue' => ComplianceCase::open()
                 ->where('sla_deadline', '<', now())->count(),
             'pending_review' => ComplianceCase::where('status', ComplianceCaseStatus::PendingApproval)->count(),
@@ -396,14 +509,28 @@ class CaseManagementService
     ): ComplianceCaseDocument {
         $case = ComplianceCase::findOrFail($caseId);
 
+        // Never trust the client-supplied filename: it can contain traversal
+        // sequences that escape the case directory via storeAs. Store under a
+        // generated UUID with a vetted extension and keep the original name
+        // only in the database. The MIME type is derived server-side because
+        // getClientMimeType() reflects the spoofable Content-Type header.
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        if (! in_array($extension, self::ALLOWED_DOCUMENT_EXTENSIONS, true)) {
+            throw new CaseManagementException(
+                "Unsupported document type: '{$extension}'. Allowed types: "
+                .implode(', ', self::ALLOWED_DOCUMENT_EXTENSIONS).'.'
+            );
+        }
+
         $storagePath = "compliance_cases/{$caseId}/documents";
-        $filename = Str::uuid().'_'.$file->getClientOriginalName();
+        $filename = Str::uuid().'.'.$extension;
         $path = $file->storeAs($storagePath, $filename);
 
         return $case->documents()->create([
             'file_name' => $file->getClientOriginalName(),
             'file_path' => $path,
-            'file_type' => $file->getClientMimeType(),
+            'file_type' => $file->getMimeType(),
             'uploaded_by' => $uploadedBy,
             'uploaded_at' => now(),
         ]);

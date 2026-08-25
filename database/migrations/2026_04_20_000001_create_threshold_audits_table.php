@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('key', 100);
             $table->string('old_value', 255);
             $table->string('new_value', 255);
-            $table->foreignId('changed_by')->nullable()->constrained('users');
+            $table->foreignId('changed_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->string('change_reason', 500)->nullable();
             $table->timestamp('changed_at');
             $table->timestamps();

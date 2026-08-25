@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Exceptions\Domain\BranchClosingChecklistIncompleteException;
-use App\Http\Concerns\BranchScoped;
 use App\Http\Controllers\Api\V1\Traits\ApiResponse;
+use App\Http\Controllers\Concerns\AuthorizesBranchResource;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\BranchClosingRequest;
 use App\Models\Branch;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Auth;
 class BranchClosingController extends Controller
 {
     use ApiResponse;
-    use BranchScoped;
+    use AuthorizesBranchResource;
 
     public function __construct(
         protected BranchClosingService $branchClosingService,
@@ -87,7 +87,7 @@ class BranchClosingController extends Controller
 
             return $this->successResponse($workflow->fresh(), 'Branch closure finalized successfully');
         } catch (BranchClosingChecklistIncompleteException $e) {
-            return $this->errorResponse($e->getMessage(), [], 400);
+            return $this->errorResponse('Cannot finalize branch closure: incomplete checklist items must be resolved first.', [], 400);
         }
     }
 

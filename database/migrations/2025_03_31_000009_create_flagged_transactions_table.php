@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('flagged_transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->nullable()->constrained();
-            $table->foreignId('customer_id')->nullable()->constrained('customers');
+            $table->foreignId('transaction_id')->nullable()->constrained()->restrictOnDelete();
+            $table->foreignId('customer_id')->nullable()->constrained('customers')->restrictOnDelete();
             $table->enum('flag_type', [
                 'Large_Amount',
                 'Sanctions_Hit',
@@ -31,8 +31,8 @@ return new class extends Migration
             ]);
             $table->text('flag_reason');
             $table->enum('status', ['Open', 'Under_Review', 'Resolved', 'Rejected'])->default('Open');
-            $table->foreignId('assigned_to')->nullable()->constrained('users');
-            $table->foreignId('reviewed_by')->nullable()->constrained('users');
+            $table->foreignId('assigned_to')->nullable()->constrained('users')->restrictOnDelete();
+            $table->foreignId('reviewed_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->text('notes')->nullable();
             $table->timestamp('resolved_at')->nullable();
             $table->timestamps();

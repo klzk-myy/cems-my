@@ -1,11 +1,11 @@
 <x-app-layout title="Emergency Counter Action">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Emergency Counter Action"
             description="Immediate action required - supervisor approval needed"
         />
 
-        <x-card class="max-w-lg p-6">
+        <x-card class="max-w-lg">
             <x-alert type="error" :icon="false">
                 <h3 class="font-semibold mb-2">Action Required</h3>
                 <p class="text-sm">{{ $message ?? 'An emergency situation requires immediate attention.' }}</p>

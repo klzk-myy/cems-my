@@ -5,6 +5,7 @@ namespace App\Models\Compliance;
 use App\Enums\FindingSeverity;
 use App\Enums\FindingStatus;
 use App\Enums\FindingType;
+use App\Exceptions\Domain\CaseManagementException;
 use App\Models\BaseModel;
 use App\Models\Traits\HasStatus;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,8 +16,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class ComplianceFinding extends BaseModel
 {
     use HasFactory, HasStatus, SoftDeletes;
-
-    protected $with = ['subject'];
 
     protected $fillable = [
         'finding_type',
@@ -75,12 +74,12 @@ class ComplianceFinding extends BaseModel
     /**
      * Dismiss the finding with a reason.
      *
-     * @throws \InvalidArgumentException if the finding cannot be dismissed
+     * @throws CaseManagementException if the finding cannot be dismissed
      */
     public function dismiss(string $reason): void
     {
         if (! $this->status->canBeDismissed()) {
-            throw new \InvalidArgumentException(
+            throw new CaseManagementException(
                 "Finding cannot be dismissed in {$this->status->label()} status"
             );
         }
@@ -92,12 +91,12 @@ class ComplianceFinding extends BaseModel
     /**
      * Mark the finding as having a case created.
      *
-     * @throws \InvalidArgumentException if a case cannot be created from this finding
+     * @throws CaseManagementException if a case cannot be created from this finding
      */
     public function markCaseCreated(): void
     {
         if (! $this->status->canCreateCase()) {
-            throw new \InvalidArgumentException(
+            throw new CaseManagementException(
                 "Case cannot be created from finding in {$this->status->label()} status"
             );
         }
@@ -152,5 +151,30 @@ class ComplianceFinding extends BaseModel
     public function scopeOfType(Builder $query, FindingType $type): Builder
     {
         return $query->where('finding_type', $type->value);
+    }
+
+    /**
+     * Scope to open findings that would duplicate a new finding of the same
+     * type for the same subject. Used by monitors to avoid re-firing the
+     * same issue on every scheduled run.
+     *
+     * withTrashed-aware: soft-deleted rows still count while they were open,
+     * otherwise archived duplicates would immediately be recreated.
+     */
+    public function scopeOpenDuplicateOf(
+        Builder $query,
+        string $findingType,
+        string $subjectType,
+        int $subjectId
+    ): Builder {
+        return $query->withTrashed()
+            ->where('finding_type', $findingType)
+            ->where('subject_type', $subjectType)
+            ->where('subject_id', $subjectId)
+            ->whereIn('status', [
+                FindingStatus::New->value,
+                FindingStatus::Reviewed->value,
+                FindingStatus::CaseCreated->value,
+            ]);
     }
 }

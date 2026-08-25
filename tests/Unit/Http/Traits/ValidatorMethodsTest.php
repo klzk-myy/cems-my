@@ -2,6 +2,8 @@
 
 namespace Tests\Unit\Http\Traits;
 
+use App\Exceptions\Domain\InvalidCurrencyException;
+use App\Exceptions\Domain\InvalidIpAddressException;
 use App\Http\Traits\ValidatorMethods;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -24,35 +26,35 @@ class ValidatorMethodsTest extends TestCase
         $this->validator->publicValidateCurrencyCode('GBP');
         $this->validator->publicValidateCurrencyCode('JPY');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue(true);
     }
 
     #[Test]
     public function validate_currency_code_rejects_invalid_codes(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid currency code: usd');
+        $this->expectException(InvalidCurrencyException::class);
+        $this->expectExceptionMessage('Invalid or inactive currency code: usd');
         $this->validator->publicValidateCurrencyCode('usd');
     }
 
     #[Test]
     public function validate_currency_code_rejects_too_short_codes(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidCurrencyException::class);
         $this->validator->publicValidateCurrencyCode('US');
     }
 
     #[Test]
     public function validate_currency_code_rejects_too_long_codes(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidCurrencyException::class);
         $this->validator->publicValidateCurrencyCode('USDD');
     }
 
     #[Test]
     public function validate_currency_code_rejects_numeric_codes(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidCurrencyException::class);
         $this->validator->publicValidateCurrencyCode('123');
     }
 
@@ -63,7 +65,7 @@ class ValidatorMethodsTest extends TestCase
         $this->validator->publicValidateIpAddress('10.0.0.1');
         $this->validator->publicValidateIpAddress('255.255.255.255');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue(true);
     }
 
     #[Test]
@@ -72,7 +74,7 @@ class ValidatorMethodsTest extends TestCase
         $this->validator->publicValidateIpAddress('2001:0db8:85a3:0000:0000:8a2e:0370:7334');
         $this->validator->publicValidateIpAddress('::1');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue(true);
     }
 
     #[Test]
@@ -80,21 +82,21 @@ class ValidatorMethodsTest extends TestCase
     {
         $this->validator->publicValidateIpAddress(null);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue(true);
     }
 
     #[Test]
     public function validate_ip_address_rejects_invalid_ip(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid IP address: not.an.ip');
+        $this->expectException(InvalidIpAddressException::class);
+        $this->expectExceptionMessage('Invalid IP address format: not.an.ip');
         $this->validator->publicValidateIpAddress('not.an.ip');
     }
 
     #[Test]
     public function validate_ip_address_rejects_non_ip_strings(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidIpAddressException::class);
         $this->validator->publicValidateIpAddress('localhost');
     }
 

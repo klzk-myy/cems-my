@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\System;
 
+use App\Exceptions\Domain\BackupException;
 use App\Models\BackupLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Config;
@@ -44,6 +45,8 @@ class BackupService
             ],
         ]);
 
+        $originalDisks = config('backup.backup.destination.disks');
+
         try {
             // Set backup configuration for this run
             Config::set('backup.backup.destination.disks', [$disk]);
@@ -70,7 +73,7 @@ class BackupService
                     $this->calculateChecksum($newestBackup->path(), $disk)
                 );
             } else {
-                throw new \RuntimeException('Backup completed but no backup file found');
+                throw new BackupException('Backup completed but no backup file found');
             }
 
             Log::info('Backup completed successfully', [
@@ -79,9 +82,13 @@ class BackupService
                 'type' => $type,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $log->markAsFailed($e->getMessage());
             throw $e;
+        } finally {
+            // Restore the global config so concurrent/sequential backup runs or
+            // cleanup tasks are not affected by this run's disk override.
+            Config::set('backup.backup.destination.disks', $originalDisks);
         }
 
         return $log;
@@ -99,12 +106,22 @@ class BackupService
                     return hash_file('sha256', $fullPath);
                 }
             } else {
-                // For S3, download and calculate checksum
+                // For S3, stream the object and hash incrementally so backups
+                // larger than available memory can still be verified.
                 $disk = Storage::disk($disk);
                 if ($disk->exists($path)) {
-                    $content = $disk->get($path);
+                    $stream = $disk->readStream($path);
+                    if (! is_resource($stream)) {
+                        return null;
+                    }
 
-                    return hash('sha256', $content);
+                    $context = hash_init('sha256');
+                    while (! feof($stream)) {
+                        hash_update($context, fread($stream, 8192));
+                    }
+                    fclose($stream);
+
+                    return hash_final($context);
                 }
             }
         } catch (\Exception $e) {
@@ -174,11 +191,22 @@ class BackupService
                     return false;
                 }
 
-                // Verify checksum for S3
+                // Verify checksum for S3 (streamed, to bound memory usage)
                 if ($log->checksum) {
-                    $content = $disk->get($log->file_path);
-                    $currentChecksum = hash('sha256', $content);
-                    if ($currentChecksum !== $log->checksum) {
+                    $stream = $disk->readStream($log->file_path);
+                    if (! is_resource($stream)) {
+                        $log->markAsVerified(false, 'Unable to open backup stream on S3');
+
+                        return false;
+                    }
+
+                    $context = hash_init('sha256');
+                    while (! feof($stream)) {
+                        hash_update($context, fread($stream, 8192));
+                    }
+                    fclose($stream);
+
+                    if (hash_final($context) !== $log->checksum) {
                         $log->markAsVerified(false, 'Checksum mismatch on S3');
 
                         return false;
@@ -213,7 +241,7 @@ class BackupService
     {
         if ($verifyFirst && ! $log->isVerified()) {
             if (! $this->verifyBackup($log)) {
-                throw new \RuntimeException('Backup verification failed - cannot restore unverified backup');
+                throw new BackupException('Backup verification failed - cannot restore unverified backup');
             }
         }
 
@@ -235,10 +263,28 @@ class BackupService
 
             $zip = new \ZipArchive;
             if ($zip->open($backupPath) !== true) {
-                throw new \RuntimeException('Unable to open backup archive');
+                throw new BackupException('Unable to open backup archive', $backupPath);
             }
 
             $extractPath = storage_path('app/backup-temp/restore-extract-'.time());
+
+            // ZIP-slip guard: refuse entries that would escape the extraction
+            // directory (e.g. "../evil.php" or absolute paths) before extracting.
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $stat = $zip->statIndex($i);
+                $entryName = str_replace('\\', '/', (string) ($stat['name'] ?? ''));
+
+                if ($entryName === ''
+                    || str_starts_with($entryName, '/')
+                    || preg_match('#(^|/)\.\.(/|$)#', $entryName)) {
+                    $zip->close();
+                    throw new BackupException(
+                        'Backup archive contains an unsafe entry (possible path traversal): '.($stat['name'] ?? ''),
+                        $backupPath
+                    );
+                }
+            }
+
             $zip->extractTo($extractPath);
             $zip->close();
 
@@ -252,12 +298,6 @@ class BackupService
             // Note: Application files restoration requires careful handling
             // to avoid overwriting custom configurations
 
-            // Cleanup
-            $this->recursiveDelete($extractPath);
-            if (isset($tempPath) && file_exists($tempPath)) {
-                unlink($tempPath);
-            }
-
             Log::info('Backup restored successfully', [
                 'log_id' => $log->id,
             ]);
@@ -270,6 +310,14 @@ class BackupService
                 'error' => $e->getMessage(),
             ]);
             throw $e;
+        } finally {
+            // Always clean up temp files, even when the restore fails halfway
+            if (isset($extractPath) && is_dir($extractPath)) {
+                $this->recursiveDelete($extractPath);
+            }
+            if (isset($tempPath) && file_exists($tempPath)) {
+                unlink($tempPath);
+            }
         }
     }
 
@@ -298,7 +346,7 @@ class BackupService
             : Process::timeout(300)->run($command);
 
         if (! $result->successful()) {
-            throw new \RuntimeException('Database restore failed: '.$result->errorOutput());
+            throw new BackupException('Database restore failed: '.$result->errorOutput(), $sqlFile);
         }
     }
 
@@ -445,20 +493,23 @@ class BackupService
 
             $sourcePath = storage_path('app/'.$log->file_path);
             if (! file_exists($sourcePath)) {
-                throw new \RuntimeException('Source backup file not found');
+                throw new BackupException('Source backup file not found', $sourcePath);
             }
 
-            // Upload to S3 with Glacier storage class
+            // Upload to S3 with Glacier storage class (streamed to bound memory)
             $s3Disk = Storage::disk('s3');
             $archivePath = 'archives/'.basename($log->file_path);
 
-            $contents = file_get_contents($sourcePath);
-
-            if ($contents === false) {
-                throw new \RuntimeException("Failed to read backup file: {$sourcePath}");
+            $sourceStream = fopen($sourcePath, 'rb');
+            if ($sourceStream === false) {
+                throw new BackupException("Failed to read backup file: {$sourcePath}", $sourcePath);
             }
 
-            $s3Disk->put($archivePath, $contents, ['StorageClass' => 'GLACIER']);
+            try {
+                $s3Disk->writeStream($archivePath, $sourceStream, ['StorageClass' => 'GLACIER']);
+            } finally {
+                fclose($sourceStream);
+            }
 
             // Update log
             $log->update([

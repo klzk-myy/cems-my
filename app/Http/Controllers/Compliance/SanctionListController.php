@@ -56,36 +56,26 @@ class SanctionListController extends Controller
 
     public function entriesIndex(Request $request): View
     {
-        $perPage = $request->get('per_page', 50);
+        $perPage = min(100, max(1, (int) $request->get('per_page', 50)));
         $status = $request->get('status', 'active');
 
         $query = SanctionEntry::with('sanctionList')
             ->when($request->list_id, fn ($q, $id) => $q->where('list_id', $id))
             ->when($request->search, function ($q, $search) {
+                // Escape LIKE wildcards so literal % and _ in the query match
+                // literally. MySQL treats backslash as the default LIKE escape
+                // character; an explicit ESCAPE '\' clause broke there because
+                // the backslash escapes the closing quote (SQL syntax error 1064).
                 $escaped = str_replace(['%', '_'], ['\\%', '\\_'], $search);
 
-                return $q->whereRaw('entity_name like ? escape \'\\\'', ["%{$escaped}%"]);
+                return $q->where('entity_name', 'like', "%{$escaped}%");
             })
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
             ->orderBy('entity_name');
 
         $entriesPaginated = $query->paginate($perPage);
 
-        $entries = $entriesPaginated->map(fn ($entry) => [
-            'id' => $entry->id,
-            'entity_name' => $entry->entity_name,
-            'entity_type' => $entry->entity_type,
-            'list_source' => $entry->list_source,
-            'list' => [
-                'id' => $entry->sanctionList?->id,
-                'name' => $entry->sanctionList?->name,
-            ],
-            'nationality' => $entry->nationality,
-            'date_of_birth' => $entry->date_of_birth?->format('Y-m-d'),
-            'reference_number' => $entry->reference_number,
-            'status' => $entry->status,
-            'listing_date' => $entry->listing_date?->format('Y-m-d'),
-        ]);
+        $entries = $entriesPaginated->map(fn ($entry) => $entry->toEntrySummaryArray());
 
         $pagination = [
             'current_page' => $entriesPaginated->currentPage(),
@@ -137,10 +127,6 @@ class SanctionListController extends Controller
     {
         $validated = $request->validated();
 
-        $validated['aliases'] = $request->has('aliases')
-            ? array_filter(array_map('trim', explode("\n", $request->input('aliases'))))
-            : null;
-
         $normalized = $this->normalizeEntityName($validated['entity_name']);
 
         SanctionEntry::create(SanctionEntry::buildForCreate($validated, $normalized));
@@ -162,10 +148,6 @@ class SanctionListController extends Controller
 
         $validated = $request->validated();
 
-        $validated['aliases'] = $request->has('aliases')
-            ? array_filter(array_map('trim', explode("\n", $request->input('aliases'))))
-            : null;
-
         if (isset($validated['date_listed'])) {
             $validated['listing_date'] = $validated['date_listed'];
         }
@@ -184,20 +166,7 @@ class SanctionListController extends Controller
             ->orderBy('imported_at', 'desc')
             ->limit(50)
             ->get()
-            ->map(fn ($log) => [
-                'id' => $log->id,
-                'list' => [
-                    'id' => $log->sanctionList?->id,
-                    'name' => $log->sanctionList?->name,
-                ],
-                'imported_at' => $log->imported_at->toIso8601String(),
-                'records_added' => $log->records_added,
-                'records_updated' => $log->records_updated,
-                'records_deactivated' => $log->records_deactivated,
-                'status' => $log->status,
-                'error_message' => $log->error_message,
-                'triggered_by' => $log->triggered_by,
-            ]);
+            ->map(fn ($log) => $log->toSummaryArray());
 
         return view('compliance.sanctions.import-logs.index', compact('logs'));
     }
@@ -219,7 +188,7 @@ class SanctionListController extends Controller
 
             return redirect()->back()->with('success', 'Import triggered successfully');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Failed to trigger import: '.$e->getMessage());
+            return redirect()->back()->with('error', 'Failed to trigger import. Please try again.');
         }
     }
 }

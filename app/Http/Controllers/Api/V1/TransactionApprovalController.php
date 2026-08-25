@@ -2,22 +2,24 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Transaction\ApproveTransactionAction;
 use App\Exceptions\Domain\SelfApprovalException;
 use App\Http\Controllers\Api\V1\Traits\ApiResponse;
-use App\Http\Controllers\Concerns\AuthorizesBranchResource;
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
 use App\Services\Transaction\TransactionApprovalService;
+use App\Services\Transaction\TransactionStateMachineFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TransactionApprovalController extends Controller
 {
     use ApiResponse;
-    use AuthorizesBranchResource;
 
     public function __construct(
-        protected TransactionApprovalService $approvalService
+        protected ApproveTransactionAction $approveAction,
+        protected TransactionApprovalService $approvalService,
+        protected TransactionStateMachineFactory $stateMachineFactory
     ) {}
 
     /**
@@ -25,38 +27,44 @@ class TransactionApprovalController extends Controller
      */
     public function approve(Request $request, int $transactionId): JsonResponse
     {
-        $this->requireManagerOrAdmin();
-
         $transaction = Transaction::findOrFail($transactionId);
 
-        $authorization = $this->authorizeBranchResource($transaction, 'approve');
-        if ($authorization instanceof JsonResponse) {
-            return $authorization;
+        $this->authorize('approve', $transaction);
+
+        $result = $this->approveAction->execute($transaction, auth()->id(), $request->ip());
+
+        if (! $result->ok) {
+            return $this->errorResponse($result->message, [], 422);
         }
+
+        return $this->successResponse($result->transaction, $result->message);
+    }
+
+    /**
+     * Reject a pending transaction.
+     */
+    public function reject(Request $request, int $transactionId): JsonResponse
+    {
+        $transaction = Transaction::findOrFail($transactionId);
+
+        $this->authorize('reject', $transaction);
+
+        $reason = $request->input('reason', 'Rejected by approver');
 
         try {
             $this->approvalService->validateApprovalEligibility($transaction, auth()->id());
 
-            $result = $this->approvalService->approve(
-                $transaction,
-                auth()->id(),
-                $request->ip()
-            );
-
-            if (! $result->success) {
-                return $this->errorResponse($result->message, [], 422);
+            if (! $this->stateMachineFactory->make($transaction)->reject($reason)) {
+                return $this->errorResponse('Transaction cannot be rejected from its current status.', [], 422);
             }
 
-            return $this->successResponse($result->transaction, $result->message);
-
+            return $this->successResponse($transaction, 'Transaction has been rejected.');
         } catch (SelfApprovalException $e) {
-            return $this->errorResponse($e->getMessage(), [], 403);
+            return $this->errorResponse('You cannot reject your own transaction. Segregation of duties requires a different approver.', [], 422);
         } catch (\InvalidArgumentException $e) {
-            return $this->errorResponse($e->getMessage(), [], 400);
-        } catch (\RuntimeException $e) {
-            return $this->errorResponse($e->getMessage(), [], 409);
+            return $this->errorResponse('The transaction is not eligible for rejection in its current state.', [], 422);
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Approval failed due to a system error. Please contact support.', $e);
+            return $this->errorResponse('Rejection failed due to a system error. Please contact support.', [], 500);
         }
     }
 }

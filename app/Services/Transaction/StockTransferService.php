@@ -3,9 +3,14 @@
 namespace App\Services\Transaction;
 
 use App\Enums\StockTransferStatus;
+use App\Exceptions\Domain\InsufficientStockException;
+use App\Exceptions\Domain\TransactionApprovalException;
+use App\Exceptions\Domain\TransactionValidationException;
+use App\Models\Branch;
 use App\Models\Currency;
 use App\Models\StockTransfer;
 use App\Models\User;
+use App\Services\Accounting\CurrencyPositionLockService;
 use App\Services\AuditService;
 use App\Services\System\MathService;
 use Illuminate\Support\Collection;
@@ -15,46 +20,50 @@ class StockTransferService
 {
     protected ?User $requester = null;
 
+    protected ?CurrencyPositionLockService $positionLockService;
+
     public function __construct(
         protected MathService $mathService,
         protected AuditService $auditService,
         ?User $requester = null,
+        ?CurrencyPositionLockService $positionLockService = null,
     ) {
         $this->requester = $requester ?? auth()->user();
+        $this->positionLockService = $positionLockService;
     }
 
     public function createRequest(array $data): StockTransfer
     {
         // Validate business rules
         if (empty($data['source_branch_name']) || empty($data['destination_branch_name'])) {
-            throw new \InvalidArgumentException('Source and destination branches are required');
+            throw new TransactionValidationException('Source and destination branches are required');
         }
 
         if ($data['source_branch_name'] === $data['destination_branch_name']) {
-            throw new \InvalidArgumentException('Source and destination branches cannot be the same');
+            throw new TransactionValidationException('Source and destination branches cannot be the same');
         }
 
         if (empty($data['items']) || ! is_array($data['items'])) {
-            throw new \InvalidArgumentException('At least one item is required');
+            throw new TransactionValidationException('At least one item is required');
         }
 
         // Validate each item
         foreach ($data['items'] as $item) {
             if (empty($item['currency_code'])) {
-                throw new \InvalidArgumentException('Currency code is required for each item');
+                throw new TransactionValidationException('Currency code is required for each item');
             }
 
             if (! isset($item['quantity']) || $item['quantity'] <= 0) {
-                throw new \InvalidArgumentException('Quantity must be a positive number');
+                throw new TransactionValidationException('Quantity must be a positive number');
             }
 
             if (! isset($item['rate']) || $item['rate'] <= 0) {
-                throw new \InvalidArgumentException('Rate must be a positive number');
+                throw new TransactionValidationException('Rate must be a positive number');
             }
 
             // Verify currency exists
             if (! Currency::where('code', $item['currency_code'])->exists()) {
-                throw new \InvalidArgumentException("Currency {$item['currency_code']} does not exist");
+                throw new TransactionValidationException("Currency {$item['currency_code']} does not exist");
             }
         }
 
@@ -66,7 +75,7 @@ class StockTransferService
         }
 
         if (isset($data['total_value_myr']) && $this->mathService->compare($data['total_value_myr'], $calculatedTotal) !== 0) {
-            throw new \InvalidArgumentException('Total value does not match sum of item values');
+            throw new TransactionValidationException('Total value does not match sum of item values');
         }
 
         return DB::transaction(function () use ($data, $calculatedTotal) {
@@ -98,11 +107,11 @@ class StockTransferService
     public function approveByBranchManager(StockTransfer $transfer): void
     {
         if (! $this->requester->isManager() && ! $this->requester->isAdmin()) {
-            throw new \RuntimeException('Only managers can approve transfers');
+            throw new TransactionApprovalException('Only managers can approve transfers');
         }
 
         if (! $transfer->isPending()) {
-            throw new \RuntimeException('Transfer is not in requested status');
+            throw new TransactionApprovalException('Transfer is not in requested status');
         }
 
         $transfer->approveByBranchManager($this->requester);
@@ -111,11 +120,11 @@ class StockTransferService
     public function approveByHQ(StockTransfer $transfer): void
     {
         if (! $this->requester->isAdmin()) {
-            throw new \RuntimeException('Only HQ (Admin) can approve transfers');
+            throw new TransactionApprovalException('Only HQ (Admin) can approve transfers');
         }
 
-        if ($transfer->status !== StockTransferStatus::BranchManagerApproved->value) {
-            throw new \RuntimeException('Transfer must be BM-approved before HQ approval');
+        if ($transfer->status !== StockTransferStatus::BranchManagerApproved) {
+            throw new TransactionApprovalException('Transfer must be BM-approved before HQ approval');
         }
 
         $transfer->approveByHQ($this->requester);
@@ -124,24 +133,41 @@ class StockTransferService
     public function dispatch(StockTransfer $transfer): void
     {
         if (! $this->requester->isAdmin()) {
-            throw new \RuntimeException('Only admin can dispatch transfers');
+            throw new TransactionApprovalException('Only admin can dispatch transfers');
         }
 
-        if ($transfer->status !== StockTransferStatus::HqApproved->value) {
-            throw new \RuntimeException('Transfer must be HQ-approved before dispatch');
+        if ($transfer->status !== StockTransferStatus::HqApproved) {
+            throw new TransactionApprovalException('Transfer must be HQ-approved before dispatch');
         }
 
-        $transfer->dispatch();
+        // Outbound stock movement: the SOURCE branch gives up the full
+        // transferred quantity (Sell-side sign from CurrencyPositionService).
+        // Row locks are held until this transaction commits, so concurrent
+        // dispatches cannot both pass the balance check.
+        DB::transaction(function () use ($transfer) {
+            $transfer->loadMissing('items');
+            $sourceBranchKey = $this->positionBranchKey($transfer->source_branch_name);
+
+            foreach ($transfer->items as $item) {
+                $this->decrementSourcePosition(
+                    $sourceBranchKey,
+                    (string) $item->currency_code,
+                    (string) $item->quantity
+                );
+            }
+
+            $transfer->dispatch();
+        });
     }
 
     public function receiveItems(StockTransfer $transfer, array $items): void
     {
         if (! $this->requester->isAdmin()) {
-            throw new \RuntimeException('Only admin can receive items');
+            throw new TransactionApprovalException('Only admin can receive items');
         }
 
         if ($transfer->status !== StockTransferStatus::InTransit) {
-            throw new \RuntimeException('Transfer must be in transit to receive items');
+            throw new TransactionApprovalException('Transfer must be in transit to receive items');
         }
 
         DB::transaction(function () use ($transfer, $items) {
@@ -151,34 +177,68 @@ class StockTransferService
                 ->get()
                 ->keyBy('id');
 
+            // Inbound stock movement key: received quantities land on the
+            // DESTINATION branch position (Buy-side sign).
+            $destinationBranchKey = $this->positionBranchKey($transfer->destination_branch_name);
+
             foreach ($items as $itemData) {
+                if (! isset($itemData['id']) || ! is_numeric($itemData['id'])) {
+                    throw new TransactionValidationException('Each item must have a valid numeric id');
+                }
+
+                if (! isset($itemData['quantity_received']) || ! is_numeric($itemData['quantity_received'])) {
+                    throw new TransactionValidationException('Each item must have a numeric quantity_received');
+                }
+
                 $item = $existingItems->get($itemData['id']);
                 if ($item) {
+                    // Negative receipts would inflate in-transit stock.
+                    if ($this->mathService->compare((string) $itemData['quantity_received'], '0') < 0) {
+                        throw new TransactionValidationException(
+                            "Quantity received for item {$item->id} cannot be negative"
+                        );
+                    }
+
+                    // Guard against over-receipt: receiving more than the
+                    // transferred quantity would drive in-transit negative.
+                    if ($this->mathService->compare((string) $itemData['quantity_received'], (string) $item->quantity) > 0) {
+                        throw new TransactionValidationException(
+                            "Quantity received for item {$item->id} exceeds the transferred quantity ({$item->quantity})"
+                        );
+                    }
+
                     $item->update([
                         'quantity_received' => $itemData['quantity_received'],
                         'quantity_in_transit' => $this->mathService->subtract($item->quantity, $itemData['quantity_received']),
                     ]);
+
+                    // Destination branch position grows by what actually arrived.
+                    $this->incrementDestinationPosition(
+                        $destinationBranchKey,
+                        (string) $item->currency_code,
+                        (string) $itemData['quantity_received']
+                    );
 
                     if ($item->hasVariance()) {
                         $item->update(['variance_notes' => "Variance: {$item->variance}"]);
 
                         if ($this->mathService->compare($item->quantity, '0') > 0) {
                             $variancePercent = $this->mathService->multiply(
-                                $this->mathService->divide(abs($item->variance), $item->quantity),
+                                $this->mathService->divide(
+                                    $this->mathService->abs((string) $item->variance),
+                                    (string) $item->quantity
+                                ),
                                 '100'
                             );
                             if ($this->mathService->compare($variancePercent, '5') > 0) {
-                                $this->auditService->logWithSeverity(
+                                $this->auditService->logStockTransferEvent(
                                     'stock_transfer_variance_exceeded',
-                                    [
-                                        'entity_type' => 'StockTransfer',
-                                        'entity_id' => $transfer->id,
-                                        'new_values' => [
-                                            'item_id' => $item->id,
-                                            'currency' => $item->currency_code,
-                                            'variance_percent' => $variancePercent,
-                                        ],
-                                    ],
+                                    $transfer->id,
+                                    ['new_values' => [
+                                        'item_id' => $item->id,
+                                        'currency' => $item->currency_code,
+                                        'variance_percent' => $variancePercent,
+                                    ]],
                                     'WARNING'
                                 );
                             }
@@ -200,31 +260,72 @@ class StockTransferService
     public function complete(StockTransfer $transfer): void
     {
         if (! $this->requester->isAdmin()) {
-            throw new \RuntimeException('Only admin can complete transfers');
+            throw new TransactionApprovalException('Only admin can complete transfers');
         }
 
-        if (! in_array($transfer->status, [StockTransferStatus::InTransit->value, StockTransferStatus::PartiallyReceived->value])) {
-            throw new \RuntimeException('Transfer must be in transit or partially received to complete');
+        if (! in_array($transfer->status, [StockTransferStatus::InTransit, StockTransferStatus::PartiallyReceived])) {
+            throw new TransactionApprovalException('Transfer must be in transit or partially received to complete');
         }
 
-        $transfer->complete();
+        // Finalise the inbound movement: whatever was dispatched but not yet
+        // received (dispatched quantity minus receipts) lands on the DESTINATION
+        // branch at completion, so receiveItems() + complete() together deliver
+        // exactly what dispatch() removed from the source.
+        DB::transaction(function () use ($transfer) {
+            $transfer->loadMissing('items');
+            $destinationBranchKey = $this->positionBranchKey($transfer->destination_branch_name);
+
+            foreach ($transfer->items as $item) {
+                $received = (string) ($item->quantity_received ?? '0');
+                $outstanding = $this->mathService->subtract((string) $item->quantity, $received);
+
+                $this->incrementDestinationPosition(
+                    $destinationBranchKey,
+                    (string) $item->currency_code,
+                    $outstanding
+                );
+            }
+
+            $transfer->complete();
+        });
     }
 
     public function cancel(StockTransfer $transfer, string $reason): void
     {
         if (! $this->requester->isManager() && ! $this->requester->isAdmin()) {
-            throw new \RuntimeException('Only managers can cancel transfers');
+            throw new TransactionApprovalException('Only managers can cancel transfers');
         }
 
         if ($transfer->isCompleted()) {
-            throw new \RuntimeException('Cannot cancel a completed transfer');
+            throw new TransactionApprovalException('Cannot cancel a completed transfer');
         }
 
         if ($transfer->status === StockTransferStatus::Cancelled) {
-            throw new \RuntimeException('Transfer is already cancelled');
+            throw new TransactionApprovalException('Transfer is already cancelled');
         }
 
         $transfer->cancel($reason);
+    }
+
+    public function reject(StockTransfer $transfer, string $reason = ''): void
+    {
+        if (! $this->requester->isAdmin()) {
+            throw new TransactionApprovalException('Only admin can reject transfers');
+        }
+
+        if (! in_array($transfer->status, [
+            StockTransferStatus::Requested,
+            StockTransferStatus::BranchManagerApproved,
+            StockTransferStatus::HqApproved,
+            StockTransferStatus::InTransit,
+        ])) {
+            throw new TransactionApprovalException('Transfer cannot be rejected in current state');
+        }
+
+        DB::transaction(function () use ($transfer, $reason) {
+            $transfer->update(['status' => StockTransferStatus::Rejected]);
+            $transfer->addHistoryEntry(StockTransferStatus::Rejected, $this->requester->getId(), $reason);
+        });
     }
 
     public function getPendingTransfers(): Collection
@@ -237,12 +338,84 @@ class StockTransferService
         return StockTransfer::inTransit()->with('items')->get();
     }
 
-    public function getTransfersByBranch(string $branchName): Collection
+    public function getTransfersByBranch(string $branchName, int $limit = 500): Collection
     {
         return StockTransfer::where('source_branch_name', $branchName)
             ->orWhere('destination_branch_name', $branchName)
             ->with('items')
             ->orderBy('created_at', 'desc')
+            ->limit($limit)
             ->get();
+    }
+
+    /**
+     * Resolve a stock-transfer branch identifier (branch name or code, as
+     * stored on transfers) to the currency_positions.branch_id key used by the
+     * booking path, which writes (string) branches.id via CurrencyPositionService.
+     * Falls back to the raw identifier so legacy free-text names still map to a
+     * stable position key instead of being silently skipped.
+     */
+    private function positionBranchKey(string $identifier): string
+    {
+        if (trim($identifier) === '') {
+            return $identifier;
+        }
+
+        $branchId = Branch::query()
+            ->where('name', $identifier)
+            ->orWhere('code', $identifier)
+            ->value('id');
+
+        return $branchId !== null ? (string) $branchId : $identifier;
+    }
+
+    /**
+     * Outbound leg: subtract from the SOURCE branch currency position.
+     *
+     * Sign convention mirrors CurrencyPositionService::updatePosition where a
+     * Sell (outbound) SUBTRACTS. Uses the getPositionWithLock lock pattern
+     * (pessimistic row lock) so two concurrent dispatches cannot both pass the
+     * balance check and drive the position negative.
+     *
+     * @throws InsufficientStockException If the subtraction would go below zero
+     */
+    private function decrementSourcePosition(string $branchKey, string $currencyCode, string $amount): void
+    {
+        $position = $this->positionLocks()->findForUpdate($branchKey, $currencyCode);
+
+        $available = $position !== null ? (string) $position->quantity : '0';
+
+        if ($this->mathService->compare($available, $amount) < 0) {
+            throw new InsufficientStockException($currencyCode, $amount, $available);
+        }
+
+        $position->update([
+            'quantity' => $this->mathService->subtract($available, $amount),
+        ]);
+    }
+
+    /**
+     * Inbound leg: add to the DESTINATION branch currency position.
+     *
+     * Sign convention mirrors updatePosition where a Buy (inbound) ADDS. The
+     * lock service's zero-baseline lock-or-create mirrors its Buy path so a
+     * branch that never held this currency can still receive it.
+     */
+    private function incrementDestinationPosition(string $branchKey, string $currencyCode, string $amount): void
+    {
+        if ($this->mathService->compare($amount, '0') <= 0) {
+            return;
+        }
+
+        $position = $this->positionLocks()->lock($branchKey, $currencyCode);
+
+        $position->update([
+            'quantity' => $this->mathService->add((string) $position->quantity, $amount),
+        ]);
+    }
+
+    private function positionLocks(): CurrencyPositionLockService
+    {
+        return $this->positionLockService ??= app(CurrencyPositionLockService::class);
     }
 }

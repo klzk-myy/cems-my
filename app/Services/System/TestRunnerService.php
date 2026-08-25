@@ -2,9 +2,11 @@
 
 namespace App\Services\System;
 
+use App\Enums\TestResultStatus;
 use App\Models\TestResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 class TestRunnerService
 {
@@ -31,11 +33,11 @@ class TestRunnerService
             $command = $this->buildCommand($suite, $options);
 
             // Run tests
-            $output = [];
-            $exitCode = 0;
-
-            exec($command.' 2>&1', $output, $exitCode);
-            $outputString = implode("\n", $output);
+            $process = Process::fromShellCommandline($command);
+            $process->setTimeout(300);
+            $process->run();
+            $exitCode = $process->getExitCode();
+            $outputString = $process->getOutput().$process->getErrorOutput();
 
             // Parse results
             $parsed = $this->parseTestOutput($outputString);
@@ -79,6 +81,11 @@ class TestRunnerService
     protected function buildCommand(string $suite, array $options): string
     {
         $basePath = base_path();
+        $allowedSuites = ['full', 'Navigation', 'Transaction', 'User', 'Branch', 'Api', 'Compliance', 'Accounting'];
+
+        if (! in_array($suite, $allowedSuites, true)) {
+            throw new \InvalidArgumentException("Invalid test suite: {$suite}");
+        }
 
         if ($suite === 'full') {
             return 'cd '.escapeshellarg($basePath).' && php artisan test';
@@ -225,8 +232,8 @@ class TestRunnerService
 
         return [
             'total_runs' => $runs->count(),
-            'passed' => $runs->where('status', 'passed')->count(),
-            'failed' => $runs->where('status', 'failed')->count(),
+            'passed' => $runs->where('status', TestResultStatus::Passed)->count(),
+            'failed' => $runs->where('status', TestResultStatus::Failed)->count(),
             'pass_rate' => round($runs->avg('pass_rate') ?? 0, 2),
             'avg_duration' => $runs->avg('duration') ?? 0,
             'trend' => $this->calculateTrend($runs),

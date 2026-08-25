@@ -1,0 +1,280 @@
+<?php
+
+namespace Tests\Unit\Services\Compliance;
+
+use App\Enums\AlertPriority;
+use App\Enums\ComplianceCasePriority;
+use App\Enums\ComplianceCaseStatus;
+use App\Enums\ComplianceCaseType;
+use App\Enums\FindingSeverity;
+use App\Events\CaseOpened;
+use App\Exceptions\Domain\CaseManagementException;
+use App\Models\Alert;
+use App\Models\Compliance\ComplianceCase;
+use App\Models\Compliance\ComplianceCaseDocument;
+use App\Models\Compliance\ComplianceCaseLink;
+use App\Models\Customer;
+use App\Models\User;
+use App\Services\Compliance\CaseManagementService;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Event;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class CaseManagementServiceTest extends TestCase
+{
+    use DatabaseTransactions;
+
+    protected CaseManagementService $service;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->service = app(CaseManagementService::class);
+    }
+
+    #[Test]
+    public function create_from_alerts_persists_a_complete_case(): void
+    {
+        Event::fake([CaseOpened::class]);
+
+        $customer = Customer::factory()->create();
+        $officer = User::factory()->create();
+
+        $alerts = collect([80, 65])->map(fn (int $score) => Alert::factory()->create([
+            'customer_id' => $customer->id,
+            'risk_score' => $score,
+        ]));
+
+        $case = $this->service->createFromAlerts($alerts->pluck('id')->all(), $officer->id);
+
+        $this->assertMatchesRegularExpression('/^CASE-\d{4}-\d{5}$/', $case->case_number);
+        $this->assertSame(ComplianceCaseType::Investigation, $case->case_type);
+        $this->assertSame(ComplianceCaseStatus::Open, $case->status);
+        $this->assertSame(FindingSeverity::Critical, $case->severity);
+        $this->assertSame(ComplianceCasePriority::Critical, $case->priority);
+        $this->assertSame($customer->id, $case->customer_id);
+        $this->assertSame($officer->id, $case->assigned_to);
+        $this->assertSame('Manual', $case->created_via);
+        $this->assertNotNull($case->sla_deadline);
+        $this->assertSame(2, $case->alerts()->count());
+        $this->assertSame($case->id, $alerts->first()->fresh()->case_id);
+    }
+
+    #[Test]
+    public function create_from_alerts_rejects_alerts_for_multiple_customers(): void
+    {
+        $alertA = Alert::factory()->create();
+        $alertB = Alert::factory()->create();
+
+        $this->expectException(CaseManagementException::class);
+
+        $this->service->createFromAlerts([$alertA->id, $alertB->id], User::factory()->create()->id);
+
+        $this->assertSame(0, ComplianceCase::count());
+    }
+
+    #[Test]
+    public function link_alert_to_case_rejects_cross_customer_alert(): void
+    {
+        $case = ComplianceCase::factory()->create();
+        $alert = Alert::factory()->create();
+
+        $this->expectException(CaseManagementException::class);
+
+        $this->service->linkAlertToCase($alert, $case);
+    }
+
+    #[Test]
+    public function merge_cases_rejects_self_merge(): void
+    {
+        $case = ComplianceCase::factory()->create();
+
+        $this->expectException(CaseManagementException::class);
+
+        $this->service->mergeCases($case, $case);
+    }
+
+    #[Test]
+    public function merge_cases_rejects_cases_for_different_customers(): void
+    {
+        $source = ComplianceCase::factory()->create();
+        $target = ComplianceCase::factory()->create();
+
+        $this->expectException(CaseManagementException::class);
+
+        $this->service->mergeCases($source, $target);
+    }
+
+    #[Test]
+    public function merge_cases_transfers_evidence_and_closes_source(): void
+    {
+        $customer = Customer::factory()->create();
+        $officer = User::factory()->create();
+
+        $source = ComplianceCase::factory()->create([
+            'customer_id' => $customer->id,
+            'assigned_to' => $officer->id,
+        ]);
+        $target = ComplianceCase::factory()->create([
+            'customer_id' => $customer->id,
+            'assigned_to' => $officer->id,
+        ]);
+
+        $alert = Alert::factory()->create(['customer_id' => $customer->id, 'case_id' => $source->id]);
+        $document = ComplianceCaseDocument::factory()->create([
+            'case_id' => $source->id,
+            'uploaded_by' => $officer->id,
+        ]);
+        $linkCustomer = Customer::factory()->create();
+        $link = ComplianceCaseLink::factory()->create([
+            'case_id' => $source->id,
+            'linked_type' => 'App\Models\Customer',
+            'linked_id' => $linkCustomer->id,
+        ]);
+
+        $merged = $this->service->mergeCases($source, $target);
+
+        $this->assertSame($target->id, $merged->id);
+        $this->assertSame($target->id, $alert->fresh()->case_id);
+        $this->assertSame($target->id, $document->fresh()->case_id);
+        $this->assertSame($target->id, $link->fresh()->case_id);
+        $this->assertSame(ComplianceCaseStatus::Closed, $source->fresh()->status);
+        $this->assertNotNull($source->fresh()->resolved_at);
+    }
+
+    #[Test]
+    public function update_status_enforces_transition_rules(): void
+    {
+        $case = ComplianceCase::factory()->create(['status' => ComplianceCaseStatus::Open]);
+
+        $closed = $this->service->updateStatus($case, ComplianceCaseStatus::Closed);
+
+        $this->assertSame(ComplianceCaseStatus::Closed, $closed->status);
+        $this->assertNotNull($closed->resolved_at);
+
+        $this->expectException(CaseManagementException::class);
+
+        // Closed is terminal: reopening must be rejected.
+        $this->service->updateStatus($closed, ComplianceCaseStatus::Open);
+    }
+
+    #[Test]
+    public function update_status_is_a_no_op_for_the_same_status(): void
+    {
+        $case = ComplianceCase::factory()->create(['status' => ComplianceCaseStatus::Open]);
+
+        $updated = $this->service->updateStatus($case, ComplianceCaseStatus::Open);
+
+        $this->assertSame(ComplianceCaseStatus::Open, $updated->status);
+    }
+
+    #[Test]
+    public function derive_priority_from_alerts_maps_highest_alert_priority(): void
+    {
+        $customer = Customer::factory()->create();
+        $case = ComplianceCase::factory()->create(['customer_id' => $customer->id]);
+
+        Alert::factory()->create(['customer_id' => $customer->id, 'case_id' => $case->id, 'priority' => AlertPriority::Low, 'risk_score' => 10]);
+        Alert::factory()->create(['customer_id' => $customer->id, 'case_id' => $case->id, 'priority' => AlertPriority::High, 'risk_score' => 65]);
+        Alert::factory()->create(['customer_id' => $customer->id, 'case_id' => $case->id, 'priority' => AlertPriority::Critical, 'risk_score' => 90]);
+
+        $this->assertSame(ComplianceCasePriority::Critical, $case->derivePriorityFromAlerts());
+    }
+
+    #[Test]
+    public function derive_priority_from_alerts_returns_medium_when_no_alerts(): void
+    {
+        $case = ComplianceCase::factory()->create();
+
+        $this->assertSame(ComplianceCasePriority::Medium, $case->derivePriorityFromAlerts());
+    }
+
+    #[Test]
+    public function sla_hours_are_consistent_across_creation_paths(): void
+    {
+        $this->assertSame(120, ComplianceCase::slaHoursFor(FindingSeverity::Medium));
+        $this->assertSame(240, ComplianceCase::slaHoursFor(FindingSeverity::Low));
+
+        $manual = $this->service->createManualCase(
+            ComplianceCaseType::Investigation,
+            Customer::factory()->create()->id,
+            User::factory()->create()->id,
+            FindingSeverity::Medium
+        );
+
+        // createManualCase previously threw an Error because calculateSlaDeadline
+        // referenced a non-existent ComplianceCaseType::Str case.
+        $this->assertEqualsWithDelta(now()->addHours(120)->timestamp, $manual->sla_deadline->timestamp, 60);
+
+        $urgent = $this->service->createManualCase(
+            ComplianceCaseType::SanctionReview,
+            Customer::factory()->create()->id,
+            User::factory()->create()->id,
+            FindingSeverity::High
+        );
+
+        $this->assertEqualsWithDelta(now()->addHours(24)->timestamp, $urgent->sla_deadline->timestamp, 60);
+    }
+
+    #[Test]
+    public function case_summary_counts_priority_buckets_by_titlecase_values(): void
+    {
+        $customer = Customer::factory()->create();
+        ComplianceCase::factory()->count(2)->create([
+            'customer_id' => $customer->id,
+            'status' => ComplianceCaseStatus::Open,
+            'priority' => ComplianceCasePriority::Critical,
+        ]);
+        ComplianceCase::factory()->create([
+            'customer_id' => $customer->id,
+            'status' => ComplianceCaseStatus::Open,
+            'priority' => ComplianceCasePriority::Low,
+        ]);
+
+        $summary = $this->service->getCaseSummary();
+
+        $this->assertSame(3, $summary['total_open']);
+        $this->assertSame(2, $summary['critical']);
+        $this->assertSame(1, $summary['low']);
+    }
+
+    #[Test]
+    public function open_cases_are_ordered_by_priority(): void
+    {
+        $customer = Customer::factory()->create();
+        $low = ComplianceCase::factory()->create([
+            'customer_id' => $customer->id,
+            'status' => ComplianceCaseStatus::Open,
+            'priority' => ComplianceCasePriority::Low,
+        ]);
+        $high = ComplianceCase::factory()->create([
+            'customer_id' => $customer->id,
+            'status' => ComplianceCaseStatus::Open,
+            'priority' => ComplianceCasePriority::High,
+        ]);
+
+        $cases = $this->service->getOpenCases();
+
+        $this->assertSame($high->id, $cases->first()->id);
+        $this->assertSame($low->id, $cases->last()->id);
+    }
+
+    #[Test]
+    public function case_number_is_generated_when_not_provided(): void
+    {
+        $case = ComplianceCase::create([
+            'case_type' => ComplianceCaseType::Investigation,
+            'status' => ComplianceCaseStatus::Open,
+            'severity' => FindingSeverity::Medium,
+            'priority' => ComplianceCasePriority::Medium,
+            'customer_id' => Customer::factory()->create()->id,
+            'assigned_to' => User::factory()->create()->id,
+            'created_via' => 'Manual',
+            'sla_deadline' => now()->addDay(),
+        ]);
+
+        $this->assertMatchesRegularExpression('/^CASE-\d{4}-\d{5}$/', $case->case_number);
+    }
+}

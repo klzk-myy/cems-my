@@ -16,7 +16,6 @@ class UpdateCustomerRequest extends AuthorizedFormRequest
     public function rules(): array
     {
         return array_merge($this->customerValidationRules(isUpdate: true), [
-            'risk_rating' => ['nullable', 'in:Low,Medium,High'],
             'is_active' => 'sometimes|boolean',
         ]);
     }

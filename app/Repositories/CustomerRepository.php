@@ -23,29 +23,72 @@ class CustomerRepository
         return Customer::where('id_number_hash', CustomerService::computeBlindIndex($idNumber))->first();
     }
 
+    /**
+     * Escape a user-supplied search term for use inside a LIKE pattern.
+     *
+     * Escapes the backslash first so it cannot alter the escape character,
+     * then escapes the % and _ wildcards. Without this, a search for "\%" or
+     * "100%" acts as a wildcard and matches records the user never searched for.
+     */
+    public static function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
     public function search(string $query): Collection
     {
-        return Customer::where('full_name', 'like', "%{$query}%")
-            ->orWhere('id_number_hash', 'like', "%{$query}%")
+        $pattern = '%'.self::escapeLike($query).'%';
+
+        return Customer::whereRaw("full_name LIKE ? ESCAPE '\\'", [$pattern])
+            ->orWhereRaw("id_number_hash LIKE ? ESCAPE '\\'", [$pattern])
             ->get();
     }
 
-    public function searchActive(string $query, int $limit = 10): Collection
+    public function searchActive(string $query, int $limit = 10, ?int $branchId = null): Collection
     {
-        $escapedQuery = str_replace(['%', '_'], ['\\%', '\\_'], $query);
+        $escapedQuery = self::escapeLike($query);
+        $pattern = '%'.$escapedQuery.'%';
 
-        return Customer::where('full_name', 'like', "%{$escapedQuery}%")
-            ->orWhere('id_number_encrypted', 'like', "%{$escapedQuery}%")
-            ->where('is_active', true)
-            ->limit($limit)
-            ->get();
+        // Explicit ESCAPE clause: SQLite has no default escape character, MySQL uses
+        // backslash by default, so without this the escaped wildcards are meaningless
+        // on some drivers.
+        //
+        // The identity predicates stay inside a grouped closure so their OR
+        // branches cannot escape the mandatory is_active filter, and any branch
+        // scoping is its own grouped AND clause rather than a trailing orWhere
+        // that would return customers matching neither name nor ID hash.
+        $q = Customer::where(function ($query) use ($pattern) {
+            $query->whereRaw("full_name LIKE ? ESCAPE '\\'", [$pattern])
+                ->orWhereRaw("id_number_hash LIKE ? ESCAPE '\\'", [$pattern]);
+        })
+            ->where('is_active', true);
+
+        if ($branchId !== null) {
+            // Branch scope: customers with at least one transaction at the
+            // caller's branch (matches CustomerPolicy::view semantics).
+            $q->whereHas('transactions', function ($q2) use ($branchId) {
+                $q2->where('branch_id', $branchId);
+            });
+        }
+
+        return $q->limit($limit)->get();
     }
 
-    public function findActiveByIdNumberHash(string $idHash): ?Customer
+    public function findActiveByIdNumberHash(string $idHash, ?int $branchId = null): ?Customer
     {
-        return Customer::where('id_number_hash', $idHash)
-            ->where('is_active', true)
-            ->first();
+        // Identity (hash match + active) is mandatory; the optional branch scope
+        // is grouped so its orWhere() alternative cannot escape the hash check
+        // and return unrelated branch-local customers.
+        $q = Customer::where('id_number_hash', $idHash)
+            ->where('is_active', true);
+
+        if ($branchId !== null) {
+            $q->whereHas('transactions', function ($q2) use ($branchId) {
+                $q2->where('branch_id', $branchId);
+            });
+        }
+
+        return $q->first();
     }
 
     public function getByIds(array $customerIds): Collection

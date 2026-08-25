@@ -15,9 +15,9 @@ class AlertIndexRequest extends ApiFormRequest
     {
         return [
             'per_page' => 'nullable|integer|min:1|max:100',
-            'priority' => 'nullable|string',
-            'assigned' => 'nullable|string',
-            'status' => 'nullable|string',
+            'priority' => 'nullable|in:critical,high,medium,low',
+            'assigned' => 'nullable|in:yes,no',
+            'status' => 'nullable|in:Open,Under_Review,Resolved,Escalated,Rejected',
         ];
     }
 }

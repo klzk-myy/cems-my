@@ -13,7 +13,7 @@ class BranchPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->isAdmin() || $user->branch_id !== null;
     }
 
     /**
@@ -21,7 +21,7 @@ class BranchPolicy
      */
     public function view(User $user, Branch $branch): bool
     {
-        return true;
+        return $user->isAdmin() || $user->branch_id === $branch->id;
     }
 
     /**

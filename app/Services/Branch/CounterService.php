@@ -355,7 +355,9 @@ class CounterService
                 $rates = ExchangeRate::whereIn('currency_code', $nonMyrCodes)
                     ->orderBy('fetched_at', 'desc')
                     ->get()
-                    ->unique('currency_code'); // keep latest per currency due to orderBy desc
+                    ->groupBy('currency_code')
+                    ->map(fn ($group) => $group->first());
+
                 foreach ($rates as $rate) {
                     $exchangeRates[$rate->currency_code] = $rate->rate_sell;
                 }

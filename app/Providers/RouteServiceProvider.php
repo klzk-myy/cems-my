@@ -55,11 +55,13 @@ class RouteServiceProvider extends ServiceProvider
             });
         });
 
-        // Login rate limit: 5 per minute per IP
+        // Login rate limit: 5 per minute keyed by IP AND submitted email so
+        // both shared-NAT clients and credential-stuffing via rotating proxies
+        // are constrained.
         RateLimiter::for('login', function (Request $request) {
             return Limit::perMinute(
                 config('security.rate_limits.login.attempts', 5)
-            )->by($request->ip())->response(function () use ($request) {
+            )->by($request->ip().'|'.strtolower((string) $request->input('email')))->response(function () use ($request) {
                 app(RateLimitService::class)->recordFailedAttempt($request->ip());
                 app(RateLimitService::class)->logRateLimitHit($request, 'login');
 
@@ -67,6 +69,19 @@ class RouteServiceProvider extends ServiceProvider
                     'error' => 'Too many login attempts',
                     'message' => 'Too many login attempts. Please try again later.',
                     'code' => 'LOGIN_RATE_LIMIT_EXCEEDED',
+                ], 429);
+            });
+        });
+
+        // Password reset rate limit: 5 per minute per IP (prevents mail bombing)
+        RateLimiter::for('password-reset', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip())->response(function () use ($request) {
+                app(RateLimitService::class)->logRateLimitHit($request, 'password-reset');
+
+                return response()->json([
+                    'error' => 'Too many password reset requests',
+                    'message' => 'Too many password reset attempts. Please try again later.',
+                    'code' => 'PASSWORD_RESET_RATE_LIMIT_EXCEEDED',
                 ], 429);
             });
         });

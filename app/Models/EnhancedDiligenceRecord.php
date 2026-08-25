@@ -14,16 +14,12 @@ class EnhancedDiligenceRecord extends ComplianceModel
 {
     use HasFactory;
 
-    protected $with = ['customer', 'reviewer', 'template'];
-
     protected $fillable = [
         'flagged_transaction_id',
         'edd_reference',
-        'edd_template_id',
         'risk_level',
         'source_of_funds',
         'source_of_funds_description',
-        'source_of_funds_documents',
         'purpose_of_transaction',
         'business_justification',
         'employment_status',
@@ -34,7 +30,6 @@ class EnhancedDiligenceRecord extends ComplianceModel
         'source_of_wealth',
         'source_of_wealth_description',
         'additional_information',
-        'supporting_documents',
         'reviewed_by',
         'reviewed_at',
         'review_notes',
@@ -47,8 +42,6 @@ class EnhancedDiligenceRecord extends ComplianceModel
     ];
 
     protected $casts = [
-        'source_of_funds_documents' => 'array',
-        'supporting_documents' => 'array',
         'questionnaire_responses' => 'array',
         'reviewed_at' => 'datetime',
         'questionnaire_completed_at' => 'datetime',

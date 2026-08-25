@@ -29,11 +29,9 @@ class ComponentConsistencyTest extends TestCase
         return [
             'button' => ['components.button', ['variant' => 'primary', 'slot' => 'Click']],
             'card' => ['components.card', ['slot' => '']],
-            'card-section' => ['components.card-section', ['slot' => '']],
             'alert' => ['components.alert', ['type' => 'info', 'slot' => 'Message']],
             'badge' => ['components.badge', ['variant' => 'success', 'slot' => 'Active']],
             'table' => ['components.table', ['thead' => '', 'tbody' => '']],
-            'data-table' => ['components.data-table', []],
             'stat-card' => ['components.stat-card', ['label' => 'X', 'value' => '1']],
             'filter-bar' => ['components.filter-bar', ['slot' => '']],
             'progress-bar' => ['components.progress-bar', ['value' => 50]],
@@ -41,7 +39,6 @@ class ComponentConsistencyTest extends TestCase
             'chart-trend' => ['components.chart-trend', ['title' => 'X', 'labels' => [], 'values' => []]],
             'textarea' => ['components.textarea', ['name' => 'notes', 'slot' => '']],
             'checkbox' => ['components.checkbox', ['name' => 'is_active', 'label' => 'Active', 'slot' => '']],
-            'radio-group' => ['components.radio-group', ['name' => 'risk_level', 'options' => ['low' => 'Low'], 'slot' => '']],
             'empty-state-div' => ['components.empty-state', ['as' => 'div', 'slot' => '']],
             'verify-card' => ['pages.mfa.verify', []],
 

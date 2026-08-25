@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('description', 255)->nullable();
             $table->timestamps();
 
-            $table->foreign('account_code')->references('account_code')->on('chart_of_accounts');
+            $table->foreign('account_code')->references('account_code')->on('chart_of_accounts')->restrictOnDelete();
             $table->index('journal_entry_id');
             $table->index('account_code');
         });

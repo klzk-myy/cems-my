@@ -12,6 +12,7 @@ enum RiskRating: string
     case Low = 'Low';
     case Medium = 'Medium';
     case High = 'High';
+    case Critical = 'Critical';
 
     /**
      * Get the refresh frequency in years for this risk rating.
@@ -22,6 +23,7 @@ enum RiskRating: string
             self::Low => 3,
             self::Medium => 2,
             self::High => 1,
+            self::Critical => 0,
         };
     }
 
@@ -58,6 +60,7 @@ enum RiskRating: string
             self::Low => 'Low Risk',
             self::Medium => 'Medium Risk',
             self::High => 'High Risk',
+            self::Critical => 'Critical Risk',
         };
     }
 
@@ -70,6 +73,7 @@ enum RiskRating: string
             self::Low => 'success',
             self::Medium => 'warning',
             self::High => 'danger',
+            self::Critical => 'danger',
         };
     }
 }

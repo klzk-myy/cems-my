@@ -128,6 +128,7 @@ enum CddLevel: string
     {
         return match ($this) {
             self::Simplified => 'Simplified Due Diligence',
+            self::Specific => 'Specific Due Diligence',
             self::Standard => 'Standard Due Diligence',
             self::Enhanced => 'Enhanced Due Diligence',
         };
@@ -140,6 +141,7 @@ enum CddLevel: string
     {
         return match ($this) {
             self::Simplified => 'success',
+            self::Specific => 'info',
             self::Standard => 'info',
             self::Enhanced => 'warning',
         };

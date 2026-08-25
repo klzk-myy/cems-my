@@ -29,8 +29,17 @@
                     <x-input type="text" name="username" label="Username" required value="{{ old('username') }}" inline />
                     <x-input type="password" name="password" label="Password" required inline />
 
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" name="remember" value="1" class="rounded border-gray-300">
+                        <span>Remember me</span>
+                    </label>
+
                     <x-button type="submit" variant="primary" class="w-full">Sign In</x-button>
                 </form>
+
+                <a href="{{ route('password.request') }}" class="block text-sm text-info-text hover:text-info text-center">
+                    Forgot your password?
+                </a>
             </div>
         </x-card>
     </div>

@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\Customer\CustomerService;
+use Illuminate\Cache\TaggableStore;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
 use Mockery;
@@ -61,10 +62,24 @@ class CustomerServiceCacheTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Mock dashboard tag flush (called by cacheTagsService->invalidate('dashboard'))
+        // CacheTagsService calls Cache::getStore() to decide whether the store
+        // supports tags, then Cache::tags(...)->flush() to invalidate 'dashboard'.
+        $taggableStore = Mockery::mock(TaggableStore::class);
+        Cache::shouldReceive('getStore')->once()->andReturn($taggableStore);
+
         $dashboardMock = Mockery::mock();
         $dashboardMock->shouldReceive('flush')->once();
         Cache::shouldReceive('tags')->with(['dashboard'])->once()->andReturn($dashboardMock);
+
+        // RiskScoringEngine caches the high-risk country code list (one read per recalculation)
+        Cache::shouldReceive('remember')
+            ->once()
+            ->with(
+                'high_risk_country_codes',
+                Mockery::type(\DateTimeInterface::class),
+                Mockery::type(\Closure::class)
+            )
+            ->andReturn([]);
 
         // Expect customer cache forget
         Cache::shouldReceive('forget')

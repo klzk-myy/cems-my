@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('name', 255);
             $table->enum('list_type', ['UNSCR', 'MOHA', 'Internal']);
             $table->string('source_file', 255)->nullable();
-            $table->foreignId('uploaded_by')->constrained('users');
+            $table->foreignId('uploaded_by')->constrained('users')->restrictOnDelete();
             $table->boolean('is_active')->default(true);
             $table->timestamp('uploaded_at')->default(DB::raw('CURRENT_TIMESTAMP'));
             $table->index('list_type');

@@ -12,8 +12,8 @@ class LoginRequest extends AuthorizedFormRequest
     public function rules(): array
     {
         return [
-            'username' => 'required|string',
-            'password' => 'required',
+            'username' => 'required|string|max:255',
+            'password' => 'required|string|min:8',
         ];
     }
 }

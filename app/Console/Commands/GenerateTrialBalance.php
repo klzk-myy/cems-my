@@ -4,8 +4,8 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\HasReportFormatting;
 use App\Enums\ReportType;
-use App\Services\Accounting\AccountingService;
-use App\Services\System\MathService;
+use App\Services\Accounting\LedgerService;
+use App\Services\Reporting\CsvReportWriter;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -17,7 +17,7 @@ class GenerateTrialBalance extends Command
 
     protected $description = 'Generate trial balance report for accounting period';
 
-    public function handle(AccountingService $accountingService): int
+    public function handle(LedgerService $ledgerService): int
     {
         $date = $this->option('date')
             ? Carbon::parse($this->option('date'))
@@ -26,30 +26,39 @@ class GenerateTrialBalance extends Command
         $this->info("Generating Trial Balance for {$date->toDateString()}...");
 
         try {
-            $reportData = $accountingService->generateTrialBalance($date);
+            // getTrialBalance() returns a wrapper array; the account rows live
+            // under 'accounts' and the BCMath-computed totals under
+            // 'total_debits'/'total_credits'.
+            $reportData = $ledgerService->getTrialBalance($date->toDateString());
 
             $filename = $this->getReportFilename(ReportType::TrialBalance, 'report');
-            $filepath = $this->getReportPath($filename);
 
-            $totalDebit = '0';
-            $totalCredit = '0';
-            $math = app(MathService::class);
-            $csvContent = "Account Code,Account Name,Debit,Credit\n";
-
-            foreach ($reportData as $row) {
-                $csvContent .= implode(',', [
+            $rows = [];
+            foreach ($reportData['accounts'] as $row) {
+                $rows[] = [
                     $row['account_code'],
                     $row['account_name'],
-                    number_format((float) $row['debit'], 2),
-                    number_format((float) $row['credit'], 2),
-                ])."\n";
-                $totalDebit = $math->add($totalDebit, $row['debit']);
-                $totalCredit = $math->add($totalCredit, $row['credit']);
+                    number_format((float) $row['debit'], 2, '.', ''),
+                    number_format((float) $row['credit'], 2, '.', ''),
+                ];
             }
 
-            $csvContent .= implode(',', ['', 'TOTAL', number_format((float) $totalDebit, 2), number_format((float) $totalCredit, 2)])."\n";
+            // Reuse the service's totals instead of recomputing row sums.
+            $rows[] = [
+                '',
+                'TOTAL',
+                number_format((float) ($reportData['total_debits'] ?? '0'), 2, '.', ''),
+                number_format((float) ($reportData['total_credits'] ?? '0'), 2, '.', ''),
+            ];
 
-            $this->saveReportCsv($filepath, $csvContent);
+            // Emit through CsvReportWriter so cells containing commas (account
+            // names) are quoted by fputcsv and every cell passes the
+            // formula-injection guard - no pre-rendered string round-trip.
+            $filepath = app(CsvReportWriter::class)->write(
+                $filename,
+                ['Account Code', 'Account Name', 'Debit', 'Credit'],
+                $rows
+            );
 
             $this->createReportRecord(ReportType::TrialBalance, $date->startOfMonth(), $date->endOfMonth());
 

@@ -14,7 +14,7 @@ class AddCaseNoteRequest extends ApiFormRequest
     public function rules(): array
     {
         return [
-            'note_type' => 'required|string',
+            'note_type' => 'required|in:Observation,Action,Decision,Communication,FollowUp',
             'content' => 'required|string|max:2000',
             'is_internal' => 'boolean',
         ];

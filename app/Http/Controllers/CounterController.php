@@ -65,6 +65,8 @@ class CounterController extends Controller
      */
     public function showOpen(Counter $counter): View
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $availableCounters = $this->counterService->getAvailableCounters();
         $currencies = $this->getActiveCurrencies();
 
@@ -76,6 +78,8 @@ class CounterController extends Controller
      */
     public function open(OpenCounterRequest $request, Counter $counter): RedirectResponse
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $user = auth()->user();
         $openingFloats = $request->input('opening_floats');
         $today = now()->toDateString();
@@ -102,11 +106,10 @@ class CounterController extends Controller
 
     public function showClose(Counter $counter): View
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $today = now()->toDateString();
-        $session = CounterSession::where('counter_id', $counter->id)
-            ->whereDate('session_date', $today)
-            ->where('status', CounterSessionStatus::Open->value)
-            ->first();
+        $session = $this->findOpenSession($counter, $today);
 
         if (! $session) {
             abort(404, 'No open session found for this counter today.');
@@ -122,15 +125,14 @@ class CounterController extends Controller
      */
     public function close(CloseCounterRequest $request, Counter $counter): RedirectResponse
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $user = auth()->user();
         $closingFloats = $request->input('closing_floats');
         $notes = $request->input('notes');
         $today = now()->toDateString();
 
-        $session = CounterSession::where('counter_id', $counter->id)
-            ->whereDate('session_date', $today)
-            ->where('status', CounterSessionStatus::Open->value)
-            ->first();
+        $session = $this->findOpenSession($counter, $today);
 
         if (! $session) {
             return back()->with('error', 'No open session found for this counter today.');
@@ -163,6 +165,8 @@ class CounterController extends Controller
 
     public function status(Counter $counter): JsonResponse
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $status = $this->counterService->getCounterStatus($counter);
 
         return response()->json([
@@ -173,6 +177,8 @@ class CounterController extends Controller
 
     public function history(Request $request, Counter $counter): View
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $query = CounterSession::where('counter_id', $counter->id)
             ->with(['user', 'openedByUser', 'closedByUser']);
 
@@ -199,6 +205,8 @@ class CounterController extends Controller
 
     public function showHandover(Counter $counter): View
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $today = now()->toDateString();
         $session = CounterSession::where('counter_id', $counter->id)
             ->whereDate('session_date', $today)
@@ -226,17 +234,15 @@ class CounterController extends Controller
 
     public function handover(HandoverCounterRequest $request, Counter $counter): RedirectResponse
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $fromUser = User::find($request->input('from_user_id'));
         if (! $fromUser) {
             return back()->with('error', 'From user not found.');
         }
         $today = now()->toDateString();
 
-        $session = CounterSession::where('counter_id', $counter->id)
-            ->whereDate('session_date', $today)
-            ->where('user_id', $fromUser->id)
-            ->where('status', CounterSessionStatus::Open->value)
-            ->first();
+        $session = $this->findOpenSession($counter, $today, $fromUser);
 
         if (! $session) {
             return back()->with('error', 'No open session found for this counter and user today.');
@@ -294,11 +300,10 @@ class CounterController extends Controller
 
     public function showEmergency(Counter $counter): View
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $today = now()->toDateString();
-        $session = CounterSession::where('counter_id', $counter->id)
-            ->whereDate('session_date', $today)
-            ->where('status', CounterSessionStatus::Open->value)
-            ->first();
+        $session = $this->findOpenSession($counter, $today);
 
         if (! $session || ! $session->isOpen()) {
             abort(400, 'Counter does not have an active session');
@@ -309,6 +314,8 @@ class CounterController extends Controller
 
     public function emergency(EmergencyCloseRequest $request, Counter $counter): RedirectResponse
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $user = auth()->user();
 
         try {
@@ -321,14 +328,16 @@ class CounterController extends Controller
             return redirect()->route('counters.index')
                 ->with('success', "Emergency closure initiated for counter {$counter->code}. A manager has been notified.");
         } catch (EmergencyCloseCooldownException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'An emergency closure was recently initiated for this counter. Please wait before initiating another.');
         } catch (EmergencyCloseSessionTooNewException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'The counter session is too new to be closed in emergency mode.');
         }
     }
 
     public function showEmergencyClosure(Counter $counter, EmergencyClosure $closure): View
     {
+        $this->ensureCounterBranchAccess($counter);
+
         if ($closure->counter_id !== $counter->id) {
             abort(404);
         }
@@ -338,23 +347,10 @@ class CounterController extends Controller
         return view('counters.emergency-closure', compact('counter', 'closure', 'variance'));
     }
 
-    public function acknowledgeEmergency(Request $request, Counter $counter, EmergencyClosure $closure): RedirectResponse
-    {
-        $this->requireManagerOrAdmin();
-
-        if ($closure->counter_id !== $counter->id) {
-            abort(404);
-        }
-
-        $user = auth()->user();
-        $closure = $this->emergencyCounterService->acknowledge($closure, $user);
-
-        return redirect()->route('counters.index')
-            ->with('success', 'Emergency closure acknowledged');
-    }
-
     public function showAcknowledgeHandover(Counter $counter): View|RedirectResponse
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $user = auth()->user();
         $today = now()->toDateString();
 
@@ -374,6 +370,8 @@ class CounterController extends Controller
 
     public function acknowledgeHandover(AcknowledgeHandoverWebRequest $request, Counter $counter): RedirectResponse
     {
+        $this->ensureCounterBranchAccess($counter);
+
         $user = auth()->user();
         $today = now()->toDateString();
 
@@ -398,7 +396,13 @@ class CounterController extends Controller
             return redirect()->route('counters.index')
                 ->with('success', 'Handover acknowledged successfully');
         } catch (\Exception $e) {
-            return back()->with('error', "Failed to acknowledge handover: {$e->getMessage()}");
+            Log::error('Failed to acknowledge counter handover', [
+                'handover_id' => $handover->id ?? null,
+                'user_id' => $user->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'Failed to acknowledge handover. Please try again.');
         }
     }
 
@@ -444,12 +448,43 @@ class CounterController extends Controller
                 'counter_id' => $auditContext['counter_id'] ?? $auditContext['auditable_id'] ?? null,
             ]);
 
-            return back()->with('error', "Failed to {$verb} counter: {$e->getMessage()}");
+            return back()->with('error', "Failed to {$verb} counter. Please try again.");
+        }
+    }
+
+    /**
+     * Enforce branch isolation for counter operations: non-admins may only
+     * interact with counters belonging to their own branch. Route middleware
+     * already enforces roles; this closes the cross-branch hole.
+     */
+    private function ensureCounterBranchAccess(Counter $counter): void
+    {
+        $user = auth()->user();
+
+        if ($user->role->canManageAllBranches()) {
+            return;
+        }
+
+        if ($counter->branch_id !== $user->branch_id) {
+            abort(403, 'You do not have access to counters in this branch.');
         }
     }
 
     private function getActiveCurrencies(): Collection
     {
         return Currency::select('code', 'name')->where('is_active', true)->get();
+    }
+
+    private function findOpenSession(Counter $counter, string $today, ?User $user = null): ?CounterSession
+    {
+        $query = CounterSession::where('counter_id', $counter->id)
+            ->whereDate('session_date', $today)
+            ->where('status', CounterSessionStatus::Open->value);
+
+        if ($user) {
+            $query->where('user_id', $user->id);
+        }
+
+        return $query->first();
     }
 }

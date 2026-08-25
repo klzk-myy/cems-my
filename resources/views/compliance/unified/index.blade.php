@@ -1,5 +1,5 @@
 <x-app-layout title="Unified Compliance View">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Unified Compliance View"
             description="Comprehensive overview of all compliance activities"
@@ -123,7 +123,7 @@
             </x-table>
 
             @if($pagination['last_page'] > 1)
-                <div class="px-6 py-4 border-t border-border flex justify-center">
+                <div class="px-5 py-3 border-t border-border flex justify-center">
                     <p class="text-sm text-ink-muted">
                         Page {{ $pagination['current_page'] }} of {{ $pagination['last_page'] }}
                         (Total: {{ $pagination['total'] }} items)

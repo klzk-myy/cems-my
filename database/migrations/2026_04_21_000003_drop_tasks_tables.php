@@ -16,9 +16,9 @@ return new class extends Migration
     {
         Schema::create('tasks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('assigned_to')->constrained('users');
-            $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('completed_by')->nullable()->constrained('users');
+            $table->foreignId('assigned_to')->constrained('users')->restrictOnDelete();
+            $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
+            $table->foreignId('completed_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->string('title');
             $table->text('description')->nullable();
             $table->string('category');
@@ -26,8 +26,8 @@ return new class extends Migration
             $table->string('status')->default('pending');
             $table->timestamp('due_date')->nullable();
             $table->timestamp('completed_at')->nullable();
-            $table->foreignId('transaction_id')->nullable()->constrained();
-            $table->foreignId('customer_id')->nullable()->constrained();
+            $table->foreignId('transaction_id')->nullable()->constrained()->restrictOnDelete();
+            $table->foreignId('customer_id')->nullable()->constrained()->restrictOnDelete();
             $table->text('notes')->nullable();
             $table->timestamps();
             $table->softDeletes();
@@ -39,8 +39,8 @@ return new class extends Migration
 
         Schema::create('approval_tasks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('transaction_id')->constrained();
-            $table->foreignId('approver_id')->constrained('users');
+            $table->foreignId('transaction_id')->constrained()->restrictOnDelete();
+            $table->foreignId('approver_id')->constrained('users')->restrictOnDelete();
             $table->string('status')->default('pending');
             $table->text('notes')->nullable();
             $table->timestamp('completed_at')->nullable();

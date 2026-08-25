@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('journal_entries', function (Blueprint $table) {
             $table->foreignId('period_id')->nullable()->after('id')
-                ->constrained('accounting_periods');
+                ->constrained('accounting_periods')->restrictOnDelete();
             $table->index('period_id');
         });
     }

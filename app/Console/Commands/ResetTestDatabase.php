@@ -5,7 +5,9 @@ namespace App\Console\Commands;
 use App\Enums\CounterSessionStatus;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class ResetTestDatabase extends Command
 {
@@ -18,6 +20,12 @@ class ResetTestDatabase extends Command
 
     public function handle(): int
     {
+        if (! app()->environment('local', 'testing')) {
+            $this->error('This command is only available in local/testing environments.');
+
+            return Command::FAILURE;
+        }
+
         $this->info('Starting database reset...');
 
         if ($this->option('fresh')) {
@@ -155,23 +163,18 @@ class ResetTestDatabase extends Command
         // Create till balances for major currencies
         $currencies = ['USD', 'EUR', 'GBP', 'SGD', 'THB'];
         foreach ($currencies as $currencyCode) {
-            // Get currency
             $currency = DB::table('currencies')->where('code', $currencyCode)->first();
             if (! $currency) {
                 continue;
             }
 
-            // Create opening position for counter
-            $openingAmount = match ($currencyCode) {
-                'USD' => '50000.0000',
-                'EUR' => '30000.0000',
-                'GBP' => '20000.0000',
-                'SGD' => '40000.0000',
-                'THB' => '100000.0000',
-                default => '10000.0000',
-            };
+            $openingAmount = config("cems.demo.opening_balances.{$currencyCode}", '10000.0000');
+            $exchangeRate = DB::table('exchange_rates')
+                ->where('currency_code', $currencyCode)
+                ->orderBy('created_at', 'desc')
+                ->value('rate');
+            $rate = $exchangeRate ? number_format((float) $exchangeRate, 4, '.', '') : '1.0000';
 
-            // Create till balance
             DB::table('till_balances')->insert([
                 'till_id' => (string) $counter->code,
                 'currency_code' => $currencyCode,
@@ -182,27 +185,12 @@ class ResetTestDatabase extends Command
                 'opened_by' => $teller->id,
             ]);
 
-            // Create currency position
             DB::table('currency_positions')->insert([
                 'currency_code' => $currencyCode,
                 'till_id' => (string) $counter->code,
                 'balance' => $openingAmount,
-                'avg_cost_rate' => match ($currencyCode) {
-                    'USD' => '4.7200',
-                    'EUR' => '5.1200',
-                    'GBP' => '5.9500',
-                    'SGD' => '3.5000',
-                    'THB' => '0.1350',
-                    default => '1.0000',
-                },
-                'last_valuation_rate' => match ($currencyCode) {
-                    'USD' => '4.7200',
-                    'EUR' => '5.1200',
-                    'GBP' => '5.9500',
-                    'SGD' => '3.5000',
-                    'THB' => '0.1350',
-                    default => '1.0000',
-                },
+                'avg_cost_rate' => $rate,
+                'last_valuation_rate' => $rate,
                 'unrealized_pnl' => '0.0000',
             ]);
 
@@ -211,9 +199,17 @@ class ResetTestDatabase extends Command
 
         $this->info('Demo session ready!');
         $this->line('');
-        $this->info('Login credentials:');
-        $this->line('  Teller: teller1 / Teller@1234');
-        $this->line('  Manager: manager1 / Manager@1234');
-        $this->line('  Admin: admin / Admin@123456');
+        $this->warn('Temporary demo credentials (store securely):');
+        $tellerPass = Str::random(12);
+        $managerPass = Str::random(12);
+        $adminPass = Str::random(16);
+
+        DB::table('users')->where('username', 'teller1')->update(['password' => Hash::make($tellerPass)]);
+        DB::table('users')->where('username', 'manager1')->update(['password' => Hash::make($managerPass)]);
+        DB::table('users')->where('username', 'admin')->update(['password' => Hash::make($adminPass)]);
+
+        $this->line("  Teller:  teller1 / {$tellerPass}");
+        $this->line("  Manager: manager1 / {$managerPass}");
+        $this->line("  Admin:   admin / {$adminPass}");
     }
 }

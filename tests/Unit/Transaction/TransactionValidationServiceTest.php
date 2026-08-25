@@ -7,11 +7,13 @@ use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\AuditService;
 use App\Services\Branch\TellerAllocationService;
+use App\Services\Branch\TillBalanceManager;
 use App\Services\Compliance\ComplianceService;
 use App\Services\Compliance\HistoricalRiskAnalysisService;
 use App\Services\Compliance\PepApprovalService;
 use App\Services\Contracts\TransactionHoldServiceInterface;
 use App\Services\CustomerScreeningService;
+use App\Services\Security\IpValidationService;
 use App\Services\ThresholdService;
 use App\Services\Transaction\TransactionValidationService;
 use App\ValueObjects\RiskAnalysisResult;
@@ -56,7 +58,7 @@ class TransactionValidationServiceTest extends TestCase
         $holdMock = $this->createMock(TransactionHoldServiceInterface::class);
         $holdMock->expects($this->once())
             ->method('requiresHold')
-            ->with(CddLevel::Standard, $customer, [])
+            ->with(CddLevel::Standard, [])
             ->willReturn(false);
 
         $service = new TransactionValidationService(
@@ -67,7 +69,9 @@ class TransactionValidationServiceTest extends TestCase
             $this->createScreeningMock(),
             $this->createMock(HistoricalRiskAnalysisService::class),
             $this->createMock(AuditService::class),
-            $holdMock
+            $holdMock,
+            app(TillBalanceManager::class),
+            app(IpValidationService::class),
         );
 
         $service->preValidate($customer, '1000.00', 'MYR');
@@ -94,7 +98,9 @@ class TransactionValidationServiceTest extends TestCase
             $this->createScreeningMock(),
             $this->createMock(HistoricalRiskAnalysisService::class),
             $this->createMock(AuditService::class),
-            $holdMock
+            $holdMock,
+            app(TillBalanceManager::class),
+            app(IpValidationService::class),
         );
 
         $result = $service->preValidate($customer, '1000.00', 'MYR');
@@ -134,7 +140,9 @@ class TransactionValidationServiceTest extends TestCase
             $this->createScreeningMock(),
             $riskAnalysisMock,
             $this->createMock(AuditService::class),
-            $holdMock
+            $holdMock,
+            app(TillBalanceManager::class),
+            app(IpValidationService::class),
         );
 
         $result = $service->preValidate($customer, '1000.00', 'MYR');
@@ -163,7 +171,9 @@ class TransactionValidationServiceTest extends TestCase
             $this->createScreeningMock(),
             $this->createMock(HistoricalRiskAnalysisService::class),
             $this->createMock(AuditService::class),
-            $holdMock
+            $holdMock,
+            app(TillBalanceManager::class),
+            app(IpValidationService::class),
         );
 
         $result = $service->preValidate($customer, '1000.00', 'MYR');
@@ -182,10 +192,11 @@ class TransactionValidationServiceTest extends TestCase
 
         $auditMock = $this->createMock(AuditService::class);
         $auditMock->expects($this->once())
-            ->method('logWithSeverity')
+            ->method('logPreTransactionEvent')
             ->with(
                 'pre_validation_completed',
-                $this->callback(fn ($ctx) => $ctx['entity_type'] === 'PreTransaction' && $ctx['entity_id'] === $customer->id),
+                $customer->id,
+                $this->callback(fn ($ctx) => $ctx['new_values']['customer_id'] === $customer->id),
                 'INFO'
             );
 
@@ -197,7 +208,9 @@ class TransactionValidationServiceTest extends TestCase
             $this->createScreeningMock(),
             $this->createMock(HistoricalRiskAnalysisService::class),
             $auditMock,
-            $this->createMock(TransactionHoldServiceInterface::class)
+            $this->createMock(TransactionHoldServiceInterface::class),
+            app(TillBalanceManager::class),
+            app(IpValidationService::class),
         );
 
         $service->preValidate($customer, '1000.00', 'MYR');

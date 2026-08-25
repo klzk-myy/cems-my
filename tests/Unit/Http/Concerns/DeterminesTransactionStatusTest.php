@@ -21,11 +21,17 @@ class DeterminesTransactionStatusTest extends TestCase
 
     private MathService $mathService;
 
+    private TellerAllocationService $tellerAllocationService;
+
+    private ThresholdService $thresholdService;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->mathService = Mockery::mock(MathService::class);
+        $this->tellerAllocationService = Mockery::mock(TellerAllocationService::class);
+        $this->thresholdService = Mockery::mock(ThresholdService::class);
     }
 
     protected function tearDown(): void
@@ -55,16 +61,13 @@ class DeterminesTransactionStatusTest extends TestCase
 
         $expectedAllocation = Mockery::mock(TellerAllocation::class);
 
-        $service = Mockery::mock(TellerAllocationService::class);
-        $service->shouldReceive('validateTransaction')
+        $this->tellerAllocationService->shouldReceive('validateTransaction')
             ->once()
             ->with($user, 'USD', '1000.00', true)
             ->andReturn(new AllocationValidationResult(
                 valid: true,
                 allocation: $expectedAllocation
             ));
-
-        $this->app->instance(TellerAllocationService::class, $service);
 
         $allocation = $this->determineTellerAllocation($user, [
             'type' => TransactionType::Buy->value,
@@ -79,16 +82,13 @@ class DeterminesTransactionStatusTest extends TestCase
         $user = Mockery::mock(User::class);
         $user->shouldReceive('isTeller')->once()->andReturn(true);
 
-        $service = Mockery::mock(TellerAllocationService::class);
-        $service->shouldReceive('validateTransaction')
+        $this->tellerAllocationService->shouldReceive('validateTransaction')
             ->once()
             ->with($user, 'USD', '1000.00', true)
             ->andReturn(new AllocationValidationResult(
                 valid: false,
                 reason: 'Insufficient allocation balance'
             ));
-
-        $this->app->instance(TellerAllocationService::class, $service);
 
         $this->expectException(AllocationValidationException::class);
         $this->expectExceptionMessage('Allocation validation failed: Insufficient allocation balance');
@@ -106,14 +106,11 @@ class DeterminesTransactionStatusTest extends TestCase
 
         $expectedAllocation = Mockery::mock(TellerAllocation::class);
 
-        $service = Mockery::mock(TellerAllocationService::class);
-        $service->shouldReceive('validateTransaction')->never();
-        $service->shouldReceive('getActiveAllocation')
+        $this->tellerAllocationService->shouldReceive('validateTransaction')->never();
+        $this->tellerAllocationService->shouldReceive('getActiveAllocation')
             ->once()
             ->with($user, 'EUR')
             ->andReturn($expectedAllocation);
-
-        $this->app->instance(TellerAllocationService::class, $service);
 
         $allocation = $this->determineTellerAllocation($user, [
             'type' => TransactionType::Sell->value,
@@ -126,6 +123,7 @@ class DeterminesTransactionStatusTest extends TestCase
     public function test_determine_initial_status_returns_pending_approval_when_hold_required(): void
     {
         $this->mathService->shouldReceive('compare')->never();
+        $this->thresholdService->shouldReceive('getAutoApproveThreshold')->never();
 
         $status = $this->determineInitialStatus('100.00', true);
 
@@ -134,11 +132,9 @@ class DeterminesTransactionStatusTest extends TestCase
 
     public function test_determine_initial_status_returns_pending_approval_when_amount_meets_threshold(): void
     {
-        $thresholdService = Mockery::mock(ThresholdService::class);
-        $thresholdService->shouldReceive('getAutoApproveThreshold')
+        $this->thresholdService->shouldReceive('getAutoApproveThreshold')
             ->once()
             ->andReturn('10000.00');
-        $this->app->instance(ThresholdService::class, $thresholdService);
 
         $this->mathService->shouldReceive('compare')
             ->once()
@@ -152,11 +148,9 @@ class DeterminesTransactionStatusTest extends TestCase
 
     public function test_determine_initial_status_returns_completed_when_below_threshold(): void
     {
-        $thresholdService = Mockery::mock(ThresholdService::class);
-        $thresholdService->shouldReceive('getAutoApproveThreshold')
+        $this->thresholdService->shouldReceive('getAutoApproveThreshold')
             ->once()
             ->andReturn('10000.00');
-        $this->app->instance(ThresholdService::class, $thresholdService);
 
         $this->mathService->shouldReceive('compare')
             ->once()

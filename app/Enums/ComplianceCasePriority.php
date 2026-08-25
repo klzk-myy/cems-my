@@ -15,6 +15,20 @@ enum ComplianceCasePriority: string
     case Critical = 'Critical';
 
     /**
+     * SLA hours for this priority. Mirrors AlertPriority::slaHours() so alert-
+     * derived cases and manually created cases apply the same deadline policy.
+     */
+    public function slaHours(): int
+    {
+        return match ($this) {
+            self::Critical => 4,
+            self::High => 8,
+            self::Medium => 24,
+            self::Low => 72,
+        };
+    }
+
+    /**
      * Get the weight value for ordering (higher = more severe).
      */
     public function weight(): int

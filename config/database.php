@@ -22,38 +22,10 @@ return [
     | Query Logging
     |--------------------------------------------------------------------------
     |
-    | When enabled, all database queries will be logged to help with
-    | debugging and N+1 query detection.
-    |
-    */
-
-    'logging' => env('DB_LOGGING', false),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Slow Query Threshold
-    |--------------------------------------------------------------------------
-    |
-    | Queries taking longer than this threshold (in milliseconds) will be
-    | flagged as slow queries for performance monitoring.
-    |
-    */
-
-    'slow_query_threshold_ms' => env('DB_SLOW_QUERY_THRESHOLD_MS', 100),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Database Connections
-    |--------------------------------------------------------------------------
-    |
-    | Here are each of the database connections setup for your application.
-    | Of course, examples of configuring each database platform that is
-    | supported by Laravel is shown below to make development simple.
-    |
-    |
-    | All database work in Laravel is done through the PHP PDO facilities
-    | so make sure you have the driver for your particular database of
-    | choice installed on your machine before you begin development.
+    | Query logging, slow query thresholds and related monitoring knobs are
+    | declared once at the bottom of this file (see DB_LOGGING and
+    | DB_SLOW_QUERY_THRESHOLD_MS there). Do not re-declare them here —
+    | duplicate array keys silently shadow each other.
     |
     */
 
@@ -81,6 +53,13 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => 'InnoDB',
+
+            // Dump options consumed by spatie/laravel-backup
+            // (DbDumperFactory::createFromConnection reads connections.<name>.dump).
+            'dump' => [
+                'useSingleTransaction' => true,
+                'skip_lock_tables' => true,
+            ],
         ],
 
         'pgsql' => [
@@ -168,4 +147,9 @@ return [
 
     ],
 
+    'slow_query_threshold_ms' => (int) env('DB_SLOW_QUERY_THRESHOLD_MS', 1000),
+    'query_monitoring_enabled' => env('DB_QUERY_MONITORING_ENABLED', false),
+    'query_monitoring_console' => env('DB_QUERY_MONITORING_CONSOLE', false),
+    'high_query_count_threshold' => (int) env('DB_HIGH_QUERY_COUNT_THRESHOLD', 50),
+    'logging' => env('DB_LOGGING', false),
 ];

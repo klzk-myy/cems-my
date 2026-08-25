@@ -1,5 +1,5 @@
 <x-app-layout title="Top Customer Analysis">
-    <div class="space-y-6 p-6">
+    <div class="space-y-6">
         <x-page-header
             title="Top Customer Analysis"
             description="Top 50 customers by transaction count and volume with risk ratings"

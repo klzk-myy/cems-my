@@ -18,7 +18,6 @@ class TransactionImport extends BaseModel
         'file_size',
         'status',
         'total_rows',
-        'processed_rows',
         'success_count',
         'error_count',
         'error_details',
@@ -30,7 +29,6 @@ class TransactionImport extends BaseModel
     protected $casts = [
         'file_size' => 'integer',
         'total_rows' => 'integer',
-        'processed_rows' => 'integer',
         'success_count' => 'integer',
         'error_count' => 'integer',
         'error_details' => 'array',

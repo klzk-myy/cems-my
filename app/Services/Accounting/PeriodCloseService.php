@@ -3,6 +3,7 @@
 namespace App\Services\Accounting;
 
 use App\Enums\AccountingPeriodStatus;
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Exceptions\Domain\ClosedPeriodException;
 use App\Exceptions\Domain\UnbalancedJournalEntriesException;
 use App\Models\AccountingPeriod;
@@ -67,14 +68,24 @@ class PeriodCloseService
         }
 
         return DB::transaction(function () use ($period, $closedBy) {
+            // Re-read under a pessimistic lock so concurrent closes serialise;
+            // the unlocked isClosed() guard above is only a fast path.
+            $lockedPeriod = AccountingPeriod::where('id', $period->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $lockedPeriod || $lockedPeriod->isClosed()) {
+                throw new ClosedPeriodException($period->period_code);
+            }
+
             // Step 1: Validate all entries are balanced
-            $this->validatePeriodBalances($period);
+            $this->validatePeriodBalances($lockedPeriod);
 
             // Step 2: Create closing entries for revenue/expense accounts
-            $closingEntries = $this->createClosingEntries($period, $closedBy);
+            $closingEntries = $this->createClosingEntries($lockedPeriod, $closedBy);
 
             // Step 3: Update period status
-            $period->update([
+            $lockedPeriod->update([
                 'status' => AccountingPeriodStatus::Closed->value,
                 'closed_at' => now(),
                 'closed_by' => $closedBy,
@@ -85,17 +96,17 @@ class PeriodCloseService
                 'period_closed',
                 $closedBy,
                 'AccountingPeriod',
-                $period->id,
+                $lockedPeriod->id,
                 [],
                 [
-                    'period_code' => $period->period_code,
+                    'period_code' => $lockedPeriod->period_code,
                     'closed_at' => now()->toDateTimeString(),
                 ]
             );
 
             return [
                 'success' => true,
-                'period' => $period,
+                'period' => $lockedPeriod,
                 'closing_entries' => $closingEntries,
             ];
         });
@@ -110,7 +121,10 @@ class PeriodCloseService
      */
     protected function validatePeriodBalances(AccountingPeriod $period): void
     {
-        $unbalanced = JournalEntry::where('period_id', $period->id)
+        // Eager-load lines: isBalanced() iterates $entry->lines, so without
+        // with('lines') every entry triggers an extra query (N+1).
+        $unbalanced = JournalEntry::with('lines')
+            ->where('period_id', $period->id)
             ->where('status', 'Posted')
             ->get()
             ->filter(fn ($entry) => ! $entry->isBalanced());
@@ -136,9 +150,9 @@ class PeriodCloseService
         $entries = [];
         $asOfDate = $period->end_date->toDateString();
 
-        $revenueSummaryAccount = $this->getValidatedAccountCode('accounting.revenue_summary_account', '4000');
-        $expenseSummaryAccount = $this->getValidatedAccountCode('accounting.expense_summary_account', '5000');
-        $retainedEarningsAccount = $this->getValidatedAccountCode('accounting.retained_earnings_account', '3100');
+        $revenueSummaryAccount = $this->getValidatedAccountCode('accounting.revenue_summary_account');
+        $expenseSummaryAccount = $this->getValidatedAccountCode('accounting.expense_summary_account');
+        $retainedEarningsAccount = $this->getValidatedAccountCode('accounting.retained_earnings_account');
 
         $revenues = ChartOfAccount::where('account_type', 'Revenue')->get();
         $expenses = ChartOfAccount::where('account_type', 'Expense')->get();
@@ -220,24 +234,27 @@ class PeriodCloseService
      * and is active in the chart of accounts when validation is enabled.
      *
      * @param  string  $configKey  Configuration key for the account code
-     * @param  string  $defaultCode  Default account code to use if config not set
      * @return string The validated account code
      *
-     * @throws \InvalidArgumentException If account doesn't exist or is inactive (when validation is enabled)
+     * @throws AccountingPeriodException If the account is not configured, doesn't exist, or is inactive
      */
-    protected function getValidatedAccountCode(string $configKey, string $defaultCode): string
+    protected function getValidatedAccountCode(string $configKey): string
     {
-        $code = Config::get($configKey, $defaultCode);
+        $code = Config::get($configKey);
+
+        if ($code === null || $code === '') {
+            throw new AccountingPeriodException("Account code '{$configKey}' is not configured. Set the corresponding ACCOUNT_* environment variable.");
+        }
 
         if (Config::get('accounting.validate_accounts', true)) {
             $account = ChartOfAccount::where('account_code', $code)->first();
 
             if (! $account) {
-                throw new \InvalidArgumentException("Configured account '{$configKey}' with code '{$code}' does not exist in chart of accounts");
+                throw new AccountingPeriodException("Configured account '{$configKey}' with code '{$code}' does not exist in chart of accounts");
             }
 
             if (! $account->is_active) {
-                throw new \InvalidArgumentException("Configured account '{$configKey}' with code '{$code}' is not active");
+                throw new AccountingPeriodException("Configured account '{$configKey}' with code '{$code}' is not active");
             }
         }
 

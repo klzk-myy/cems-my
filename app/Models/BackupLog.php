@@ -24,7 +24,6 @@ class BackupLog extends BaseModel
         'file_path',
         'file_size',
         'checksum',
-        'encryption_status',
         'status',
         'started_at',
         'completed_at',
@@ -37,7 +36,6 @@ class BackupLog extends BaseModel
 
     protected $casts = [
         'file_size' => 'integer',
-        'encryption_status' => 'boolean',
         'verification_status' => 'boolean',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',

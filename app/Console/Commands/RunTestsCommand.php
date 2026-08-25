@@ -9,6 +9,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\TestResultStatus;
 use App\Services\System\TestRunnerService;
 use Illuminate\Console\Command;
 
@@ -61,7 +62,7 @@ class RunTestsCommand extends Command
             $this->info("DB Duration: {$duration}s");
             $this->info('========================================');
 
-            if ($result->status === 'failed') {
+            if ($result->status === TestResultStatus::Failed) {
                 $this->error("\nFailed Tests: {$result->failed}");
                 if (! empty($result->failures)) {
                     $this->error("\nFailures:");

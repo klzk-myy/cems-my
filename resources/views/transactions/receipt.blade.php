@@ -154,9 +154,11 @@
 <body>
     <div class="receipt">
         <div class="header">
-            <div class="company-name">CEMS Currency Exchange</div>
-            <div class="company-reg">Company Reg: 123456789</div>
-            <div class="company-reg">Bank Negara Malaysia MSB License</div>
+            <div class="company-name">{{ config('cems.company_name') }}</div>
+            @if(config('cems.company_registration_number'))
+                <div class="company-reg">Company Reg: {{ config('cems.company_registration_number') }}</div>
+            @endif
+            <div class="company-reg">Bank Negara Malaysia MSB License{{ config('cems.license_number') ? ': '.config('cems.license_number') : '' }}</div>
             <div class="receipt-title">TRANSACTION RECEIPT</div>
             <div class="receipt-number">No: {{ str_pad($transaction->id, 8, '0', STR_PAD_LEFT) }}</div>
         </div>
@@ -180,7 +182,7 @@
             </div>
             <div class="info-row">
                 <span class="info-label">Staff:</span>
-                <span class="info-value">{{ $transaction->creator->username ?? 'N/A' }}</span>
+                <span class="info-value">{{ $transaction->user?->username ?? 'N/A' }}</span>
             </div>
             <div class="info-row">
                 <span class="info-label">Status:</span>

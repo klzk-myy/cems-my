@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('enhanced_diligence_records', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('flagged_transaction_id')->nullable()->constrained('flagged_transactions');
-            $table->foreignId('customer_id')->constrained('customers');
+            $table->foreignId('flagged_transaction_id')->nullable()->constrained('flagged_transactions')->restrictOnDelete();
+            $table->foreignId('customer_id')->constrained('customers')->restrictOnDelete();
             $table->string('edd_reference', 30)->unique(); // EDD-YYYYMM-XXXX
             $table->enum('status', ['Incomplete', 'Pending_Questionnaire', 'Questionnaire_Submitted', 'Pending_Review', 'Approved', 'Rejected', 'Expired'])->default('Incomplete');
             $table->enum('risk_level', ['Low', 'Medium', 'High', 'Critical'])->default('Medium');
@@ -41,17 +41,17 @@ return new class extends Migration
             $table->json('supporting_documents')->nullable();
 
             // Review
-            $table->foreignId('reviewed_by')->nullable()->constrained('users');
+            $table->foreignId('reviewed_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('reviewed_at')->nullable();
             $table->text('review_notes')->nullable();
 
             // Questionnaire
             $table->json('questionnaire_responses')->nullable();
             $table->timestamp('questionnaire_completed_at')->nullable();
-            $table->foreignId('questionnaire_completed_by')->nullable()->constrained('users');
+            $table->foreignId('questionnaire_completed_by')->nullable()->constrained('users')->restrictOnDelete();
 
             // Approval
-            $table->foreignId('approved_by')->nullable()->constrained('users');
+            $table->foreignId('approved_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('approved_at')->nullable();
 
             $table->timestamps();

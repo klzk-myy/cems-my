@@ -3,8 +3,10 @@
 namespace App\Services\Compliance;
 
 use App\Enums\EddStatus;
+use App\Enums\FindingType;
 use App\Enums\RecalculationTrigger;
 use App\Enums\TransactionStatus;
+use App\Models\Compliance\ComplianceFinding;
 use App\Models\Compliance\CustomerBehavioralBaseline;
 use App\Models\Compliance\CustomerRiskProfile;
 use App\Models\Customer;
@@ -126,6 +128,46 @@ class RiskScoringEngine
         });
     }
 
+    public function recalculate(int $customerId, RecalculationTrigger $trigger = RecalculationTrigger::EventDriven): ?CustomerRiskProfile
+    {
+        return DB::transaction(function () use ($customerId, $trigger) {
+            $existingProfile = CustomerRiskProfile::where('customer_id', $customerId)->first();
+            $result = $this->calculateScoreWithFactors($customerId);
+
+            if ($existingProfile) {
+                $scoreDelta = abs($result['score'] - $existingProfile->risk_score);
+                if ($scoreDelta >= 10) {
+                    ComplianceFinding::create([
+                        'subject_type' => 'Customer',
+                        'subject_id' => $customerId,
+                        'finding_type' => FindingType::RiskScoreChange,
+                        'severity' => FindingType::RiskScoreChange->defaultSeverity(),
+                        'details' => [
+                            'previous_score' => $existingProfile->risk_score,
+                            'new_score' => $result['score'],
+                            'delta' => $scoreDelta,
+                            'trigger' => $trigger->value,
+                        ],
+                        'status' => 'New',
+                    ]);
+                }
+
+                $existingProfile->update([
+                    'previous_score' => $existingProfile->risk_score,
+                    'risk_score' => $result['score'],
+                    'risk_tier' => $result['tier'],
+                    'risk_factors' => $result['factors'],
+                    'score_changed_at' => now(),
+                    'recalculation_trigger' => $trigger,
+                ]);
+
+                return $existingProfile->fresh();
+            }
+
+            return CustomerRiskProfile::createForCustomer($customerId, $result['score']);
+        });
+    }
+
     /**
      * Get factor contributions for a customer.
      */
@@ -200,12 +242,8 @@ class RiskScoringEngine
             return 0;
         }
 
-        // Check high risk countries table
-        $isHighRisk = HighRiskCountry::query()
-            ->where('country_code', $country)
-            ->exists();
-
-        if ($isHighRisk) {
+        // Check high risk countries table (cached list)
+        if (in_array($country, HighRiskCountry::countryCodes(), true)) {
             return self::GEO_HIGH_RISK;
         }
 
@@ -239,25 +277,27 @@ class RiskScoringEngine
         }
 
         // Calculate recent avg
-        $recentAvg = Transaction::where('customer_id', $customerId)
+        $transactions = Transaction::where('customer_id', $customerId)
             ->where('created_at', '>=', now()->subDays(30))
-            ->where('status', '!=', TransactionStatus::Cancelled->value)
-            ->avg('amount_local');
+            ->where('status', '!=', TransactionStatus::Cancelled->value);
 
-        if (! $recentAvg || $baseline->avg_transaction_size_myr == 0) {
+        $recentAvg = (string) ($transactions->avg('amount_local') ?? '0');
+        $baselineAvg = (string) $baseline->avg_transaction_size_myr;
+
+        if ($this->math->compare($recentAvg, '0') === 0
+            || $this->math->compare($baselineAvg, '0') === 0) {
             return 0;
         }
 
-        $ratio = $this->math->divide((string) $recentAvg, (string) $baseline->avg_transaction_size_myr);
-        $ratioFloat = (float) $ratio;
+        $ratio = $this->math->divide($recentAvg, $baselineAvg);
 
-        if ($ratioFloat > 1.5) {
+        if ($this->math->compare($ratio, '1.5') > 0) {
             return 20; // >50% above
         }
-        if ($ratioFloat > 1.25) {
+        if ($this->math->compare($ratio, '1.25') > 0) {
             return 10; // 25-50% above
         }
-        if ($ratioFloat > 1.1) {
+        if ($this->math->compare($ratio, '1.1') > 0) {
             return 5; // 10-25% above
         }
 
@@ -323,10 +363,10 @@ class RiskScoringEngine
         if (! $edd) {
             return 0;
         }
-        if ($edd->status === EddStatus::Rejected->value) {
+        if ($edd->status === EddStatus::Rejected) {
             return 15;
         }
-        if ($edd->status === EddStatus::Approved->value) {
+        if ($edd->status === EddStatus::Approved) {
             return 5;
         }
 
@@ -349,10 +389,13 @@ class RiskScoringEngine
      */
     protected function calculateSanctionScore(Customer $customer): int
     {
-        if ($customer->sanction_confirmed ?? false) {
+        // sanction_hit is the real column; an unscreened customer carries
+        // residual risk until screening completes.
+        if ((bool) ($customer->sanction_hit ?? false)) {
             return 50;
         }
-        if ($customer->sanction_possible ?? false) {
+
+        if ($customer->sanctions_screened_at === null) {
             return 30;
         }
 

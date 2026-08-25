@@ -3,6 +3,7 @@
 namespace Tests\Feature\Audit;
 
 use App\Enums\UserRole;
+use App\Exceptions\Domain\UserManagementException;
 use App\Http\Requests\AuthorizedFormRequest;
 use App\Models\Branch;
 use App\Models\Counter;
@@ -218,7 +219,7 @@ class ApiSecurityFixesTest extends TestCase
 
     public function test_user_creation_fails_without_password_hash(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(UserManagementException::class);
 
         User::create([
             'username' => 'nopassword',

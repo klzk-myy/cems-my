@@ -92,7 +92,7 @@
             </x-table>
         </x-card>
 
-        <x-card-section
+        <x-card
             title="Last Revaluation"
             description="April 30, 2026"
             :actions="true"
@@ -100,7 +100,7 @@
             <x-slot:actions>
                 <x-button variant="secondary" href="{{ route('accounting.revaluation.history') }}">View History</x-button>
             </x-slot:actions>
-        </x-card-section>
+        </x-card>
 
         <div class="flex items-center justify-end gap-3">
             <x-button variant="secondary">Cancel</x-button>

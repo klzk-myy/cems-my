@@ -12,7 +12,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Run 1 Card -->
             <x-card title="Run #{{ $run1->id }}" description="{{ $run1->created_at->format('M d, Y H:i') }}">
-                <div class="p-6 space-y-4">
+                <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-ink-muted">Status</span>
                         @if($run1->status->value === 'passed')
@@ -22,7 +22,7 @@
                         @elseif($run1->status->value === 'error')
                             <x-badge variant="warning">Error</x-badge>
                         @else
-                            <x-badge variant="gray">{{ ucfirst($run1->status->value) }}</x-badge>
+                            <x-badge variant="gray">{{ $run1->status?->label() ?? 'N/A' }}</x-badge>
                         @endif
                     </div>
                     <div class="flex items-center justify-between">
@@ -53,7 +53,7 @@
 
             <!-- Run 2 Card -->
             <x-card title="Run #{{ $run2->id }}" description="{{ $run2->created_at->format('M d, Y H:i') }}">
-                <div class="p-6 space-y-4">
+                <div class="space-y-4">
                     <div class="flex items-center justify-between">
                         <span class="text-sm text-ink-muted">Status</span>
                         @if($run2->status->value === 'passed')
@@ -63,7 +63,7 @@
                         @elseif($run2->status->value === 'error')
                             <x-badge variant="warning">Error</x-badge>
                         @else
-                            <x-badge variant="gray">{{ ucfirst($run2->status->value) }}</x-badge>
+                            <x-badge variant="gray">{{ $run2->status?->label() ?? 'N/A' }}</x-badge>
                         @endif
                     </div>
                     <div class="flex items-center justify-between">
@@ -97,18 +97,18 @@
         <x-card title="Differences">
             <x-table>
                 <x-slot:thead>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Metric</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Run #{{ $run1->id }}</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Run #{{ $run2->id }}</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Change</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Metric</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Run #{{ $run1->id }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Run #{{ $run2->id }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Change</th>
                 </x-slot:thead>
                 <x-slot:tbody>
                     <!-- Total Tests -->
                     <tr class="hover:bg-canvas-subtle">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-ink">Total Tests</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-ink-muted">{{ number_format($run1->total_tests ?? 0) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-ink-muted">{{ number_format($run2->total_tests ?? 0) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-ink">Total Tests</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-ink-muted">{{ number_format($run1->total_tests ?? 0) }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-ink-muted">{{ number_format($run2->total_tests ?? 0) }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
                             @php $totalDiff = ($run2->total_tests ?? 0) - ($run1->total_tests ?? 0); @endphp
                             @if($totalDiff > 0)
                                 <span class="text-sm font-medium text-success-text">+{{ number_format($totalDiff) }}</span>
@@ -121,10 +121,10 @@
                     </tr>
                     <!-- Passed -->
                     <tr class="hover:bg-canvas-subtle">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-ink">Passed</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-success-text">{{ number_format($run1->passed ?? 0) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-success-text">{{ number_format($run2->passed ?? 0) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-ink">Passed</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-success-text">{{ number_format($run1->passed ?? 0) }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-success-text">{{ number_format($run2->passed ?? 0) }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
                             @php $passedDiff = ($run2->passed ?? 0) - ($run1->passed ?? 0); @endphp
                             @if($passedDiff > 0)
                                 <span class="text-sm font-medium text-success-text">+{{ number_format($passedDiff) }}</span>
@@ -137,10 +137,10 @@
                     </tr>
                     <!-- Failed -->
                     <tr class="hover:bg-canvas-subtle">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-ink">Failed</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-danger-text">{{ number_format($run1->failed ?? 0) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-danger-text">{{ number_format($run2->failed ?? 0) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-ink">Failed</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-danger-text">{{ number_format($run1->failed ?? 0) }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-danger-text">{{ number_format($run2->failed ?? 0) }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
                             @php $failedDiff = ($run2->failed ?? 0) - ($run1->failed ?? 0); @endphp
                             @if($failedDiff > 0)
                                 <span class="text-sm font-medium text-danger-text">+{{ number_format($failedDiff) }}</span>
@@ -153,10 +153,10 @@
                     </tr>
                     <!-- Errors -->
                     <tr class="hover:bg-canvas-subtle">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-ink">Errors</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-warning-text">{{ number_format(count($run1->errors ?? [])) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-warning-text">{{ number_format(count($run2->errors ?? [])) }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-ink">Errors</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-warning-text">{{ number_format(count($run1->errors ?? [])) }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-warning-text">{{ number_format(count($run2->errors ?? [])) }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
                             @php $errorDiff = count($run2->errors ?? []) - count($run1->errors ?? []); @endphp
                             @if($errorDiff > 0)
                                 <span class="text-sm font-medium text-danger-text">+{{ number_format($errorDiff) }}</span>
@@ -169,10 +169,10 @@
                     </tr>
                     <!-- Duration -->
                     <tr class="hover:bg-canvas-subtle">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-ink">Duration</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-ink-muted">{{ $run1->duration ? number_format($run1->duration, 2) . 's' : 'N/A' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-ink-muted">{{ $run2->duration ? number_format($run2->duration, 2) . 's' : 'N/A' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-ink">Duration</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-ink-muted">{{ $run1->duration ? number_format($run1->duration, 2) . 's' : 'N/A' }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-ink-muted">{{ $run2->duration ? number_format($run2->duration, 2) . 's' : 'N/A' }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap">
                             @if($run1->duration && $run2->duration)
                                 @php $durationDiff = $run2->duration - $run1->duration; @endphp
                                 @if($durationDiff > 0)
@@ -189,16 +189,16 @@
                     </tr>
                     <!-- Pass Rate -->
                     <tr class="hover:bg-canvas-subtle">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-ink">Pass Rate</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-ink-muted">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-ink">Pass Rate</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-ink-muted">
                             @php $rate1 = $run1->total_tests > 0 ? round(($run1->passed / $run1->total_tests) * 100, 1) : 0; @endphp
                             {{ $rate1 }}%
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-ink-muted">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-ink-muted">
                             @php $rate2 = $run2->total_tests > 0 ? round(($run2->passed / $run2->total_tests) * 100, 1) : 0; @endphp
                             {{ $rate2 }}%
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap">
                             @php $rateDiff = round($rate2 - $rate1, 1); @endphp
                             @if($rateDiff > 0)
                                 <span class="text-sm font-medium text-success-text">+{{ $rateDiff }}%</span>

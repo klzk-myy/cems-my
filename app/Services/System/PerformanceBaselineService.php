@@ -4,6 +4,7 @@ namespace App\Services\System;
 
 use App\Services\ThresholdService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class PerformanceBaselineService
 {
@@ -15,21 +16,44 @@ class PerformanceBaselineService
 
     public function getBaseline(): array
     {
-        return Cache::get(self::BASELINE_CACHE_KEY, [
-            'response_time_ms' => 200,
-            'cache_hit_rate' => 80.0,
-            'queries_per_request' => 5,
-            'memory_mb' => 128,
-        ]);
+        $cached = Cache::get(self::BASELINE_CACHE_KEY, []);
+        $baseline = is_array($cached) ? $cached : [];
+
+        // Backfill ONLY missing keys so partially-populated cache entries
+        // never leave compare*() reading undefined indexes. Present values
+        // win; missing ones fall back to the configured thresholds.
+        if (! array_key_exists('response_time_ms', $baseline)) {
+            $baseline['response_time_ms'] = (int) $this->thresholdService->getResponseTimeWarning();
+        }
+
+        if (! array_key_exists('cache_hit_rate', $baseline)) {
+            $baseline['cache_hit_rate'] = (float) $this->thresholdService->getCacheHitRateWarning();
+        }
+
+        if (! array_key_exists('queries_per_request', $baseline)) {
+            $baseline['queries_per_request'] = (int) $this->thresholdService->getQueryTimeWarning();
+        }
+
+        return $baseline + ['memory_mb' => 128];
     }
 
     public function setBaseline(array $baseline): void
     {
-        Cache::forever(self::BASELINE_CACHE_KEY, $baseline);
+        Cache::put(self::BASELINE_CACHE_KEY, $baseline, now()->addHours(24));
+    }
+
+    public function invalidate(): void
+    {
+        Cache::forget(self::BASELINE_CACHE_KEY);
     }
 
     public function updateBaselineMetric(string $key, mixed $value): void
     {
+        $allowedKeys = ['response_time_ms', 'cache_hit_rate', 'queries_per_request', 'memory_mb', 'queue_processing_time'];
+        if (! in_array($key, $allowedKeys, true)) {
+            throw new \InvalidArgumentException("Invalid baseline metric key: {$key}");
+        }
+
         $baseline = $this->getBaseline();
         $baseline[$key] = $value;
         $this->setBaseline($baseline);
@@ -103,10 +127,12 @@ class PerformanceBaselineService
                 && $currentCacheHitRate >= $cacheHitRateThreshold;
         }
 
-        $responseTimeCheck = $this->compareResponseTime($currentResponseTime ?: $baseline['response_time_ms']);
-        $cacheHitRateCheck = $this->compareCacheHitRate($currentCacheHitRate ?: $baseline['cache_hit_rate']);
+        Log::warning('Performance baseline check skipped - no real current data available', [
+            'response_time' => $currentResponseTime,
+            'cache_hit_rate' => $currentCacheHitRate,
+        ]);
 
-        return $responseTimeCheck['status'] === 'healthy' && $cacheHitRateCheck['status'] === 'healthy';
+        return false;
     }
 
     public function getCurrentResponseTime(): float
@@ -125,8 +151,12 @@ class PerformanceBaselineService
         $currentCacheHitRate = $this->getCurrentCacheHitRate();
 
         return [
-            'response_time' => $this->compareResponseTime($currentResponseTime ?: $this->getBaseline()['response_time_ms']),
-            'cache_hit_rate' => $this->compareCacheHitRate($currentCacheHitRate ?: $this->getBaseline()['cache_hit_rate']),
+            'response_time' => $currentResponseTime > 0
+                ? $this->compareResponseTime($currentResponseTime)
+                : ['status' => 'unknown', 'current' => 0, 'baseline' => $this->getBaseline()['response_time_ms']],
+            'cache_hit_rate' => $currentCacheHitRate > 0
+                ? $this->compareCacheHitRate($currentCacheHitRate)
+                : ['status' => 'unknown', 'current' => 0, 'baseline' => $this->getBaseline()['cache_hit_rate']],
             'is_healthy' => $this->isPerformanceHealthy(),
         ];
     }

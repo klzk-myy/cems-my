@@ -1,8 +1,8 @@
-<x-app-layout title="Currency Position - {{ $position->currency->code ?? 'N/A' }}">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+<x-app-layout title="Currency Position - {{ $position->currency?->code ?? 'N/A' }}">
+    <div class="space-y-6">
         <x-page-header
             title="Currency Position"
-            description="Position details for {{ $position->currency->code ?? 'N/A' }} - {{ $position->currency->name ?? 'N/A' }}"
+            description="Position details for {{ $position->currency?->code ?? 'N/A' }} - {{ $position->currency?->name ?? 'N/A' }}"
         />
 
         <x-card title="Position Details">
@@ -10,7 +10,7 @@
                 <div>
                     <dt class="text-sm font-medium text-ink-muted">Currency</dt>
                     <dd class="mt-1 text-sm text-ink">
-                        {{ $position->currency->code ?? 'N/A' }} - {{ $position->currency->name ?? 'N/A' }}
+                        {{ $position->currency?->code ?? 'N/A' }} - {{ $position->currency?->name ?? 'N/A' }}
                     </dd>
                 </div>
                 <div>
@@ -55,14 +55,14 @@
         <x-card title="Recent Buy Transactions (Last 50)">
             <x-table>
                 <x-slot:thead>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">ID</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Date</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Customer</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Currency</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Amount</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Rate</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">MYR Amount</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Customer</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Currency</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Amount</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Rate</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">MYR Amount</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Status</th>
                 </x-slot:thead>
                 <x-slot:tbody>
                     @forelse($transactions as $transaction)
@@ -73,7 +73,7 @@
                                 {{ $transaction->customer->name ?? 'N/A' }}
                             </td>
                             <td class="px-4 py-3 text-sm text-ink">
-                                {{ $transaction->currency->code ?? 'N/A' }}
+                                {{ $transaction->currency?->code ?? 'N/A' }}
                             </td>
                             <td class="px-4 py-3 text-sm text-ink text-right">
                                 {{ number_format((float) $transaction->foreign_amount, 2) }}
@@ -86,14 +86,14 @@
                             </td>
                             <td class="px-4 py-3 text-sm">
                                 <x-badge
-                                    :variant="match ($transaction->status->value) {
+                                    :variant="match ($transaction->status?->value) {
                                         'completed' => 'success',
                                         'pending_approval' => 'warning',
                                         'pending' => 'warning',
                                         default => 'gray',
                                     }"
                                 >
-                                    {{ ucfirst(str_replace('_', ' ', $transaction->status->value)) }}
+                                    {{ $transaction->status?->label() ?? 'N/A' }}
                                 </x-badge>
                             </td>
                         </tr>

@@ -84,7 +84,12 @@ class SecurityTest extends TestCase
             'purpose' => '<img src=x onerror=alert(1)>',
         ]);
 
-        $this->assertStringNotContainsString('<script>', $response->getContent());
+        $content = $response->getContent();
+        $this->assertStringNotContainsString('<script>', $content);
+        $this->assertStringNotContainsString('onerror=', $content);
+        $this->assertStringNotContainsString('onload=', $content);
+        $this->assertStringNotContainsString('onclick=', $content);
+        $this->assertStringNotContainsString('javascript:', $content);
     }
 
     /**

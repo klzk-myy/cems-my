@@ -8,4 +8,9 @@ class AccountNotFoundException extends DomainException
     {
         parent::__construct("Account not found: {$accountCode}");
     }
+
+    public function getStatusCode(): int
+    {
+        return 404;
+    }
 }

@@ -1,5 +1,5 @@
 <x-app-layout title="Create Sanctions Entry">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Create Sanctions Entry"
             description="Add a new sanctions list entry"

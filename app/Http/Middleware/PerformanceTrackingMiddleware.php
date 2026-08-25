@@ -20,12 +20,14 @@ class PerformanceTrackingMiddleware
         $response = $next($request);
         $duration = (microtime(true) - $start) * 1000;
 
-        Log::info('Request performance', [
-            'url' => $request->url(),
-            'method' => $request->method(),
-            'duration_ms' => round($duration, 2),
-            'status' => $response->status(),
-        ]);
+        if (! app()->isProduction()) {
+            Log::info('Request performance', [
+                'url' => $request->url(),
+                'method' => $request->method(),
+                'duration_ms' => round($duration, 2),
+                'status' => $response->status(),
+            ]);
+        }
 
         $threshold = (float) $this->thresholdService->getResponseTimeWarning();
         if ($duration > $threshold) {

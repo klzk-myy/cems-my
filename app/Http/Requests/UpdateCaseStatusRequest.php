@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ComplianceCaseStatus;
+use Illuminate\Validation\Rules\Enum as EnumRule;
+
 class UpdateCaseStatusRequest extends AuthorizedFormRequest
 {
     public function authorize(): bool
@@ -12,7 +15,7 @@ class UpdateCaseStatusRequest extends AuthorizedFormRequest
     public function rules(): array
     {
         return [
-            'status' => 'nullable|in:open,in_progress,pending_review,resolved,closed',
+            'status' => ['required', new EnumRule(ComplianceCaseStatus::class)],
             'notes' => 'nullable|string',
         ];
     }

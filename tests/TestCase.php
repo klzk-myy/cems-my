@@ -15,6 +15,7 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Cache;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -28,6 +29,16 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         config(['cems.mfa.enabled' => false]);
+
+        // Reset shared cache state between tests. StrictRateLimit uses
+        // Laravel's built-in RateLimiter, which stores hit counters in the
+        // DEFAULT cache store (not config('ratelimit.store')), so the
+        // RATE_LIMIT_CACHE_STORE=array env alone does NOT isolate it. The
+        // array store persists across tests within one PHPUnit process;
+        // without this flush the full suite 429s all API tests after ~60
+        // requests from the shared 127.0.0.1 test IP. Keep this flush even if
+        // the env vars look redundant.
+        Cache::flush();
     }
 
     /**
@@ -36,11 +47,11 @@ abstract class TestCase extends BaseTestCase
      * Override to ensure the in-memory database schema exists before traits
      * like DatabaseTransactions begin their transaction lifecycle.
      */
-    protected function setUpTraits(): void
+    protected function setUpTraits(): array
     {
         $this->ensureInMemoryDatabaseReady();
 
-        parent::setUpTraits();
+        return parent::setUpTraits();
     }
 
     /**
@@ -119,7 +130,8 @@ abstract class TestCase extends BaseTestCase
      */
     protected function createTestCustomer(array $attributes = []): Customer
     {
-        return Customer::factory()->create(array_merge([
+        /** @var Customer $customer */
+        $customer = Customer::factory()->create(array_merge([
             'full_name' => 'Test Customer',
             'id_type' => 'MyKad',
             'id_number_encrypted' => encrypt('123456789012'),
@@ -131,6 +143,8 @@ abstract class TestCase extends BaseTestCase
             'sanction_hit' => false,
             'is_active' => true,
         ], $attributes));
+
+        return $customer;
     }
 
     /**

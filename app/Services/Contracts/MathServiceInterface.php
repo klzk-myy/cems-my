@@ -12,6 +12,8 @@ interface MathServiceInterface
 
     public function divide(string $a, string $b): string;
 
+    public function safeDivide(string $a, string $b, ?int $precision = null): string;
+
     public function compare(string $a, string $b): int;
 
     public function calculateAverageCost(

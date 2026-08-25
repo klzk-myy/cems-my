@@ -20,7 +20,7 @@ return new class extends Migration
             $table->foreignId('posted_by')->constrained('users');
             $table->timestamp('posted_at')->default(DB::raw('CURRENT_TIMESTAMP'));
             $table->timestamps();
-            $table->foreign('currency_code')->references('code')->on('currencies');
+            $table->foreign('currency_code')->references('code')->on('currencies')->restrictOnDelete();
             $table->index(['currency_code', 'revaluation_date']);
             $table->index('posted_at');
         });

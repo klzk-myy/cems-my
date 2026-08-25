@@ -12,10 +12,11 @@ use App\Services\System\MathService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class ComprehensiveSetup extends Command
 {
-    protected $signature = 'comprehensive:setup {--branches=4} {--transactions=20}';
+    protected $signature = 'comprehensive:setup {--branches=4} {--transactions=20} {--admin-password=} {--force}';
 
     protected $description = 'Complete system setup with branches, opening stock, and test transactions';
 
@@ -130,17 +131,35 @@ class ComprehensiveSetup extends Command
             );
         }
 
-        // Create admin user
-        User::firstOrCreate(
-            ['email' => 'admin@example.com'],
-            [
+        // Create admin user. Never seed a well-known password: if an explicit
+        // password is not provided, generate a strong random one and print it
+        // once. Refuse to run in production without --force, since this command
+        // creates live data (including a privileged admin account).
+        $adminExists = User::where('email', 'admin@example.com')->exists();
+
+        if (! $adminExists) {
+            if (app()->environment('production') && ! $this->option('force')) {
+                throw new \RuntimeException(
+                    'Refusing to create an admin user in production. Re-run with --force to override.'
+                );
+            }
+
+            $password = $this->option('admin-password') ?: Str::password(16);
+
+            User::create([
+                'email' => 'admin@example.com',
                 'username' => 'admin',
                 'name' => 'Administrator',
-                'password_hash' => Hash::make('password'),
+                'password_hash' => Hash::make($password),
                 'role' => 'admin',
                 'is_active' => true,
-            ]
-        );
+            ]);
+
+            if (! $this->option('admin-password')) {
+                $this->warn('Generated admin password (shown once): '.$password);
+                $this->warn('Change it immediately after first login.');
+            }
+        }
 
         $this->logger->logWithSeverity('setup_base_data_created', [
             'entity_type' => 'System',

@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Services\Accounting;
 
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Services\Accounting\CurrencyPositionLockService;
@@ -83,7 +84,7 @@ class CurrencyPositionLockServiceTest extends TestCase
         $position = CurrencyPosition::factory()->create(['balance' => '1000.0000']);
         $service = new CurrencyPositionLockService(new MathService);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(AccountingPeriodException::class);
         $this->expectExceptionMessage('Unknown position operation: multiply');
 
         $service->adjust($position, '100.0000', 'multiply');

@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\FiscalYearStatus;
+use App\Http\Requests\RunRevaluationRequest;
+use App\Models\Currency;
 use App\Models\CurrencyPosition;
+use App\Models\FiscalYear;
 use App\Models\RevaluationEntry;
 use App\Services\Accounting\RevaluationService;
 use Illuminate\Http\RedirectResponse;
@@ -25,10 +29,8 @@ class RevaluationController extends Controller
         return view('accounting.revaluation.index', compact('positions', 'status'));
     }
 
-    public function run(Request $request): RedirectResponse
+    public function run(RunRevaluationRequest $request): RedirectResponse
     {
-        $this->requireManagerOrAdmin();
-
         try {
             $results = $this->revaluationService->runRevaluationWithJournal();
 
@@ -36,7 +38,7 @@ class RevaluationController extends Controller
                 ->with('success', "Revaluation complete. {$results['positions_updated']} positions updated.");
 
         } catch (\Exception $e) {
-            return back()->with('error', 'Revaluation failed: '.$e->getMessage());
+            return back()->with('error', 'Revaluation failed. Please try again.');
         }
     }
 
@@ -51,6 +53,9 @@ class RevaluationController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(25);
 
-        return view('accounting.revaluation.history', compact('history', 'month'));
+        $fiscalYears = FiscalYear::where('status', FiscalYearStatus::Open)->orderBy('start_date', 'desc')->pluck('year_code', 'year_code');
+        $currencies = Currency::where('is_active', true)->orderBy('name')->pluck('name', 'code');
+
+        return view('accounting.revaluation.history', compact('history', 'month', 'fiscalYears', 'currencies'));
     }
 }

@@ -30,6 +30,9 @@ trait HasUserValidationRules
                 UserRole::ComplianceOfficer->value,
                 UserRole::Admin->value,
             ])],
+            // Branch scope for the user. NULL keeps the account unrestricted;
+            // only admins may operate without a branch assignment.
+            'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
         ];
     }
 }

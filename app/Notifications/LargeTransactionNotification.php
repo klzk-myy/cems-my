@@ -87,7 +87,7 @@ class LargeTransactionNotification extends Notification implements ShouldQueue
             'teller_id' => $this->transaction->created_by,
             'created_at' => $this->transaction->created_at->toIso8601String(),
             'requires_approval' => true,
-            'url' => route('transactions.confirm', $this->confirmation->id),
+            'url' => route('transactions.confirm.show', $this->transaction->id),
         ];
     }
 
@@ -132,24 +132,31 @@ class LargeTransactionNotification extends Notification implements ShouldQueue
     }
 
     /**
+     * Email opt-out preferences, cached per notification instance.
+     *
+     * Must NOT be static: a static cache persists across queue jobs within
+     * the same worker process, so an opt-out recorded after the first send
+     * would stay invisible until the worker restarted.
+     */
+    protected array $preferences = [];
+
+    /**
      * Determine if email should be sent based on user preferences.
      * Caches preferences per user to avoid N+1 queries in batch scenarios.
      */
     protected function shouldSendEmail(User $notifiable): bool
     {
-        static $preferences = [];
-
         $userId = $notifiable->id;
 
-        if (! array_key_exists($userId, $preferences)) {
+        if (! array_key_exists($userId, $this->preferences)) {
             $preference = $notifiable->notificationPreferences()
                 ->where('notification_type', 'large_transaction')
                 ->first();
 
-            $preferences[$userId] = $preference?->email_enabled ?? true;
+            $this->preferences[$userId] = $preference?->email_enabled ?? true;
         }
 
-        return $preferences[$userId];
+        return $this->preferences[$userId];
     }
 
     /**

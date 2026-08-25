@@ -4,21 +4,24 @@ namespace App\Services\Reporting;
 
 use App\Enums\ReportType;
 use App\Enums\TransactionType;
+use App\Exceptions\Domain\ReportValidationException;
 use App\Models\Currency;
 use App\Models\CurrencyPosition;
 use App\Models\ReportGenerated;
 use App\Models\User;
+use App\Services\Accounting\LedgerService;
 use App\Services\Contracts\ReportingServiceInterface;
 use App\Services\System\MathService;
+use App\Services\ThresholdService;
 use App\ValueObjects\Quarter;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 class ReportingService implements ReportingServiceInterface
 {
-    protected const LARGE_VALUE_THRESHOLD = '50000';
-
     public function __construct(
-        protected MathService $mathService
+        protected MathService $mathService,
+        protected ThresholdService $thresholdService
     ) {}
 
     public function recordGeneratedReport(
@@ -32,7 +35,7 @@ class ReportingService implements ReportingServiceInterface
             'report_type' => $reportType,
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
-            'generated_by' => auth()->id() ?? 1,
+            'generated_by' => auth()->id() ?? config('cems.system_user_id', 1),
             'generated_at' => now(),
             'file_format' => $format,
             'status' => $status,
@@ -94,6 +97,27 @@ class ReportingService implements ReportingServiceInterface
         return implode(' ', $masked);
     }
 
+    /**
+     * Average a collection of DECIMAL rate strings without float precision loss.
+     *
+     * Rates are stored at decimal(18,6), so the average keeps 6 decimals.
+     */
+    private function averageRate(Collection $txns): string
+    {
+        $count = $txns->count();
+
+        if ($count === 0) {
+            return '0';
+        }
+
+        $total = '0';
+        foreach ($txns as $txn) {
+            $total = $this->mathService->add($total, (string) $txn->rate);
+        }
+
+        return bcdiv($total, (string) $count, 6);
+    }
+
     public function generateMSB2Data(string $date): array
     {
         $query = app(TransactionReportQuery::class);
@@ -133,8 +157,8 @@ class ReportingService implements ReportingServiceInterface
                 'Buy_Count' => $row ? (int) $row->buy_count : 0,
                 'Sell_Volume_MYR' => $row ? (string) $row->sell_volume : '0',
                 'Sell_Count' => $row ? (int) $row->sell_count : 0,
-                'Avg_Buy_Rate' => (string) ($buyTxns->avg('rate') ?? '0'),
-                'Avg_Sell_Rate' => (string) ($sellTxns->avg('rate') ?? '0'),
+                'Avg_Buy_Rate' => $this->averageRate($buyTxns),
+                'Avg_Sell_Rate' => $this->averageRate($sellTxns),
                 'Opening_Position' => $position ? $position->quantity : '0',
                 'Closing_Position' => $position ? $position->quantity : '0',
             ];
@@ -221,7 +245,9 @@ class ReportingService implements ReportingServiceInterface
         $currencyCodes = $currencies->pluck('code')->toArray();
         $currencyData = [];
 
-        $allTxns = app(TransactionReportQuery::class)
+        $transactionQuery = app(TransactionReportQuery::class);
+
+        $allTxns = $transactionQuery
             ->completed()
             ->forDateRange($startDate->toDateString(), $endDate->toDateString())
             ->whereIn('currency_code', $currencyCodes)
@@ -234,10 +260,22 @@ class ReportingService implements ReportingServiceInterface
 
         foreach ($currencies as $currency) {
             $currencyTxns = $allTxns->get($currency->code, collect());
-            $myrVolumes = app(TransactionReportQuery::class)->buySellVolumes($currencyTxns);
-            $foreignVolumes = app(TransactionReportQuery::class)->buySellVolumes($currencyTxns, 'amount_foreign');
+            $myrVolumes = $transactionQuery->buySellVolumes($currencyTxns);
+            $foreignVolumes = $transactionQuery->buySellVolumes($currencyTxns, 'amount_foreign');
 
             $openingPosition = $positions->get($currency->code);
+
+            // No historical position snapshots exist, so the opening stock is
+            // reconstructed backwards from today's live position. Sign
+            // convention mirrors CurrencyPositionService::updatePosition:
+            // a Buy adds amount_foreign to the position, a Sell subtracts it,
+            // hence closing = opening + buys - sells.
+            $closingStock = $openingPosition ? (string) $openingPosition->quantity : '0';
+            $netMovement = $this->mathService->subtract(
+                (string) $foreignVolumes['buy_volume'],
+                (string) $foreignVolumes['sell_volume']
+            );
+            $openingStock = $this->mathService->subtract($closingStock, $netMovement);
 
             $currencyData[] = [
                 'currency_code' => $currency->code,
@@ -248,8 +286,8 @@ class ReportingService implements ReportingServiceInterface
                 'sell_count' => $myrVolumes['sell_count'],
                 'sell_volume' => $foreignVolumes['sell_volume'],
                 'sell_value_myr' => $myrVolumes['sell_volume'],
-                'opening_stock' => $openingPosition ? $openingPosition->quantity : '0',
-                'closing_stock' => $openingPosition ? $openingPosition->quantity : '0',
+                'opening_stock' => $openingStock,
+                'closing_stock' => $closingStock,
             ];
         }
 
@@ -263,8 +301,13 @@ class ReportingService implements ReportingServiceInterface
             ->where('is_active', true)
             ->count();
 
+        $licenseNumber = config('cems.license_number');
+        if (empty($licenseNumber)) {
+            throw new ReportValidationException('BNM license number is not configured. Set BNM_LICENSE_NUMBER in .env.');
+        }
+
         return [
-            'license_number' => config('cems.license_number', 'MSB-XXXXXXX'),
+            'license_number' => $licenseNumber,
             'reporting_period' => $month,
             'report_date' => now()->format('Y-m-d'),
             'currencies' => $currencyData,
@@ -330,9 +373,20 @@ class ReportingService implements ReportingServiceInterface
             ->completed()
             ->forDateRange($startDate->toDateString(), $endDate->toDateString())
             ->with(['customer', 'user'])
-            ->where('amount_local', '>=', self::LARGE_VALUE_THRESHOLD)
+            ->where('amount_local', '>=', $this->thresholdService->getLargeTransactionThreshold())
             ->orderBy('created_at')
             ->get();
+
+        // Collection::sum() casts DECIMAL strings to float; use bcmath so large
+        // monetary totals in the report do not lose precision.
+        $sumAmounts = function ($txns) {
+            $total = '0';
+            foreach ($txns as $txn) {
+                $total = $this->mathService->add($total, (string) $txn->amount_local);
+            }
+
+            return $total;
+        };
 
         $monthlyBreakdown = [];
         for ($m = 0; $m < 3; $m++) {
@@ -344,15 +398,15 @@ class ReportingService implements ReportingServiceInterface
             $monthlyBreakdown[] = [
                 'month' => $monthDate->format('Y-m'),
                 'count' => $monthTxns->count(),
-                'total_amount' => $monthTxns->sum('amount_local'),
+                'total_amount' => $sumAmounts($monthTxns),
             ];
         }
 
-        $byCurrency = $transactions->groupBy('currency_code')->map(function ($txns) {
+        $byCurrency = $transactions->groupBy('currency_code')->map(function ($txns) use ($sumAmounts) {
             return [
                 'currency' => $txns->first()->currency_code,
                 'count' => $txns->count(),
-                'total_amount' => $txns->sum('amount_local'),
+                'total_amount' => $sumAmounts($txns),
             ];
         })->values();
 
@@ -362,7 +416,7 @@ class ReportingService implements ReportingServiceInterface
             'period_end' => $endDate->toDateString(),
             'generated_at' => now()->toIso8601String(),
             'total_transactions' => $transactions->count(),
-            'total_amount' => $transactions->sum('amount_local'),
+            'total_amount' => $sumAmounts($transactions),
             'monthly_breakdown' => $monthlyBreakdown,
             'by_currency' => $byCurrency,
             'data' => $transactions->map(function ($txn) {
@@ -491,5 +545,138 @@ class ReportingService implements ReportingServiceInterface
         }
 
         return app(CsvReportWriter::class)->writeWithTitleRows($filename, $titleRows, $headers, $rows);
+    }
+
+    public function generateReport(string $reportType, string $period): string
+    {
+        $type = ReportType::tryFrom($reportType);
+
+        if ($type === null) {
+            throw new \InvalidArgumentException("Unknown report type: {$reportType}");
+        }
+
+        return match ($type) {
+            ReportType::Msb2 => $this->generateMSB2($period),
+            ReportType::Lmca => $this->generateFormLMCACsv(Carbon::parse($period)->format('Y-m')),
+            ReportType::Qlvr => $this->generateQuarterlyLargeValueCsv($this->periodToQuarter($period)),
+            ReportType::Plr => $this->generatePositionLimitCsv(),
+            ReportType::TrialBalance => $this->generateTrialBalance($period),
+            ReportType::MonthEnd => $this->generateMonthEnd($period),
+            ReportType::ProfitLoss => $this->generateProfitLoss($period),
+            ReportType::BalanceSheet => $this->generateBalanceSheet($period),
+        };
+    }
+
+    protected function generateTrialBalance(string $period): string
+    {
+        // Delegate to LedgerService - the same proven implementation behind the
+        // accounting reports screen and fiscal-year close - so this path cannot
+        // drift from the scheduled trial balance output.
+        $asOf = Carbon::parse($period)->endOfMonth()->toDateString();
+        $trialBalance = app(LedgerService::class)->getTrialBalance($asOf);
+
+        $rows = [];
+        foreach ($trialBalance['accounts'] as $account) {
+            $rows[] = [
+                $account['account_code'],
+                $account['account_name'],
+                $account['debit'],
+                $account['credit'],
+            ];
+        }
+
+        $rows[] = ['', 'TOTAL', $trialBalance['total_debits'], $trialBalance['total_credits']];
+
+        return app(CsvReportWriter::class)->writeWithTitleRows(
+            "TrialBalance_{$period}.csv",
+            [
+                ['Trial Balance Report'],
+                ['As of', $asOf],
+                ['Balanced', $trialBalance['is_balanced'] ? 'Yes' : 'No'],
+            ],
+            ['Account Code', 'Account Name', 'Debit', 'Credit'],
+            $rows
+        );
+    }
+
+    protected function generateMonthEnd(string $period): string
+    {
+        return app(CsvReportWriter::class)->write(
+            "MonthEnd_{$period}.csv",
+            ['Period', 'Generated'],
+            [[$period, now()->toDateTimeString()]]
+        );
+    }
+
+    protected function generateProfitLoss(string $period): string
+    {
+        // Delegate to LedgerService::getProfitAndLoss so the P&L reflects real
+        // ledger activity instead of placeholder account codes.
+        $date = Carbon::parse($period);
+        $from = $date->copy()->startOfMonth()->toDateString();
+        $to = $date->copy()->endOfMonth()->toDateString();
+
+        $pnl = app(LedgerService::class)->getProfitAndLoss($from, $to);
+
+        $rows = [];
+        foreach ($pnl['revenues'] as $revenue) {
+            $rows[] = ['Revenue', $revenue['account_code'], $revenue['account_name'], $revenue['amount']];
+        }
+        $rows[] = ['Total Revenue', '', '', $pnl['total_revenue']];
+
+        foreach ($pnl['expenses'] as $expense) {
+            $rows[] = ['Expense', $expense['account_code'], $expense['account_name'], $expense['amount']];
+        }
+        $rows[] = ['Total Expenses', '', '', $pnl['total_expenses']];
+        $rows[] = ['Net Profit', '', '', $pnl['net_profit']];
+
+        return app(CsvReportWriter::class)->writeWithTitleRows(
+            "ProfitLoss_{$period}.csv",
+            [['Profit & Loss Report'], ['Period', "{$from} to {$to}"]],
+            ['Category', 'Account Code', 'Account Name', 'Amount (MYR)'],
+            $rows
+        );
+    }
+
+    protected function generateBalanceSheet(string $period): string
+    {
+        // Delegate to LedgerService::getBalanceSheet so assets/liabilities come
+        // from real ledger balances instead of placeholder account codes.
+        $asOf = Carbon::parse($period)->endOfMonth()->toDateString();
+        $balanceSheet = app(LedgerService::class)->getBalanceSheet($asOf);
+
+        $rows = [];
+        foreach ($balanceSheet['assets'] as $asset) {
+            $rows[] = ['Asset', $asset['account_code'], $asset['account_name'], $asset['balance']];
+        }
+        $rows[] = ['Total Assets', '', '', $balanceSheet['total_assets']];
+
+        foreach ($balanceSheet['liabilities'] as $liability) {
+            $rows[] = ['Liability', $liability['account_code'], $liability['account_name'], $liability['balance']];
+        }
+        $rows[] = ['Total Liabilities', '', '', $balanceSheet['total_liabilities']];
+
+        foreach ($balanceSheet['equity'] as $equity) {
+            $rows[] = ['Equity', $equity['account_code'], $equity['account_name'], $equity['balance']];
+        }
+        $rows[] = ['Total Equity', '', '', $balanceSheet['total_equity']];
+
+        return app(CsvReportWriter::class)->writeWithTitleRows(
+            "BalanceSheet_{$period}.csv",
+            [
+                ['Balance Sheet Report'],
+                ['As of', $asOf],
+                ['Balanced', $balanceSheet['is_balanced'] ? 'Yes' : 'No'],
+            ],
+            ['Category', 'Account Code', 'Account Name', 'Amount (MYR)'],
+            $rows
+        );
+    }
+
+    private function periodToQuarter(string $period): string
+    {
+        $date = Carbon::parse($period);
+
+        return 'Q'.$date->quarter.'-'.$date->year;
     }
 }

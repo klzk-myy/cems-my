@@ -15,8 +15,8 @@ class EddIndexRequest extends ApiFormRequest
     {
         return [
             'per_page' => 'nullable|integer|min:1|max:100',
-            'status' => 'nullable|string',
-            'risk_level' => 'nullable|string',
+            'status' => 'nullable|in:Open,UnderReview,PendingApproval,Closed,Completed,Cancelled',
+            'risk_level' => 'nullable|in:Low,Medium,High,Critical',
         ];
     }
 }

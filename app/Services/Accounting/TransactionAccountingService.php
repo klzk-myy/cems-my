@@ -5,9 +5,11 @@ namespace App\Services\Accounting;
 use App\Enums\AccountCode;
 use App\Enums\CddLevel;
 use App\Enums\TransactionStatus;
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Models\Transaction;
 use App\Services\AuditService;
 use App\Services\System\MathService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -31,41 +33,50 @@ class TransactionAccountingService
      */
     public function createDeferredAccountingEntries(int $transactionId): void
     {
-        $transaction = Transaction::findOrFail($transactionId);
+        DB::transaction(function () use ($transactionId) {
+            // Lock the row so concurrent callers (approval flow vs
+            // ReconcileDeferredAccountingJob) serialise instead of racing
+            // the journal_entry_id check below.
+            $transaction = Transaction::where('id', $transactionId)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        // Verify it's Enhanced CDD
-        if ($transaction->cdd_level !== CddLevel::Enhanced) {
-            throw new \InvalidArgumentException('Only Enhanced CDD transactions support deferred entries');
-        }
+            // Verify it's Enhanced CDD
+            if ($transaction->cdd_level !== CddLevel::Enhanced) {
+                throw new AccountingPeriodException('Only Enhanced CDD transactions support deferred entries');
+            }
 
-        // Verify it's completed (approved)
-        if ($transaction->status !== TransactionStatus::Completed) {
-            throw new \InvalidArgumentException('Transaction must be completed to create journal entries');
-        }
+            // Verify it's completed (approved)
+            if ($transaction->status !== TransactionStatus::Completed) {
+                throw new AccountingPeriodException('Transaction must be completed to create journal entries');
+            }
 
-        // Verify entries weren't already created
-        if ($transaction->journal_entry_id !== null) {
-            Log::info('Journal entries already exist for transaction', [
-                'transaction_id' => $transactionId,
+            // Re-checked under lock: prevents duplicate journal entries when
+            // this overlaps with another process doing the same work.
+            if ($transaction->journal_entry_id !== null) {
+                Log::info('Journal entries already exist for transaction', [
+                    'transaction_id' => $transactionId,
+                    'journal_entry_id' => $transaction->journal_entry_id,
+                ]);
+
+                return;
+            }
+
+            // Create the entries (the nested transaction inside
+            // createImmediateAccountingEntries becomes a savepoint).
+            $this->createImmediateAccountingEntries($transaction);
+
+            // Mark as having deferred accounting (Enhanced CDD was deferred until approval)
+            $transaction->has_deferred_accounting = true;
+            $transaction->save();
+
+            $this->auditService->logTransaction('deferred_journal_entries_created', $transaction->id, [
+                'transaction_id' => $transaction->id,
                 'journal_entry_id' => $transaction->journal_entry_id,
+                'deferred_until' => now(),
+                'approver_id' => $transaction->approved_by,
             ]);
-
-            return;
-        }
-
-        // Create the entries
-        $this->createImmediateAccountingEntries($transaction);
-
-        // Mark as having deferred accounting (Enhanced CDD was deferred until approval)
-        $transaction->has_deferred_accounting = true;
-        $transaction->save();
-
-        $this->auditService->logTransaction('deferred_journal_entries_created', $transaction->id, [
-            'transaction_id' => $transaction->id,
-            'journal_entry_id' => $transaction->journal_entry_id,
-            'deferred_until' => now(),
-            'approver_id' => $transaction->approved_by,
-        ]);
+        });
     }
 
     /**
@@ -73,20 +84,24 @@ class TransactionAccountingService
      */
     public function createImmediateAccountingEntries(Transaction $transaction): void
     {
-        $entries = $this->buildEntriesForTransaction($transaction);
+        DB::transaction(function () use ($transaction) {
+            $entries = $this->buildEntriesForTransaction($transaction);
 
-        $journalEntry = $this->accountingService->createJournalEntry(
-            $entries,
-            'Transaction',
-            $transaction->id,
-            "Transaction #{$transaction->id} - {$transaction->type->value} {$transaction->currency_code}"
-        );
+            $journalEntry = $this->accountingService->createJournalEntry(
+                $entries,
+                'Transaction',
+                $transaction->id,
+                "Transaction #{$transaction->id} - {$transaction->type->value} {$transaction->currency_code}",
+                null,
+                null,
+                $transaction->branch_id
+            );
 
-        // Link journal entry to transaction
-        $transaction->journal_entry_id = $journalEntry->id;
-        $transaction->journal_entries_created_at = now();
-        $transaction->has_deferred_accounting = false;
-        $transaction->save();
+            $transaction->journal_entry_id = $journalEntry->id;
+            $transaction->journal_entries_created_at = now();
+            $transaction->has_deferred_accounting = false;
+            $transaction->save();
+        });
     }
 
     /**
@@ -108,24 +123,30 @@ class TransactionAccountingService
             return [
                 [
                     'account_code' => AccountCode::FOREIGN_CURRENCY_INVENTORY->value,
-                    'debit' => $transaction->amount_local,
+                    'debit' => (string) $transaction->amount_local,
                     'credit' => '0',
                     'description' => "Buy {$transaction->amount_foreign} {$transaction->currency_code} @ {$transaction->rate}",
                 ],
                 [
                     'account_code' => AccountCode::CASH_MYR->value,
                     'debit' => '0',
-                    'credit' => $transaction->amount_local,
+                    'credit' => (string) $transaction->amount_local,
                     'description' => "Payment for {$transaction->currency_code} purchase",
                 ],
             ];
         }
 
-        $position = $this->positionService->getPosition($transaction->currency_code, $transaction->till_id);
+        // Positions are keyed by branch, not by till (counter) code. Looking up
+        // with till_id silently returns null, which falls back to the sale rate
+        // and books zero forex gain/loss on every Sell.
+        $position = $this->positionService->getPosition(
+            $transaction->currency_code,
+            $transaction->branch_id ? (string) $transaction->branch_id : 'HQ'
+        );
         $avgCost = $position ? $position->avg_cost_rate : $transaction->rate;
 
         if ($avgCost === null) {
-            throw new \RuntimeException('Cannot calculate cost basis: no position or rate available for transaction');
+            throw new AccountingPeriodException('Cannot calculate cost basis: no position or rate available for transaction');
         }
 
         $costBasis = $this->mathService->multiply((string) $transaction->amount_foreign, $avgCost);
@@ -135,7 +156,7 @@ class TransactionAccountingService
         $entries = [
             [
                 'account_code' => AccountCode::CASH_MYR->value,
-                'debit' => $transaction->amount_local,
+                'debit' => (string) $transaction->amount_local,
                 'credit' => '0',
                 'description' => "Sale of {$transaction->amount_foreign} {$transaction->currency_code}",
             ],

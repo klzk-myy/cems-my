@@ -70,8 +70,6 @@ class JournalEntry extends AccountingModel
         'approved_by',
         'approved_at',
         'approval_notes',
-        'cost_center_id',
-        'department_id',
         'branch_id',
         'created_by',
     ];

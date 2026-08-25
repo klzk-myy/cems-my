@@ -1,5 +1,5 @@
 <x-app-layout title="Till Report - {{ $date }}">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Till Report"
             description="Report Date: {{ $date }}"
@@ -62,12 +62,12 @@
         <x-card title="Currency Balances">
             <x-table>
                 <x-slot:thead>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Currency</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Opening Balance</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Total Bought</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Total Sold</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Closing Balance</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Variance</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Currency</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Opening Balance</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Total Bought</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Total Sold</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Closing Balance</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Variance</th>
                 </x-slot:thead>
                 <x-slot:tbody>
                     @forelse($balances->currencyBalances ?? [] as $currencyBalance)

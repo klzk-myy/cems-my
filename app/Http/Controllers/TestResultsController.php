@@ -253,7 +253,7 @@ class TestResultsController extends Controller
         $latest = TestResult::latest()->first();
 
         return response()->json([
-            'status' => $latest?->status ?? 'unknown',
+            'status' => $latest?->status?->value ?? 'unknown',
             'pass_rate' => $latest?->pass_rate ?? 0,
             'total_tests' => $latest?->total_tests ?? 0,
             'last_run' => $latest?->created_at?->diffForHumans() ?? 'Never',

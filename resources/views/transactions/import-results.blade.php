@@ -1,5 +1,5 @@
 <x-app-layout title="Import Results">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Import Results"
             description="Batch upload processing results"
@@ -31,11 +31,11 @@
                 <div class="overflow-x-auto">
                     <x-table>
                         <x-slot:thead>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Row</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Type</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Amount</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Currency</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Transaction ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Row</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Type</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Amount</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Currency</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Transaction ID</th>
                         </x-slot:thead>
                         <x-slot:tbody>
                             @foreach($results['successful_records'] as $record)

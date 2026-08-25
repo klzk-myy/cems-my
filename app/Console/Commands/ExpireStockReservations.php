@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\ReservationExpiredNotification;
 use App\Services\Accounting\CurrencyPositionService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class ExpireStockReservations extends Command
 {
@@ -23,18 +24,38 @@ class ExpireStockReservations extends Command
 
     public function handle(): int
     {
-        $expired = StockReservation::where('status', StockReservationStatus::Pending)
-            ->get()
-            ->filter(fn ($reservation) => $reservation->isExpired());
+        // Filter expiry in the query and chunk so large backlogs don't blow memory.
+        $released = 0;
+        $failed = 0;
 
-        $count = $expired->count();
+        StockReservation::where('status', StockReservationStatus::Pending)
+            ->where('expires_at', '<', now())
+            ->chunkById(200, function ($reservations) use (&$released, &$failed) {
+                foreach ($reservations as $reservation) {
+                    try {
+                        $this->positionService->releaseStockReservation($reservation->transaction_id);
+                        $this->notifyTeller($reservation);
+                        $released++;
+                    } catch (\Throwable $e) {
+                        // One failing release must not abort the remaining ones.
+                        $failed++;
 
-        foreach ($expired as $reservation) {
-            $this->positionService->releaseStockReservation($reservation->transaction_id);
-            $this->notifyTeller($reservation);
+                        Log::error('Failed to release expired stock reservation', [
+                            'reservation_id' => $reservation->id,
+                            'transaction_id' => $reservation->transaction_id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            });
+
+        $this->info("Released {$released} expired stock reservations.");
+
+        if ($failed > 0) {
+            $this->warn("{$failed} expired stock reservations failed to release (see log).");
+
+            return Command::FAILURE;
         }
-
-        $this->info("Released {$count} expired stock reservations.");
 
         return Command::SUCCESS;
     }

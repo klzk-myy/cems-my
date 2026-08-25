@@ -3,6 +3,7 @@
 namespace App\Services\Accounting;
 
 use App\Enums\ReportType;
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Exceptions\Domain\MonthEndPreCheckFailedException;
 use App\Models\AccountingPeriod;
 use App\Models\JournalEntry;
@@ -131,7 +132,7 @@ class MonthEndCloseService
             $period = AccountingPeriod::forDate($date->toDateString())->first();
 
             if (! $period) {
-                throw new \InvalidArgumentException('No period found for date');
+                throw new AccountingPeriodException('No period found for date');
             }
 
             $period->update([

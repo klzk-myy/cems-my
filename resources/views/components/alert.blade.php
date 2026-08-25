@@ -39,7 +39,7 @@ $icons = [
 
         @if($dismissible)
             <button @click="shown = false"
-                    class="shrink-0 -mr-1 -mt-1 p-1 rounded hover:bg-black/5 dark:hover:bg-surface/10">
+                    class="shrink-0 p-1 rounded text-ink-muted hover:text-ink-muted">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>

@@ -15,8 +15,8 @@ return new class extends Migration
     {
         Schema::create('str_drafts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('case_id')->nullable()->constrained('compliance_cases');
-            $table->foreignId('customer_id')->constrained();
+            $table->foreignId('case_id')->nullable()->constrained('compliance_cases')->restrictOnDelete();
+            $table->foreignId('customer_id')->constrained()->restrictOnDelete();
             $table->json('alert_ids')->nullable();
             $table->text('narrative')->nullable();
             $table->string('suspected_activity')->nullable();
@@ -24,9 +24,9 @@ return new class extends Migration
             $table->json('ai_metadata')->nullable();
             $table->string('status')->default('draft');
             $table->timestamp('filing_deadline')->nullable();
-            $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('reviewed_by')->nullable()->constrained('users');
-            $table->foreignId('approved_by')->nullable()->constrained('users');
+            $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
+            $table->foreignId('reviewed_by')->nullable()->constrained('users')->restrictOnDelete();
+            $table->foreignId('approved_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('submitted_at')->nullable();
             $table->timestamps();
 

@@ -16,7 +16,9 @@ class Controller extends BaseController
      */
     protected function requireManagerOrAdmin(): void
     {
-        if (! auth()->user()->isManager()) {
+        $user = auth()->user();
+
+        if (! $user || ! $user->isManager()) {
             abort(403, 'Unauthorized. Manager or Admin access required.');
         }
     }
@@ -26,7 +28,9 @@ class Controller extends BaseController
      */
     protected function requireAdmin(): void
     {
-        if (! auth()->user()->isAdmin()) {
+        $user = auth()->user();
+
+        if (! $user || ! $user->isAdmin()) {
             abort(403, 'Unauthorized. Admin access required.');
         }
     }

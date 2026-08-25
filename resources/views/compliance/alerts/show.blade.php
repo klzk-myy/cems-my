@@ -1,5 +1,5 @@
 <x-app-layout title="Alert Details - {{ $alert->id }}">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Alert Details"
             description="{{ $alert->id }}"
@@ -27,7 +27,7 @@
                             default => 'gray',
                         }"
                     >
-                        {{ $alert->priority?->value ?? 'medium' }}
+                        {{ $alert->priority?->label() ?? 'Medium' }}
                     </x-badge>
                 </div>
                 <div>
@@ -40,7 +40,7 @@
                             default => 'info',
                         }"
                     >
-                        {{ $alert->status?->value ?? 'open' }}
+                        {{ $alert->status?->label() ?? 'Open' }}
                     </x-badge>
                 </div>
                 <div>
@@ -85,8 +85,8 @@
                             <tr class="hover:bg-canvas-subtle">
                                 <td class="px-4 py-3 text-sm text-ink">{{ $transaction->id ?? 'N/A' }}</td>
                                 <td class="px-4 py-3 text-sm text-ink-muted">{{ $transaction->created_at?->format('Y-m-d') ?? 'N/A' }}</td>
-                                <td class="px-4 py-3 text-sm text-ink">{{ $transaction->type?->value ?? 'N/A' }}</td>
-                                <td class="px-4 py-3 text-sm text-ink">RM {{ number_format((float) ($transaction->amount ?? 0), 2) }}</td>
+                                <td class="px-4 py-3 text-sm text-ink">{{ $transaction->type?->label() ?? 'N/A' }}</td>
+                                <td class="px-4 py-3 text-sm text-ink">RM {{ number_format($transaction->amount_local ?? 0, 2) }}</td>
                             </tr>
                         @endif
                     </x-slot:tbody>

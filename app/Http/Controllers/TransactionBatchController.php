@@ -77,6 +77,16 @@ class TransactionBatchController extends Controller
         }
         fclose($handle);
 
+        // Guard against pathological uploads: the import runs synchronously in
+        // the request, so cap the row count to keep it inside the request
+        // timeout and avoid a stuck 'Processing' import on script death.
+        $maxRows = (int) config('transactions.batch.max_rows', 5000);
+        if ($rowCount > $maxRows) {
+            Storage::delete($path);
+
+            return back()->with('error', "Import rejected: file contains {$rowCount} data rows (maximum allowed is {$maxRows}).")->withInput();
+        }
+
         // Create import record with total_rows
         $import = TransactionImport::create([
             'imported_by' => auth()->id(),
@@ -99,7 +109,7 @@ class TransactionBatchController extends Controller
                 'completed_at' => now(),
             ]);
 
-            return back()->with('error', 'Import failed: '.$e->getMessage());
+            return back()->with('error', 'Import failed. Please try again.');
         }
     }
 
@@ -125,9 +135,27 @@ class TransactionBatchController extends Controller
             'Content-Disposition' => 'attachment; filename="transaction_template.csv"',
         ];
 
-        $template = "customer_id,type,currency_code,amount_foreign,rate,purpose,source_of_funds,till_id\n";
-        $template .= "1,Buy,USD,1000,4.72,Business Travel,Salary,MAIN\n";
-        $template .= "1,Sell,USD,500,4.75,Personal Use,Savings,TILL-001\n";
+        $columns = config('cems.batch_import.columns');
+        $sampleCurrencies = config('cems.batch_import.sample_currencies', ['USD']);
+
+        $template = implode(',', $columns)."\n";
+        $typeIdx = array_search('type', $columns);
+        $currencyIdx = array_search('currency_code', $columns);
+        $amountIdx = array_search('amount_foreign', $columns);
+
+        foreach ($sampleCurrencies as $i => $currency) {
+            $type = $i % 2 === 0 ? 'Buy' : 'Sell';
+            $amount = $i % 2 === 0 ? 1000 : 500;
+            $row = array_fill(0, count($columns), '');
+            $row[0] = '1';
+            $row[$typeIdx] = $type;
+            $row[$currencyIdx] = $currency;
+            $row[$amountIdx] = $amount;
+            $row[array_search('purpose', $columns)] = 'Sample';
+            $row[array_search('source_of_funds', $columns)] = 'Sample';
+            $row[array_search('till_id', $columns)] = 'MAIN';
+            $template .= implode(',', $row)."\n";
+        }
 
         return response($template, 200, $headers);
     }

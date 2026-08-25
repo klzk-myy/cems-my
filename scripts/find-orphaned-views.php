@@ -37,6 +37,16 @@ foreach ($appDirs as $dir) {
         foreach ($matches[1] as $v) {
             $referenced[] = $v;
         }
+        // Anonymous Blade components: <x-foo.bar ...> / <x-foo.bar/>
+        preg_match_all('/<x-([a-z0-9\-_\.]+)(?:\s|\/?>)/', $content, $matches);
+        foreach ($matches[1] as $v) {
+            $referenced[] = str_replace('-', '.', $v);
+        }
+        // PDF / Mail rendering helpers
+        preg_match_all('/(?:PDF|Mail|\\$[a-zA-Z_]+)?\s*(?:::|->)\s*(?:loadView|markdown)\s*\(\s*[\'"]([^\'"]+)[\'"]/', $content, $matches);
+        foreach ($matches[1] as $v) {
+            $referenced[] = $v;
+        }
     }
 }
 $referenced = array_unique($referenced);
@@ -51,6 +61,10 @@ foreach ($referenced as $ref) {
 $cleanReferenced = array_unique($cleanReferenced);
 $orphaned = [];
 foreach ($allViews as $dotName => $path) {
+    // Components are invoked via <x-...> and are never direct view() targets.
+    if (str_starts_with($dotName, 'components.')) {
+        continue;
+    }
     if (! in_array($dotName, $cleanReferenced)) {
         $found = false;
         foreach ($cleanReferenced as $ref) {
@@ -59,7 +73,7 @@ foreach ($allViews as $dotName => $path) {
                 break;
             }
         }
-        if (! $found && ! str_contains($dotName, 'components/')) {
+        if (! $found) {
             $orphaned[] = ['view' => $dotName, 'path' => $path, 'confidence' => 'HIGH'];
         }
     }

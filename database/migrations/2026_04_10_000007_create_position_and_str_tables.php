@@ -1,11 +1,11 @@
 <?php
 
 /**
- * Consolidated Migration: Currency Positions, Revaluation, STR, Branches
- * Replaces: 2025_03_31_000012, 2025_03_31_000013, 2026_04_05_000001_create_str_reports_table,
+ * Consolidated Migration: Currency Positions, Revaluation, Branches
+ * Replaces: 2025_03_31_000012, 2025_03_31_000013,
  *          2026_04_09_000001_create_branches_table
  *
- * Creates: currency_positions, revaluation_entries, str_reports, branches
+ * Creates: currency_positions, revaluation_entries, branches
  */
 
 use Illuminate\Database\Migrations\Migration;
@@ -59,33 +59,6 @@ return new class extends Migration
             });
         }
 
-        // STR reports table
-        if (! Schema::hasTable('str_reports')) {
-            Schema::create('str_reports', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
-                $table->string('str_number')->unique();
-                $table->foreignId('customer_id')->constrained()->onDelete('restrict');
-                $table->json('transaction_ids')->nullable();
-                $table->text('suspected_activity');
-                $table->text('narrative');
-                $table->decimal('total_amount', 18, 4)->default(0);
-                $table->string('currency_code', 3)->default('MYR');
-                $table->enum('status', ['draft', 'pending_review', 'submitted', 'accepted', 'rejected'])->default('draft');
-                $table->foreignId('created_by')->constrained()->onDelete('restrict');
-                $table->foreignId('reviewed_by')->nullable()->constrained()->onDelete('set null');
-                $table->foreignId('approved_by')->nullable()->constrained()->onDelete('set null');
-                $table->unsignedBigInteger('alert_id')->nullable();
-                $table->timestamp('submitted_at')->nullable();
-                $table->timestamp('filed_at')->nullable();
-                $table->timestamps();
-                $table->index(['status', 'filed_at']);
-                $table->index(['customer_id']);
-                $table->index(['created_by']);
-                $table->foreign('alert_id')->references('id')->on('flagged_transactions')->onDelete('set null');
-            });
-        }
-
         // Branches table
         if (! Schema::hasTable('branches')) {
             Schema::create('branches', function (Blueprint $table) {
@@ -112,7 +85,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('branches');
-        Schema::dropIfExists('str_reports');
         Schema::dropIfExists('revaluation_entries');
         Schema::dropIfExists('currency_positions');
     }

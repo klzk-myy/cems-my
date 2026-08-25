@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TransactionType;
+use App\Http\Concerns\BranchScopedQuery;
 use App\Http\Requests\CloseTillRequest;
 use App\Http\Requests\OpenTillRequest;
 use App\Http\Requests\TillReconciliationRequest;
@@ -23,6 +24,8 @@ use Illuminate\View\View;
 
 class StockCashController extends Controller
 {
+    use BranchScopedQuery;
+
     public function __construct(
         protected MathService $mathService,
         protected CurrencyPositionService $currencyPositionService,
@@ -37,30 +40,29 @@ class StockCashController extends Controller
     public function index(): View
     {
         $this->requireManagerOrAdmin();
+
+        $user = auth()->user();
+
         // Get current positions
-        $positions = $this->currencyPositionService->getVisiblePositionsForUser(auth()->user());
+        $positions = $this->currencyPositionService->getVisiblePositionsForUser($user);
         $totalPnl = $this->currencyPositionService->getTotalPnl();
 
-        // Get till information
-        $openTills = TillBalance::whereDate('date', today())
-            ->whereNull('closed_at')
-            ->distinct()
-            ->pluck('till_id')
-            ->toArray();
+        // Get till information (scoped to the user's branch - admins see all)
+        $openTills = $this->scopeByBranch(TillBalance::whereDate('date', today())->whereNull('closed_at'))
+            ->distinct()->pluck('till_id')->toArray();
 
-        $closedTills = TillBalance::whereDate('date', today())
-            ->whereNotNull('closed_at')
-            ->distinct()
-            ->pluck('till_id')
-            ->toArray();
+        $closedTills = $this->scopeByBranch(TillBalance::whereDate('date', today())->whereNotNull('closed_at'))
+            ->distinct()->pluck('till_id')->toArray();
 
-        // Get today's till balances
-        $todayBalances = TillBalance::with(['currency', 'opener', 'closer'])
-            ->whereDate('date', today())
+        // Get today's till balances, scoped to the user's branch (admins see all)
+        $todayBalances = $this->scopeByBranch(TillBalance::with(['currency', 'opener', 'closer'])->whereDate('date', today()))
             ->get();
 
-        // Calculate summary stats using collection aggregates
-        $totalVariance = $todayBalances->sum('variance');
+        // Calculate summary stats using bcmath (money must never go through float sums)
+        $totalVariance = $todayBalances->reduce(
+            fn (string $carry, TillBalance $balance) => $this->mathService->add($carry, (string) ($balance->variance ?? '0')),
+            '0'
+        );
 
         $stats = [
             'total_currencies' => Currency::where('is_active', true)->count(),
@@ -75,17 +77,13 @@ class StockCashController extends Controller
 
         // Calculate MYR cash in hand from today's till balances
         // For open tills: use opening_balance. For closed tills: use closing_balance
-        $myrQuery = TillBalance::whereDate('date', today())
-            ->where('currency_code', 'MYR');
-
-        // Scope by branch for non-admin users
-        $user = auth()->user();
-        if (! $user->role->canManageAllBranches()) {
-            $myrQuery->where('branch_id', $user->branch_id);
-        }
+        $myrQuery = $this->scopeByBranch(TillBalance::whereDate('date', today())->where('currency_code', 'MYR'));
 
         $myrBalances = $myrQuery->get();
-        $myrCashInHand = $myrBalances->sum(fn ($b) => $b->closing_balance ?? $b->opening_balance);
+        $myrCashInHand = $myrBalances->reduce(
+            fn (string $carry, TillBalance $b) => $this->mathService->add($carry, (string) ($b->closing_balance ?? $b->opening_balance ?? '0')),
+            '0'
+        );
 
         return view('pages.stock-cash.index', compact(
             'positions',
@@ -108,7 +106,9 @@ class StockCashController extends Controller
 
         $validated = $request->validated();
 
-        $till = Counter::where('code', $validated['till_id'])->first();
+        $tillQuery = $this->scopeByBranch(Counter::where('code', $validated['till_id']));
+
+        $till = $tillQuery->first();
 
         if (! $till) {
             return back()->with('error', 'Till not found.');
@@ -123,7 +123,7 @@ class StockCashController extends Controller
                 $validated['notes'] ?? null
             );
         } catch (\RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'Till operation failed. Please try again.');
         } catch (\Throwable $e) {
             Log::error('Failed to open till', ['error' => $e->getMessage()]);
 
@@ -156,10 +156,13 @@ class StockCashController extends Controller
 
         $validated = $request->validated();
 
-        $tillBalance = TillBalance::where('till_id', $validated['till_id'])
-            ->where('currency_code', $validated['currency_code'])
-            ->whereDate('date', today())
-            ->first();
+        $tillQuery = $this->scopeByBranch(
+            TillBalance::where('till_id', $validated['till_id'])
+                ->where('currency_code', $validated['currency_code'])
+                ->whereDate('date', today())
+        );
+
+        $tillBalance = $tillQuery->first();
 
         if (! $tillBalance) {
             return back()->with('error', 'Till not found for today.');
@@ -173,7 +176,7 @@ class StockCashController extends Controller
                 $validated['difference_notes'] ?? null
             );
         } catch (\RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'Till operation failed. Please try again.');
         } catch (\Throwable $e) {
             Log::error('Failed to close till', ['error' => $e->getMessage()]);
 
@@ -204,6 +207,11 @@ class StockCashController extends Controller
     public function showPosition(CurrencyPosition $position): View
     {
         $this->requireManagerOrAdmin();
+
+        if (! $this->belongsToCurrentUserBranch($position)) {
+            abort(403, 'You do not have access to this currency position.');
+        }
+
         $position->load('currency');
 
         // Load recent transactions for this currency position
@@ -226,10 +234,11 @@ class StockCashController extends Controller
 
         $date = $validated['date'] ?? today()->toDateString();
 
-        $balances = TillBalance::with(['currency', 'opener', 'closer'])
-            ->where('till_id', $validated['till_id'])
-            ->whereDate('date', $date)
-            ->get();
+        $balances = $this->scopeByBranch(
+            TillBalance::with(['currency', 'opener', 'closer'])
+                ->where('till_id', $validated['till_id'])
+                ->whereDate('date', $date)
+        )->get();
 
         if ($balances->isEmpty()) {
             return back()->with('error', 'No data found for specified till and date.');
@@ -250,15 +259,18 @@ class StockCashController extends Controller
         $date = $validated['date'] ?? today()->toDateString();
         $tillId = $validated['till_id'];
 
-        // Get till balance for this date and till
-        $tillBalance = TillBalance::with(['currency', 'opener', 'closer'])
-            ->where('till_id', $tillId)
-            ->whereDate('date', $date)
-            ->first();
+        // Get all till balance rows (one per currency) for this date and till
+        $tillBalances = $this->scopeByBranch(
+            TillBalance::with(['currency', 'opener', 'closer'])
+                ->where('till_id', $tillId)
+                ->whereDate('date', $date)
+        )->get();
 
-        if (! $tillBalance) {
+        if ($tillBalances->isEmpty()) {
             return back()->with('error', 'No till data found for the specified date and till.');
         }
+
+        $tillBalance = $tillBalances->first();
 
         // Get all transactions for this till on this date
         $transactions = Transaction::with(['customer', 'currency'])
@@ -268,12 +280,25 @@ class StockCashController extends Controller
             ->get();
 
         // Generate summary and reconciliation using service
+        $buyTransactions = $transactions->where('type', TransactionType::Buy);
+        $sellTransactions = $transactions->where('type', TransactionType::Sell);
+
         $summary = [
             'opening_balance' => $tillBalance->opening_balance,
-            'total_buy_count' => $transactions->where('type', TransactionType::Buy)->count(),
+            'total_buy_count' => $buyTransactions->count(),
             'total_buy_amount' => $this->tillService->calculateTransactionSum($transactions, TransactionType::Buy),
-            'total_sell_count' => $transactions->where('type', TransactionType::Sell)->count(),
+            // Foreign-currency totals: calculateTransactionSum() sums amount_local
+            // (MYR), so these are computed separately for the FCY summary rows.
+            'total_buy_foreign' => $buyTransactions->reduce(
+                fn (string $carry, Transaction $transaction) => $this->mathService->add($carry, (string) $transaction->amount_foreign),
+                '0'
+            ),
+            'total_sell_count' => $sellTransactions->count(),
             'total_sell_amount' => $this->tillService->calculateTransactionSum($transactions, TransactionType::Sell),
+            'total_sell_foreign' => $sellTransactions->reduce(
+                fn (string $carry, Transaction $transaction) => $this->mathService->add($carry, (string) $transaction->amount_foreign),
+                '0'
+            ),
             'total_transactions' => $transactions->count(),
             'net_flow' => $this->mathService->subtract(
                 $this->tillService->calculateTransactionSum($transactions, TransactionType::Buy),
@@ -282,10 +307,10 @@ class StockCashController extends Controller
         ];
 
         // Generate reconciliation data using service
-        $reconciliation = $this->tillService->generateReconciliation($tillBalance, $transactions);
+        $reconciliation = $this->tillService->generateReconciliation($tillBalances);
 
         return view('stock-cash.reconciliation', compact(
-            'tillBalance',
+            'tillBalances',
             'date',
             'tillId',
             'transactions',

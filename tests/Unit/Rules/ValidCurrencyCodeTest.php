@@ -14,11 +14,16 @@ class ValidCurrencyCodeTest extends TestCase
 
     public function test_passes_for_active_currency(): void
     {
-        $this->expectNotToPerformAssertions();
-
         Currency::factory()->create(['code' => 'USD', 'is_active' => true]);
 
-        $this->assertRulePasses(new ValidCurrencyCode, 'currency_code', 'USD');
+        $passed = true;
+        try {
+            $this->assertRulePasses(new ValidCurrencyCode, 'currency_code', 'USD');
+        } catch (\Throwable $e) {
+            $passed = false;
+        }
+
+        $this->assertTrue($passed);
     }
 
     public function test_fails_for_inactive_currency(): void

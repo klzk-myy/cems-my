@@ -4,6 +4,7 @@ namespace App\Services\Accounting;
 
 use App\Enums\AccountType;
 use App\Enums\JournalEntryStatus;
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Models\AccountingPeriod;
 use App\Models\AccountLedger;
 use App\Models\ChartOfAccount;
@@ -11,6 +12,7 @@ use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Services\AuditService;
 use App\Services\Contracts\AccountingServiceInterface;
+use App\Services\System\CacheTagsService;
 use App\Services\System\MathService;
 use Illuminate\Support\Facades\DB;
 
@@ -40,8 +42,11 @@ class AccountingService implements AccountingServiceInterface
      * @param  MathService  $mathService  Math service for precise calculations
      * @param  AuditService  $auditService  Audit service for tamper-evident logging
      */
-    public function __construct(MathService $mathService, AuditService $auditService)
-    {
+    public function __construct(
+        MathService $mathService,
+        AuditService $auditService,
+        protected CacheTagsService $cacheTagsService,
+    ) {
         $this->mathService = $mathService;
         $this->auditService = $auditService;
     }
@@ -73,14 +78,15 @@ class AccountingService implements AccountingServiceInterface
         ?int $referenceId = null,
         string $description = '',
         ?string $entryDate = null,
-        ?int $createdBy = null
+        ?int $createdBy = null,
+        ?int $branchId = null
     ): JournalEntry {
         $createdBy = $createdBy ?? auth()->id();
         $entryDate = $entryDate ?? now()->toDateString();
 
-        return DB::transaction(function () use ($lines, $referenceType, $referenceId, $description, $entryDate, $createdBy) {
+        return DB::transaction(function () use ($lines, $referenceType, $referenceId, $description, $entryDate, $createdBy, $branchId) {
             if (! $this->validateBalanced($lines)) {
-                throw new \InvalidArgumentException('Journal entry is not balanced: debits do not equal credits');
+                throw new AccountingPeriodException('Journal entry is not balanced: debits do not equal credits');
             }
 
             // Find the accounting period for this entry date
@@ -88,7 +94,7 @@ class AccountingService implements AccountingServiceInterface
 
             // Validate that the period is open (if period exists)
             if ($period && ! $period->isOpen()) {
-                throw new \InvalidArgumentException(
+                throw new AccountingPeriodException(
                     "Cannot create entry in closed period {$period->period_code}. Please use an open period or contact administrator."
                 );
             }
@@ -104,9 +110,14 @@ class AccountingService implements AccountingServiceInterface
                 'created_by' => $createdBy,
                 'posted_by' => $createdBy,
                 'posted_at' => now(),
+                'branch_id' => $branchId,
             ]);
 
             foreach ($lines as $line) {
+                if (empty($line['account_code'])) {
+                    throw new \InvalidArgumentException('Journal line must have a non-empty account_code');
+                }
+
                 JournalLine::create([
                     'journal_entry_id' => $entry->id,
                     'account_code' => $line['account_code'],
@@ -159,7 +170,7 @@ class AccountingService implements AccountingServiceInterface
             $entry = JournalEntry::where('id', $entry->id)->lockForUpdate()->firstOrFail();
 
             if (! $entry->isPending()) {
-                throw new \InvalidArgumentException('Only pending entries can be rejected');
+                throw new AccountingPeriodException('Only pending entries can be rejected');
             }
 
             $entry->update([
@@ -231,12 +242,12 @@ class AccountingService implements AccountingServiceInterface
 
             // Validation 1: Check if entry is already reversed
             if ($originalEntry->isReversed()) {
-                throw new \InvalidArgumentException('Entry has already been reversed');
+                throw new AccountingPeriodException('Entry has already been reversed');
             }
 
             // Validation 2: Check if entry is posted (can only reverse posted entries)
             if (! $originalEntry->isPosted()) {
-                throw new \InvalidArgumentException('Entry must be Posted to be reversed');
+                throw new AccountingPeriodException('Entry must be Posted to be reversed');
             }
 
             // Load lines if not already loaded
@@ -261,7 +272,8 @@ class AccountingService implements AccountingServiceInterface
                 $originalEntry->id,
                 "Reversal of entry {$originalEntry->id}: {$reason}",
                 now()->toDateString(),
-                $reversedBy
+                $reversedBy,
+                $originalEntry->branch_id
             );
 
             // Reversal entry is posted directly by createJournalEntry
@@ -285,7 +297,9 @@ class AccountingService implements AccountingServiceInterface
     protected function updateLedger(JournalEntry $entry): void
     {
         foreach ($entry->lines as $line) {
-            $currentBalance = $this->getAccountBalance($line->account_code);
+            // Scope the running balance to the entry's branch so multi-branch
+            // ledger activity can never contaminate another branch's balance.
+            $currentBalance = $this->getAccountBalance($line->account_code, null, $entry->branch_id);
 
             if ($this->isDebitAccount($line->account_code)) {
                 $newBalance = $this->mathService->add(
@@ -301,6 +315,7 @@ class AccountingService implements AccountingServiceInterface
 
             AccountLedger::create([
                 'account_code' => $line->account_code,
+                'branch_id' => $entry->branch_id,
                 'entry_date' => $entry->entry_date,
                 'journal_entry_id' => $entry->id,
                 'debit' => $line->debit,
@@ -308,6 +323,10 @@ class AccountingService implements AccountingServiceInterface
                 'running_balance' => $newBalance,
             ]);
         }
+
+        // Ledger financial reports are cached under the 'ledger' tag; flush it
+        // so trial balances/balance sheets are not stale after a posting.
+        $this->cacheTagsService->invalidate('ledger');
     }
 
     /**
@@ -334,13 +353,17 @@ class AccountingService implements AccountingServiceInterface
      * Get the current balance for an account.
      *
      * Retrieves the running balance from the most recent ledger entry,
-     * optionally filtered by an as-of date.
+     * optionally filtered by an as-of date and branch. This is the single
+     * canonical implementation; LedgerService, FiscalYearService and
+     * FinancialRatioService all delegate here (previously each duplicated
+     * this query).
      *
      * @param  string  $accountCode  The account code to query
      * @param  string|null  $asOfDate  Date in YYYY-MM-DD format (default: current date)
+     * @param  int|null  $branchId  Optional branch ID to filter by. Null means all branches.
      * @return string Account balance as a string for precision
      */
-    public function getAccountBalance(string $accountCode, ?string $asOfDate = null): string
+    public function getAccountBalance(string $accountCode, ?string $asOfDate = null, ?int $branchId = null): string
     {
         $query = AccountLedger::where('account_code', $accountCode);
 
@@ -348,6 +371,10 @@ class AccountingService implements AccountingServiceInterface
             // Use date function for cross-database compatibility
             // This ensures proper comparison regardless of datetime vs date storage
             $query->whereRaw('DATE(entry_date) <= ?', [$asOfDate]);
+        }
+
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
         }
 
         $lastEntry = $query->orderBy('entry_date', 'desc')
@@ -371,21 +398,16 @@ class AccountingService implements AccountingServiceInterface
      */
     public function getAccountActivity(string $accountCode, string $startDate, string $endDate): string
     {
-        $entries = AccountLedger::where('account_code', $accountCode)
+        $totals = AccountLedger::where('account_code', $accountCode)
             ->whereBetween('entry_date', [$startDate, $endDate])
-            ->get();
+            ->selectRaw('COALESCE(SUM(debit), 0) as total_debit, COALESCE(SUM(credit), 0) as total_credit')
+            ->first();
 
-        $totalDebits = '0';
-        $totalCredits = '0';
-
-        foreach ($entries as $entry) {
-            $totalDebits = $this->mathService->add($totalDebits, (string) $entry->debit);
-            $totalCredits = $this->mathService->add($totalCredits, (string) $entry->credit);
-        }
-
-        // For expense accounts, activity is typically the net amount (debits - credits)
-        // This gives us the actual spending in the period
-        return $this->mathService->subtract($totalDebits, $totalCredits);
+        // Net activity: debits - credits (expense-normal).
+        return $this->mathService->subtract(
+            (string) ($totals->total_debit ?? 0),
+            (string) ($totals->total_credit ?? 0)
+        );
     }
 
     /**

@@ -35,9 +35,9 @@
         </x-filter-bar>
 
         <x-card>
-            <x-card-section>
+            <x-card>
                 <div class="text-center">
-                    <h2 class="text-xl font-semibold text-ink">Bank Reconciliation Report</h2>
+                    <h2 class="text-lg font-semibold text-ink">Bank Reconciliation Report</h2>
                     <p class="text-sm text-ink-muted mt-1">Maybank Current Account - May 2026</p>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
@@ -60,9 +60,9 @@
                         </p>
                     </div>
                 </div>
-            </x-card-section>
+            </x-card>
 
-            <x-card-section title="Section 1: Balance Comparison">
+            <x-card title="Section 1: Balance Comparison">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <x-card>
                         <div class="flex items-center justify-between mb-2">
@@ -79,9 +79,9 @@
                         <p class="text-xs text-ink-muted">As of May 1, 2026</p>
                     </x-card>
                 </div>
-            </x-card-section>
+            </x-card>
 
-            <x-card-section title="Section 2: Adjustments to Bank Balance">
+            <x-card title="Section 2: Adjustments to Bank Balance">
                 <x-table>
                     <x-slot:thead>
                         <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Item</th>
@@ -138,9 +138,9 @@
                         </tr>
                     </x-slot:tbody>
                 </x-table>
-            </x-card-section>
+            </x-card>
 
-            <x-card-section title="Section 3: Adjustments to Book Balance">
+            <x-card title="Section 3: Adjustments to Book Balance">
                 <x-table>
                     <x-slot:thead>
                         <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Item</th>
@@ -165,9 +165,9 @@
                         </tr>
                     </x-slot:tbody>
                 </x-table>
-            </x-card-section>
+            </x-card>
 
-            <x-card-section title="Section 4: Final Reconciliation">
+            <x-card title="Section 4: Final Reconciliation">
                 <x-alert type="success" class="mb-4">
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
@@ -213,9 +213,9 @@
                     </div>
                     <p class="mt-2 text-sm text-danger-text">This difference requires investigation before the reconciliation can be completed.</p>
                 </x-alert>
-            </x-card-section>
+            </x-card>
 
-            <x-card-section>
+            <x-card>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <p class="text-sm text-ink-muted mb-8">_________________________</p>
@@ -236,7 +236,7 @@
                         <p class="text-xs text-ink-muted">Date: _____________</p>
                     </div>
                 </div>
-            </x-card-section>
+            </x-card>
         </x-card>
     </div>
 </x-app-layout>

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Api\V1\Concerns\AuthorizesCounter;
-use App\Http\Controllers\Api\V1\Concerns\AuthorizesManager;
 use App\Http\Controllers\Api\V1\Traits\ApiResponse;
+use App\Http\Controllers\Concerns\EnsuresManagerOrAdmin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Counter\ApproveAndOpenRequest;
 use App\Http\Requests\Api\V1\Counter\InitiateOpeningRequest;
@@ -25,7 +25,7 @@ class CounterOpeningController extends Controller
 {
     use ApiResponse;
     use AuthorizesCounter;
-    use AuthorizesManager;
+    use EnsuresManagerOrAdmin;
 
     public function __construct(
         protected CounterOpeningWorkflowService $workflowService,
@@ -41,6 +41,10 @@ class CounterOpeningController extends Controller
 
         if (! $user->branch) {
             return $this->errorResponse('User has no assigned branch', [], 400);
+        }
+
+        if ($response = $this->requireManagerOrAdminResponse('Only managers and admins can view pending opening requests')) {
+            return $response;
         }
 
         $pending = $this->workflowService->getPendingRequestsForBranch($user->branch);

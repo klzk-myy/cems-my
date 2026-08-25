@@ -15,8 +15,7 @@ class ThresholdAuditPolicy
     public function viewAny(User $user): bool
     {
         return $user->role === UserRole::Admin ||
-               $user->role === UserRole::ComplianceOfficer ||
-               $user->can('access_compliance_dashboard');
+               $user->role === UserRole::ComplianceOfficer;
     }
 
     /**
@@ -26,8 +25,7 @@ class ThresholdAuditPolicy
     public function view(User $user, ThresholdAudit $thresholdAudit): bool
     {
         return $user->role === UserRole::Admin ||
-               $user->role === UserRole::ComplianceOfficer ||
-               $user->can('access_compliance_dashboard');
+               $user->role === UserRole::ComplianceOfficer;
     }
 
     /**

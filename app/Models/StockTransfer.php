@@ -3,18 +3,16 @@
 namespace App\Models;
 
 use App\Enums\StockTransferStatus;
+use App\Exceptions\Domain\TransactionCreationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
 
 class StockTransfer extends BaseModel
 {
     use HasFactory, SoftDeletes;
-
-    protected $with = ['items'];
 
     protected $fillable = [
         'transfer_number',
@@ -68,6 +66,9 @@ class StockTransfer extends BaseModel
         return $this->belongsTo(User::class, 'hq_approved_by');
     }
 
+    /**
+     * @return HasMany<StockTransferItem, $this>
+     */
     public function items(): HasMany
     {
         return $this->hasMany(StockTransferItem::class);
@@ -175,6 +176,21 @@ class StockTransfer extends BaseModel
         ]);
     }
 
+    /**
+     * Generate the next transfer number for today.
+     *
+     * The sequence is derived from MAX(transfer_number), including soft-deleted
+     * rows so numbers are never reused, under a pessimistic read. The caller
+     * MUST create the StockTransfer inside its own database transaction: the
+     * lock taken here is held until that transaction commits - i.e. after the
+     * caller's INSERT - which serialises concurrent generators and prevents two
+     * requests from deriving (and inserting) the same number. The previous
+     * implementation committed its own transaction before the caller inserted,
+     * releasing those locks early and colliding on the unique transfer_number
+     * index.
+     *
+     * @throws TransactionCreationException If no unique number could be produced
+     */
     public static function generateTransferNumber(): string
     {
         $prefix = 'TRF-';
@@ -185,32 +201,32 @@ class StockTransfer extends BaseModel
 
         while (true) {
             $attempt++;
-            DB::beginTransaction();
 
-            try {
-                // Lock today's records to prevent concurrent generation of same sequence
-                $count = self::whereDate('created_at', today())->lockForUpdate()->count();
-                $sequence = str_pad($count + 1, 4, '0', STR_PAD_LEFT);
-                $transferNumber = "{$prefix}{$date}-{$sequence}";
+            // Highest existing number today (withTrashed so soft-deleted rows
+            // reserve their sequence). lockForUpdate() joins the caller's open
+            // transaction and holds the range lock until it commits.
+            $latest = self::withTrashed()
+                ->where('transfer_number', 'like', "{$prefix}{$date}-%")
+                ->orderByDesc('transfer_number')
+                ->lockForUpdate()
+                ->value('transfer_number');
 
-                // Double-check for uniqueness
-                if (self::where('transfer_number', $transferNumber)->exists()) {
-                    if ($attempt >= $maxRetries) {
-                        throw new \RuntimeException("Failed to generate unique transfer number after {$maxRetries} attempts");
-                    }
-                    DB::rollBack();
+            $lastSequence = $latest !== null
+                ? (int) substr((string) $latest, strrpos((string) $latest, '-') + 1)
+                : 0;
 
-                    continue;
-                }
+            // Bump the sequence on each retry so repeated calls never repeat a number.
+            $sequence = str_pad((string) ($lastSequence + $attempt), 4, '0', STR_PAD_LEFT);
+            $transferNumber = "{$prefix}{$date}-{$sequence}";
 
-                DB::commit();
-
+            // Double-check uniqueness (covers callers outside any transaction,
+            // where the lock above cannot be held across their insert).
+            if (! self::withTrashed()->where('transfer_number', $transferNumber)->exists()) {
                 return $transferNumber;
-            } catch (\Exception $e) {
-                DB::rollBack();
-                if ($attempt >= $maxRetries) {
-                    throw $e;
-                }
+            }
+
+            if ($attempt >= $maxRetries) {
+                throw new TransactionCreationException("Failed to generate unique transfer number after {$maxRetries} attempts");
             }
         }
     }

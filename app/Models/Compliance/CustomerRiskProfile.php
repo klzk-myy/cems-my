@@ -46,7 +46,6 @@ class CustomerRiskProfile extends BaseModel
         'risk_factors',
         'previous_score',
         'score_changed_at',
-        'next_scheduled_recalculation',
         'recalculation_trigger',
         'locked_until',
         'locked_by',
@@ -61,7 +60,6 @@ class CustomerRiskProfile extends BaseModel
     protected $casts = [
         'risk_factors' => 'array',
         'score_changed_at' => 'datetime',
-        'next_scheduled_recalculation' => 'datetime',
         'locked_until' => 'datetime',
         'recalculation_trigger' => RecalculationTrigger::class,
     ];

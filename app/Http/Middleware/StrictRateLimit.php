@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use App\Services\System\RateLimitService;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -49,26 +50,14 @@ class StrictRateLimit
         // Generate rate limit key
         $key = $this->rateLimitService->getRateLimitKey($request, $limiterName);
 
-        // Check burst allowance first
-        if ($burstAllowance > 0) {
-            $withinBurst = $this->rateLimitService->checkBurst($request, $limiterName, $burstAllowance);
-            if ($withinBurst) {
-                // Still count burst requests against rate limit, just allow temporary excess
-                RateLimiter::hit($key, $decayMinutes * 60);
+        // The burst allowance grants a small amount of extra capacity within the
+        // SAME window (a token-bucket style credit). It must never let a client
+        // exceed the window repeatedly: if bursts bypassed the window check, an
+        // attacker could send burstAllowance requests every second forever.
+        $effectiveLimit = $maxAttempts + $burstAllowance;
 
-                $response = $next($request);
-
-                // Add rate limit headers to response
-                $remaining = RateLimiter::remaining($key, $maxAttempts);
-                $response->headers->set('X-RateLimit-Limit', (string) $maxAttempts);
-                $response->headers->set('X-RateLimit-Remaining', (string) $remaining);
-
-                return $response;
-            }
-        }
-
-        // Check rate limit
-        if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
+        // Enforce the window limit for ALL requests, including bursts.
+        if (RateLimiter::tooManyAttempts($key, $effectiveLimit)) {
             $seconds = RateLimiter::availableIn($key);
 
             // Log the rate limit hit
@@ -80,13 +69,27 @@ class StrictRateLimit
                 'retry_after' => $seconds,
             ], 429)->withHeaders([
                 'Retry-After' => $seconds,
-                'X-RateLimit-Limit' => $maxAttempts,
+                'X-RateLimit-Limit' => (string) $maxAttempts,
                 'X-RateLimit-Remaining' => 0,
                 'X-RateLimit-Reset' => now()->addSeconds($seconds)->timestamp,
             ]);
         }
 
-        // Hit the rate limiter
+        // Per-second burst tracking (used to smooth out short spikes). This only
+        // records timing data; it never bypasses the window cap above.
+        if ($burstAllowance > 0) {
+            try {
+                $this->rateLimitService->checkBurst($request, $limiterName, $burstAllowance);
+            } catch (\Throwable $e) {
+                // Fail-open: a burst-tracking backend outage must not block legitimate traffic.
+                Log::error('Rate limit burst check failed', [
+                    'limiter' => $limiterName,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Hit the rate limiter (burst requests count toward the window)
         RateLimiter::hit($key, $decayMinutes * 60);
 
         $response = $next($request);

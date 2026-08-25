@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Compliance;
 
+use App\Enums\ComplianceCaseStatus;
+use App\Exceptions\Domain\CaseManagementException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AddCaseLinkRequest;
 use App\Http\Requests\CreateCaseFromAlertsRequest;
@@ -26,6 +28,8 @@ class CaseManagementController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', ComplianceCase::class);
+
         $query = ComplianceCase::with(['customer', 'assignee', 'alerts'])
             ->open();
 
@@ -48,12 +52,18 @@ class CaseManagementController extends Controller
 
     public function store(CreateCaseFromAlertsRequest $request): RedirectResponse
     {
+        $this->authorize('create', ComplianceCase::class);
+
         $validated = $request->validated();
 
-        $case = $this->caseManagementService->createFromAlerts(
-            $validated['alert_ids'],
-            auth()->id()
-        );
+        try {
+            $case = $this->caseManagementService->createFromAlerts(
+                $validated['alert_ids'],
+                auth()->id()
+            );
+        } catch (CaseManagementException $e) {
+            return redirect()->back()->with('error', 'Failed to create case. Please try again.');
+        }
 
         return redirect()->route('compliance.cases.show', $case->id)
             ->with('success', 'Case created successfully');
@@ -61,6 +71,8 @@ class CaseManagementController extends Controller
 
     public function show(ComplianceCase $case): View
     {
+        $this->authorize('view', $case);
+
         $case->load(['customer', 'assignee', 'alerts', 'alerts.flaggedTransaction']);
 
         return view('compliance.cases.show', compact('case'));
@@ -68,14 +80,19 @@ class CaseManagementController extends Controller
 
     public function update(UpdateCaseStatusRequest $request, ComplianceCase $case): RedirectResponse
     {
+        $this->authorize('update', $case);
+
         $validated = $request->validated();
 
-        if ($request->has('status')) {
-            $case = $this->caseManagementService->updateStatus($case, $validated['status']);
-        }
-
-        if ($request->has('notes')) {
-            $case->update(['notes' => $validated['notes']]);
+        try {
+            if (isset($validated['status'])) {
+                $this->caseManagementService->updateStatus(
+                    $case,
+                    ComplianceCaseStatus::from($validated['status'])
+                );
+            }
+        } catch (CaseManagementException $e) {
+            return redirect()->back()->with('error', 'Failed to update case. Please try again.');
         }
 
         return redirect()->back()->with('success', 'Case updated successfully');
@@ -83,9 +100,17 @@ class CaseManagementController extends Controller
 
     public function merge(MergeCasesRequest $request, ComplianceCase $case): RedirectResponse
     {
-        $targetCase = ComplianceCase::findOrFail($request->target_case_id);
+        // Merging mutates both records, so both need update permission.
+        $this->authorize('update', $case);
 
-        $mergedCase = $this->caseManagementService->mergeCases($case, $targetCase);
+        $targetCase = ComplianceCase::findOrFail($request->target_case_id);
+        $this->authorize('update', $targetCase);
+
+        try {
+            $mergedCase = $this->caseManagementService->mergeCases($case, $targetCase);
+        } catch (CaseManagementException $e) {
+            return redirect()->back()->with('error', 'Failed to merge cases. Please try again.');
+        }
 
         return redirect()->route('compliance.cases.show', $mergedCase->id)
             ->with('success', 'Cases merged successfully');
@@ -93,15 +118,23 @@ class CaseManagementController extends Controller
 
     public function linkAlert(LinkAlertToCaseRequest $request, ComplianceCase $case): RedirectResponse
     {
+        $this->authorize('update', $case);
+
         $alert = Alert::findOrFail($request->alert_id);
 
-        $this->caseManagementService->linkAlertToCase($alert, $case);
+        try {
+            $this->caseManagementService->linkAlertToCase($alert, $case);
+        } catch (CaseManagementException $e) {
+            return redirect()->back()->with('error', 'Failed to link alert to case. Please try again.');
+        }
 
         return redirect()->back()->with('success', 'Alert linked to case');
     }
 
     public function uploadDocument(UploadCaseDocumentRequest $request, ComplianceCase $case): RedirectResponse
     {
+        $this->authorize('update', $case);
+
         $document = $this->caseManagementService->addDocument(
             $case->id,
             $request->file('file'),
@@ -113,6 +146,8 @@ class CaseManagementController extends Controller
 
     public function verifyDocument(Request $request, ComplianceCase $case, ComplianceCaseDocument $document): RedirectResponse
     {
+        $this->authorize('update', $case);
+
         if ($document->case_id !== $case->id) {
             abort(403, 'Document does not belong to this case');
         }
@@ -124,6 +159,8 @@ class CaseManagementController extends Controller
 
     public function addLink(AddCaseLinkRequest $request, ComplianceCase $case): RedirectResponse
     {
+        $this->authorize('update', $case);
+
         $this->caseManagementService->addLink($case->id, $request->linked_type, $request->linked_id);
 
         return redirect()->back()->with('success', 'Link added');
@@ -131,6 +168,8 @@ class CaseManagementController extends Controller
 
     public function removeLink(ComplianceCase $case, ComplianceCaseLink $link): RedirectResponse
     {
+        $this->authorize('update', $case);
+
         if ($link->case_id !== $case->id) {
             abort(403, 'Link does not belong to this case');
         }
@@ -142,6 +181,8 @@ class CaseManagementController extends Controller
 
     public function escalate(ComplianceCase $case): RedirectResponse
     {
+        $this->authorize('update', $case);
+
         $this->caseManagementService->escalateCase($case);
 
         return redirect()->back()->with('success', 'Case escalated successfully');

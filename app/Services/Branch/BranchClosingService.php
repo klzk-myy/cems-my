@@ -17,6 +17,12 @@ use Illuminate\Support\Facades\DB;
 
 class BranchClosingService
 {
+    public function __construct(
+        protected TellerAllocationService $tellerAllocationService,
+        protected AuditService $auditService,
+        protected AccountingService $accountingService
+    ) {}
+
     public function initiateClosure(Branch $branch, User $initiator): BranchClosureWorkflow
     {
         $workflow = BranchClosureWorkflow::create([
@@ -83,16 +89,14 @@ class BranchClosingService
                 ->get();
 
             foreach ($activeAllocations as $allocation) {
-                $tellerAllocationService = app(TellerAllocationService::class);
-                $tellerAllocationService->returnToPool($allocation);
+                $this->tellerAllocationService->returnToPool($allocation);
             }
 
             // Create settlement journal entries (transfer balances to HQ)
             $this->createSettlementJournalEntries($branch, $settler);
 
             // Log the settlement action
-            $auditService = app(AuditService::class);
-            $auditService->log(
+            $this->auditService->log(
                 'branch_settled',
                 $settler->id,
                 'BranchClosureWorkflow',
@@ -124,7 +128,6 @@ class BranchClosingService
 
         foreach ($branchPools as $pool) {
             if ($pool->available_balance > 0) {
-                $accountingService = app(AccountingService::class);
                 $lines = [
                     [
                         'account_code' => $pool->currency_code === 'MYR' ? '1000' : '1100',
@@ -139,7 +142,7 @@ class BranchClosingService
                         'description' => "HQ receiving {$pool->currency_code} from branch {$branch->code}",
                     ],
                 ];
-                $accountingService->createJournalEntry(
+                $this->accountingService->createJournalEntry(
                     $lines,
                     'BranchSettlement',
                     null,

@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Enums\CounterSessionStatus;
+use App\Enums\TellerAllocationStatus;
 use App\Enums\UserRole;
 use App\Models\Branch;
+use App\Models\BranchPool;
 use App\Models\Counter;
 use App\Models\CounterHandover;
 use App\Models\CounterSession;
 use App\Models\EmergencyClosure;
+use App\Models\TellerAllocation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use PHPUnit\Framework\Attributes\Test;
@@ -77,13 +80,23 @@ class MfaRequirementTest extends TestCase
             'mfa_enabled' => true,
         ]);
 
-        CounterSession::factory()->create([
-            'counter_id' => $this->counter->id,
+        // approve-and-open consumes a PENDING allocation per approved float
+        // currency and draws from the branch pool; without both fixtures the
+        // endpoint 500s for reasons unrelated to MFA. No pre-existing open
+        // session may exist for the teller/counter or openSession() refuses.
+        BranchPool::factory()->create([
+            'branch_id' => $this->branch->id,
+            'currency_code' => 'USD',
+            'available_balance' => '10000.0000',
+        ]);
+
+        TellerAllocation::factory()->create([
             'user_id' => $teller->id,
+            'branch_id' => $this->branch->id,
+            'counter_id' => $this->counter->id,
+            'currency_code' => 'USD',
+            'status' => TellerAllocationStatus::PENDING,
             'session_date' => now()->toDateString(),
-            'opened_at' => now(),
-            'opened_by' => $teller->id,
-            'status' => CounterSessionStatus::Open,
         ]);
 
         $response = $this->actingAs($this->manager)
@@ -92,7 +105,7 @@ class MfaRequirementTest extends TestCase
                 'approved_floats' => ['USD' => '5000.00'],
             ]);
 
-        $response->assertStatus(403)
+        $response->assertStatus(401)
             ->assertJson([
                 'error' => 'MFA verification required',
             ]);
@@ -104,7 +117,9 @@ class MfaRequirementTest extends TestCase
                 'approved_floats' => ['USD' => '5000.00'],
             ]);
 
-        $this->assertNotEquals(403, $response->status());
+        // Exact expected status: with MFA verified the request must succeed
+        // (200 = counter opened), not merely "not 403".
+        $response->assertStatus(200);
     }
 
     #[Test]
@@ -119,12 +134,30 @@ class MfaRequirementTest extends TestCase
             'status' => CounterSessionStatus::Open,
         ]);
 
+        // Emergency close settles the teller's open USD allocation and returns
+        // it to the branch pool; without those fixtures the endpoint 500s for
+        // reasons unrelated to MFA.
+        BranchPool::factory()->create([
+            'branch_id' => $this->branch->id,
+            'currency_code' => 'USD',
+            'available_balance' => '10000.0000',
+        ]);
+
+        TellerAllocation::factory()->create([
+            'user_id' => $this->teller->id,
+            'branch_id' => $this->branch->id,
+            'counter_id' => $this->counter->id,
+            'currency_code' => 'USD',
+            'status' => TellerAllocationStatus::PENDING,
+            'session_date' => now()->toDateString(),
+        ]);
+
         $response = $this->actingAs($this->manager)
             ->postJson("/api/v1/counters/{$this->counter->id}/emergency-close", [
                 'reason' => 'Test emergency',
             ]);
 
-        $response->assertStatus(403)
+        $response->assertStatus(401)
             ->assertJson([
                 'error' => 'MFA verification required',
             ]);
@@ -161,7 +194,7 @@ class MfaRequirementTest extends TestCase
         $response = $this->actingAs($this->manager)
             ->postJson("/api/v1/counters/{$this->counter->id}/emergency/{$closure->id}/acknowledge");
 
-        $response->assertStatus(403)
+        $response->assertStatus(401)
             ->assertJson([
                 'error' => 'MFA verification required',
             ]);
@@ -210,7 +243,7 @@ class MfaRequirementTest extends TestCase
                 'notes' => 'Test',
             ]);
 
-        $response->assertStatus(403)
+        $response->assertStatus(401)
             ->assertJson([
                 'error' => 'MFA verification required',
             ]);

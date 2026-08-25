@@ -32,20 +32,12 @@ class CustomerDocument extends BaseModel
 {
     use HasFactory;
 
-    protected $with = ['uploader', 'verifier'];
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<string>
-     */
     protected $fillable = [
         'customer_id',
         'document_type',
         'file_path',
         'file_hash',
         'file_size',
-        'encrypted',
         'uploaded_by',
         'verified_by',
         'verified_at',
@@ -59,7 +51,6 @@ class CustomerDocument extends BaseModel
      * @var array<string, string>
      */
     protected $casts = [
-        'encrypted' => 'boolean',
         'verified_at' => 'datetime',
         'expiry_date' => 'date',
         'file_size' => 'integer',

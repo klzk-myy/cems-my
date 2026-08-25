@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('budgets', function (Blueprint $table) {
             $table->id();
             $table->string('account_code', 20);
-            $table->foreign('account_code')->references('account_code')->on('chart_of_accounts');
+            $table->foreign('account_code')->references('account_code')->on('chart_of_accounts')->restrictOnDelete();
             $table->string('period_code', 10);
             $table->decimal('budget_amount', 15, 2);
             $table->decimal('actual_amount', 15, 2)->default(0);

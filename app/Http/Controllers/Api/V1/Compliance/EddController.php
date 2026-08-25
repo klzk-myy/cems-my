@@ -21,6 +21,8 @@ class EddController extends Controller
      */
     public function index(EddIndexRequest $request): JsonResponse
     {
+        $this->authorize('viewAny', EnhancedDiligenceRecord::class);
+
         $query = EnhancedDiligenceRecord::with(['customer', 'flaggedTransaction']);
 
         if ($request->filled('status')) {
@@ -30,7 +32,7 @@ class EddController extends Controller
             $query->where('risk_level', $request->input('risk_level'));
         }
 
-        $perPage = $request->get('per_page', 20);
+        $perPage = min(100, max(1, (int) $request->get('per_page', 20)));
         $records = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return $this->successResponse($records, 'EDD records retrieved successfully.');
@@ -43,6 +45,8 @@ class EddController extends Controller
     {
         $record = EnhancedDiligenceRecord::with(['customer', 'flaggedTransaction'])
             ->findOrFail($id);
+
+        $this->authorize('view', $record);
 
         return $this->successResponse($record, 'EDD record retrieved successfully.');
     }
@@ -83,11 +87,30 @@ class EddController extends Controller
     }
 
     /**
+     * Statuses a record must be in before it can be finalised (approved or
+     * rejected). The API flow submits the questionnaire (QuestionnaireSubmitted)
+     * and may pass through Pending Review; incomplete or pre-questionnaire
+     * records must not be finalised.
+     */
+    private function finalisableStatuses(): array
+    {
+        return [EddStatus::QuestionnaireSubmitted, EddStatus::PendingReview];
+    }
+
+    /**
      * Approve an EDD record.
      */
     public function approve(int $id): JsonResponse
     {
         $record = EnhancedDiligenceRecord::with('flaggedTransaction')->findOrFail($id);
+
+        if (! in_array($record->status, $this->finalisableStatuses(), true)) {
+            return $this->errorResponse(
+                'Only records with a submitted questionnaire or in Pending Review can be approved (current: '.$record->status->value.').',
+                [],
+                422
+            );
+        }
 
         $record->update([
             'status' => EddStatus::Approved,
@@ -106,6 +129,14 @@ class EddController extends Controller
         $validated = $request->validated();
 
         $record = EnhancedDiligenceRecord::findOrFail($id);
+
+        if (! in_array($record->status, $this->finalisableStatuses(), true)) {
+            return $this->errorResponse(
+                'Only records with a submitted questionnaire or in Pending Review can be rejected (current: '.$record->status->value.').',
+                [],
+                422
+            );
+        }
 
         $record->update([
             'status' => EddStatus::Rejected,

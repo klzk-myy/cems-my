@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Concerns;
 
+use App\Rules\MyKadFormatRule;
+
 /**
  * Shared validation rules for customer store/update forms.
  */
@@ -17,13 +19,13 @@ trait HasCustomerValidationRules
         return [
             'full_name' => 'required|string|max:255',
             'id_type' => ['required', 'in:MyKad,Passport,Others'],
-            'id_number' => [
-                $isUpdate ? 'sometimes' : 'required',
-                'required',
+            'id_number' => array_filter([
+                $isUpdate ? 'sometimes' : null,
+                $isUpdate ? null : 'required',
                 'string',
                 'max:50',
-                $this->myKadFormatRule(),
-            ],
+                new MyKadFormatRule,
+            ], fn ($rule): bool => $rule !== null),
             'date_of_birth' => 'required|date|before:today',
             'nationality' => 'required|string|max:100',
             'address' => 'nullable|string|max:500',
@@ -44,17 +46,5 @@ trait HasCustomerValidationRules
         return [
             'phone.regex' => 'The phone number format is invalid. Must be a valid Malaysian mobile number (e.g., +60123456789).',
         ];
-    }
-
-    /**
-     * Closure rule validating MyKad number format.
-     */
-    private function myKadFormatRule(): \Closure
-    {
-        return function ($attribute, $value, $fail): void {
-            if ($this->id_type === 'MyKad' && ! preg_match('/^\d{6}-\d{2}-\d{4}$/', $value)) {
-                $fail('MyKad ID must be in format XXXXXX-XX-XXXX (e.g., 900123-01-2345)');
-            }
-        };
     }
 }

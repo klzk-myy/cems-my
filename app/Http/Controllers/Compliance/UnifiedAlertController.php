@@ -5,17 +5,20 @@ namespace App\Http\Controllers\Compliance;
 use App\Enums\AlertPriority;
 use App\Enums\FlagStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UnifiedAlertIndexRequest;
 use App\Models\Alert;
 use App\Models\Compliance\ComplianceFinding;
 use App\Models\Customer;
-use Illuminate\Http\Request;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class UnifiedAlertController extends Controller
 {
-    public function index(Request $request): View
+    public function index(UnifiedAlertIndexRequest $request): View
     {
+        $this->authorize('viewAny', Alert::class);
+
         $source = $request->get('source', 'all');
         $priority = $request->get('priority');
         $status = $request->get('status');
@@ -29,8 +32,14 @@ class UnifiedAlertController extends Controller
         $items = [];
         $stats = ['total' => 0, 'critical' => 0, 'pending' => 0, 'resolved_today' => 0];
 
+        // Fetch enough rows to cover the requested page. The in-memory merge
+        // below paginates the combined list, so a fixed 500-row cap would
+        // silently drop data on deep pages. Cap the fetch at a sane ceiling
+        // to bound memory usage.
+        $fetchLimit = min(5000, max(500, $page * $perPage));
+
         if ($source === 'all' || $source === 'alert') {
-            $alertData = $this->fetchAlerts($priority, $status, $type, $customerSearch, $fromDate, $toDate);
+            $alertData = $this->fetchAlerts($priority, $status, $type, $customerSearch, $fromDate, $toDate, $fetchLimit);
             $items = array_merge($items, $alertData['items']);
             $stats['total'] += $alertData['stats']['total'];
             $stats['critical'] += $alertData['stats']['critical'];
@@ -39,7 +48,7 @@ class UnifiedAlertController extends Controller
         }
 
         if ($source === 'all' || $source === 'finding') {
-            $findingData = $this->fetchFindings($priority, $status, $type, $customerSearch, $fromDate, $toDate);
+            $findingData = $this->fetchFindings($priority, $status, $type, $customerSearch, $fromDate, $toDate, $fetchLimit);
             $items = array_merge($items, $findingData['items']);
             $stats['total'] += $findingData['stats']['total'];
             $stats['critical'] += $findingData['stats']['critical'];
@@ -65,7 +74,7 @@ class UnifiedAlertController extends Controller
         return view('compliance.unified.index', compact('items', 'stats', 'pagination', 'request'));
     }
 
-    protected function fetchAlerts(?string $priority, ?string $status, ?string $type, ?string $customerSearch, ?string $fromDate, ?string $toDate): array
+    protected function fetchAlerts(?string $priority, ?string $status, ?string $type, ?string $customerSearch, ?string $fromDate, ?string $toDate, ?int $limit = null): array
     {
         $query = Alert::with(['customer', 'assignedTo', 'flaggedTransaction']);
 
@@ -82,7 +91,8 @@ class UnifiedAlertController extends Controller
             $query->where('type', $type);
         }
         if ($customerSearch) {
-            $query->whereHas('customer', fn ($q) => $q->where('full_name', 'like', "%{$customerSearch}%"));
+            $escaped = str_replace(['%', '_'], ['\\%', '\\_'], $customerSearch);
+            $query->whereHas('customer', fn ($q) => $q->whereRaw('full_name like ? escape "\\"', ["%{$escaped}%"]));
         }
         if ($fromDate) {
             $query->whereDate('created_at', '>=', $fromDate);
@@ -91,21 +101,26 @@ class UnifiedAlertController extends Controller
             $query->whereDate('created_at', '<=', $toDate);
         }
 
-        $alerts = $query->orderBy('created_at', 'desc')->limit(500)->get();
+        // Stats are computed from the full filtered set (not the fetch window)
+        // so the header counts stay stable and consistent across pages. A
+        // single aggregate query replaces four per-source count queries.
+        $stats = $this->alertStats((clone $query));
+
+        $alerts = $query->orderBy('created_at', 'desc')->limit($limit ?? 500)->get();
 
         $items = $alerts->map(fn ($alert) => [
             'id' => 'A-'.$alert->id,
             'source' => 'Alert',
-            'priority' => $alert->priority->value ?? 'Low',
-            'priority_label' => $alert->priority->label() ?? 'Low',
-            'type' => $alert->type->value ?? 'Unknown',
-            'type_label' => $alert->type->label() ?? 'Unknown',
-            'status' => $alert->status->value ?? 'Open',
-            'status_label' => $alert->status->label() ?? 'Open',
+            'priority' => $alert->priority->value,
+            'priority_label' => $alert->priority->label(),
+            'type' => $alert->type->value,
+            'type_label' => $alert->type->label(),
+            'status' => $alert->status->value,
+            'status_label' => $alert->status->label(),
             'customer' => $alert->customer ? [
                 'id' => $alert->customer->id,
                 'name' => $alert->customer->full_name,
-                'ic' => $alert->customer->id_number ?? null,
+                'ic' => $alert->customer->id_number_masked ?? null,
             ] : null,
             'assigned_to' => $alert->assignedTo ? $alert->assignedTo->username : null,
             'description' => Str::limit($alert->reason, 100),
@@ -115,16 +130,11 @@ class UnifiedAlertController extends Controller
 
         return [
             'items' => $items,
-            'stats' => [
-                'total' => $alerts->count(),
-                'critical' => $alerts->filter(fn ($a) => $a->priority === AlertPriority::Critical)->count(),
-                'pending' => $alerts->filter(fn ($a) => ! in_array($a->status, [FlagStatus::Resolved, FlagStatus::Rejected], true))->count(),
-                'resolved_today' => $alerts->filter(fn ($a) => $a->updated_at && $a->updated_at->isToday() && $a->status === FlagStatus::Resolved)->count(),
-            ],
+            'stats' => $stats,
         ];
     }
 
-    protected function fetchFindings(?string $priority, ?string $status, ?string $type, ?string $customerSearch, ?string $fromDate, ?string $toDate): array
+    protected function fetchFindings(?string $priority, ?string $status, ?string $type, ?string $customerSearch, ?string $fromDate, ?string $toDate, ?int $limit = null): array
     {
         $query = ComplianceFinding::with('subject');
 
@@ -148,24 +158,28 @@ class UnifiedAlertController extends Controller
         }
 
         if ($customerSearch) {
-            $customerIds = Customer::where('full_name', 'like', "%{$customerSearch}%")->pluck('id');
+            $escaped = str_replace(['%', '_'], ['\\%', '\\_'], $customerSearch);
+            $customerIds = Customer::whereRaw('full_name like ? escape "\\"', ["%{$escaped}%"])->pluck('id');
             $query->where(function ($q) use ($customerIds) {
                 $q->where('subject_type', 'Customer')
                     ->whereIn('subject_id', $customerIds);
             });
         }
 
-        $findings = $query->orderBy('generated_at', 'desc')->limit(500)->get();
+        // Stats from the full filtered set so the header counts are stable.
+        $stats = $this->findingStats((clone $query));
+
+        $findings = $query->orderBy('generated_at', 'desc')->limit($limit ?? 500)->get();
 
         $items = $findings->map(fn ($finding) => [
             'id' => 'F-'.$finding->id,
             'source' => 'Finding',
-            'priority' => $finding->severity?->value ?? 'Low',
-            'priority_label' => $finding->severity?->value ?? 'Low',
-            'type' => $finding->finding_type?->value ?? 'Unknown',
-            'type_label' => $this->getFindingTypeLabel($finding->finding_type?->value ?? ''),
-            'status' => $finding->status?->value ?? 'New',
-            'status_label' => $this->getFindingStatusLabel($finding->status?->value ?? ''),
+            'priority' => $finding->severity->value,
+            'priority_label' => $finding->severity->value,
+            'type' => $finding->finding_type->value,
+            'type_label' => $this->getFindingTypeLabel($finding->finding_type->value),
+            'status' => $finding->status->value,
+            'status_label' => $this->getFindingStatusLabel($finding->status->value),
             'customer' => $finding->subject_type === 'Customer' ? [
                 'id' => $finding->subject_id,
                 'name' => $finding->subject?->full_name ?? 'Customer #'.$finding->subject_id,
@@ -179,12 +193,56 @@ class UnifiedAlertController extends Controller
 
         return [
             'items' => $items,
-            'stats' => [
-                'total' => count($items),
-                'critical' => collect($items)->where('priority', 'Critical')->count(),
-                'pending' => collect($items)->whereNotIn('status', ['Dismissed', 'CaseCreated'])->count(),
-                'resolved_today' => 0,
-            ],
+            'stats' => $stats,
+        ];
+    }
+
+    /**
+     * Alert header stats from a single aggregate query.
+     */
+    protected function alertStats(Builder $query): array
+    {
+        $row = $query->selectRaw(
+            'count(*) as total,'
+            .'sum(case when priority = ? then 1 else 0 end) as critical,'
+            .'sum(case when status not in (?, ?) then 1 else 0 end) as pending,'
+            .'sum(case when status = ? and updated_at >= ? and updated_at <= ? then 1 else 0 end) as resolved_today',
+            [
+                AlertPriority::Critical->value,
+                FlagStatus::Resolved->value,
+                FlagStatus::Rejected->value,
+                FlagStatus::Resolved->value,
+                today()->startOfDay(),
+                today()->endOfDay(),
+            ]
+        )->first();
+
+        return [
+            'total' => (int) ($row->total ?? 0),
+            'critical' => (int) ($row->critical ?? 0),
+            'pending' => (int) ($row->pending ?? 0),
+            'resolved_today' => (int) ($row->resolved_today ?? 0),
+        ];
+    }
+
+    /**
+     * Finding header stats from a single aggregate query.
+     */
+    protected function findingStats(Builder $query): array
+    {
+        $row = $query->selectRaw(
+            'count(*) as total,'
+            .'sum(case when severity = ? then 1 else 0 end) as critical,'
+            .'sum(case when status not in (?, ?) then 1 else 0 end) as pending,'
+            .'0 as resolved_today',
+            ['Critical', 'Dismissed', 'Case_Created']
+        )->first();
+
+        return [
+            'total' => (int) ($row->total ?? 0),
+            'critical' => (int) ($row->critical ?? 0),
+            'pending' => (int) ($row->pending ?? 0),
+            'resolved_today' => 0,
         ];
     }
 

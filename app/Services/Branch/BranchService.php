@@ -2,6 +2,7 @@
 
 namespace App\Services\Branch;
 
+use App\Exceptions\Domain\BranchDeactivationException;
 use App\Models\Branch;
 use App\Services\AuditService;
 use Illuminate\Database\Eloquent\Collection;
@@ -128,11 +129,11 @@ class BranchService
         $userId = $userId ?? Auth::id();
 
         if ($branch->is_main) {
-            throw new \RuntimeException('Cannot deactivate the main branch');
+            throw new BranchDeactivationException('Cannot deactivate the main branch');
         }
 
         if ($branch->children()->where('is_active', true)->exists()) {
-            throw new \RuntimeException('Cannot deactivate branch with active child branches');
+            throw new BranchDeactivationException('Cannot deactivate branch with active child branches');
         }
 
         $branch->update(['is_active' => false]);

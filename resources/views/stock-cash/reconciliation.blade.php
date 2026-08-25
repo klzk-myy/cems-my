@@ -1,5 +1,5 @@
 <x-app-layout title="Till Reconciliation - {{ $date }}">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Till Reconciliation"
             description="Date: {{ $date }} | Till ID: {{ $tillId }}"
@@ -38,18 +38,18 @@
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
                         <span class="text-sm text-ink-muted">Total Buys</span>
-                        <span class="text-sm font-medium text-ink">{{ $summary['total_buys'] ?? 0 }}</span>
+                        <span class="text-sm font-medium text-ink">{{ $summary['total_buy_count'] ?? 0 }}</span>
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-sm text-ink-muted">FCY Bought</span>
                         <span class="text-sm font-medium text-ink">
-                            {{ number_format((float) ($summary['fcy_bought'] ?? 0), 2) }}
+                            {{ number_format((float) ($summary['total_buy_foreign'] ?? 0), 2) }}
                         </span>
                     </div>
                     <div class="flex justify-between items-center border-t border-border pt-3">
                         <span class="text-sm font-medium text-ink-muted">MYR Received</span>
                         <span class="text-sm font-semibold text-ink">
-                            MYR {{ number_format((float) ($summary['myr_from_buys'] ?? 0), 2) }}
+                            MYR {{ number_format((float) ($summary['total_buy_amount'] ?? 0), 2) }}
                         </span>
                     </div>
                 </div>
@@ -59,18 +59,18 @@
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
                         <span class="text-sm text-ink-muted">Total Sells</span>
-                        <span class="text-sm font-medium text-ink">{{ $summary['total_sells'] ?? 0 }}</span>
+                        <span class="text-sm font-medium text-ink">{{ $summary['total_sell_count'] ?? 0 }}</span>
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-sm text-ink-muted">FCY Sold</span>
                         <span class="text-sm font-medium text-ink">
-                            {{ number_format((float) ($summary['fcy_sold'] ?? 0), 2) }}
+                            {{ number_format((float) ($summary['total_sell_foreign'] ?? 0), 2) }}
                         </span>
                     </div>
                     <div class="flex justify-between items-center border-t border-border pt-3">
                         <span class="text-sm font-medium text-ink-muted">MYR Paid Out</span>
                         <span class="text-sm font-semibold text-ink">
-                            MYR {{ number_format((float) ($summary['myr_to_sells'] ?? 0), 2) }}
+                            MYR {{ number_format((float) ($summary['total_sell_amount'] ?? 0), 2) }}
                         </span>
                     </div>
                 </div>
@@ -80,11 +80,11 @@
         <x-card title="Expected vs Actual Closing">
             <x-table>
                 <x-slot:thead>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Currency</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Expected Closing</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Actual Closing</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Variance</th>
-                    <th class="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase tracking-wider">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Currency</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Expected Closing</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Actual Closing</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Variance</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-ink-muted uppercase">Status</th>
                 </x-slot:thead>
                 <x-slot:tbody>
                     @forelse($reconciliation['currency_reconciliation'] ?? [] as $currencyRecon)
@@ -153,14 +153,14 @@
         <x-card title="Transactions">
             <x-table>
                 <x-slot:thead>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">ID</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Time</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Type</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Customer</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">FCY Amount</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">Rate</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase tracking-wider">MYR Amount</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase tracking-wider">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Time</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Type</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Customer</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">FCY Amount</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">Rate</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-ink-muted uppercase">MYR Amount</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Status</th>
                 </x-slot:thead>
                 <x-slot:tbody>
                     @forelse($transactions as $transaction)
@@ -168,31 +168,32 @@
                             <td class="px-4 py-3 text-sm text-ink">{{ $transaction->id }}</td>
                             <td class="px-4 py-3 text-sm text-ink-muted">{{ $transaction->created_at->format('H:i:s') }}</td>
                             <td class="px-4 py-3 text-sm">
-                                <x-badge :variant="$transaction->transaction_type->value === 'buy' ? 'info' : 'purple'">
-                                    {{ ucfirst($transaction->transaction_type->value) }}
+                                <x-badge :variant="$transaction->type?->value === 'Buy' ? 'info' : 'purple'">
+                                    {{ $transaction->type?->label() ?? 'N/A' }}
                                 </x-badge>
                             </td>
                             <td class="px-4 py-3 text-sm text-ink">
                                 {{ $transaction->customer->name ?? 'N/A' }}
                             </td>
                             <td class="px-4 py-3 text-sm text-ink text-right">
-                                {{ number_format((float) $transaction->foreign_amount, 2) }}
+                                {{ number_format((float) $transaction->amount_foreign, 2) }}
                             </td>
                             <td class="px-4 py-3 text-sm text-ink text-right">
-                                {{ number_format((float) $transaction->exchange_rate, 4) }}
+                                {{ number_format((float) $transaction->rate, 4) }}
                             </td>
                             <td class="px-4 py-3 text-sm text-ink text-right">
-                                {{ number_format((float) $transaction->myr_amount, 2) }}
+                                {{ number_format((float) $transaction->amount_local, 2) }}
                             </td>
                             <td class="px-4 py-3 text-sm">
                                 <x-badge
-                                    :variant="match ($transaction->status->value) {
-                                        'completed' => 'success',
-                                        'pending_approval' => 'warning',
+                                    :variant="match ($transaction->status?->value) {
+                                        'Completed' => 'success',
+                                        'Pending' => 'warning',
+                                        'PendingApproval' => 'warning',
                                         default => 'gray',
                                     }"
                                 >
-                                    {{ ucfirst(str_replace('_', ' ', $transaction->status->value)) }}
+                                    {{ $transaction->status?->label() ?? 'N/A' }}
                                 </x-badge>
                             </td>
                         </tr>

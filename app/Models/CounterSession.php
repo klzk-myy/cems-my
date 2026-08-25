@@ -11,12 +11,9 @@ class CounterSession extends BaseModel
 {
     use HasFactory;
 
-    protected $with = ['user', 'openedByUser', 'closedByUser'];
-
     protected $fillable = [
         'counter_id',
         'user_id',
-        'teller_allocation_id',
         'session_date',
         'opened_at',
         'closed_at',
@@ -26,7 +23,6 @@ class CounterSession extends BaseModel
         'notes',
         'physical_count_verified',
         'handover_notes',
-        'requested_amount_myr',
         'daily_limit_myr',
     ];
 
@@ -35,7 +31,6 @@ class CounterSession extends BaseModel
         'closed_at' => 'datetime',
         'session_date' => 'date',
         'status' => CounterSessionStatus::class,
-        'requested_amount_myr' => 'decimal:2',
         'daily_limit_myr' => 'decimal:2',
     ];
 

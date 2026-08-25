@@ -1,11 +1,11 @@
 <x-app-layout title="Create Stock Transfer">
-    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Create Stock Transfer"
             description="Request a new stock transfer between branches"
         />
 
-        <x-card class="p-6">
+        <x-card>
             <form action="{{ route('stock-transfers.store') }}" method="POST">
                 @csrf
 

@@ -31,7 +31,7 @@
                             <td class="px-4 py-3 text-sm">
                                 {{ $session->opened_at->format('d M Y, h:i A') }}
                             </td>
-                            <td class="px-4 py-3 text-sm">{{ $session->user->name ?? 'Unknown' }}</td>
+                            <td class="px-4 py-3 text-sm">{{ $session->user?->username ?? 'Unknown' }}</td>
                             <td class="px-4 py-3 text-sm">{{ $session->type ?? 'Regular' }}</td>
                             <td class="px-4 py-3 text-sm">RM {{ number_format($session->opening_float ?? 0, 2) }}</td>
                             <td class="px-4 py-3 text-sm">

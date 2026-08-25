@@ -5,6 +5,7 @@ namespace App\Services\Compliance;
 use App\Enums\AmlRuleType;
 use App\Enums\TransactionStatus;
 use App\Models\AmlRule;
+use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\System\MathService;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +21,7 @@ class AmlRuleEvaluator
      *
      * @return array{triggered: bool, risk_score: int, action: string, reason: string|null}
      */
-    public function evaluate(Transaction $transaction, AmlRule $rule): array
+    public function evaluate(Transaction $transaction, AmlRule $rule, ?Customer $customer = null): array
     {
         if (! $rule->is_active) {
             return [
@@ -35,8 +36,16 @@ class AmlRuleEvaluator
         $triggered = false;
         $reason = null;
 
-        // Convert string to enum for evaluation if needed
-        $ruleTypeValue = $rule->rule_type;
+        // Convert string to enum for evaluation if needed. Read defensively:
+        // the AmlRule model casts rule_type to an enum, and legacy seeded
+        // rules store types outside that enum (e.g. 'threshold'), so going
+        // through the cast would throw a ValueError before tryFrom runs.
+        try {
+            $ruleTypeValue = $rule->rule_type;
+        } catch (\ValueError $e) {
+            $ruleTypeValue = $rule->getRawOriginal('rule_type');
+        }
+
         if (is_string($ruleTypeValue)) {
             $ruleTypeValue = AmlRuleType::tryFrom($ruleTypeValue);
         }
@@ -47,7 +56,7 @@ class AmlRuleEvaluator
                 AmlRuleType::Structuring => $this->evaluateStructuring($transaction, $conditions),
                 AmlRuleType::AmountThreshold => $this->evaluateAmountThreshold($transaction, $conditions),
                 AmlRuleType::Frequency => $this->evaluateFrequency($transaction, $conditions),
-                AmlRuleType::Geographic => $this->evaluateGeographic($transaction, $conditions),
+                AmlRuleType::Geographic => $this->evaluateGeographic($transaction, $conditions, $customer),
                 default => false,
             };
         } catch (\Throwable $e) {
@@ -69,6 +78,57 @@ class AmlRuleEvaluator
             'action' => $triggered ? $rule->action : 'none',
             'reason' => $reason,
         ];
+    }
+
+    /**
+     * Pipeline hook: evaluate every ACTIVE rule against a transaction.
+     *
+     * Cheap by design: a single indexed query loads active rules and the
+     * method returns immediately when none exist, so it can be invoked
+     * unconditionally after booking. Callers MUST wrap this in try/catch so
+     * an evaluator failure never blocks booking. Triggered rules are logged
+     * through the evaluator's existing Log channel so findings are visible
+     * even if the caller drops the returned result.
+     *
+     * @return array<int, array{triggered: true, risk_score: int, action: string, reason: string, rule_id: int, rule_code: string, rule_name: string}>
+     */
+    public function evaluateActiveRules(Transaction $transaction, ?Customer $customer = null): array
+    {
+        // Single indexed query on is_active; skip all further work when the
+        // rule table is empty or nothing is enabled.
+        $rules = AmlRule::query()->where('is_active', true)->get();
+
+        if ($rules->isEmpty()) {
+            return [];
+        }
+
+        $customer ??= $transaction->customer;
+        $findings = [];
+
+        foreach ($rules as $rule) {
+            $result = $this->evaluate($transaction, $rule, $customer);
+
+            if (! $result['triggered']) {
+                continue;
+            }
+
+            $result['rule_id'] = $rule->id;
+            $result['rule_code'] = $rule->rule_code;
+            $result['rule_name'] = $rule->rule_name;
+            $findings[] = $result;
+
+            Log::warning('AML rule triggered', [
+                'transaction_id' => $transaction->id,
+                'customer_id' => $transaction->customer_id,
+                'rule_id' => $rule->id,
+                'rule_code' => $rule->rule_code,
+                'action' => $result['action'],
+                'risk_score' => $result['risk_score'],
+                'reason' => $result['reason'],
+            ]);
+        }
+
+        return $findings;
     }
 
     /**
@@ -127,7 +187,13 @@ class AmlRuleEvaluator
             return false;
         }
 
-        $recentSum = (string) ($recentTransactions->sum('amount_local') ?? '0');
+        // BCMath accumulation: Collection::sum() casts DECIMAL strings to
+        // float, which can flip the comparison near the aggregate threshold.
+        $recentSum = '0';
+        foreach ($recentTransactions as $recentTransaction) {
+            $recentSum = $this->mathService->add($recentSum, (string) $recentTransaction->amount_local);
+        }
+
         $totalAmount = $this->mathService->add($recentSum, (string) $transaction->amount_local);
 
         return $this->mathService->compare($totalAmount, (string) $aggregateThreshold) >= 0;
@@ -173,7 +239,7 @@ class AmlRuleEvaluator
      * Evaluate geographic rule.
      * Triggers when customer nationality or transaction involves high-risk country.
      */
-    protected function evaluateGeographic(Transaction $transaction, array $conditions): bool
+    protected function evaluateGeographic(Transaction $transaction, array $conditions, ?Customer $customer = null): bool
     {
         $countries = $conditions['countries'] ?? [];
         $matchField = $conditions['match_field'] ?? 'customer_nationality';
@@ -182,7 +248,7 @@ class AmlRuleEvaluator
             return false;
         }
 
-        $customer = $transaction->customer;
+        $customer = $customer ?? $transaction->customer;
         if (! $customer) {
             return false;
         }

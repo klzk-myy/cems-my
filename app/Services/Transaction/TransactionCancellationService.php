@@ -7,6 +7,7 @@ use App\Enums\TransactionStatus;
 use App\Enums\UserRole;
 use App\Events\TransactionCancelled;
 use App\Exceptions\Domain\SegregationOfDutiesException;
+use App\Exceptions\Domain\TillBalanceMissingException;
 use App\Models\StockReservation;
 use App\Models\Transaction;
 use App\Models\User;
@@ -48,52 +49,18 @@ class TransactionCancellationService
     ) {}
 
     /**
-     * Cancel a transaction directly (without pending approval workflow).
-     *
-     * This method is deprecated. ALL cancellations must go through the
-     * PendingCancellation state machine via requestCancellation() to enforce
-     * dual-control (segregation of duties) as required by BNM AML/CFT regulations.
-     *
-     * @param  Transaction  $transaction  The transaction to cancel
-     * @param  int  $userId  The user ID performing the cancellation
-     * @param  string  $reason  Reason for cancellation
-     *
-     * @throws \RuntimeException Always - direct cancellation is not allowed
-     */
-    public function cancelTransaction(Transaction $transaction, int $userId, string $reason): never
-    {
-        throw new \RuntimeException(
-            'Direct cancellation is not allowed. All cancellations must go through '.
-            'PendingCancellation status via requestCancellation() method. '.
-            'This enforces dual-control segregation of duties as required by BNM AML/CFT regulations.'
-        );
-    }
-
-    /**
      * Request cancellation of a transaction.
      *
-     * Requires manager or admin role. Transitions transaction to PendingCancellation
-     * status, awaiting supervisor approval.
+     * Transitions transaction to PendingCancellation status, awaiting supervisor approval.
+     * Authorization is handled by the controller via policies.
      *
      * @param  Transaction  $transaction  The transaction to cancel
      * @param  User  $requester  The user requesting cancellation
      * @param  string  $reason  Reason for cancellation
      * @return bool True if cancellation request was successful
-     *
-     * @throws \InvalidArgumentException If user is not authorized or transaction cannot be cancelled
      */
     public function requestCancellation(Transaction $transaction, User $requester, string $reason): bool
     {
-        if (! $requester->role->isManager() && ! $requester->role->isAdmin()) {
-            Log::warning('Non-manager attempted transaction cancellation request', [
-                'transaction_id' => $transaction->id,
-                'user_id' => $requester->id,
-                'user_role' => $requester->role->value,
-            ]);
-
-            return false;
-        }
-
         if (! $this->canCancel($transaction)) {
             Log::warning('Transaction cannot be cancelled', [
                 'transaction_id' => $transaction->id,
@@ -114,6 +81,7 @@ class TransactionCancellationService
             $result = $stateMachine->transitionTo(TransactionStatus::PendingCancellation, [
                 'reason' => $reason,
                 'user_id' => $requester->id,
+                'previous_status' => $previousStatus->value, // Store for rejectCancellation
             ]);
 
             if ($result) {
@@ -126,7 +94,7 @@ class TransactionCancellationService
 
                 $this->notifyPendingCancellation($lockedTransaction, $requester, $reason);
 
-                $this->auditService->logTransaction(
+                $this->auditService->logTransactionSealed(
                     'cancellation_requested',
                     $transaction->id,
                     [
@@ -136,6 +104,7 @@ class TransactionCancellationService
                             'reason' => $reason,
                             'requested_by' => $requester->id,
                         ],
+                        'severity' => 'CRITICAL',
                     ]
                 );
             }
@@ -151,8 +120,8 @@ class TransactionCancellationService
     /**
      * Approve a pending cancellation request.
      *
-     * Requires manager, compliance officer, or admin role (different from requester).
      * Transitions transaction to Cancelled status.
+     * Authorization is handled by the controller via policies.
      *
      * @param  Transaction  $transaction  The transaction to approve cancellation for
      * @param  User  $approver  The user approving the cancellation
@@ -165,16 +134,6 @@ class TransactionCancellationService
             Log::warning('Cannot approve cancellation - transaction not pending', [
                 'transaction_id' => $transaction->id,
                 'current_status' => $transaction->status->value,
-            ]);
-
-            return false;
-        }
-
-        if (! $approver->role->isManager() && ! $approver->role->isComplianceOfficer()) {
-            Log::warning('Non-authorized user attempted cancellation approval', [
-                'transaction_id' => $transaction->id,
-                'user_id' => $approver->id,
-                'user_role' => $approver->role->value,
             ]);
 
             return false;
@@ -203,13 +162,9 @@ class TransactionCancellationService
                 ->where('status', StockReservationStatus::Pending)
                 ->exists();
 
-            if ($previousStatus->isCompleted()) {
-                $this->reversalService->reversePositions($lockedTransaction);
-                $this->reversalService->reverseTillBalance($lockedTransaction);
-                $this->reverseTellerAllocation($lockedTransaction);
-                $this->reversalService->createReversingJournalEntries($lockedTransaction, $approver->id);
-            }
-
+            // Enforce the state transition FIRST. Compensating side effects must not
+            // run when the transition fails, otherwise positions/till/journal are
+            // reversed while the transaction is still marked Completed.
             $result = $stateMachine->transitionTo(TransactionStatus::Cancelled, [
                 'reason' => $reason ?? 'Cancellation approved',
                 'user_id' => $approver->id,
@@ -217,6 +172,27 @@ class TransactionCancellationService
             ]);
 
             if ($result) {
+                if ($previousStatus->isCompleted()) {
+                    $this->reversalService->reversePositions($lockedTransaction);
+
+                    // The till may have no open balance today (e.g. it was
+                    // closed before an older transaction is cancelled). Skip
+                    // the till leg - its books were already sealed - but still
+                    // complete the FX, journal and allocation reversal legs.
+                    try {
+                        $this->reversalService->reverseTillBalance($lockedTransaction);
+                    } catch (TillBalanceMissingException $e) {
+                        Log::warning('Skipping till balance reversal - no open till balance', [
+                            'transaction_id' => $lockedTransaction->id,
+                            'till_id' => $lockedTransaction->till_id,
+                            'currency_code' => $lockedTransaction->currency_code,
+                        ]);
+                    }
+
+                    $this->reverseTellerAllocation($lockedTransaction);
+                    $this->reversalService->createReversingJournalEntries($lockedTransaction, $approver->id);
+                }
+
                 if ($hasReservation) {
                     $this->stockReleaseService->releaseReservation($lockedTransaction);
                 }
@@ -226,7 +202,7 @@ class TransactionCancellationService
                     'reason' => $reason,
                 ]);
 
-                $this->auditService->logTransaction(
+                $this->auditService->logTransactionSealed(
                     'cancellation_approved',
                     $lockedTransaction->id,
                     [
@@ -236,6 +212,7 @@ class TransactionCancellationService
                             'reason' => $reason,
                             'approved_by' => $approver->id,
                         ],
+                        'severity' => 'CRITICAL',
                     ]
                 );
 
@@ -253,8 +230,8 @@ class TransactionCancellationService
     /**
      * Reject a pending cancellation request.
      *
-     * Requires manager, compliance officer, or admin role. Returns transaction
-     * to its previous status (InProgress, Completed, etc.).
+     * Returns transaction to its previous status (InProgress, Completed, etc.).
+     * Authorization is handled by the controller via policies.
      *
      * @param  Transaction  $transaction  The transaction to reject cancellation for
      * @param  User  $rejector  The user rejecting the cancellation
@@ -272,22 +249,11 @@ class TransactionCancellationService
             return false;
         }
 
-        if (! $rejector->role->isManager() && ! $rejector->role->isComplianceOfficer()) {
-            Log::warning('Non-authorized user attempted cancellation rejection', [
-                'transaction_id' => $transaction->id,
-                'user_id' => $rejector->id,
-                'user_role' => $rejector->role->value,
-            ]);
-
-            return false;
-        }
-
         $updated = DB::transaction(function () use ($transaction, $rejector, $reason) {
             $lockedTransaction = Transaction::where('id', $transaction->id)
                 ->lockForUpdate()
                 ->firstOrFail();
             $previousStatus = $lockedTransaction->status;
-            $previousHistory = $lockedTransaction->transition_history ?? [];
 
             $targetStatus = $this->determinePreviousStatus($lockedTransaction);
 
@@ -296,7 +262,7 @@ class TransactionCancellationService
                     'transaction_id' => $lockedTransaction->id,
                 ]);
 
-                $targetStatus = TransactionStatus::Completed;
+                return false;
             }
 
             if ($targetStatus === $lockedTransaction->status) {
@@ -326,17 +292,22 @@ class TransactionCancellationService
                         }
                     }
                 }
-                $targetStatus = $fallbackStatus ?? TransactionStatus::Completed;
+                if (! $fallbackStatus) {
+                    Log::warning('Cannot determine fallback status for cancellation rejection', [
+                        'transaction_id' => $lockedTransaction->id,
+                    ]);
+
+                    return false;
+                }
+                $targetStatus = $fallbackStatus;
             }
 
-            $oldStatus = $lockedTransaction->status;
-            $lockedTransaction->status = $targetStatus;
-            $lockedTransaction->version = $lockedTransaction->version + 1;
-            $lockedTransaction->transition_history = $this->appendStateHistoryEntry($lockedTransaction, $oldStatus, $targetStatus, [
+            $stateMachine = new TransactionStateMachine($lockedTransaction, $this->auditService);
+
+            $updated = $stateMachine->transitionTo($targetStatus, [
                 'reason' => "Cancellation rejected: {$reason}",
                 'user_id' => $rejector->id,
             ]);
-            $updated = $lockedTransaction->save();
 
             if ($updated) {
                 Log::info('Transaction cancellation rejected', [
@@ -347,7 +318,7 @@ class TransactionCancellationService
                     'returned_to_status' => $targetStatus->value,
                 ]);
 
-                $this->auditService->logTransaction(
+                $this->auditService->logTransactionSealed(
                     'cancellation_rejected',
                     $lockedTransaction->id,
                     [
@@ -357,6 +328,7 @@ class TransactionCancellationService
                             'reason' => $reason,
                             'rejected_by' => $rejector->id,
                         ],
+                        'severity' => 'CRITICAL',
                     ]
                 );
             }
@@ -451,39 +423,19 @@ class TransactionCancellationService
         return in_array($transaction->status, $cancellableStatuses, true);
     }
 
-    public function canReverse(Transaction $transaction): bool
-    {
-        return $this->reversalService->canReverse($transaction);
-    }
-
     public function isWithinCancellationWindow(Transaction $transaction): bool
     {
         return $this->reversalService->isWithinCancellationWindow($transaction);
     }
 
-    public function createRefundTransaction(Transaction $original, int $approvedBy): Transaction
+    public function canReverse(Transaction $transaction): bool
     {
-        return $this->reversalService->createRefundTransaction($original, $approvedBy);
+        return $this->reversalService->canReverse($transaction);
     }
 
     public function reversePositions(Transaction $transaction): void
     {
         $this->reversalService->reversePositions($transaction);
-    }
-
-    public function createReversingJournalEntries(Transaction $transaction, ?int $reversedBy = null): void
-    {
-        $this->reversalService->createReversingJournalEntries($transaction, $reversedBy);
-    }
-
-    public function getCancellationWindowHours(): int
-    {
-        return $this->reversalService->getCancellationWindowHours();
-    }
-
-    public function canUserCancel(User $user): bool
-    {
-        return $user->role->isManager();
     }
 
     public function canUserReverse(User $user, Transaction $transaction): bool
@@ -547,6 +499,16 @@ class TransactionCancellationService
 
         foreach (array_reverse($history) as $entry) {
             if (($entry['to'] ?? '') === TransactionStatus::PendingCancellation->value) {
+                // First, try to get the explicitly stored previous_status
+                if (isset($entry['previous_status'])) {
+                    try {
+                        return TransactionStatus::from($entry['previous_status']);
+                    } catch (\ValueError $e) {
+                        // Fall through to fallback logic
+                    }
+                }
+
+                // Fallback: use the 'from' field of the transition
                 try {
                     return TransactionStatus::from($entry['from']);
                 } catch (\ValueError $e) {
@@ -558,37 +520,8 @@ class TransactionCancellationService
         return null;
     }
 
-    protected function appendStateHistoryEntry(Transaction $transaction, TransactionStatus $oldStatus, TransactionStatus $newStatus, array $context): array
-    {
-        $history = $transaction->transition_history ?? [];
-        $history[] = [
-            'from' => $oldStatus->value,
-            'to' => $newStatus->value,
-            'reason' => $context['reason'] ?? null,
-            'user_id' => $context['user_id'] ?? auth()->id(),
-            'timestamp' => now()->toIso8601String(),
-        ];
-
-        return $history;
-    }
-
     protected function reverseTellerAllocation(Transaction $transaction): void
     {
-        $user = User::find($transaction->user_id);
-        if ($user && $user->isTeller()) {
-            $allocation = $this->tellerAllocationService->getActiveAllocation(
-                $user,
-                $transaction->currency_code
-            );
-            if ($allocation) {
-                if ($transaction->type->isBuy()) {
-                    $allocation->deduct((string) $transaction->amount_foreign);
-                    $allocation->subtractDailyUsed((string) $transaction->amount_local);
-                } else {
-                    $allocation->add((string) $transaction->amount_foreign);
-                    $allocation->subtractDailyUsed((string) $transaction->amount_local);
-                }
-            }
-        }
+        $this->tellerAllocationService->reverseTransactionAllocation($transaction);
     }
 }

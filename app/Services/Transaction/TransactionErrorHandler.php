@@ -2,6 +2,7 @@
 
 namespace App\Services\Transaction;
 
+use App\Enums\ErrorType;
 use App\Enums\TransactionStatus;
 use App\Models\Transaction;
 use App\Models\TransactionError;
@@ -80,20 +81,24 @@ class TransactionErrorHandler
             return false;
         }
 
-        // Create error record
+        // Create error record. Carry the previous retry count forward so the
+        // max-retries limit is respected across attempts. Starting every record
+        // at 0 (then incrementing to 1) means canRetry() is always true and the
+        // transaction retries forever without ever reaching the DLQ.
         $error = TransactionError::create([
             'transaction_id' => $transaction->id,
             'error_type' => $errorType,
             'error_message' => $message,
             'error_context' => $context,
-            'retry_count' => 0,
+            'retry_count' => $latestError->retry_count ?? 0,
             'max_retries' => self::DEFAULT_MAX_RETRIES,
             'next_retry_at' => now(),
         ]);
 
-        // Increment retry count and set next retry delay
+        // Increment retry count and set next retry delay (exponential backoff
+        // based on the carried-forward count: 100ms, 200ms, 400ms)
         if ($error->canRetry()) {
-            $delay = $this->getDelayForRetryCount(0);
+            $delay = $this->getDelayForRetryCount($error->retry_count);
             $error->incrementRetry($delay);
 
             // Transition transaction to Failed status
@@ -210,16 +215,18 @@ class TransactionErrorHandler
      */
     protected function getLatestError(Transaction $transaction): ?TransactionError
     {
+        // Order by id (not created_at): multiple failures within the same second
+        // tie on created_at, and picking an arbitrary row breaks retry accounting.
         if ($transaction->relationLoaded('transactionErrors')) {
             return $transaction->transactionErrors
                 ->whereNull('resolved_at')
-                ->sortByDesc('created_at')
+                ->sortByDesc('id')
                 ->first();
         }
 
         return $transaction->transactionErrors()
             ->whereNull('resolved_at')
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('id')
             ->first();
     }
 
@@ -252,13 +259,11 @@ class TransactionErrorHandler
             return true;
         }
 
-        // Also move to DLQ for non-retryable error types
-        $nonRetryableTypes = [
-            self::ERROR_TYPE_VALIDATION,
-            self::ERROR_TYPE_COMPLIANCE,
-        ];
-
-        if (in_array($latestError->error_type, $nonRetryableTypes, true)) {
+        // Also move to DLQ for non-retryable error types.
+        // error_type is cast to the ErrorType enum, so compare enum values rather
+        // than the raw string constants (a strict in_array on the enum object
+        // against strings never matches).
+        if (! $latestError->error_type->isRetryable()) {
             return true;
         }
 
@@ -288,7 +293,7 @@ class TransactionErrorHandler
     {
         $latestError = $this->getLatestError($transaction);
 
-        return $latestError?->retry_count ?? 0;
+        return $latestError->retry_count ?? 0;
     }
 
     /**

@@ -54,7 +54,7 @@ class GenerateEodReconciliation extends Command
 
             if ($format === 'json') {
                 $filename .= '.json';
-                $path = $exportService->toJSON($report, $filename);
+                $path = $exportService->toJson($report, $filename);
             } elseif ($format === 'csv') {
                 $filename .= '.csv';
                 $path = $exportService->toCSV($report, $filename);

@@ -14,10 +14,10 @@ return new class extends Migration
             $table->enum('severity', ['Low', 'Medium', 'High', 'Critical']);
             $table->text('description');
             $table->integer('record_count')->nullable();
-            $table->foreignId('triggered_by')->nullable()->constrained('users');
+            $table->foreignId('triggered_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->string('ip_address', 45)->nullable();
             $table->boolean('is_resolved')->default(false);
-            $table->foreignId('resolved_by')->nullable()->constrained('users');
+            $table->foreignId('resolved_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('resolved_at')->nullable();
             $table->timestamps();
             $table->index('severity');

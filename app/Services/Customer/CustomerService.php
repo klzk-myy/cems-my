@@ -12,11 +12,14 @@ use App\Services\AuditService;
 use App\Services\Compliance\RiskScoringEngine;
 use App\Services\Contracts\CustomerServiceInterface;
 use App\Services\CustomerScreeningService;
+use App\Services\System\CacheInvalidationService;
 use App\Services\System\CacheKeys;
 use App\Services\System\CacheTagsService;
 use App\Services\System\EncryptionService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * Customer Service
@@ -41,6 +44,7 @@ class CustomerService implements CustomerServiceInterface
         protected AuditService $auditService,
         protected AuditTrailHelper $auditTrailHelper,
         protected CacheTagsService $cacheTagsService,
+        protected CacheInvalidationService $cacheInvalidationService,
         protected CustomerRepository $customerRepository
     ) {}
 
@@ -83,20 +87,33 @@ class CustomerService implements CustomerServiceInterface
     public function createCustomer(array $data, int $userId): Customer
     {
         $customer = DB::transaction(function () use ($data, $userId) {
+            // Duplicate-identity pre-check inside the creation transaction:
+            // concurrent registrations with the same ID/phone would otherwise
+            // split one person across two customer records and break AML
+            // aggregation. Probed with withTrashed() because the unique index
+            // added by migration also covers soft-deleted rows.
+            $this->assertNoDuplicateBlindIndex($data);
+
             // Encrypt sensitive fields
             $encryptedData = $this->encryptCustomerData($data);
 
-            // Create customer
-            $customer = Customer::create($encryptedData);
-
-            // Initial risk always 'Low' - risk scoring module determines actual risk
-            $customer->risk_rating = 'Low';
+            // Create customer - risk_rating will be determined by screening and risk scoring
+            // id_number_hash / phone_hash are NOT mass-assignable on the model,
+            // so they must be assigned explicitly before save - otherwise the
+            // blind indexes are never persisted and duplicate-identity checks
+            // plus AML aggregation silently degrade.
+            $customer = new Customer($encryptedData);
+            foreach (['id_number_hash', 'phone_hash'] as $blindIndexField) {
+                if (array_key_exists($blindIndexField, $encryptedData)) {
+                    $customer->{$blindIndexField} = $encryptedData[$blindIndexField];
+                }
+            }
             $customer->save();
 
-            // Screen against sanctions list (may upgrade to High if hit)
+            // Screen against sanctions list FIRST - may set risk_rating to High if hit
             $this->screenCustomer($customer, $data['full_name']);
 
-            // Calculate risk score using automated risk scoring engine
+            // Calculate risk score using automated risk scoring engine (sets risk_rating)
             $this->calculateRiskScore($customer);
 
             // Log customer creation
@@ -120,6 +137,37 @@ class CustomerService implements CustomerServiceInterface
     }
 
     /**
+     * Throw a validation error when another customer (including a soft-deleted
+     * one) already holds the same ID number or phone blind index.
+     *
+     * @param  array<string, mixed>  $data  Raw customer input
+     *
+     * @throws ValidationException on duplicate identity
+     */
+    protected function assertNoDuplicateBlindIndex(array $data): void
+    {
+        if (! empty($data['id_number'])) {
+            $idHash = self::computeBlindIndex($data['id_number']);
+
+            if (Customer::withTrashed()->where('id_number_hash', $idHash)->exists()) {
+                throw ValidationException::withMessages([
+                    'id_number' => 'A customer with this ID number already exists.',
+                ]);
+            }
+        }
+
+        if (! empty($data['phone'])) {
+            $phoneHash = self::computeBlindIndex($data['phone']);
+
+            if (Customer::withTrashed()->where('phone_hash', $phoneHash)->exists()) {
+                throw ValidationException::withMessages([
+                    'phone' => 'A customer with this phone number already exists.',
+                ]);
+            }
+        }
+    }
+
+    /**
      * Update an existing customer with encryption and risk reassessment.
      *
      * @param  Customer  $customer  Customer to update
@@ -140,18 +188,12 @@ class CustomerService implements CustomerServiceInterface
             // Update customer
             $customer->update($encryptedData);
 
-            // Risk rating is no longer mass-assignable; set it explicitly when provided.
-            if (array_key_exists('risk_rating', $data) && filled($data['risk_rating'])) {
-                $customer->risk_rating = $data['risk_rating'];
-                $customer->save();
-            }
-
             // Re-screen against sanctions if name changed
             if (isset($data['full_name']) && $data['full_name'] !== $originalName) {
                 $this->screenCustomer($customer, $data['full_name']);
             }
 
-            // Recalculate risk score
+            // Recalculate risk score (risk_rating is auto-determined by RiskScoringEngine)
             $this->calculateRiskScore($customer);
 
             // Log customer update
@@ -171,7 +213,7 @@ class CustomerService implements CustomerServiceInterface
         });
         $this->cacheTagsService->invalidate('dashboard');
         // Invalidate individual customer cache
-        Cache::forget(CacheKeys::customer($customer->id));
+        $this->cacheInvalidationService->forgetCustomer($customer->id);
 
         return $customer;
     }
@@ -228,9 +270,7 @@ class CustomerService implements CustomerServiceInterface
      */
     public static function computeBlindIndex(string $plaintext): string
     {
-        $key = config('app.key');
-
-        return hash_hmac('sha256', $plaintext, $key);
+        return EncryptionService::blindIndex($plaintext);
     }
 
     /**
@@ -247,15 +287,15 @@ class CustomerService implements CustomerServiceInterface
         return $this->customerRepository->findByIdNumber($idNumber);
     }
 
-    public function searchCustomers(string $query): array
+    public function searchCustomers(string $query, ?int $branchId = null): array
     {
         $query = trim($query);
 
-        $customers = $this->customerRepository->searchActive($query);
+        $customers = $this->customerRepository->searchActive($query, 10, $branchId);
 
         if ($customers->isEmpty()) {
             $idHash = $this->computeBlindIndex($query);
-            $byHash = $this->customerRepository->findActiveByIdNumberHash($idHash);
+            $byHash = $this->customerRepository->findActiveByIdNumberHash($idHash, $branchId);
             if ($byHash) {
                 $customers = collect([$byHash]);
             }
@@ -319,9 +359,10 @@ class CustomerService implements CustomerServiceInterface
     {
         $encrypted = $data;
 
-        // Encrypt ID number
+        // Encrypt ID number and compute blind index
         if (isset($data['id_number'])) {
             $encrypted['id_number_encrypted'] = $this->encryptionService->encrypt($data['id_number']);
+            $encrypted['id_number_hash'] = self::computeBlindIndex($data['id_number']);
             unset($encrypted['id_number']);
         }
 
@@ -333,6 +374,7 @@ class CustomerService implements CustomerServiceInterface
         // Encrypt phone
         if (! empty($data['phone'])) {
             $encrypted['phone'] = $this->encryptionService->encrypt($data['phone']);
+            $encrypted['phone_hash'] = self::computeBlindIndex($data['phone']);
         }
 
         // Encrypt employer address
@@ -362,11 +404,10 @@ class CustomerService implements CustomerServiceInterface
             $customer->save();
 
             // Log sanction hit
-            $this->auditService->logWithSeverity(
+            $this->auditService->logCustomerEvent(
                 'customer_sanction_hit',
+                $customer->id,
                 [
-                    'entity_type' => 'Customer',
-                    'entity_id' => $customer->id,
                     'new_values' => [
                         'customer_name' => $customer->full_name,
                         'sanction_matches' => $sanctionMatches,
@@ -385,5 +426,58 @@ class CustomerService implements CustomerServiceInterface
     protected function calculateRiskScore(Customer $customer): void
     {
         $this->riskScoringEngine->recalculateForCustomer($customer->id);
+    }
+
+    /**
+     * Aggregate transaction statistics for a customer.
+     *
+     * @return array{total_transactions: int, total_volume: string, avg_transaction: float, last_transaction: string|null}
+     */
+    public function getTransactionStats(Customer $customer): array
+    {
+        $stats = $customer->transactions()
+            ->selectRaw('COUNT(*) as total_transactions, SUM(amount_local) as total_volume, AVG(amount_local) as avg_transaction')
+            ->first();
+
+        return [
+            'total_transactions' => (int) ($stats->total_transactions ?? 0),
+            'total_volume' => $stats->total_volume ?? '0',
+            'avg_transaction' => $stats->avg_transaction ?? '0',
+            'last_transaction' => $customer->last_transaction_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Upload a KYC document for a customer.
+     *
+     * Persists the file to storage, creates the CustomerDocument record,
+     * computes its SHA-256 hash for tamper-evidence, and logs the event
+     * with audit severity so the KYC trail is preserved.
+     *
+     * @param  Customer  $customer  Customer to attach the document to
+     * @param  UploadedFile  $file  Uploaded file
+     * @param  string  $documentType  Document type enum value
+     * @param  int  $uploadedBy  User ID uploading the document
+     * @return CustomerDocument The persisted document record
+     */
+    public function uploadDocument(Customer $customer, UploadedFile $file, string $documentType, int $uploadedBy): \App\Models\CustomerDocument
+    {
+        $path = $file->store('kyc/'.$customer->id, 'local');
+
+        $document = $customer->documents()->create([
+            'document_type' => $documentType,
+            'file_path' => $path,
+            'file_hash' => hash_file('sha256', $file->getRealPath()),
+            'file_size' => $file->getSize(),
+            'uploaded_by' => $uploadedBy,
+        ]);
+
+        $this->auditService->logCustomerEvent(
+            'kyc_document_uploaded',
+            $customer->id,
+            ['new_values' => ['document_type' => $documentType]]
+        );
+
+        return $document;
     }
 }

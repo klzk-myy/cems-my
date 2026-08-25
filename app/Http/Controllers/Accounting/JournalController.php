@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Exceptions\Domain\AccountingPeriodException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Accounting\ReverseJournalEntryRequest;
 use App\Http\Requests\Accounting\StoreJournalEntryRequest;
@@ -53,7 +54,7 @@ class JournalController extends Controller
             return redirect()->route('accounting.journal.show', $entry)
                 ->with('success', 'Journal entry created successfully.');
 
-        } catch (\InvalidArgumentException $e) {
+        } catch (AccountingPeriodException $e) {
             Log::warning('JournalEntry create failed', ['exception' => $e, 'description' => $request->input('description')]);
 
             return back()->withInput()->withErrors(['lines' => $e->getMessage()]);
@@ -85,7 +86,7 @@ class JournalController extends Controller
                 ->with('success', 'Entry reversed successfully.');
 
         } catch (\Exception $e) {
-            return back()->with('error', 'Reversal failed: '.$e->getMessage());
+            return back()->with('error', 'Reversal failed. Please try again.');
         }
     }
 }

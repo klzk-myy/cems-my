@@ -58,20 +58,9 @@ class SanctionListController extends Controller
 
         // Legacy non-standard envelope (data/meta); preserved to avoid breaking API consumers.
         return response()->json([
-            'data' => $entries->map(fn ($entry) => [
-                'id' => $entry->id,
-                'entity_name' => $entry->entity_name,
-                'entity_type' => $entry->entity_type,
-                'list' => [
-                    'id' => $entry->sanctionList?->id,
-                    'name' => $entry->sanctionList?->name,
-                ],
-                'nationality' => $entry->nationality,
-                'date_of_birth' => $entry->date_of_birth?->format('Y-m-d'),
-                'reference_number' => $entry->reference_number,
-                'status' => $entry->status,
-                'listing_date' => $entry->listing_date?->format('Y-m-d'),
-            ]),
+            'data' => $entries->map(fn ($entry) => collect($entry->toEntrySummaryArray())
+                ->except('list_source')
+                ->toArray()),
             'meta' => [
                 'current_page' => $entries->currentPage(),
                 'per_page' => $entries->perPage(),
@@ -110,20 +99,7 @@ class SanctionListController extends Controller
             ->limit(50)
             ->get();
 
-        return $this->successResponse($logs->map(fn ($log) => [
-            'id' => $log->id,
-            'list' => [
-                'id' => $log->sanctionList?->id,
-                'name' => $log->sanctionList?->name,
-            ],
-            'imported_at' => $log->imported_at->toIso8601String(),
-            'records_added' => $log->records_added,
-            'records_updated' => $log->records_updated,
-            'records_deactivated' => $log->records_deactivated,
-            'status' => $log->status,
-            'error_message' => $log->error_message,
-            'triggered_by' => $log->triggered_by,
-        ])->toArray());
+        return $this->successResponse($logs->map(fn ($log) => $log->toSummaryArray())->toArray());
     }
 
     public function storeEntry(StoreSanctionEntryRequest $request): JsonResponse

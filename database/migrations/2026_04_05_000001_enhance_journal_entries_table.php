@@ -15,10 +15,10 @@ return new class extends Migration
             }
             // Add workflow columns if they don't exist
             if (! Schema::hasColumn('journal_entries', 'created_by')) {
-                $table->foreignId('created_by')->nullable()->constrained('users');
+                $table->foreignId('created_by')->nullable()->constrained('users')->restrictOnDelete();
             }
             if (! Schema::hasColumn('journal_entries', 'approved_by')) {
-                $table->foreignId('approved_by')->nullable()->constrained('users');
+                $table->foreignId('approved_by')->nullable()->constrained('users')->restrictOnDelete();
             }
             if (! Schema::hasColumn('journal_entries', 'approved_at')) {
                 $table->timestamp('approved_at')->nullable();

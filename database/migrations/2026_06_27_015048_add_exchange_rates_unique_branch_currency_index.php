@@ -25,18 +25,42 @@ return new class extends Migration
                     ->delete();
             }
 
-            Schema::table('exchange_rates', function (Blueprint $table) {
+            $driver = DB::getDriverName();
+
+            Schema::table('exchange_rates', function (Blueprint $table) use ($driver) {
+                // On MySQL the composite (branch_id, currency_code) index backs the
+                // branch_id foreign key, so InnoDB refuses to drop it (error 1553).
+                // Drop and re-create the FK around the index swap; SQLite needs no
+                // such dance and does not support ALTER DROP CONSTRAINT.
+                if ($driver === 'mysql') {
+                    $table->dropForeign(['branch_id']);
+                }
+
                 $table->dropIndex(['branch_id', 'currency_code']);
                 $table->unique(['branch_id', 'currency_code'], 'exchange_rates_branch_currency_unique');
+
+                if ($driver === 'mysql') {
+                    $table->foreign('branch_id')->references('id')->on('branches')->nullOnDelete();
+                }
             });
         });
     }
 
     public function down(): void
     {
-        Schema::table('exchange_rates', function (Blueprint $table) {
+        $driver = DB::getDriverName();
+
+        Schema::table('exchange_rates', function (Blueprint $table) use ($driver) {
+            if ($driver === 'mysql') {
+                $table->dropForeign(['branch_id']);
+            }
+
             $table->dropUnique('exchange_rates_branch_currency_unique');
             $table->index(['branch_id', 'currency_code']);
+
+            if ($driver === 'mysql') {
+                $table->foreign('branch_id')->references('id')->on('branches')->nullOnDelete();
+            }
         });
     }
 };

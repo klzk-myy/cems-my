@@ -14,13 +14,13 @@ return new class extends Migration
             $table->date('start_date');
             $table->date('end_date');
             $table->enum('status', ['Open', 'Closed', 'Archived'])->default('Open');
-            $table->foreignId('closed_by')->nullable()->constrained('users');
+            $table->foreignId('closed_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('closed_at')->nullable();
             $table->timestamps();
         });
 
         Schema::table('accounting_periods', function (Blueprint $table) {
-            $table->foreignId('fiscal_year_id')->nullable()->after('id')->constrained();
+            $table->foreignId('fiscal_year_id')->nullable()->after('id')->constrained()->restrictOnDelete();
         });
     }
 

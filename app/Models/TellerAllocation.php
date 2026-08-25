@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\MoneyCast;
 use App\Enums\TellerAllocationStatus;
+use App\Exceptions\Domain\InsufficientAllocationBalanceException;
 use App\Models\Traits\BelongsToBranch;
 use App\Services\System\MathService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -98,10 +99,38 @@ class TellerAllocation extends BaseModel
         return $this->mathService->compare($this->current_balance, (string) $amount) >= 0;
     }
 
-    public function deduct(float|string $amount): void
+    /**
+     * Atomically decrement current_balance only when sufficient funds exist.
+     *
+     * Uses a single conditional UPDATE (WHERE current_balance >= amount) so
+     * concurrent bookings can never drive the balance negative, closing the
+     * hasAvailable()-then-deduct() race.
+     *
+     * When the guard fails (0 affected rows - e.g. a concurrent transaction
+     * consumed the float between validation and deduction) the operation
+     * aborts loudly: the exception rolls back the surrounding DB::transaction
+     * instead of leaving the teller's books silently unadjusted.
+     *
+     * @throws InsufficientAllocationBalanceException When the balance is insufficient.
+     */
+    public function deduct(float|string $amount): bool
     {
-        $this->decrement('current_balance', $amount);
+        $affected = static::query()
+            ->where($this->getKeyName(), $this->getKey())
+            ->where('current_balance', '>=', $amount)
+            ->decrement('current_balance', $amount);
+
         $this->refresh();
+
+        if ($affected === 0) {
+            throw new InsufficientAllocationBalanceException(
+                $this->currency_code,
+                (string) $this->current_balance,
+                (string) $amount
+            );
+        }
+
+        return true;
     }
 
     public function add(float|string $amount): void

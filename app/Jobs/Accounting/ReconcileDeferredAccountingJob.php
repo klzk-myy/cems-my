@@ -16,6 +16,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
@@ -163,44 +164,50 @@ class ReconcileDeferredAccountingJob implements ShouldQueue
      */
     protected function reconcileTransaction(Transaction $transaction): array
     {
-        // Idempotency check: if journal_entry_id is now set, skip
-        // (another process may have created it after we fetched)
-        $transaction->refresh();
-
-        if ($transaction->journal_entry_id !== null) {
-            return [
-                'success' => false,
-                'can_reconcile' => null,
-                'reason' => 'Journal entry already created by another process',
-            ];
-        }
-
         try {
-            // Create the deferred accounting entries directly through the accounting service
-            $this->transactionAccountingService->createDeferredAccountingEntries($transaction->id);
+            return DB::transaction(function () use ($transaction) {
+                // Idempotency check under a pessimistic lock so overlapping
+                // processes serialise here instead of racing on
+                // journal_entry_id. The accounting service re-checks under its
+                // own lock before creating entries.
+                $fresh = Transaction::where('id', $transaction->id)
+                    ->lockForUpdate()
+                    ->first();
 
-            // Audit log for the reconciliation
-            $this->auditService->logWithSeverity(
-                'deferred_accounting_reconciled',
-                [
-                    'entity_type' => 'Transaction',
-                    'entity_id' => $transaction->id,
-                    'new_values' => [
-                        'transaction_id' => $transaction->id,
-                        'amount_local' => (string) $transaction->amount_local,
-                        'currency' => $transaction->currency_code,
-                        'cdd_level' => $transaction->cdd_level->value,
-                        'reconciled_at' => now()->toIso8601String(),
+                if ($fresh === null || $fresh->journal_entry_id !== null) {
+                    return [
+                        'success' => false,
+                        'can_reconcile' => null,
+                        'reason' => 'Journal entry already created by another process',
+                    ];
+                }
+
+                // Create the deferred accounting entries directly through the accounting service
+                $this->transactionAccountingService->createDeferredAccountingEntries($transaction->id);
+
+                // Audit log for the reconciliation
+                $this->auditService->logWithSeverity(
+                    'deferred_accounting_reconciled',
+                    [
+                        'entity_type' => 'Transaction',
+                        'entity_id' => $transaction->id,
+                        'new_values' => [
+                            'transaction_id' => $transaction->id,
+                            'amount_local' => (string) $transaction->amount_local,
+                            'currency' => $transaction->currency_code,
+                            'cdd_level' => $transaction->cdd_level->value,
+                            'reconciled_at' => now()->toIso8601String(),
+                        ],
                     ],
-                ],
-                'INFO'
-            );
+                    'INFO'
+                );
 
-            return [
-                'success' => true,
-                'can_reconcile' => true,
-                'reason' => '',
-            ];
+                return [
+                    'success' => true,
+                    'can_reconcile' => true,
+                    'reason' => '',
+                ];
+            });
         } catch (\InvalidArgumentException $e) {
             // Expected when transaction doesn't support deferred entries or not in correct state
             return [

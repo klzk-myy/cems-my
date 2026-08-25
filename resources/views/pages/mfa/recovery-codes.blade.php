@@ -1,6 +1,6 @@
 <x-app-layout title="Recovery Codes">
-    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <x-card class="p-8">
+    <div class="space-y-6">
+        <x-card>
             <div class="text-center mb-6">
                 <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-success-subtle mb-4">
                     <svg class="w-6 h-6 text-success-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">

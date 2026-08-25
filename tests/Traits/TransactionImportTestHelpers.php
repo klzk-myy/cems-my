@@ -9,11 +9,13 @@ use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\TillBalance;
 use App\Models\TransactionImport;
-use App\Services\Accounting\CurrencyPositionLockService;
 use App\Services\Accounting\CurrencyPositionService;
+use App\Services\Branch\TillBalanceManager;
 use App\Services\Compliance\ComplianceService;
 use App\Services\System\MathService;
 use App\Services\ThresholdService;
+use App\Services\Transaction\RateManagementService;
+use App\Services\Transaction\TransactionCreationService;
 use App\Services\Transaction\TransactionImportService;
 use App\Services\Transaction\TransactionMonitoringService;
 
@@ -77,8 +79,10 @@ trait TransactionImportTestHelpers
             $complianceService ?? app(ComplianceService::class),
             app(CurrencyPositionService::class),
             app(TransactionMonitoringService::class),
-            app(CurrencyPositionLockService::class),
             $thresholdService,
+            app(TillBalanceManager::class),
+            app(TransactionCreationService::class),
+            app(RateManagementService::class),
         );
     }
 

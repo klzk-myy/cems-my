@@ -34,7 +34,7 @@ class AmlRuleEvaluatorTest extends TestCase
         for ($i = 0; $i < 11; $i++) {
             Transaction::factory()->create([
                 'customer_id' => $customer->id,
-                'created_at' => $now->copy()->subHours(rand(0, 23)),
+                'created_at' => $now->copy()->subHours(12),
             ]);
         }
 
@@ -76,7 +76,7 @@ class AmlRuleEvaluatorTest extends TestCase
             Transaction::factory()->create([
                 'customer_id' => $customer->id,
                 'amount_local' => $amount,
-                'created_at' => $now->copy()->subHours(rand(0, 23)),
+                'created_at' => $now->copy()->subHours(12),
             ]);
         }
 
@@ -217,7 +217,7 @@ class AmlRuleEvaluatorTest extends TestCase
         for ($i = 0; $i < 10; $i++) {
             Transaction::factory()->create([
                 'customer_id' => $customer->id,
-                'created_at' => $now->copy()->subMinutes(rand(0, 55)),
+                'created_at' => $now->copy()->subMinutes(30),
             ]);
         }
 

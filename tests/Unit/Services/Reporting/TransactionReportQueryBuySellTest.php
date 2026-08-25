@@ -105,9 +105,28 @@ class TransactionReportQueryBuySellTest extends TestCase
         $volumes = app(TransactionReportQuery::class)->buySellVolumes($transactions);
 
         $this->assertSame(2, $volumes['buy_count']);
-        $this->assertSame('1500', $volumes['buy_volume']);
+        $this->assertSame('1500.0000', $volumes['buy_volume']);
         $this->assertSame(1, $volumes['sell_count']);
-        $this->assertSame('300', $volumes['sell_volume']);
+        $this->assertSame('300.0000', $volumes['sell_volume']);
+    }
+
+    #[Test]
+    public function buy_sell_volumes_sums_decimals_without_float_precision_loss(): void
+    {
+        $transactions = collect([
+            Transaction::factory()->make([
+                'type' => TransactionType::Buy->value,
+                'amount_local' => '0.0001',
+            ]),
+            Transaction::factory()->make([
+                'type' => TransactionType::Buy->value,
+                'amount_local' => '0.0002',
+            ]),
+        ]);
+
+        $volumes = app(TransactionReportQuery::class)->buySellVolumes($transactions);
+
+        $this->assertSame('0.0003', $volumes['buy_volume']);
     }
 
     #[Test]

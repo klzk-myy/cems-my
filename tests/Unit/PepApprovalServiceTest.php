@@ -30,7 +30,7 @@ class PepApprovalServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new PepApprovalService;
+        $this->service = app(PepApprovalService::class);
     }
 
     /**

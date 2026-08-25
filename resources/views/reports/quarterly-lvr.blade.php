@@ -1,12 +1,12 @@
 <x-app-layout title="Quarterly Large Value Report">
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         <x-page-header
             title="Quarterly Large Value Report"
             description="QLVR - Quarterly Large Value Transaction Report"
             :actions="$reportGenerated"
         >
             <x-slot:actions>
-                <x-button variant="secondary" onclick="window.print()">Print</x-button>
+                <x-button variant="secondary" @click="window.print()">Print</x-button>
                 <form method="POST" action="{{ route('reports.quarterly-lvr.export', ['quarter' => $quarter]) }}">
                     @csrf
                     <x-button variant="primary" type="submit">Export</x-button>
