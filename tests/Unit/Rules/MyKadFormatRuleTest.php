@@ -24,7 +24,7 @@ class MyKadFormatRuleTest extends TestCase
 
         $failCalled = false;
 
-        ($this->rule)('id_number', $id, function () use (&$failCalled): void {
+        $this->rule->validate('id_number', $id, function () use (&$failCalled): void {
             $failCalled = true;
         });
 
@@ -37,7 +37,7 @@ class MyKadFormatRuleTest extends TestCase
 
         $caught = null;
 
-        ($this->rule)('id_number', $id, function (string $failMessage) use (&$caught): void {
+        $this->rule->validate('id_number', $id, function (string $failMessage) use (&$caught): void {
             $caught = $failMessage;
         });
 
@@ -118,7 +118,7 @@ class MyKadFormatRuleTest extends TestCase
 
         $caught = null;
 
-        ($this->rule)('id_number', null, function (string $failMessage) use (&$caught): void {
+        $this->rule->validate('id_number', null, function (string $failMessage) use (&$caught): void {
             $caught = $failMessage;
         });
 

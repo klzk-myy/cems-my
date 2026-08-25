@@ -11,8 +11,10 @@ class UserComposer
      */
     public function compose(View $view): void
     {
-        $view->with('currentUser', auth()->user());
-        $view->with('userRole', auth()->check() ? auth()->user()->role : null);
-        $view->with('userName', auth()->check() ? auth()->user()->username : 'Guest');
+        $user = auth()->user();
+
+        $view->with('currentUser', $user);
+        $view->with('userRole', $user?->role);
+        $view->with('userName', $user?->username ?? 'Guest');
     }
 }

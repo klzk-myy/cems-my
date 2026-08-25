@@ -14,9 +14,14 @@ class NavigationComposer
     {
         $user = auth()->user();
 
-        $navigation = $user
-            ? Navigation::getForRole($user->role)
-            : ['main' => Navigation::get()['main']];
+        try {
+            $navigation = $user
+                ? Navigation::getForRole($user->role)
+                : ['main' => Navigation::get()['main']];
+        } catch (\Exception $e) {
+            // Fallback to main navigation if Navigation class fails
+            $navigation = ['main' => Navigation::get()['main']];
+        }
 
         $view->with('navigation', $navigation);
     }

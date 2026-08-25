@@ -52,6 +52,12 @@ class Navigation
                         'icon' => 'users',
                         'uri' => '/customers',
                     ],
+                    [
+                        'label' => 'Performance',
+                        'route' => 'performance',
+                        'icon' => 'chart-bar',
+                        'uri' => '/performance',
+                    ],
                 ],
             ],
 
@@ -257,13 +263,35 @@ class Navigation
                         'label' => 'Position Limits',
                         'route' => 'reports.position-limit',
                         'icon' => 'no-symbol',
+                        'uri' => '/reports/position-limit',
                     ],
-                    // [
-                    //     'label' => 'Report History',
-                    //     'route' => 'reports.history',
-                    //     'icon' => 'history',
-                    //     'uri' => '/reports/history',
-                    // ],
+                ],
+            ],
+
+            // ============================================================
+            // SECURITY - MFA and security settings
+            // ============================================================
+            'security' => [
+                'label' => 'Security',
+                'items' => [
+                    [
+                        'label' => 'MFA Setup',
+                        'route' => 'mfa.setup',
+                        'icon' => 'shield-check',
+                        'uri' => '/mfa/setup',
+                    ],
+                    [
+                        'label' => 'Recovery Codes',
+                        'route' => 'mfa.recovery-codes',
+                        'icon' => 'key',
+                        'uri' => '/mfa/recovery-codes',
+                    ],
+                    [
+                        'label' => 'Trusted Devices',
+                        'route' => 'mfa.trusted-devices',
+                        'icon' => 'device-phone-mobile',
+                        'uri' => '/mfa/trusted-devices',
+                    ],
                 ],
             ],
 
@@ -302,12 +330,6 @@ class Navigation
                         'route' => 'users.index',
                         'icon' => 'user',
                         'uri' => '/users',
-                    ],
-                    [
-                        'label' => 'Data Breach Alerts',
-                        'route' => 'compliance.alerts.index',
-                        'icon' => 'exclamation-circle',
-                        'uri' => '/compliance/alerts',
                     ],
                 ],
             ],
@@ -350,6 +372,7 @@ class Navigation
             'operations', 'counter_management', 'stock_management' => $role->isManager(),
             'compliance' => $role->isComplianceOfficer(),
             'accounting', 'reports' => $role->isManager(),
+            'security' => true,
             'system' => $role->isAdmin(),
             default => true,
         };

@@ -14,6 +14,7 @@ use App\Models\FiscalYear;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
 use App\Models\User;
+use App\Services\System\MathService;
 use App\Services\System\SetupService;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,7 @@ class SetupController extends Controller
 {
     public function __construct(
         protected SetupService $setupService,
+        protected MathService $mathService,
     ) {}
 
     public function index(Request $request): View
@@ -49,7 +51,7 @@ class SetupController extends Controller
             'isSetupComplete' => false,
             'currentStep' => (int) $step,
             'progress' => $this->calculateProgress(),
-            'currencies' => Currency::all(),
+            'currencies' => Currency::select('code', 'name', 'symbol')->where('is_active', true)->get(),
         ]);
     }
 
@@ -370,15 +372,15 @@ class SetupController extends Controller
         $openingDate = $fiscalYear->start_date;
         $entryNumber = 'OB-'.$fiscalYear->year_code.'-0001';
 
-        // Calculate total opening balance
-        $totalMyr = $balanceData['opening_balance_myr'] ?? 0;
-        $totalForeign = 0;
+        // Calculate total opening balance using BCMath for precision
+        $totalMyr = $balanceData['opening_balance_myr'] ?? '0';
+        $totalForeign = '0';
         foreach ($balanceData['opening_balance_foreign'] ?? [] as $currency => $amount) {
-            $totalForeign += (float) $amount;
+            $totalForeign = $this->mathService->add($totalForeign, (string) $amount);
         }
-        $totalBalance = $totalMyr + $totalForeign;
+        $totalBalance = $this->mathService->add((string) $totalMyr, $totalForeign);
 
-        if ($totalBalance <= 0) {
+        if ($this->mathService->compare($totalBalance, '0') <= 0) {
             return;
         }
 
@@ -413,14 +415,14 @@ class SetupController extends Controller
             }
 
             // Cash in Foreign Currencies (grouped)
-            $totalForeignBalance = 0;
+            $totalForeignBalance = '0';
             foreach ($balanceData['opening_balance_foreign'] ?? [] as $currency => $amount) {
-                if ($amount > 0) {
-                    $totalForeignBalance += $amount;
+                if ($this->mathService->compare((string) $amount, '0') > 0) {
+                    $totalForeignBalance = $this->mathService->add($totalForeignBalance, (string) $amount);
                 }
             }
 
-            if ($totalForeignBalance > 0) {
+            if ($this->mathService->compare($totalForeignBalance, '0') > 0) {
                 $cashForeignAccount = ChartOfAccount::where('account_code', '1011')->first();
                 if ($cashForeignAccount) {
                     JournalLine::create([

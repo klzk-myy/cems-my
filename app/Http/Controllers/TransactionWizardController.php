@@ -21,6 +21,7 @@ use App\Services\Transaction\TransactionApprovalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Psr\Log\LoggerInterface;
 
 class TransactionWizardController extends Controller
 {
@@ -33,7 +34,8 @@ class TransactionWizardController extends Controller
         protected WizardSessionService $wizardSessionService,
         protected MathService $mathService,
         protected TellerAllocationService $tellerAllocationService,
-        protected ThresholdService $thresholdService
+        protected ThresholdService $thresholdService,
+        protected LoggerInterface $logger,
     ) {}
 
     /**
@@ -225,7 +227,7 @@ class TransactionWizardController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            app('log')->error('Transaction creation failed in wizard', [
+            $this->logger->error('Transaction creation failed in wizard', [
                 'session_id' => $sessionId,
                 'error' => $e->getMessage(),
             ]);

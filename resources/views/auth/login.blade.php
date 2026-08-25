@@ -29,10 +29,7 @@
                     <x-input type="text" name="username" label="Username" required value="{{ old('username') }}" inline />
                     <x-input type="password" name="password" label="Password" required inline />
 
-                    <label class="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name="remember" value="1" class="rounded border-gray-300">
-                        <span>Remember me</span>
-                    </label>
+                    <x-checkbox name="remember" value="1" label="Remember me" />
 
                     <x-button type="submit" variant="primary" class="w-full">Sign In</x-button>
                 </form>

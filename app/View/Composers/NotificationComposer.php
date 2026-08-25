@@ -3,6 +3,7 @@
 namespace App\View\Composers;
 
 use App\Services\System\NotificationBadgeService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class NotificationComposer
@@ -29,8 +30,19 @@ class NotificationComposer
             return;
         }
 
-        $view->with('unreadNotifications', $this->badgeService->unreadList($user))
-            ->with('unreadNotificationCount', $this->badgeService->unreadCount($user))
-            ->with('headerDlqCount', $this->badgeService->dlqCount($user));
+        try {
+            $view->with('unreadNotifications', $this->badgeService->unreadList($user))
+                ->with('unreadNotificationCount', $this->badgeService->unreadCount($user))
+                ->with('headerDlqCount', $this->badgeService->dlqCount($user));
+        } catch (\Exception $e) {
+            Log::warning('NotificationComposer: Failed to fetch notification data', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $view->with('unreadNotifications', [])
+                ->with('unreadNotificationCount', 0)
+                ->with('headerDlqCount', 0);
+        }
     }
 }

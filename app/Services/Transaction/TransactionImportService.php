@@ -2,9 +2,14 @@
 
 namespace App\Services\Transaction;
 
+use App\Enums\RiskRating;
 use App\Enums\TransactionImportStatus;
 use App\Enums\TransactionStatus;
 use App\Enums\TransactionType;
+use App\Exceptions\Domain\CurrencyNotFoundException;
+use App\Exceptions\Domain\CustomerNotFoundException;
+use App\Exceptions\Domain\FileOperationException;
+use App\Exceptions\Domain\ImportValidationException;
 use App\Models\Counter;
 use App\Models\Currency;
 use App\Models\Customer;
@@ -50,6 +55,33 @@ class TransactionImportService
     ) {}
 
     /**
+     * Count the number of data rows in a CSV file (excluding header).
+     *
+     * @throws FileOperationException If the file cannot be opened
+     */
+    public function countRows(string $filePath): int
+    {
+        $handle = fopen($filePath, 'r');
+
+        if (! $handle) {
+            throw new FileOperationException("Could not open file for row counting: {$filePath}");
+        }
+
+        try {
+            fgetcsv($handle); // Skip header row
+
+            $count = 0;
+            while (fgetcsv($handle) !== false) {
+                $count++;
+            }
+
+            return $count;
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /**
      * Process CSV file
      */
     public function process(TransactionImport $import, string $filePath): void
@@ -68,21 +100,21 @@ class TransactionImportService
         $handle = fopen($filePath, 'r');
 
         if (! $handle) {
-            throw new \Exception("Could not open file: {$filePath}");
+            throw new FileOperationException("Could not open file: {$filePath}");
         }
 
         try {
             $header = fgetcsv($handle);
 
             if (! $header) {
-                throw new \Exception('CSV file is empty');
+                throw new ImportValidationException('CSV file is empty');
             }
 
             // Validate header
             $expectedHeader = ['customer_id', 'type', 'currency_code', 'amount_foreign', 'rate', 'purpose', 'source_of_funds', 'till_id'];
             $headerLower = array_map('strtolower', $header);
             if (count(array_diff($expectedHeader, $headerLower)) > 0) {
-                throw new \Exception('Invalid CSV header. Expected columns: '.implode(', ', $expectedHeader));
+                throw new ImportValidationException('Invalid CSV header. Expected columns: '.implode(', ', $expectedHeader));
             }
 
             $threshold = $this->thresholdService->getAutoApproveThreshold();
@@ -91,7 +123,7 @@ class TransactionImportService
             // Resolve the importing user once instead of once per row.
             $importUser = User::find($import->imported_by);
             if (! $importUser) {
-                throw new \Exception("Import user ID {$import->imported_by} not found");
+                throw new ImportValidationException("Import user ID {$import->imported_by} not found");
             }
 
             while (($row = fgetcsv($handle)) !== false) {
@@ -136,17 +168,26 @@ class TransactionImportService
 
                 $data['idempotency_key'] = hash('sha256', json_encode($data));
 
+                // Check for duplicate transaction (idempotency)
+                $existingTransaction = Transaction::where('idempotency_key', $data['idempotency_key'])->first();
+                if ($existingTransaction) {
+                    // Skip duplicate - already processed
+                    $this->successCount++;
+
+                    return;
+                }
+
                 // Validate required fields
                 if (empty($data['customer_id']) || empty($data['type']) || empty($data['currency_code']) ||
                     empty($data['amount_foreign']) || empty($data['rate']) || empty($data['purpose']) ||
                     empty($data['source_of_funds'])) {
-                    throw new \Exception('Missing required fields');
+                    throw new ImportValidationException('Missing required fields');
                 }
 
                 // Validate customer exists
                 $customer = Customer::find($data['customer_id']);
                 if (! $customer) {
-                    throw new \Exception("Customer ID {$data['customer_id']} not found");
+                    throw new CustomerNotFoundException($data['customer_id']);
                 }
 
                 // Validate currency exists (cached per import - avoids one query per row)
@@ -155,32 +196,32 @@ class TransactionImportService
                     $this->currencyCache[$currencyCode] = Currency::where('code', $currencyCode)->exists();
                 }
                 if (! $this->currencyCache[$currencyCode]) {
-                    throw new \Exception("Currency {$currencyCode} not found");
+                    throw new CurrencyNotFoundException($currencyCode);
                 }
 
                 // Validate transaction type
                 if (TransactionType::tryFrom($data['type']) === null) {
-                    throw new \Exception("Invalid transaction type: {$data['type']}. Must be '".TransactionType::Buy->value."' or '".TransactionType::Sell->value."'");
+                    throw new ImportValidationException("Invalid transaction type: {$data['type']}. Must be '".TransactionType::Buy->value."' or '".TransactionType::Sell->value."'");
                 }
 
                 // Validate numeric amounts
                 if (! is_numeric($data['amount_foreign']) || BcmathHelper::lte($data['amount_foreign'], '0')) {
-                    throw new \Exception("Invalid amount_foreign: {$data['amount_foreign']}");
+                    throw new ImportValidationException("Invalid amount_foreign: {$data['amount_foreign']}");
                 }
 
                 if (! is_numeric($data['rate']) || BcmathHelper::lte($data['rate'], '0')) {
-                    throw new \Exception("Invalid rate: {$data['rate']}");
+                    throw new ImportValidationException("Invalid rate: {$data['rate']}");
                 }
 
                 // Upper bounds so a single malformed row cannot create unbounded entries.
                 $maxAmountForeign = (string) config('transactions.import.max_amount_foreign');
                 if (BcmathHelper::gt($data['amount_foreign'], $maxAmountForeign)) {
-                    throw new \Exception("amount_foreign {$data['amount_foreign']} exceeds maximum allowed ({$maxAmountForeign})");
+                    throw new ImportValidationException("amount_foreign {$data['amount_foreign']} exceeds maximum allowed ({$maxAmountForeign})");
                 }
 
                 $maxRate = (string) config('transactions.import.max_rate');
                 if (BcmathHelper::gt($data['rate'], $maxRate)) {
-                    throw new \Exception("rate {$data['rate']} exceeds maximum allowed ({$maxRate})");
+                    throw new ImportValidationException("rate {$data['rate']} exceeds maximum allowed ({$maxRate})");
                 }
 
                 // Validate till is open (cached per import - avoids one query per row)
@@ -193,13 +234,13 @@ class TransactionImportService
                 $counter = $this->counterCache[$tillKey];
 
                 if (! $counter) {
-                    throw new \Exception("Till {$data['till_id']} is not open for {$data['currency_code']}");
+                    throw new ImportValidationException("Till {$data['till_id']} is not open for {$data['currency_code']}");
                 }
 
                 $tillBalance = $this->tillBalanceManager->currentBalance($counter, $data['currency_code']);
 
                 if (! $tillBalance) {
-                    throw new \Exception("Till {$data['till_id']} is not open for {$data['currency_code']}");
+                    throw new ImportValidationException("Till {$data['till_id']} is not open for {$data['currency_code']}");
                 }
 
                 // Validate the rate against the current market rate so bulk imports
@@ -213,13 +254,33 @@ class TransactionImportService
                 );
 
                 if (! $rateCheck['valid']) {
-                    throw new \Exception($rateCheck['reason'] ?? 'Rate deviation exceeds maximum allowed');
+                    throw new ImportValidationException($rateCheck['reason'] ?? 'Rate deviation exceeds maximum allowed');
                 }
 
                 // Calculate local amount
                 $amountForeign = (string) $data['amount_foreign'];
                 $rate = (string) $data['rate'];
                 $amountLocal = $this->mathService->multiply($amountForeign, $rate);
+
+                // Validate till has sufficient balance for the transaction type
+                if ($data['type'] === TransactionType::Buy->value) {
+                    // Buy: customer buys foreign currency with MYR - check till has enough MYR
+                    $tillMyrBalance = $this->tillBalanceManager->currentBalance($counter, 'MYR');
+                    if (! $tillMyrBalance || $this->mathService->compare($tillMyrBalance->balance, $amountLocal) < 0) {
+                        throw new ImportValidationException('Insufficient MYR balance in till for buy transaction');
+                    }
+                } else {
+                    // Sell: customer sells foreign currency for MYR - check till has enough foreign currency
+                    if (! $tillBalance || $this->mathService->compare($tillBalance->balance, $amountForeign) < 0) {
+                        throw new ImportValidationException("Insufficient {$data['currency_code']} balance in till for sell transaction");
+                    }
+                }
+
+                // Re-screen customer against sanctions lists per BNM requirements
+                $screeningResult = $this->complianceService->checkSanctionMatch($customer);
+                if ($screeningResult) {
+                    throw new ImportValidationException('Customer failed sanctions screening - cannot process import');
+                }
 
                 // Compliance checks
                 $cddLevel = $this->complianceService->determineCDDLevel(
@@ -241,6 +302,13 @@ class TransactionImportService
                 if ($holdCheck->requiresHold) {
                     $status = TransactionStatus::PendingApproval->value;
                     $holdReason = implode(', ', $holdCheck->reasons);
+                }
+
+                // Check if customer is high-risk or PEP - requires compliance hold per BNM
+                if ($customer->risk_rating === RiskRating::High || $customer->is_pep_associate) {
+                    $status = TransactionStatus::PendingApproval->value;
+                    $pepReason = $customer->is_pep_associate ? 'Customer is a PEP' : 'High-risk customer';
+                    $holdReason = $holdReason ? "{$holdReason}; {$pepReason}" : $pepReason;
                 }
 
                 // Enforce auto-approve threshold: if amount exceeds threshold, require approval

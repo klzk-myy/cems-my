@@ -3,7 +3,7 @@
 namespace App\Rules;
 
 use Closure;
-use Illuminate\Contracts\Validation\InvokableRule;
+use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
  * Validates a Malaysian MyKad (IC) number.
@@ -13,7 +13,7 @@ use Illuminate\Contracts\Validation\InvokableRule;
  * implementations that previously lived in CustomerController and the
  * HasCustomerValidationRules trait.
  */
-class MyKadFormatRule implements InvokableRule
+class MyKadFormatRule implements ValidationRule
 {
     /**
      * Days-per-month lookup (index 1..12).
@@ -33,7 +33,7 @@ class MyKadFormatRule implements InvokableRule
         12 => 31,
     ];
 
-    public function __invoke(mixed $attribute, mixed $value, Closure $fail): void
+    public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! is_string($value)) {
             $fail('MyKad ID must be a string.');

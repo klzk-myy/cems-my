@@ -4,10 +4,17 @@ namespace App\Repositories;
 
 use App\Models\Customer;
 use App\Services\Customer\CustomerService;
+use App\Services\ThresholdService;
 use Illuminate\Database\Eloquent\Collection;
 
 class CustomerRepository
 {
+    public function __construct(
+        protected ?ThresholdService $thresholdService = null,
+    ) {
+        $this->thresholdService ??= app(ThresholdService::class);
+    }
+
     public function findById(int $customerId): ?Customer
     {
         return Customer::find($customerId);
@@ -98,8 +105,11 @@ class CustomerRepository
 
     public function getCustomersNeedingRescreening(): Collection
     {
-        return Customer::where('risk_score', '>=', 60)
-            ->orWhere('risk_assessed_at', '<', now()->subDays(30))
+        $highRiskThreshold = $this->thresholdService->getRiskHighThreshold();
+        $rescreeningDays = config('thresholds.risk_scoring.rescreening_days', 30);
+
+        return Customer::where('risk_score', '>=', $highRiskThreshold)
+            ->orWhere('risk_assessed_at', '<', now()->subDays($rescreeningDays))
             ->get();
     }
 }

@@ -7,7 +7,7 @@
                 @csrf
 
                 <div class="space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <x-form-row cols="2" gap="4">
                         <x-input name="full_name" label="Full Name" value="{{ old('full_name') }}" required />
                         <x-input type="email" name="email" label="Email" value="{{ old('email') }}" />
 
@@ -28,7 +28,7 @@
                             required
                         />
                         <x-input name="phone" label="Phone Number" value="{{ old('phone') }}" />
-                    </div>
+                    </x-form-row>
 
                     <x-textarea
                         name="address"

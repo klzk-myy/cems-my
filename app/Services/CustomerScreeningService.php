@@ -45,8 +45,11 @@ class CustomerScreeningService implements CustomerScreeningServiceInterface
 
     protected int $maxCandidates;
 
-    public function __construct(protected MathService $math)
-    {
+    public function __construct(
+        protected MathService $math,
+        protected ?ThresholdService $thresholdService = null,
+    ) {
+        $this->thresholdService ??= app(ThresholdService::class);
         $this->thresholdFlag = (float) config('sanctions.matching.threshold_flag', 75.0);
         $this->thresholdBlock = (float) config('sanctions.matching.threshold_block', 90.0);
         $this->useDob = (bool) config('sanctions.matching.use_dob', true);

@@ -65,6 +65,8 @@ class ComplianceEventListener
                 'alert_id' => $alert->id,
                 'error' => $e->getMessage(),
             ]);
+
+            throw $e;
         }
     }
 

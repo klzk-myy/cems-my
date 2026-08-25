@@ -74,6 +74,8 @@ class TransactionApprovedListener implements ShouldQueue
                 'transaction_id' => $transaction->id,
                 'error' => $e->getMessage(),
             ]);
+
+            throw $e;
         }
     }
 
@@ -103,6 +105,8 @@ class TransactionApprovedListener implements ShouldQueue
                 'transaction_id' => $transaction->id,
                 'error' => $e->getMessage(),
             ]);
+
+            throw $e;
         }
     }
 }

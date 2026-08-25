@@ -286,11 +286,11 @@ class ComplianceService implements ComplianceServiceInterface
      *
      * CONFIGURATION:
      * - Threshold: config('thresholds.structuring.sub_threshold', '3000')
-     * - Minimum transactions: 3 (hardcoded per BNM guidance)
-     * - Time window: 1 hour (hardcoded per BNM guidance)
+     * - Minimum transactions: config('thresholds.structuring.min_transactions', 3)
+     * - Time window: config('thresholds.structuring.hourly_window', 1) hours
      *
      * @param  int  $customerId  The ID of the customer to check
-     * @return bool True if structuring behavior is detected (3+ small transactions in 1 hour)
+     * @return bool True if structuring behavior is detected
      */
     public function checkStructuring(int $customerId): bool
     {
@@ -298,14 +298,16 @@ class ComplianceService implements ComplianceServiceInterface
             return $this->structuringRiskService->isStructuring($customerId);
         }
 
-        $oneHourAgo = now()->subHour();
+        $hourlyWindow = $this->thresholdService->getStructuringHourlyWindow();
+        $minTransactions = $this->thresholdService->getStructuringMinTransactions();
+        $lookbackHours = now()->subHours($hourlyWindow);
         $smallTransactions = Transaction::where('customer_id', $customerId)
-            ->where('created_at', '>=', $oneHourAgo)
+            ->where('created_at', '>=', $lookbackHours)
             ->whereIn('status', [TransactionStatus::Completed, TransactionStatus::Finalized])
             ->where('amount_local', '<', $this->thresholdService->getStructuringSubThreshold())
             ->count();
 
-        return $smallTransactions >= 3;
+        return $smallTransactions >= $minTransactions;
     }
 
     /**

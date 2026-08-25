@@ -8,13 +8,17 @@ use App\Models\AmlRule;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\System\MathService;
+use App\Services\ThresholdService;
 use Illuminate\Support\Facades\Log;
 
 class AmlRuleEvaluator
 {
     public function __construct(
-        protected MathService $mathService
-    ) {}
+        protected MathService $mathService,
+        protected ?ThresholdService $thresholdService = null,
+    ) {
+        $this->thresholdService ??= app(ThresholdService::class);
+    }
 
     /**
      * Evaluate a rule against a transaction.
@@ -171,7 +175,7 @@ class AmlRuleEvaluator
     {
         $windowDays = $conditions['window_days'] ?? 1;
         $minTransactionCount = $conditions['min_transaction_count'] ?? 3;
-        $aggregateThreshold = $conditions['aggregate_threshold'] ?? config('thresholds.aml.aggregate_threshold');
+        $aggregateThreshold = $conditions['aggregate_threshold'] ?? $this->thresholdService->getAmlAggregateThreshold();
 
         $windowStart = now()->subDays($windowDays);
 
@@ -205,7 +209,7 @@ class AmlRuleEvaluator
      */
     protected function evaluateAmountThreshold(Transaction $transaction, array $conditions): bool
     {
-        $minAmount = $conditions['min_amount'] ?? config('thresholds.aml.amount_threshold', '50000');
+        $minAmount = $conditions['min_amount'] ?? $this->thresholdService->getAmlAmountThreshold();
         $currency = $conditions['currency'] ?? 'MYR';
 
         // Only apply to the specified currency (default MYR)

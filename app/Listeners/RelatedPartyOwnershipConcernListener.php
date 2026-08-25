@@ -36,8 +36,26 @@ class RelatedPartyOwnershipConcernListener
                 'type' => 'Related_Party_Ownership',
                 'reason' => 'Related party ownership concern detected: '.$event->relatedParty->full_name.' ('.round($event->ownershipInterest * 100, 1).'% ownership)',
                 'status' => FlagStatus::Open,
-                'risk_score' => 50,
+                'risk_score' => $this->calculateRiskScore($event->ownershipInterest),
             ]);
         });
+    }
+
+    /**
+     * Calculate risk score based on ownership interest percentage.
+     */
+    private function calculateRiskScore(float $ownershipInterest): int
+    {
+        $percentage = $ownershipInterest * 100;
+
+        if ($percentage >= 50) {
+            return 80;
+        }
+
+        if ($percentage >= 25) {
+            return 60;
+        }
+
+        return 40;
     }
 }

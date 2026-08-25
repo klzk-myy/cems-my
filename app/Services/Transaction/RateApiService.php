@@ -7,6 +7,7 @@ use App\Models\ExchangeRate;
 use App\Models\ExchangeRateHistory;
 use App\Services\System\CacheInvalidationService;
 use App\Services\System\MathService;
+use App\Services\ThresholdService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -30,10 +31,12 @@ class RateApiService
 
     public function __construct(
         ?MathService $mathService = null,
-        ?CacheInvalidationService $cacheInvalidationService = null
+        ?CacheInvalidationService $cacheInvalidationService = null,
+        protected ?ThresholdService $thresholdService = null,
     ) {
         $this->mathService = $mathService ?? new MathService;
         $this->cacheInvalidationService = $cacheInvalidationService ?? new CacheInvalidationService;
+        $this->thresholdService ??= app(ThresholdService::class);
         $this->apiKey = config('services.exchange_rate_api.key') ?? '';
         $this->baseUrl = config('services.exchange_rate_api.base_url', 'https://api.exchangerate-api.com/v4');
         $this->spread = config('thresholds.rates.spread', '0.02');
@@ -51,7 +54,10 @@ class RateApiService
         $cacheKey = $branchId ? "exchange_rates_branch_{$branchId}" : 'exchange_rates';
 
         return Cache::remember($cacheKey, $this->cacheDuration, function () use ($branchId) {
-            $response = Http::get("{$this->baseUrl}/latest/MYR");
+            $response = Http::timeout(30)
+                ->connectTimeout(10)
+                ->retry(3, 100)
+                ->get("{$this->baseUrl}/latest/MYR");
 
             if (! $response->successful()) {
                 throw new InvalidRateException('Failed to fetch exchange rates: '.$response->body());

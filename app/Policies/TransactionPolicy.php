@@ -121,6 +121,7 @@ class TransactionPolicy
     /**
      * Determine whether the user can approve the transaction.
      * Managers and admins can approve transactions in their branch.
+     * Per BNM segregation of duties, the approver must be different from the creator.
      */
     public function approve(User $user, Transaction $transaction): bool
     {
@@ -130,6 +131,11 @@ class TransactionPolicy
 
         if ($user->role === UserRole::Admin) {
             return true;
+        }
+
+        // Prevent self-approval (BNM segregation of duties)
+        if ($transaction->user_id === $user->id) {
+            return false;
         }
 
         return $transaction->branch_id === $user->branch_id;
